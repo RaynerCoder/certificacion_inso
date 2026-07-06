@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="760" viewBox="0 0 1180 760">
+  <defs>
+    <style>
+      .bg { fill: #eef2f7; }
+      .base { fill:#fff; stroke:#d3dce6; rx:12; }
+      .title { font-family: Arial; font-size: 26px; font-weight:700; fill:#0f172a; }
+      .mut { font-family: Arial; fill:#64748b; }
+      .txt { font-family: Arial; fill:#0f172a; }
+      .pill-ok { fill:#dcfce7; stroke:#86efac; rx: 8; }
+      .pill-warn { fill:#fef9c3; stroke:#fde047; rx: 8; }
+      .hdr { fill:#0f172a; }
+      .step { fill:#f8fafc; stroke:#e2e8f0; rx:10; }
+    </style>
+  </defs>
+  <rect class="bg" width="1180" height="760"/>
+  <text x="34" y="44" class="title">Opción 3 · Revisión por bloques apilados y estado por fila</text>
+  <text x="34" y="70" class="mut">Pensado para técnicos: cada bloque tiene su estado claro y acción rápida.</text>
+
+  <g transform="translate(32,100)">
+    <rect class="base" x="0" y="0" width="1112" height="624"/>
+    <rect class="hdr" x="0" y="0" width="1112" height="56"/>
+    <text x="22" y="34" fill="#fff" class="txt" font-size="20" font-weight="700">SPIROMAT · Reg. INSO-RP-2026-0001</text>
+
+    <rect class="step" x="22" y="82" width="1068" height="150"/>
+    <text x="42" y="108" class="txt" font-weight="700">1) Información principal</text>
+    <text x="42" y="134" class="mut">Tipo: Registro de Producto Plaguicida</text>
+    <text x="42" y="156" class="mut">Importador: AGROPARC EI S.R.L.</text>
+    <text x="42" y="178" class="mut">Beneficiario: Mario Erwin Pedraza</text>
+
+    <rect class="step" x="22" y="250" width="1068" height="150"/>
+    <text x="42" y="276" class="txt" font-weight="700">2) Presentaciones y registros</text>
+    <text x="42" y="302" class="mut">1 FRASCO · 1x360 ml</text>
+    <rect class="pill-ok" x="40" y="320" width="108" height="28"/>
+    <text x="58" y="338" class="mut">Completo</text>
+    <text x="190" y="302" class="mut">Frasco Aerosol · 2x250 ml</text>
+    <rect class="pill-warn" x="188" y="320" width="112" height="28"/>
+    <text x="208" y="338" class="mut">Parcial</text>
+
+    <rect class="step" x="22" y="414" width="1068" height="150"/>
+    <text x="42" y="440" class="txt" font-weight="700">3) Archivos requeridos</text>
+    <text x="42" y="466" class="mut">- Solicitud firmada (subir PDF)
+    </text>
+    <rect class="pill-warn" x="42" y="482" width="132" height="28"/>
+    <text x="66" y="500" class="mut">Pendiente</text>
+    <text x="210" y="466" class="mut">- Etiqueta aprobada</text>
+    <rect class="pill-ok" x="210" y="482" width="102" height="28"/>
+    <text x="231" y="500" class="mut">Cargado</text>
+
+    <rect class="step" x="22" y="574" width="1068" height="38"/>
+    <rect x="44" y="586" width="122" height="14" fill="#14b8a6"/>
+    <text x="54" y="598" class="mut" fill="#fff">Ver detalle</text>
+    <rect x="188" y="584" width="150" height="20" fill="#0f766e"/>
+    <text x="210" y="598" fill="#fff" class="mut">Editar producto</text>
+    <text x="360" y="598" class="mut">Estado general: Revisar presentación 2</text>
+  </g>
+</svg>

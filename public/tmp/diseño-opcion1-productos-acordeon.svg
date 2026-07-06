@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="760" viewBox="0 0 1180 760">
+  <defs>
+    <style>
+      .bg { fill: #f3f6f9; }
+      .panel { fill: #ffffff; stroke: #dbe3ec; rx: 14; }
+      .head { fill: #0f172a; }
+      .sub { fill: #f8fafc; }
+      .text { font-family: Arial, Helvetica, sans-serif; font-size: 16px; fill: #0f172a; }
+      .mut { fill: #64748b; }
+      .pill { fill: #e2e8f0; stroke: #cbd5e1; rx: 10; }
+      .btn { fill: #0f766e; rx: 8; }
+      .card { fill: #f8fafc; stroke: #e2e8f0; rx: 12; }
+      .title { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .label { font-size: 13px; fill: #334155; }
+      .tag { fill: #10b981; }
+    </style>
+  </defs>
+  <rect class="bg" width="1180" height="760" />
+  <text x="34" y="42" class="title">Opción 1 · Revisión de producto con acordeón</text>
+  <text x="34" y="68" class="mut">Cada producto se muestra en una tarjeta con botón “Ver detalle”.</text>
+  <g transform="translate(28,95)">
+    <rect class="panel" x="0" y="0" width="530" height="640" />
+    <text x="20" y="36" class="text" font-weight="700">Paso 3 · Producto registrado</text>
+    <rect x="20" y="55" width="490" height="72" fill="#f1f5f9" stroke="#dbe3ec" rx="10"/>
+    <text x="40" y="82" class="text" font-weight="700">SPIROMAT  (Reg. INSO-RP-2026-0001)</text>
+    <text x="40" y="104" class="mut">Importador: AGROPARC EI S.R.L. · Estado: Borrador</text>
+    <rect x="20" y="127" width="80" height="28" class="btn"/>
+    <text x="34" y="146" class="text" fill="#fff">Ver detalle</text>
+    <rect x="18" y="165" width="490" height="440" class="card"/>
+    <text x="36" y="190" class="text" font-weight="700">Datos del producto</text>
+    <text x="36" y="214" class="mut">Nombre comercial</text>
+    <text x="38" y="234" class="text">SPIROMAT</text>
+    <rect x="300" y="202" width="70" height="24" class="pill"/>
+    <text x="310" y="220" class="label">Sin código</text>
+    <text x="36" y="258" class="mut">Fabricante</text>
+    <text x="38" y="278" class="text">EcoMaq Industrial LTDA.</text>
+
+    <rect x="36" y="305" width="468" height="34" fill="#0ea5a3" class="tag"/>
+    <text x="54" y="328" fill="#ecfeff">Registros y presentaciones</text>
+
+    <text x="36" y="364" class="mut">Resumen de registros</text>
+    <rect x="36" y="376" width="460" height="60" class="card"/>
+    <text x="52" y="400" class="text">1 FRASCO · 1 x 360 ml</text>
+    <text x="52" y="420" class="mut">Etiqueta PDF · Certificado adjunto</text>
+
+    <rect x="36" y="446" width="460" height="138" class="card"/>
+    <text x="52" y="470" class="text" font-weight="700">Ingredientes</text>
+    <text x="52" y="492" class="mut">- Clorobromuro ... (70%)</text>
+    <text x="52" y="512" class="mut">- Aceite ... (30%)</text>
+    <text x="52" y="532" class="mut">Estado: Incompleto · Sin riesgo</text>
+
+    <rect x="36" y="592" width="460" height="36" fill="#f1f5f9"/>
+    <text x="44" y="614" class="mut">Acciones: Guardar revisión · Enviar trámite</text>
+
+    <rect x="560" y="0" width="570" height="640" fill="#ffffff" stroke="#dbe3ec" rx="14"/>
+    <text x="592" y="36" class="text" font-weight="700">Resumen lateral para validación</text>
+    <text x="592" y="64" class="mut">Trámite: Registro de Producto Plaguicida</text>
+    <rect x="592" y="80" width="500" height="90" class="card"/>
+    <text x="612" y="106" class="text">Producto principal y estado</text>
+    <text x="612" y="130" class="mut">Importador · Tramitador · Beneficiario</text>
+    <rect x="592" y="186" width="500" height="390" class="card"/>
+    <text x="612" y="210" class="text" font-weight="700">Historial del bloque</text>
+    <text x="612" y="236" class="mut">? Importador seleccionado</text>
+    <text x="612" y="256" class="mut">? Fabricante seleccionado</text>
+    <text x="612" y="276" class="mut">? Ingredientes: 2 pendientes</text>
+    <text x="612" y="296" class="mut">? Presentaciones: 1 pendiente</text>
+    <text x="612" y="326" class="mut">Pendiente por validar PDF</text>
+  </g>
+</svg>

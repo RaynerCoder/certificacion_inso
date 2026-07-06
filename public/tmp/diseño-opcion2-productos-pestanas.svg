@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="760" viewBox="0 0 1180 760">
+  <defs>
+    <style>
+      .bg { fill: #f4f6f8; }
+      .text { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .mut { fill: #64748b; }
+      .card { fill:#fff; stroke:#e2e8f0; rx:14; }
+      .tab { fill:#f1f5f9; stroke:#cbd5e1; rx:10; }
+      .active { fill:#0f766e; }
+      .green { fill:#10b981; }
+      .title { font-size: 26px; font-weight:700; }
+    </style>
+  </defs>
+  <rect class="bg" width="1180" height="760"/>
+  <text x="34" y="40" class="text title">Opción 2 · Tarjeta maestra con pestañas internas</text>
+  <text x="34" y="66" class="mut">Vista resumida + detalle por pestañas para evitar desplazamiento infinito.</text>
+  <rect x="24" y="95" class="card" width="1132" height="640"/>
+  <text x="46" y="132" class="text" font-weight="700">Ficha: TRM-2026-0001 · Certificado de Registro de Producto Plaguicida</text>
+  <text x="46" y="156" class="mut">Importador: AGROPARC EI · Beneficiario único</text>
+
+  <rect x="46" y="188" class="tab" width="160" height="38"/><text x="72" y="212" class="mut">Producto</text>
+  <rect x="216" y="188" class="active" width="140" height="38"/><text x="248" y="212" fill="#fff" class="text">Registros</text>
+  <rect x="372" y="188" class="tab" width="140" height="38"/><text x="402" y="212" class="mut">Presentación</text>
+  <rect x="528" y="188" class="tab" width="140" height="38"/><text x="558" y="212" class="mut">Archivos</text>
+  <rect x="684" y="188" class="tab" width="160" height="38"/><text x="710" y="212" class="mut">Revisión</text>
+
+  <g transform="translate(46,244)">
+    <rect class="card" width="1080" height="470"/>
+    <text x="24" y="36" class="text" font-weight="700">Registros (Producto actual)</text>
+    <text x="24" y="62" class="mut">Filtro por registro / presentación activa: 1 FRASCO</text>
+    <rect x="24" y="90" width="1010" height="120" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="44" y="122" class="text">Cantidad</text>
+    <text x="44" y="142" class="mut">1 x 360 ml</text>
+    <text x="240" y="122" class="text">Etiqueta</text>
+    <rect x="240" y="108" width="110" height="28" class="green"/>
+    <text x="266" y="128" fill="#fff">PDF adjunto</text>
+    <text x="44" y="188" class="mut">Estado del registro: Parcial</text>
+    <rect x="24" y="240" width="1010" height="120" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="44" y="272" class="text">Presentaciones disponibles</text>
+    <text x="44" y="292" class="mut">Frasco 1 x 360 ml · Spray · Botella 500 ml</text>
+    <text x="44" y="318" class="mut">Sin duplicados · Validación por combinación</text>
+    <text x="44" y="362" class="text" font-weight="700">Resumen de requisitos</text>
+    <text x="44" y="384" class="mut">Comprobado, pero requiere completar presentación y pago.</text>
+  </g>
+</svg>
