@@ -1,7 +1,7 @@
 @php
     // Perfil del usuario autenticado: alimenta el boton y el menu desplegable del encabezado.
     $usuarioCabecera = Auth::user();
-    $usuarioCabecera?->loadMissing(['funcionario.cargos', 'roles']);
+    $usuarioCabecera?->loadMissing(['funcionario.cargos', 'roles', 'persona.empresa', 'persona.natural']);
 
     $funcionarioCabecera = $usuarioCabecera?->funcionario;
     $nombreFuncionarioCabecera = $funcionarioCabecera
@@ -12,16 +12,24 @@
         ])))
         : '';
 
+    $nombreNaturalCabecera = $usuarioCabecera?->persona?->natural
+        ? trim(implode(' ', array_filter([
+            $usuarioCabecera->persona->natural->nombres,
+            $usuarioCabecera->persona->natural->apellido_paterno,
+            $usuarioCabecera->persona->natural->apellido_materno,
+        ])))
+        : '';
+
     $nombrePerfilCabecera = $nombreFuncionarioCabecera !== ''
         ? $nombreFuncionarioCabecera
-        : ($usuarioCabecera?->name ?? 'Usuario');
+        : ($usuarioCabecera?->persona?->empresa?->razon_social
+            ?: ($nombreNaturalCabecera !== '' ? $nombreNaturalCabecera : ($usuarioCabecera?->name ?? 'Usuario')));
     $cargoPerfilCabecera = $funcionarioCabecera
         ? $funcionarioCabecera->cargos->pluck('nombre')->filter()->unique()->implode(', ')
         : '';
+    $cargoPerfilCabecera = $cargoPerfilCabecera !== '' ? $cargoPerfilCabecera : 'Sin cargo';
     $rolesPerfilCabecera = $usuarioCabecera?->roles->pluck('name')->filter()->unique()->implode(', ') ?? '';
-    $detallePerfilCabecera = $cargoPerfilCabecera !== ''
-        ? $cargoPerfilCabecera
-        : ($rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Usuario del sistema');
+    $rolesPerfilCabecera = $rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Sin rol asignado';
     $correoPerfilCabecera = $usuarioCabecera?->email ?? 'Sin correo registrado';
     $partesNombrePerfil = preg_split('/\s+/', trim($nombrePerfilCabecera));
     $inicialesPerfilCabecera = strtoupper(substr($partesNombrePerfil[0] ?? 'U', 0, 1) . substr($partesNombrePerfil[1] ?? '', 0, 1));
@@ -48,7 +56,7 @@
                         class="self-center text-xl font-semibold sm:text-2xl whitespace-nowrap dark:text-white">CERTIFICADOR - INSO</span>
                 </a>
             </div>
-            <div class="flex items-center">
+            <div class="cert-topbar-actions">
                 @php
                     // Datos iniciales para que la campana aparezca con contenido desde la primera carga.
                     $tablaNotificacionesLista = \Illuminate\Support\Facades\Schema::hasTable('notificaciones_tramites');
@@ -220,31 +228,33 @@
                     </div>
                 </div>
 
-                <div class="ms-2 relative">
+                <div class="relative">
                     <x-dropdown align="right" width="60">
                         <x-slot name="trigger">
-                            <button type="button"
-                                class="inline-flex min-h-10 items-center gap-2.5 rounded-lg bg-white px-2.5 py-1.5 text-left leading-tight transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                            <button type="button" class="cert-topbar-profile-trigger">
                                 @if (Laravel\Jetstream\Jetstream::managesProfilePhotos())
-                                    <img class="size-9 rounded-full object-cover ring-1 ring-emerald-100"
+                                    <img class="cert-topbar-avatar"
                                         src="{{ $usuarioCabecera->profile_photo_url }}"
                                         alt="{{ $nombrePerfilCabecera }}" />
                                 @else
-                                    <span class="inline-flex size-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-700">
+                                    <span class="cert-topbar-avatar cert-topbar-avatar-initials">
                                         {{ $inicialesPerfilCabecera }}
                                     </span>
                                 @endif
 
-                                <span class="hidden min-w-0 lg:block">
-                                    <span class="block max-w-48 truncate text-sm font-black leading-tight text-slate-800">
+                                <span class="cert-topbar-profile-text">
+                                    <span class="cert-topbar-profile-name" title="{{ $nombrePerfilCabecera }}">
                                         {{ $nombrePerfilCabecera }}
                                     </span>
-                                    <span class="mt-0.5 block max-w-48 truncate text-xs font-semibold leading-tight text-slate-500">
-                                        {{ $detallePerfilCabecera }}
+                                    <span class="cert-topbar-profile-detail" title="{{ $cargoPerfilCabecera }}">
+                                        {{ $cargoPerfilCabecera }}
+                                    </span>
+                                    <span class="cert-topbar-profile-role" title="{{ $rolesPerfilCabecera }}">
+                                        {{ $rolesPerfilCabecera }}
                                     </span>
                                 </span>
 
-                                <i class="fa-solid fa-chevron-down hidden text-xs text-slate-400 lg:inline"></i>
+                                <i class="fa-solid fa-chevron-down cert-topbar-profile-chevron"></i>
                             </button>
                         </x-slot>
 
@@ -255,7 +265,10 @@
                                     {{ $nombrePerfilCabecera }}
                                 </strong>
                                 <span class="mt-1 block text-xs font-bold text-emerald-700">
-                                    {{ $detallePerfilCabecera }}
+                                    {{ $cargoPerfilCabecera }}
+                                </span>
+                                <span class="mt-1 block text-xs font-semibold text-slate-600">
+                                    {{ $rolesPerfilCabecera }}
                                 </span>
                                 <span class="mt-1 block truncate text-xs font-semibold text-slate-500">
                                     {{ $correoPerfilCabecera }}

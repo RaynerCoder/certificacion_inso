@@ -2127,6 +2127,20 @@
             border-color: #10b981;
             color: #065f46;
         }
+
+        .tramite-btn-ok {
+            background: #eefbf4;
+            border: 1px solid #22c55e;
+            box-shadow: 0 8px 16px rgba(34, 197, 94, 0.12);
+            color: #166534;
+        }
+
+        .tramite-btn-ok:hover {
+            background: #dcfce7;
+            border-color: #16a34a;
+            color: #14532d;
+        }
+
         .tramite-btn-primary {
             background: #059669;
             border: 1px solid #047857;

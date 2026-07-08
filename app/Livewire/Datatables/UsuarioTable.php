@@ -96,7 +96,7 @@ class UsuarioTable extends DataTableComponent
     private function nombreFuncionario(User $usuario): string
     {
         if (!$usuario->funcionario) {
-            return 'Sin funcionario';
+            return 'No es funcionario';
         }
 
         return collect([

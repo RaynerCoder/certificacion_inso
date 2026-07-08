@@ -30,6 +30,19 @@ class TipoCertificado extends Model
         return $this->hasMany(Certificado::class, 'id_tipo_certificado');
     }
 
+    // Relación uno a muchos (un tipo de certificado tiene muchas plantillas)
+    public function plantillasCertificados()
+    {
+        return $this->hasMany(PlantillaCertificado::class, 'id_tipo_certificado');
+    }
+
+    // Relación uno a uno (un tipo de certificado tiene una plantilla activa)
+    public function plantillaActiva()
+    {
+        return $this->hasOne(PlantillaCertificado::class, 'id_tipo_certificado')
+            ->where('estado', 'ACTIVO');
+    }
+
     // Relación uno a muchos (un tipo de certificado tiene muchos requisitos tipos certificados)
     public function tipoCertificadoRequisitos()
     {

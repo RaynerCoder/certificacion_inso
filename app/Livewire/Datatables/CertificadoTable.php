@@ -12,6 +12,8 @@ class CertificadoTable extends DataTableComponent
 {
     protected $model = Certificado::class;
 
+    public ?string $estado = null;
+
     public function configure(): void
     {
         $this->setPrimaryKey('id');
@@ -26,7 +28,7 @@ class CertificadoTable extends DataTableComponent
         Certificado::actualizarCertificadosEstadosVencidos();
 
         // Una persona puede tener datos de natural o de empresa; el certificado solo guarda el id_persona.
-        return Certificado::query()
+        $consulta = Certificado::query()
             // Usa relaciones Eloquent: beneficiario/tramitador pueden ser persona natural o empresa.
             ->with([
                 'tipoCertificado',
@@ -36,6 +38,12 @@ class CertificadoTable extends DataTableComponent
                 'tramitador.empresa',
                 'certificadoRequisitos',
             ]);
+
+        if ($this->estado) {
+            $consulta->where('estado', $this->estado);
+        }
+
+        return $consulta;
     }
 
     public function columns(): array

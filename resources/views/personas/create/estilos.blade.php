@@ -524,6 +524,13 @@
         background: #dcfce7;
         color: #047857;
     }
+    .progreso-detalle {
+        margin: 7px 0 0;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
 
     .persona-wizard-flat>.bg-white.rounded-2xl,
     .persona-wizard-flat .wizard-section-block>.bg-white.rounded-2xl,
@@ -574,8 +581,7 @@
         height: 320px !important;
     }
 
-    .persona-wizard-flat button[onclick*="agregarTelefonoPersona"],
-    .persona-wizard-flat button[onclick*="agregarRubroPersona"] {
+    .persona-wizard-flat button[onclick*="agregarTelefonoPersona"] {
         min-height: 40px !important;
         border-radius: 8px !important;
         background: #0d9488 !important;

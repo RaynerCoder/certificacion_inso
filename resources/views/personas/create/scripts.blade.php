@@ -76,9 +76,13 @@
  <script>
      let indiceTelefono = 0;
 
+     function buscarCampoPersonaWizard(idCampo) {
+         return document.getElementById(idCampo) || document.querySelector(`[name="${idCampo}"]`);
+     }
+
      // Quita el mensaje bajo el campo, igual que al limpiar un error de validacion Laravel.
      function limpiarErrorCampoResponsable(idCampo) {
-         const campo = document.getElementById(idCampo);
+         const campo = buscarCampoPersonaWizard(idCampo);
          const error = document.querySelector(`[data-error-responsable="${idCampo}"]`);
 
          error?.remove();
@@ -111,7 +115,7 @@
 
      // Muestra el error debajo del input/select usando el mismo criterio visual de Laravel.
      function mostrarErrorCampoResponsable(idCampo, mensaje) {
-         const campo = document.getElementById(idCampo);
+         const campo = buscarCampoPersonaWizard(idCampo);
 
          if (!campo) return null;
 
@@ -247,89 +251,6 @@
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      }
  </script>
-
-
- <!-- SCRIPT PARA RUBRO -->
- <script>
-     let indiceRubro = 0;
-
-     function agregarRubroPersona() {
-         const nombreInput = document.getElementById('nombreRubro');
-         const estadoInput = document.getElementById('estadoRubro');
-         const lista = document.getElementById('listaRubrosPersona');
-         const nombre = nombreInput.value.trim();
-         const estado = estadoInput.value;
-         const textoEstado = estado === 'ACTIVO' ? 'Activo' : 'Inactivo';
-
-         if (nombre === '') {
-             mostrarErrorCampoPersonaWizard('nombreRubro', 'Ingrese el nombre del rubro.');
-             return;
-         }
-
-         limpiarErrorCampoPersonaWizard('nombreRubro');
-
-         document.getElementById('mensajeSinRubros')?.remove();
-
-         const item = document.createElement('div');
-
-         // El chip del rubro permite varias lineas para no cortar nombres largos.
-         item.className =
-             'rubro-agregado inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm';
-
-         item.innerHTML = `
-            <span class="min-w-0 max-w-full whitespace-normal break-words font-medium leading-snug text-gray-700">
-                ${nombre}
-            </span>
-
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                ${estado === 'ACTIVO'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'}">
-                ${textoEstado}
-            </span>
-
-            <button type="button"
-                onclick="quitarRubroPersona(this)"
-                class="text-red-500 hover:text-red-700 text-base font-bold leading-none">
-                ×
-            </button>
-
-            <input type="hidden"
-                name="rubros[${indiceRubro}][nombre]"
-                value="${nombre}">
-
-            <input type="hidden"
-                name="rubros[${indiceRubro}][estado]"
-                value="${estado}">
-        `;
-
-         lista.appendChild(item);
-
-         nombreInput.value = '';
-         estadoInput.value = 'ACTIVO';
-
-         indiceRubro++;
-         refrescarResumenSiEstaEnRevisionPersonaWizard();
-     }
-
-     function quitarRubroPersona(boton) {
-         boton.closest('.rubro-agregado').remove();
-
-         const lista = document.getElementById('listaRubrosPersona');
-
-         if (lista.children.length === 0) {
-             lista.innerHTML = `
-                <span id="mensajeSinRubros" class="text-sm text-gray-500">
-                    Todavía no se agregaron rubros.
-                </span>
-            `;
-         }
-
-         refrescarResumenSiEstaEnRevisionPersonaWizard();
-     }
- </script>
-
-
  <!-- SCRIPT MAPA -->
  <script>
      let mapa = L.map('map').setView([-16.5000, -68.1500], 13);
@@ -488,6 +409,7 @@
 
          if (tieneValor) {
              limpiarErrorVisualCampo(campo);
+             limpiarErrorCampoPersonaWizard(campo.id || campo.name);
          }
      }
 
@@ -503,22 +425,17 @@
              'form_expedido',
              'form_fecha_nacimiento',
              'form_genero',
-             'form_ocupacion'
+             'form_id_ocupacion'
          ];
 
          campos.forEach(name => {
              limpiarCampoPersonaWizard(name);
          });
 
-         limpiarListaDinamicaPersonaWizard(
-             '#listaRubrosPersona',
-             '.rubro-agregado',
-             'mensajeSinRubros',
-             'Todavía no se agregaron rubros.'
-         );
-
-         if (typeof indiceRubro !== 'undefined') {
-             indiceRubro = 0;
+         const rubrosPersona = document.getElementById('rubrosPersona');
+         if (rubrosPersona) {
+             Array.from(rubrosPersona.options).forEach(option => option.selected = false);
+             rubrosPersona.dispatchEvent(new Event('change', { bubbles: true }));
          }
      }
 
@@ -607,14 +524,17 @@
                  limpiarDatosPorCambioTipoPersonaWizard();
              }
 
-             seccionEmpresa.classList.remove('hidden');
-             seccionResponsables.classList.remove('hidden');
-             bloqueResponsablesWizard?.classList.remove('hidden');
-             accionResponsablesWizard?.classList.remove('hidden');
-             accionResponsablesWizard?.classList.add('is-visible');
+            seccionEmpresa.classList.remove('hidden');
+            seccionRubros.classList.remove('hidden');
+            seccionResponsables.classList.remove('hidden');
+            bloqueRubrosWizard?.classList.remove('hidden');
+            bloqueResponsablesWizard?.classList.remove('hidden');
+            accionResponsablesWizard?.classList.remove('hidden');
+            accionResponsablesWizard?.classList.add('is-visible');
 
-             habilitarCampos('#seccion_empresa');
-             habilitarCampos('#seccion_responsables');
+            habilitarCampos('#seccion_empresa');
+            habilitarCampos('#seccion_rubros');
+            habilitarCampos('#seccion_responsables');
 
              setTimeout(() => {
                  mapa.invalidateSize();
@@ -660,7 +580,6 @@
      const estadoEnvioPersona = document.getElementById('estadoEnvioPersona');
      const erroresPersonaWizard = @json($errors->getBag('default')->keys());
      const telefonosOldPersonaWizard = @json(old('telefonos', []));
-     const rubrosOldPersonaWizard = @json(old('rubros', []));
      const responsablesOldPersonaWizard = @json(old('responsables', []));
      let avisoTipoRegistroPersonaMostrado = false;
 
@@ -849,21 +768,16 @@
          );
      }
 
-     // Lista todos los rubros que se guardaran para una persona natural.
+     // Lista los rubros seleccionados desde el catalogo principal.
      function resumenRubrosPersonaWizard() {
-         const filas = Array.from(document.querySelectorAll('.rubro-agregado'))
-             .map((item, indice) => {
-                 const nombre = valorOcultoResumenPersonaWizard(item, 'nombre');
-                 const estado = valorOcultoResumenPersonaWizard(item, 'estado');
-
-                 return [indice + 1, nombre || 'Sin rubro', estado || 'Sin estado'];
-             });
+         const filas = Array.from(document.getElementById('rubrosPersona')?.selectedOptions || [])
+             .map((option, indice) => [indice + 1, option.textContent.trim() || 'Sin rubro']);
 
          return tablaResumenPersonaWizard(
              'Rubros que se guardaran',
-             ['#', 'Rubro', 'Estado'],
+             ['#', 'Rubro'],
              filas,
-             'No se agregaron rubros.'
+             'No se seleccionaron rubros.'
          );
      }
 
@@ -1188,19 +1102,37 @@
          }
      }
 
+     function textoCamposPendientesPersonaWizard(pendientes) {
+         if (!pendientes.length) {
+             return '';
+         }
+
+         return `Falta: ${pendientes.join(', ')}.`;
+     }
+
+     function camposVaciosPersonaWizard(campos) {
+         return campos
+             .filter(([nombreCampo]) => {
+                 const campo = buscarCampoPersonaWizard(nombreCampo);
+                 return !campo || campo.disabled || String(campo.value || '').trim() === '';
+             })
+             .map(([, etiqueta]) => etiqueta);
+     }
+
      // Cambia una fila del panel de progreso entre pendiente y listo.
-     function marcarProgresoPersonaWizard(elemento, listo) {
+     function marcarProgresoPersonaWizard(elemento, listo, pendientes = []) {
          if (!elemento) return;
 
          const estado = elemento.querySelector('.progreso-estado');
          const punto = elemento.querySelector('.progreso-punto');
          const panel = elemento.querySelector('.progreso-item-box');
+         let detalle = elemento.querySelector('.progreso-detalle');
 
          elemento.classList.toggle('is-complete', listo);
 
          if (punto) {
              punto.dataset.numero = punto.dataset.numero || punto.textContent;
-             punto.textContent = listo ? '✓' : punto.dataset.numero;
+             punto.textContent = listo ? '\u2713' : punto.dataset.numero;
          }
 
          if (panel) {
@@ -1214,42 +1146,71 @@
 
          estado.textContent = listo ? 'Completo' : 'Pendiente';
          estado.className = 'progreso-estado';
+
+         if (!detalle && panel) {
+             detalle = document.createElement('p');
+             detalle.className = 'progreso-detalle';
+             panel.appendChild(detalle);
+         }
+
+         if (detalle) {
+             detalle.textContent = listo ? '' : textoCamposPendientesPersonaWizard(pendientes);
+             detalle.classList.toggle('hidden', listo || pendientes.length === 0);
+         }
      }
 
      // Actualiza el panel lateral de progreso segun los datos actuales.
      function actualizarProgresoPersonaWizard() {
          const tipo = tipoPersonaWizard();
-         const tieneGenerales = Boolean(
-             valorPersonaWizard('[name="form_correo"]') &&
-             valorPersonaWizard('[name="form_id_territorio"]')
-         );
+         const pendientesTipo = tipo ? [] : ['tipo de registro'];
+         const pendientesGenerales = camposVaciosPersonaWizard([
+             ['form_correo', 'correo'],
+             ['form_id_pais', 'pais'],
+             ['form_id_territorio', 'departamento o territorio'],
+         ]);
 
-         const tieneNatural = Boolean(
-             valorPersonaWizard('[name="form_ci"]') &&
-             valorPersonaWizard('[name="form_nombres"]') &&
-             valorPersonaWizard('[name="form_apellido_paterno"]')
-         );
+         const pendientesNatural = tipo === 'NATURAL'
+             ? camposVaciosPersonaWizard([
+                 ['form_ci', 'CI'],
+                 ['form_nombres', 'nombres'],
+                 ['form_apellido_paterno', 'apellido paterno'],
+                 ['form_genero', 'genero'],
+             ])
+             : [];
 
-         const tieneEmpresa = Boolean(
-             valorPersonaWizard('[name="form_id_tipo_empresa"]') &&
-             valorPersonaWizard('[name="form_razon_social"]') &&
-             valorPersonaWizard('[name="form_matricula"]')
-         );
+         const pendientesEmpresa = tipo === 'EMPRESA'
+             ? camposVaciosPersonaWizard([
+                 ['form_nit', 'NIT'],
+                 ['form_id_tipo_empresa', 'tipo de empresa'],
+                 ['form_razon_social', 'razon social'],
+                 ['form_matricula', 'matricula'],
+             ])
+             : [];
 
          const cantidadTelefonos = document.querySelectorAll('.telefono-agregado').length;
-         const cantidadRubros = document.querySelectorAll('.rubro-agregado').length;
+         const cantidadRubros = document.getElementById('rubrosPersona')?.selectedOptions.length || 0;
          const cantidadResponsables = document.querySelectorAll('.responsable-agregado').length;
 
-         marcarProgresoPersonaWizard(progresoPersonaWizard.tipo, Boolean(tipo));
-         marcarProgresoPersonaWizard(progresoPersonaWizard.generales, tieneGenerales);
+         marcarProgresoPersonaWizard(progresoPersonaWizard.tipo, Boolean(tipo), pendientesTipo);
+         marcarProgresoPersonaWizard(progresoPersonaWizard.generales, pendientesGenerales.length === 0, pendientesGenerales);
          marcarProgresoPersonaWizard(
              progresoPersonaWizard.especificos,
-             tipo === 'EMPRESA' ? tieneEmpresa : tipo === 'NATURAL' ? tieneNatural : false
+             tipo === 'EMPRESA' ? pendientesEmpresa.length === 0 : tipo === 'NATURAL' ? pendientesNatural.length === 0 : false,
+             tipo === 'EMPRESA' ? pendientesEmpresa : tipo === 'NATURAL' ? pendientesNatural : ['datos especificos']
          );
-         marcarProgresoPersonaWizard(progresoPersonaWizard.telefonos, cantidadTelefonos > 0);
+         marcarProgresoPersonaWizard(
+             progresoPersonaWizard.telefonos,
+             cantidadTelefonos > 0,
+             cantidadTelefonos > 0 ? [] : ['al menos un telefono']
+         );
          marcarProgresoPersonaWizard(
              progresoPersonaWizard.complementos,
-             tipo === 'EMPRESA' ? cantidadResponsables > 0 : tipo === 'NATURAL' ? cantidadRubros > 0 : false
+             tipo === 'EMPRESA' ? (cantidadRubros > 0 || cantidadResponsables > 0) : tipo === 'NATURAL' ? cantidadRubros > 0 : false,
+             tipo === 'EMPRESA'
+                 ? (cantidadRubros > 0 || cantidadResponsables > 0 ? [] : ['rubro o responsable'])
+                 : tipo === 'NATURAL'
+                     ? (cantidadRubros > 0 ? [] : ['rubro'])
+                     : ['complementos']
          );
 
          // La cuenta depende de los datos base: correo y CI/NIT segun el tipo de registro.
@@ -1263,14 +1224,26 @@
              )
          );
 
-        const cuentaCompleta = Boolean(
-            datosBaseCuentaCompletos &&
-            valorPersonaWizard('[name="form_usuario_name"]') &&
-            valorPersonaWizard('[name="form_usuario_email"]') &&
-            valorPersonaWizard('[name="form_id_role"]')
-        );
+         const cuentaCompleta = Boolean(
+             datosBaseCuentaCompletos &&
+             valorPersonaWizard('[name="form_usuario_name"]') &&
+             valorPersonaWizard('[name="form_usuario_email"]') &&
+             valorPersonaWizard('[name="form_id_role"]')
+         );
 
-         marcarProgresoPersonaWizard(progresoPersonaWizard.cuenta, cuentaCompleta);
+         const pendientesCuenta = [];
+
+         if (!datosBaseCuentaCompletos) {
+             pendientesCuenta.push(tipo === 'NATURAL' ? 'correo y CI' : tipo === 'EMPRESA' ? 'correo y NIT' : 'tipo de registro');
+         }
+
+         pendientesCuenta.push(...camposVaciosPersonaWizard([
+             ['form_usuario_name', 'nombre de usuario'],
+             ['form_usuario_email', 'correo de acceso'],
+             ['form_id_role', 'rol de acceso'],
+         ]));
+
+         marcarProgresoPersonaWizard(progresoPersonaWizard.cuenta, cuentaCompleta, [...new Set(pendientesCuenta)]);
      }
 
      // Actualiza el resumen del paso de revision usando secciones compactas.
@@ -1279,7 +1252,7 @@
 
          const tipo = tipoPersonaWizard();
          const cantidadTelefonos = document.querySelectorAll('.telefono-agregado').length;
-         const cantidadRubros = document.querySelectorAll('.rubro-agregado').length;
+         const cantidadRubros = document.getElementById('rubrosPersona')?.selectedOptions.length || 0;
          const cantidadResponsables = document.querySelectorAll('.responsable-agregado').length;
 
          const paso1Tipo = [
@@ -1310,10 +1283,10 @@
                  itemResumenPersonaWizard('Apellido casado', valorPersonaWizard('[name="form_apellido_casado"]')),
                  itemResumenPersonaWizard('CI', valorPersonaWizard('[name="form_ci"]')),
                  itemResumenPersonaWizard('Complemento', valorPersonaWizard('[name="form_complemento"]')),
-                 itemResumenPersonaWizard('Expedido', valorPersonaWizard('[name="form_expedido"]')),
+                 itemResumenPersonaWizard('Expedido', textoSelectPersonaWizard('[name="form_expedido"]')),
                  itemResumenPersonaWizard('Fecha de nacimiento', valorPersonaWizard('[name="form_fecha_nacimiento"]')),
                  itemResumenPersonaWizard('Genero', textoSelectPersonaWizard('[name="form_genero"]')),
-                 itemResumenPersonaWizard('Ocupacion', valorPersonaWizard('[name="form_ocupacion"]'))
+                 itemResumenPersonaWizard('Ocupacion', textoSelectPersonaWizard('[name="form_id_ocupacion"]'))
              ];
 
              paso4Complementos.push(itemResumenPersonaWizard('Rubros agregados', cantidadRubros));
@@ -1388,7 +1361,7 @@
              'form_apellido_casado',
              'form_fecha_nacimiento',
              'form_genero',
-             'form_ocupacion',
+             'form_id_ocupacion',
              'form_id_tipo_empresa',
              'form_razon_social',
              'form_matricula',
@@ -1427,19 +1400,7 @@
              numeroInput.value = telefono.numero;
              tipoInput.value = telefono.tipo || telefono.estado || 'CELULAR';
              agregarTelefonoPersona();
-         });
-
-         rubrosOldPersonaWizard.forEach(rubro => {
-             const nombreInput = document.getElementById('nombreRubro');
-             const estadoInput = document.getElementById('estadoRubro');
-
-             if (!nombreInput || !estadoInput || !rubro?.nombre) return;
-
-             nombreInput.value = rubro.nombre;
-             estadoInput.value = rubro.estado || 'ACTIVO';
-             agregarRubroPersona();
-         });
-     }
+         });     }
 
      // Guarda los campos normales del formulario en localStorage.
      function guardarBorradorPersonaWizard(mostrarMensaje = true) {
@@ -1576,6 +1537,119 @@
 
          limpiarErrorCampoPersonaWizard('tipo_registro');
          return true;
+     }
+
+     function reglasObligatoriasPersonaWizard() {
+         const tipo = tipoPersonaWizard();
+         const reglas = [
+             ['form_tipo_registro', 'Seleccione el tipo de registro.'],
+             ['form_correo', 'Ingrese el correo electrónico.'],
+             ['form_id_pais', 'Seleccione el país.'],
+             ['form_id_territorio', 'Seleccione el departamento o territorio.'],
+             ['form_usuario_name', 'Ingrese el nombre de usuario.'],
+             ['form_usuario_email', 'Ingrese el correo de acceso.'],
+             ['form_id_role', 'Seleccione el rol de acceso.'],
+         ];
+
+         if (tipo === 'NATURAL') {
+             reglas.push(
+                 ['form_ci', 'Ingrese el CI de la persona natural.'],
+                 ['form_nombres', 'Ingrese los nombres.'],
+                 ['form_apellido_paterno', 'Ingrese el apellido paterno.'],
+                 ['form_genero', 'Seleccione el género.'],
+             );
+         }
+
+         if (tipo === 'EMPRESA') {
+             reglas.push(
+                 ['form_nit', 'Ingrese el NIT de la empresa.'],
+                 ['form_id_tipo_empresa', 'Seleccione el tipo de empresa.'],
+                 ['form_razon_social', 'Ingrese la razón social.'],
+                 ['form_matricula', 'Ingrese la matrícula.'],
+             );
+         }
+
+         return reglas;
+     }
+
+     function aplicarRequiredFrontendPersonaWizard() {
+         if (!formPersonaWizard) return;
+
+         formPersonaWizard.querySelectorAll('[data-required-persona-wizard="1"]').forEach(campo => {
+             campo.removeAttribute('required');
+             campo.removeAttribute('aria-required');
+             campo.removeAttribute('data-required-persona-wizard');
+         });
+
+         reglasObligatoriasPersonaWizard().forEach(([nombreCampo]) => {
+             const campo = buscarCampoPersonaWizard(nombreCampo);
+             if (!campo || campo.disabled) return;
+
+             campo.setAttribute('required', 'required');
+             campo.setAttribute('aria-required', 'true');
+             campo.dataset.requiredPersonaWizard = '1';
+         });
+     }
+
+     function validarEmailPersonaWizard(nombreCampo, mensaje) {
+         const campo = buscarCampoPersonaWizard(nombreCampo);
+         if (!campo || campo.disabled || String(campo.value || '').trim() === '') {
+             return null;
+         }
+
+         return campo.checkValidity() ? null : mostrarErrorCampoPersonaWizard(nombreCampo, mensaje);
+     }
+
+     function validarPasswordPersonaWizard() {
+         const campo = buscarCampoPersonaWizard('form_usuario_password');
+         const valor = String(campo?.value || '').trim();
+
+         if (!campo || campo.disabled || valor === '' || valor.length >= 8) {
+             limpiarErrorCampoPersonaWizard('form_usuario_password');
+             return null;
+         }
+
+         return mostrarErrorCampoPersonaWizard('form_usuario_password', 'La contraseña debe tener al menos 8 caracteres.');
+     }
+
+     function validarFormularioPersonaWizard() {
+         aplicarRequiredFrontendPersonaWizard();
+         limpiarErrorCampoPersonaWizard('tipo_registro');
+
+         let primerCampoError = null;
+
+         reglasObligatoriasPersonaWizard().forEach(([nombreCampo, mensaje]) => {
+             const campo = buscarCampoPersonaWizard(nombreCampo);
+             limpiarErrorCampoPersonaWizard(nombreCampo);
+
+             if (!campo || campo.disabled) return;
+
+             if (String(campo.value || '').trim() === '') {
+                 const campoConError = nombreCampo === 'form_tipo_registro'
+                     ? mostrarErrorTipoRegistroPersonaWizard(mensaje)
+                     : mostrarErrorCampoPersonaWizard(nombreCampo, mensaje);
+
+                 primerCampoError = primerCampoError || campoConError;
+             }
+         });
+
+         primerCampoError = primerCampoError || validarEmailPersonaWizard('form_correo', 'Ingrese un correo electrónico válido.');
+         primerCampoError = primerCampoError || validarEmailPersonaWizard('form_usuario_email', 'Ingrese un correo de acceso válido.');
+         primerCampoError = primerCampoError || validarPasswordPersonaWizard();
+
+         if (!primerCampoError) {
+             return true;
+         }
+
+         const nombreCampo = primerCampoError.getAttribute('name') || primerCampoError.id;
+         mostrarPasoPersonaWizard(pasoDesdeErrorPersonaWizard(nombreCampo));
+
+         setTimeout(() => {
+             primerCampoError.focus?.();
+             primerCampoError.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+         }, 80);
+
+         return false;
      }
 
      // Muestra SweetAlert cuando intentan saltar directo a cualquier burbuja sin elegir el tipo de registro.
@@ -1715,6 +1789,7 @@
              cambiarTipoRegistro();
          }
 
+         aplicarRequiredFrontendPersonaWizard();
          actualizarTipoRapidoPersonaWizard();
          actualizarProgresoPersonaWizard();
          mostrarPasoPersonaWizard(0);
@@ -1751,14 +1826,44 @@
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      });
 
-     // Antes del submit final se habilitan campos y se muestra que el registro esta en proceso.
-     formPersonaWizard?.addEventListener('submit', () => {
-         if (typeof cambiarTipoRegistro === 'function') {
-             cambiarTipoRegistro(false);
-         }
+      function sincronizarCamposAntesDeEnviarPersonaWizard() {
+          if (!formPersonaWizard) return;
 
-         estadoEnvioPersona?.classList.add('is-visible');
-         btnGuardarRegistro?.setAttribute('disabled', 'disabled');
+          formPersonaWizard.querySelectorAll('input[name], select[name], textarea[name]').forEach(campo => {
+              if (campo.type === 'file') return;
+              if (campo.name === 'form_tipo_registro') return;
+
+              campo.dispatchEvent(new Event('change', { bubbles: true }));
+              campo.dispatchEvent(new Event('blur', { bubbles: true }));
+          });
+      }
+
+      // Antes del submit final se valida, se guarda el borrador y se bloquea doble envio.
+      formPersonaWizard?.addEventListener('submit', (evento) => {
+          if (typeof cambiarTipoRegistro === 'function') {
+              cambiarTipoRegistro(false);
+          }
+
+          sincronizarCuentaUsuarioPersona(false);
+          sincronizarCamposAntesDeEnviarPersonaWizard();
+          guardarBorradorPersonaWizard(false);
+
+          if (!validarFormularioPersonaWizard()) {
+              evento.preventDefault();
+              return;
+          }
+
+          if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                  title: esModoEdicionPersona ? 'Actualizando registro' : 'Registrando datos',
+                  text: 'Espere un momento, estamos guardando la información.',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  didOpen: () => Swal.showLoading(),
+              });
+          }
+
+          btnGuardarRegistro?.setAttribute('disabled', 'disabled');
          btnGuardarRegistro?.classList.add('opacity-70', 'cursor-not-allowed');
          btnPasoAnterior?.setAttribute('disabled', 'disabled');
          btnPasoSiguiente?.setAttribute('disabled', 'disabled');
@@ -1772,7 +1877,7 @@
      // Refresca el progreso despues de botones que agregan o quitan listas dinamicas.
      document.addEventListener('click', (evento) => {
          const accionDinamica = evento.target.closest(
-             '[onclick*="agregarTelefonoPersona"], [onclick*="quitarTelefonoPersona"], [onclick*="agregarRubroPersona"], [onclick*="quitarRubroPersona"], [onclick*="agregarNuevoResponsableTemporal"], [onclick*="quitarResponsableEmpresa"]'
+             '[onclick*="agregarTelefonoPersona"], [onclick*="quitarTelefonoPersona"], [onclick*="agregarNuevoResponsableTemporal"], [onclick*="quitarResponsableEmpresa"]'
          );
 
          if (!accionDinamica) return;
@@ -1785,11 +1890,12 @@
 
      // Inicializa el wizard: limpio al entrar a registrar, conserva datos solo si hay errores.
      limpiarRegistroNuevoPersonaWizard();
-     restaurarBorradorPersonaWizard();
-     rehidratarListasOldPersonaWizard();
-     sincronizarCuentaUsuarioPersona(false);
-     tipoRegistroAnterior = tipoPersonaWizard();
-     mostrarPasoPersonaWizard(pasoInicialPorErroresPersonaWizard());
+      restaurarBorradorPersonaWizard();
+      rehidratarListasOldPersonaWizard();
+      sincronizarCuentaUsuarioPersona(false);
+      aplicarRequiredFrontendPersonaWizard();
+      tipoRegistroAnterior = tipoPersonaWizard();
+      mostrarPasoPersonaWizard(pasoInicialPorErroresPersonaWizard());
 
      // Si el navegador restaura la pagina desde cache, se vuelve a limpiar en modo registrar.
      window.addEventListener('pageshow', () => {
@@ -3021,7 +3127,6 @@
      // Limpia el error debajo del campo apenas el usuario vuelve a escribir o seleccionar.
      [
          'numeroTelefono',
-         'nombreRubro',
          'modal_id_persona_responsable',
          'nuevo_nombres',
          'nuevo_apellido_paterno',

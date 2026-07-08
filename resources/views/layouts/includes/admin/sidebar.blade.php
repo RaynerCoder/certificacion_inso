@@ -26,6 +26,10 @@
         $bandejaTramiteActual = 'todos';
     }
 
+    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_finalizados')) {
+        $bandejaTramiteActual = 'finalizados';
+    }
+
     if (
         !$bandejaTramiteActual &&
         request()->routeIs('seguimientos_index', 'seguimientos_show', 'seguimientos_tramite_historial')
@@ -39,6 +43,7 @@
         'seguimientos_mis_solicitudes',
         'seguimientos_index',
         'seguimientos_todos',
+        'seguimientos_finalizados',
         'seguimientos_show',
         'seguimientos_tramite_historial',
     );
@@ -46,7 +51,7 @@
     // Algunas pantallas de detalle usan certificados_show, pero siguen perteneciendo al flujo de Tramites.
     $estaEnDetalleDeTramite =
         request()->routeIs('certificados_show') &&
-        in_array($bandejaTramiteActual, ['enviadas', 'recibidas', 'todos'], true);
+        in_array($bandejaTramiteActual, ['enviadas', 'recibidas', 'todos', 'finalizados'], true);
 
     // Resultado final usado por el item principal "Tramites" del sidebar.
     $rutaTramiteActiva = $estaEnRutaDeTramites || $estaEnDetalleDeTramite;
@@ -229,6 +234,20 @@
                             $bandejaTramiteActual === 'todos'),
                     'permission' => 'seguimientos_tramite.consulta_general',
                 ],
+                [
+                    'name' => 'Trámites finalizados',
+                    'icon' => 'fa-solid fa-circle-check',
+                    'href' => $href('seguimientos_finalizados'),
+                    'active' =>
+                        request()->routeIs('seguimientos_finalizados') ||
+                        (request()->routeIs(
+                            'certificados_show',
+                            'seguimientos_show',
+                            'seguimientos_tramite_historial',
+                        ) &&
+                            $bandejaTramiteActual === 'finalizados'),
+                    'permission' => 'seguimientos_tramite.consulta_general',
+                ],
             ],
         ],
 
@@ -236,8 +255,8 @@
             'name' => 'Catálogos de Certificados',
             'description' => 'Tipos y requisitos',
             'icon' => 'fa-solid fa-file-signature',
-            'active' => $activo(['tipos_certificados_', 'requisitos_', 'tipos_evidencias_']),
-            'permission' => ['tipos_certificados.ver', 'requisitos.ver', 'tipos_evidencias.ver'],
+            'active' => $activo(['tipos_certificados_', 'requisitos_', 'tipos_evidencias_', 'certificados_plantillas_']),
+            'permission' => ['tipos_certificados.ver', 'requisitos.ver', 'tipos_evidencias.ver', 'plantillas_certificados.ver'],
             'submenu' => [
                 [
                     'name' => 'Tipos de Certificado',
@@ -260,12 +279,13 @@
                     'active' => $activo(['tipos_evidencias_']),
                     'permission' => 'tipos_evidencias.ver',
                 ],
-                // [
-                //     'name' => 'Verificacion QR',
-                //     'icon' => 'fa-solid fa-qrcode',
-                //     'href' => '#',
-                //     'disabled' => true,
-                // ],
+                [
+                    'name' => 'Plantillas',
+                    'icon' => 'fa-solid fa-file-lines',
+                    'href' => $href('certificados_plantillas_index'),
+                    'active' => $activo(['certificados_plantillas_']),
+                    'permission' => 'plantillas_certificados.ver',
+                ],
             ],
         ],
         [
@@ -314,34 +334,31 @@
                 [
                     'name' => 'Ingredientes',
                     'icon' => 'fa-solid fa-flask',
-                    'href' => '#',
+                    'href' => $href('ingredientes_index'),
                     'active' => $activo(['ingredientes_']),
                     'permission' => 'ingredientes.ver',
-                    'disabled' => true,
                 ],
                 [
                     'name' => 'Presentaciones',
                     'icon' => 'fa-solid fa-box-open',
-                    'href' => '#',
+                    'href' => $href('presentaciones_index'),
                     'active' => $activo(['presentaciones_']),
                     'permission' => 'presentaciones.ver',
-                    'disabled' => true,
                 ],
                 [
-                    'name' => 'Registros',
+                    'name' => 'Registros y Productos',
                     'icon' => 'fa-solid fa-clipboard-list',
-                    'href' => '#',
+                    'href' => $href('registros_index'),
                     'active' => $activo(['registros_']),
                     'permission' => 'registros.ver',
-                    'disabled' => true,
                 ],
-                [
-                    'name' => 'Aduanas',
-                    'icon' => 'fa-solid fa-warehouse',
-                    'href' => '#',
-                    'active' => $activo(['aduanas_']),
-                    'disabled' => true,
-                ],
+                // [
+                //     'name' => 'Aduanas',
+                //     'icon' => 'fa-solid fa-warehouse',
+                //     'href' => '#',
+                //     'active' => $activo(['aduanas_']),
+                //     'disabled' => true,
+                // ],
             ],
         ],
     ];

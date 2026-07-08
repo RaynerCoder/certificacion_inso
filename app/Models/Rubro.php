@@ -2,24 +2,26 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\Auditable;
 
 class Rubro extends Model
 {
     use SoftDeletes, Auditable;
+
     protected $table = 'rubros';
+
     protected $fillable = [
-        'id_persona',
         'nombre',
-        'estado'
+        'descripcion',
+        'estado',
     ];
 
-    // Relación muchos a uno (muchos rubros tiene una persona)
-    public function persona()
+    // Relacion muchos a muchos (un rubro puede pertenecer a varias personas)
+    public function personas()
     {
-        return $this->belongsTo(Persona::class, 'id_persona');
+        return $this->belongsToMany(Persona::class, 'personas_rubros', 'id_rubro', 'id_persona')
+            ->withPivot('estado');
     }
-
 }

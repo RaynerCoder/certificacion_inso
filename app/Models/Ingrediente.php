@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\Auditable;
 
 class Ingrediente extends Model
 {
@@ -19,7 +19,7 @@ class Ingrediente extends Model
         'estado',
     ];
 
-    // Relación uno a muchos (un ingrediente puede estar en muchos productos)
+    // Relación uno a muchos (un ingrediente puede estar en muchos registros de productos)
     public function ingredienteProductos()
     {
         return $this->hasMany(IngredienteProducto::class, 'id_ingrediente');

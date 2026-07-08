@@ -94,7 +94,10 @@ class PersonaTable extends DataTableComponent
                     return $valor ? $valor->format('d/m/Y H:i') : 'Sin fecha';
                 }),
 
-            Column::make("Estado", "estado"),
+            Column::make("Estado", "estado")
+                ->label(function ($fila) {
+                    return view('tablas.chip_estado', ['estado' => $fila->estado]);
+                }),
 
             Column::make('Acciones')
                 ->label(function($fila){

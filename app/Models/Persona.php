@@ -57,10 +57,11 @@ class Persona extends Model
         return $this->hasMany(Telefono::class, 'id_persona');
     }
 
-    // Relacion uno a muchos: rubros o actividades que se registran para personas naturales.
+    // Relacion muchos a muchos: rubros o actividades vinculadas a la persona o empresa.
     public function rubros()
     {
-        return $this->hasMany(Rubro::class, 'id_persona');
+        return $this->belongsToMany(Rubro::class, 'personas_rubros', 'id_persona', 'id_rubro')
+            ->withPivot('estado');
     }
 
     // Relacion uno a muchos: certificados donde la persona es beneficiaria.

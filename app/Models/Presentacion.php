@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Presentacion extends Model
 {
     use SoftDeletes, Auditable;
+
     protected $table = 'presentaciones';
+
     protected $fillable = [
         'id_producto',
         'url_etiqueta',
@@ -25,7 +27,7 @@ class Presentacion extends Model
         return $this->belongsTo(Producto::class, 'id_producto');
     }
 
-    // Relación uno a muchos (una presentacion tiene muchos registros)
+    // Relación uno a muchos (una presentación tiene muchos registros)
     public function registros()
     {
         return $this->hasMany(Registro::class, 'id_presentacion');

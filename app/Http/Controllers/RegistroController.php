@@ -12,7 +12,7 @@ class RegistroController extends Controller
      */
     public function index()
     {
-        //
+        return view('registros_productos.index');
     }
 
     /**

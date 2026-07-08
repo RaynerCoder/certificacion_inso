@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             FabricanteSeeder::class,
             TipoProductoSeeder::class,
             PersonaSeeder::class,
+            OcupacionCobSeeder::class,
             NaturalSeeder::class,
             TelefonoSeeder::class,
             RubroSeeder::class,

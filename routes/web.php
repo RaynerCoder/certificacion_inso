@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/admin');
+Route::redirect('/', '/menu');
 
 /* Route::get('/', function () {
     return view('welcome');
@@ -14,6 +14,6 @@ Route::middleware([
     'verified',
 ])->group(function () {
     Route::get('/dashboard', function () {
-        return view('dashboard');
+        return redirect()->route('admin_dashboard');
     })->name('dashboard');
 });

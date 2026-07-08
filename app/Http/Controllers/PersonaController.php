@@ -7,6 +7,7 @@ use App\Models\Territorio;
 use App\Models\Empresa;
 use App\Models\TipoEmpresa;
 use App\Models\Natural;
+use App\Models\OcupacionCob;
 use App\Models\Telefono;
 use App\Models\Rubro;
 use App\Models\User;
@@ -40,6 +41,23 @@ class PersonaController extends Controller
         return view('personas.index', compact('personas'));
     }
 
+    private function mensajesValidacionPersona(): array
+    {
+        return [
+            'required' => 'El campo :attribute es obligatorio.',
+            'required_if' => 'El campo :attribute es obligatorio para este tipo de registro.',
+            'email' => 'El campo :attribute debe ser un correo válido.',
+            'unique' => 'El valor ingresado en :attribute ya está registrado.',
+            'exists' => 'El valor seleccionado en :attribute no es válido.',
+            'in' => 'El valor seleccionado en :attribute no es válido.',
+            'date' => 'El campo :attribute debe tener una fecha válida.',
+            'max' => 'El campo :attribute no debe superar :max caracteres.',
+            'min' => 'El campo :attribute debe tener al menos :min caracteres.',
+            'file' => 'El campo :attribute debe ser un archivo válido.',
+            'mimes' => 'El archivo de :attribute debe ser de tipo: :values.',
+        ];
+    }
+
     /**
      * Show the form for creating a new resource.
      */
@@ -51,6 +69,9 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
         $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
+        $rubrosCatalogo = Rubro::where('estado', 'ACTIVO')->orderBy('nombre')->get();
+        $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
+        $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with([
             'natural',
             'telefonos',
@@ -73,6 +94,9 @@ class PersonaController extends Controller
             'tiposEmpresas' => $tiposEmpresas,
             'rolesCuentaCatalogo' => $rolesCuentaCatalogo,
             'rolesResponsablesCatalogo' => $rolesResponsablesCatalogo,
+            'rubrosCatalogo' => $rubrosCatalogo,
+            'ocupacionesCob' => $ocupacionesCob,
+            'expedidosNatural' => $expedidosNatural,
         ]);
     }
 
@@ -101,14 +125,14 @@ class PersonaController extends Controller
             // NATURAL
             'form_ci'               => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:50|unique:naturals,ci',
             'form_complemento'      => 'nullable|string|max:10',
-            'form_expedido'         => 'nullable|string|max:10',
+            'form_expedido'         => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
             'form_nombres'          => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
             'form_apellido_paterno' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
             'form_apellido_materno' => 'nullable|string|max:100',
             'form_apellido_casado'  => 'nullable|string|max:100',
             'form_fecha_nacimiento' => 'nullable|date',
             'form_genero'           => 'required_if:form_tipo_registro,NATURAL|nullable',
-            'form_ocupacion'        => 'nullable|string|max:255',
+            'form_id_ocupacion'     => 'nullable|exists:ocupaciones_cob,id',
 
             // EMPRESA
             'form_id_tipo_empresa'       => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:tipos_empresas,id',
@@ -123,10 +147,9 @@ class PersonaController extends Controller
             'telefonos.*.numero' => 'required|string|max:50',
             'telefonos.*.tipo'   => 'nullable|max:50',
 
-            // RUBROS PERSONA NATURAL
-            'rubros'          => 'nullable|array',
-            'rubros.*.nombre' => 'required|string|max:255',
-            'rubros.*.estado' => 'nullable|max:50',
+            // RUBROS PERSONA / EMPRESA
+            'rubros'   => 'nullable|array',
+            'rubros.*' => 'integer|exists:rubros,id',
 
             // RESPONSABLES EMPRESA
             'responsables'                     => 'nullable|array',
@@ -168,22 +191,22 @@ class PersonaController extends Controller
                 'required',
                 Rule::exists('roles', 'id')->where(fn ($query) => $query->where('estado', 1)),
             ],
-            ], [], [
+            ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: evitan mostrar campos tecnicos como form_id_territorio al usuario.
                 'form_tipo_registro' => 'tipo de registro',
-                'form_correo' => 'correo electronico',
-                'form_id_pais' => 'pais',
+                'form_correo' => 'correo electrónico',
+                'form_id_pais' => 'país',
                 'form_id_territorio' => 'territorio',
                 'form_ci' => 'CI',
                 'form_nombres' => 'nombres',
                 'form_apellido_paterno' => 'apellido paterno',
-                'form_genero' => 'genero',
+                'form_genero' => 'género',
                 'form_id_tipo_empresa' => 'tipo de empresa',
-                'form_razon_social' => 'razon social',
-                'form_matricula' => 'matricula',
+                'form_razon_social' => 'razón social',
+                'form_matricula' => 'matrícula',
                 'form_usuario_name' => 'nombre de usuario',
                 'form_usuario_email' => 'correo de acceso',
-                'form_usuario_password' => 'contrasena de acceso',
+                'form_usuario_password' => 'contraseña de acceso',
                 'form_id_role' => 'rol de acceso',
                 'responsables.*.id_rol' => 'rol del responsable',
                 'responsables.*.id_persona' => 'persona responsable',
@@ -240,9 +263,12 @@ class PersonaController extends Controller
                 }
             }
 
+            $this->registrarRubrosPersona($persona->id, $datos['rubros'] ?? []);
+
             if ($datos['form_tipo_registro'] === 'NATURAL') {
                 Natural::create([
                     'id_persona'       => $persona->id,
+                    'id_ocupacion'     => $datos['form_id_ocupacion'] ?? null,
                     'ci'               => $datos['form_ci'] ?? null,
                     'complemento'      => $datos['form_complemento'] ?? null,
                     'expedido'         => $datos['form_expedido'] ?? null,
@@ -252,18 +278,8 @@ class PersonaController extends Controller
                     'apellido_casado'  => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                     'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                     'genero'           => $datos['form_genero'],
-                    'ocupacion'        => $this->mayuscula($datos['form_ocupacion'] ?? null),
+                    'ocupacion'        => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                 ]);
-
-                if (!empty($datos['rubros'])) {
-                    foreach ($datos['rubros'] as $rubro) {
-                        Rubro::create([
-                            'id_persona' => $persona->id,
-                            'nombre'     => $rubro['nombre'],
-                            'estado'     => $rubro['estado'] ?? null,
-                        ]);
-                    }
-                }
             }
 
             if ($datos['form_tipo_registro'] === 'EMPRESA') {
@@ -315,16 +331,49 @@ class PersonaController extends Controller
     }
 
 
-    // FUNCION PARA REGISTRAR RUBROS DE PERSONAS NATURALES
+    // Sincroniza rubros del catalogo con una persona o empresa sin duplicar registros.
     private function registrarRubrosPersona($idPersona, array $rubros): void
     {
-        foreach ($rubros as $rubro) {
-            Rubro::create([
-                'id_persona' => $idPersona,
-                'nombre'     => $rubro['nombre'],
-                'estado'     => $rubro['estado'] ?? null,
-            ]);
+        $idsRubros = collect($rubros)
+            ->map(function ($rubro) {
+                if (is_array($rubro)) {
+                    if (!empty($rubro['id']) || !empty($rubro['id_rubro'])) {
+                        return $rubro['id'] ?? $rubro['id_rubro'];
+                    }
+
+                    if (!empty($rubro['nombre'])) {
+                        return Rubro::firstOrCreate(
+                            ['nombre' => $this->mayuscula($rubro['nombre'])],
+                            [
+                                'descripcion' => null,
+                                'estado' => $rubro['estado'] ?? 'ACTIVO',
+                            ]
+                        )->id;
+                    }
+
+                    return null;
+                }
+
+                return $rubro;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $datosSync = $idsRubros
+            ->mapWithKeys(fn ($idRubro) => [(int) $idRubro => ['estado' => 'ACTIVO']])
+            ->all();
+
+        Persona::find($idPersona)?->rubros()->sync($datosSync);
+    }
+
+    private function descripcionOcupacionCob($idOcupacion): ?string
+    {
+        if (!$idOcupacion) {
+            return null;
         }
+
+        return OcupacionCob::find($idOcupacion)?->descripcion_ocupacion;
     }
 
 
@@ -496,7 +545,6 @@ class PersonaController extends Controller
                     Telefono::where('id_persona', $personaResponsable->id)->delete();
                     $this->registrarTelefonosPersona($personaResponsable->id, $responsable['telefonos'] ?? []);
 
-                    Rubro::where('id_persona', $personaResponsable->id)->delete();
                     $this->registrarRubrosPersona($personaResponsable->id, $responsable['rubros'] ?? []);
                 }
 
@@ -538,16 +586,7 @@ class PersonaController extends Controller
 
                 }
 
-                // RUBROS
-                if (!empty($responsable['rubros'])) {
-                    foreach ($responsable['rubros'] as $rubro) {
-                        Rubro::create([
-                            'id_persona' => $personaResponsable->id,
-                            'nombre'     => $rubro['nombre'],
-                            'estado'     => $rubro['estado'] ?? null,
-                        ]);
-                    }
-                }
+                $this->registrarRubrosPersona($personaResponsable->id, $responsable['rubros'] ?? []);
                 $idPersonaResponsable = $personaResponsable->id;
             }
 
@@ -675,6 +714,9 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
         $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
+        $rubrosCatalogo = Rubro::where('estado', 'ACTIVO')->orderBy('nombre')->get();
+        $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
+        $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with(['natural', 'telefonos', 'territorio', 'rubros'])
             ->where('id', '!=', $persona->id)
             // En edicion tambien se filtra el catalogo para que solo se elijan responsables validos.
@@ -692,10 +734,7 @@ class PersonaController extends Controller
             ->values();
 
         $rubrosRegistrados = $persona->rubros
-            ->map(fn ($rubro) => [
-                'nombre' => $rubro->nombre,
-                'estado' => $rubro->estado,
-            ])
+            ->pluck('id')
             ->values();
 
         $responsablesRegistrados = $persona->empresa
@@ -755,7 +794,10 @@ class PersonaController extends Controller
             'rubrosRegistrados',
             'responsablesRegistrados',
             'rolesCuentaCatalogo',
-            'rolesResponsablesCatalogo'
+            'rolesResponsablesCatalogo',
+            'rubrosCatalogo',
+            'ocupacionesCob',
+            'expedidosNatural'
         ));
     }
 
@@ -805,14 +847,14 @@ class PersonaController extends Controller
                 Rule::unique('naturals', 'ci')->ignore($naturalId),
             ],
             'form_complemento'      => 'nullable|string|max:10',
-            'form_expedido'         => 'nullable|string|max:10',
+            'form_expedido'         => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
             'form_nombres'          => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
             'form_apellido_paterno' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
             'form_apellido_materno' => 'nullable|string|max:100',
             'form_apellido_casado'  => 'nullable|string|max:100',
             'form_fecha_nacimiento' => 'nullable|date',
             'form_genero'           => 'required_if:form_tipo_registro,NATURAL|nullable',
-            'form_ocupacion'        => 'nullable|string|max:255',
+            'form_id_ocupacion'     => 'nullable|exists:ocupaciones_cob,id',
 
             // EMPRESA
             'form_id_tipo_empresa'  => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:tipos_empresas,id',
@@ -827,10 +869,9 @@ class PersonaController extends Controller
             'telefonos.*.numero' => 'required|string|max:50',
             'telefonos.*.tipo'   => 'nullable|max:50',
 
-            // RUBROS PERSONA NATURAL
-            'rubros'          => 'nullable|array',
-            'rubros.*.nombre' => 'required|string|max:255',
-            'rubros.*.estado' => 'nullable|max:50',
+            // RUBROS PERSONA / EMPRESA
+            'rubros'   => 'nullable|array',
+            'rubros.*' => 'integer|exists:rubros,id',
 
             // RESPONSABLES EMPRESA
             'responsables'                     => 'nullable|array',
@@ -881,22 +922,22 @@ class PersonaController extends Controller
                 'required',
                 Rule::exists('roles', 'id')->where(fn ($query) => $query->where('estado', 1)),
             ],
-            ], [], [
+            ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: mantienen create y edit con mensajes entendibles.
                 'form_tipo_registro' => 'tipo de registro',
-                'form_correo' => 'correo electronico',
-                'form_id_pais' => 'pais',
+                'form_correo' => 'correo electrónico',
+                'form_id_pais' => 'país',
                 'form_id_territorio' => 'territorio',
                 'form_ci' => 'CI',
                 'form_nombres' => 'nombres',
                 'form_apellido_paterno' => 'apellido paterno',
-                'form_genero' => 'genero',
+                'form_genero' => 'género',
                 'form_id_tipo_empresa' => 'tipo de empresa',
-                'form_razon_social' => 'razon social',
-                'form_matricula' => 'matricula',
+                'form_razon_social' => 'razón social',
+                'form_matricula' => 'matrícula',
                 'form_usuario_name' => 'nombre de usuario',
                 'form_usuario_email' => 'correo de acceso',
-                'form_usuario_password' => 'contrasena de acceso',
+                'form_usuario_password' => 'contraseña de acceso',
                 'form_id_role' => 'rol de acceso',
                 'responsables.*.id_rol' => 'rol del responsable',
                 'responsables.*.id_persona' => 'persona responsable',
@@ -947,6 +988,7 @@ class PersonaController extends Controller
             // Reemplaza telefonos por la lista actual enviada desde el wizard.
             Telefono::where('id_persona', $persona->id)->delete();
             $this->registrarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
+            $this->registrarRubrosPersona($persona->id, $datos['rubros'] ?? []);
 
             if ($datos['form_tipo_registro'] === 'NATURAL') {
                 // Si antes era empresa, se eliminan sus datos incompatibles.
@@ -958,6 +1000,7 @@ class PersonaController extends Controller
                 Natural::updateOrCreate(
                     ['id_persona' => $persona->id],
                     [
+                        'id_ocupacion'     => $datos['form_id_ocupacion'] ?? null,
                         'ci'               => $datos['form_ci'] ?? null,
                         'complemento'      => $datos['form_complemento'] ?? null,
                         'expedido'         => $datos['form_expedido'] ?? null,
@@ -967,12 +1010,9 @@ class PersonaController extends Controller
                         'apellido_casado'  => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                         'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                         'genero'           => $datos['form_genero'],
-                        'ocupacion'        => $this->mayuscula($datos['form_ocupacion'] ?? null),
+                        'ocupacion'        => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                     ]
                 );
-
-                Rubro::where('id_persona', $persona->id)->delete();
-                $this->registrarRubrosPersona($persona->id, $datos['rubros'] ?? []);
             }
 
             if ($datos['form_tipo_registro'] === 'EMPRESA') {
@@ -980,8 +1020,6 @@ class PersonaController extends Controller
                 if ($persona->natural) {
                     $persona->natural->delete();
                 }
-
-                Rubro::where('id_persona', $persona->id)->delete();
 
                 $empresa = Empresa::updateOrCreate(
                     ['id_persona' => $persona->id],
@@ -1067,7 +1105,7 @@ class PersonaController extends Controller
             }
 
             $persona->telefonos()->delete();
-            $persona->rubros()->delete();
+            $persona->rubros()->detach();
             $persona->natural?->delete();
 
             $usuarioAcceso = $persona->usuario;

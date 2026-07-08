@@ -12,9 +12,6 @@
         // Pantalla: consulta general de tramites para seguimiento institucional.
         // No crea ni atiende; solo muestra la tabla Livewire en modo lectura.
         $bandeja = 'todos';
-        $panelIcono = 'fa-solid fa-magnifying-glass-chart';
-        $panelClase = 'is-inbox';
-        $panelEtiqueta = 'Solo lectura';
     @endphp
     @include('seguimientos_certificados.estilos.bandejas')
 
@@ -33,21 +30,7 @@
     @endif
 
     <section class="solicitudes-panel">
-        <div class="solicitudes-panel-head">
-            <div class="solicitudes-panel-title">
-                <span class="solicitudes-panel-icon {{ $panelClase }}">
-                    <i class="{{ $panelIcono }}"></i>
-                </span>
-                <div>
-                    <h2>{{ $tituloPagina }}</h2>
-                    <p>{{ $descripcionPagina }}</p>
-                </div>
-            </div>
-
-            <span class="solicitudes-panel-badge {{ $panelClase }}">{{ $panelEtiqueta }}</span>
-        </div>
-
-        <div class="solicitudes-panel-body {{ $bandeja === 'recibidas' ? 'is-inbox-table' : '' }}">
+        <div class="solicitudes-panel-body is-follow-table">
             @livewire('datatables.seguimiento-table', ['bandeja' => $bandeja], key('seguimientos-' . $bandeja))
         </div>
     </section>

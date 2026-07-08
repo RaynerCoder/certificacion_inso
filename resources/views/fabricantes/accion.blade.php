@@ -1,6 +1,11 @@
 <div class="flex items-center space-x-2">
-
-    <x-wire-button href="{{ route('fabricantes_edit', $fabricante) }}" blue xs>
+    <x-wire-button type="button" blue xs
+        data-fabricante-editar
+        data-url="{{ route('fabricantes_update', $fabricante) }}"
+        data-nombre="{{ $fabricante->nombre }}"
+        data-descripcion="{{ $fabricante->descripcion }}"
+        data-razon-social="{{ $fabricante->razon_social }}"
+        data-estado="{{ $fabricante->estado }}">
         Editar
     </x-wire-button>
 
@@ -11,5 +16,4 @@
             Eliminar
         </x-wire-button>
     </form>
-    
 </div>

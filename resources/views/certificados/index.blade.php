@@ -14,9 +14,19 @@
 ]">
 
     <x-slot name="action">
-        <x-wire-button href="{{ route('certificados_create') }}" blue>
-            Registrar
-        </x-wire-button>
+        <div class="flex flex-wrap items-center gap-2">
+            <x-wire-button href="{{ route('certificados_plantillas_index') }}" blue>
+                Plantillas
+            </x-wire-button>
+
+            <x-wire-button href="{{ route('certificados_emitidos_index') }}" emerald>
+                Certificados emitidos
+            </x-wire-button>
+
+            <x-wire-button href="{{ route('certificados_create') }}" blue>
+                Registrar
+            </x-wire-button>
+        </div>
     </x-slot>
 
 

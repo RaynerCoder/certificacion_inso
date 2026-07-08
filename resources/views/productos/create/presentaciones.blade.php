@@ -11,7 +11,7 @@
                     <strong>Datos de la presentacion</strong>
                 </div>
 
-                <div class="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
+                <div class="producto-registro-grid producto-registro-grid-presentacion">
                     <div class="md:col-span-12">
                         <label class="producto-field-label" for="form_presentacion_catalogo">
                             Presentacion registrada para este importador y producto
@@ -50,19 +50,19 @@
                         <input type="hidden" id="form_presentacion_origen_id" value="">
                     </div>
 
-                    <div class="md:col-span-3 xl:col-span-2">
+                    <div class="producto-campo-cantidad">
                         <label class="producto-field-label" for="form_presentacion_cantidad">Cantidad</label>
                         <input class="producto-input" id="form_presentacion_cantidad" type="number" min="0"
                             step="1" placeholder="Ej: 1">
                     </div>
 
-                    <div class="md:col-span-5 xl:col-span-3">
+                    <div class="producto-campo-unidad">
                         <label class="producto-field-label" for="form_presentacion_unidad">Unidad</label>
                         <input class="producto-input" id="form_presentacion_unidad" type="text"
                             placeholder="Ej: Litro, Kg, ml">
                     </div>
 
-                    <div class="md:col-span-4 xl:col-span-2">
+                    <div class="producto-campo-estado">
                         <label class="producto-field-label" for="form_presentacion_estado">Estado</label>
                         <select class="producto-select" id="form_presentacion_estado">
                             <option value="ACTIVO">Activo</option>
@@ -70,7 +70,7 @@
                         </select>
                     </div>
 
-                    <div class="md:col-span-12 xl:col-span-5">
+                    <div class="producto-campo-etiqueta">
                         <label class="producto-field-label" for="form_presentacion_etiqueta">Etiqueta PDF</label>
 
                         {{-- El input real queda oculto; estos botones pequenos controlan seleccionar, ver y quitar el PDF. --}}
@@ -108,7 +108,7 @@
                         </div>
                     </div>
 
-                    <div class="md:col-span-12">
+                    <div class="producto-campo-descripcion">
                         <label class="producto-field-label" for="form_presentacion_descripcion">Descripcion</label>
                         <textarea class="producto-textarea producto-textarea-compact" id="form_presentacion_descripcion"
                             placeholder="Ej: Envase plastico con tapa de seguridad."></textarea>
@@ -125,8 +125,8 @@
                     <strong>Datos del registro</strong>
                 </div>
 
-                <div class="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
-                    <div class="md:col-span-6 xl:col-span-4">
+                <div class="producto-registro-grid producto-registro-grid-autorizacion">
+                    <div class="producto-campo-codigo">
                         <label class="producto-field-label" for="form_registro_codigo_autorizacion">
                             Codigo de autorizacion
                         </label>
@@ -134,14 +134,25 @@
                             placeholder="Ej: INSO-RP-001">
                     </div>
 
-                    <div class="md:col-span-6 xl:col-span-3">
+                    <div class="producto-campo-fecha">
                         <label class="producto-field-label" for="form_registro_fecha_vigencia">
                             Fecha vigencia
                         </label>
                         <input class="producto-input" id="form_registro_fecha_vigencia" type="date">
                     </div>
 
-                    <div class="md:col-span-4 xl:col-span-2">
+                    <div class="producto-campo-cantidad">
+                        <label class="producto-field-label" for="form_registro_cantidad">Cantidad</label>
+                        <input class="producto-input" id="form_registro_cantidad" type="number" min="0"
+                            step="1" placeholder="120">
+                    </div>
+
+                    <div class="producto-campo-unidad">
+                        <label class="producto-field-label" for="form_registro_unidad">Unidad</label>
+                        <input class="producto-input" id="form_registro_unidad" type="text" placeholder="Cajas">
+                    </div>
+
+                    <div class="producto-campo-estado">
                         <label class="producto-field-label" for="form_registro_estado">Estado</label>
                         <select class="producto-select" id="form_registro_estado">
                             <option value="ACTIVO">Activo</option>
@@ -149,18 +160,7 @@
                         </select>
                     </div>
 
-                    <div class="md:col-span-4 xl:col-span-1">
-                        <label class="producto-field-label" for="form_registro_cantidad">Cantidad</label>
-                        <input class="producto-input" id="form_registro_cantidad" type="number" min="0"
-                            step="1" placeholder="120">
-                    </div>
-
-                    <div class="md:col-span-4 xl:col-span-2">
-                        <label class="producto-field-label" for="form_registro_unidad">Unidad</label>
-                        <input class="producto-input" id="form_registro_unidad" type="text" placeholder="Cajas">
-                    </div>
-
-                    <div class="md:col-span-12 flex justify-end">
+                    <div class="producto-campo-acciones">
                         <button type="button" class="producto-btn producto-btn-orange producto-btn-inline"
                             onclick="agregarPresentacionRegistroProducto()">
                             <i class="fa-solid fa-link"></i>

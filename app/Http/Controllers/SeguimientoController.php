@@ -42,10 +42,11 @@ class SeguimientoController extends Controller
         $bandeja = match (true) {
             $request->routeIs('seguimientos_mis_solicitudes') => 'enviadas',
             $request->routeIs('seguimientos_todos') => 'todos',
+            $request->routeIs('seguimientos_finalizados') => 'finalizados',
             default => 'recibidas',
         };
 
-        if (in_array($bandeja, ['recibidas', 'todos'], true) && !$this->usuarioPuedeAtenderTramites()) {
+        if (in_array($bandeja, ['recibidas', 'todos', 'finalizados'], true) && !$this->usuarioPuedeAtenderTramites()) {
             return redirect()
                 ->route('seguimientos_mis_solicitudes')
                 ->with('error', 'Su usuario solo puede consultar las solicitudes que envio.');
@@ -54,11 +55,13 @@ class SeguimientoController extends Controller
         $tituloPagina = match ($bandeja) {
             'enviadas' => 'Solicitudes enviadas por mi',
             'todos' => 'Consulta general de tramites',
+            'finalizados' => 'Tramites finalizados',
             default => 'Solicitudes recibidas para atender',
         };
         $descripcionPagina = match ($bandeja) {
             'enviadas' => 'Consulte los tramites que usted inicio y revise en que etapa se encuentran.',
             'todos' => 'Listado de solo lectura para hacer seguimiento de cualquier tramite registrado.',
+            'finalizados' => 'Listado de tramites cerrados y listos para imprimir su certificado.',
             default => 'Bandeja de trabajo para revisar, asignar o derivar tramites que llegaron a su usuario.',
         };
 
@@ -66,6 +69,7 @@ class SeguimientoController extends Controller
         $vistaBandeja = match ($bandeja) {
             'enviadas' => 'seguimientos_certificados.mis_tramites.index',
             'todos' => 'seguimientos_certificados.seguimiento_tramite.index',
+            'finalizados' => 'seguimientos_certificados.tramites_finalizados.index',
             default => 'seguimientos_certificados.tramites_atender.index',
         };
 
@@ -722,54 +726,87 @@ class SeguimientoController extends Controller
             $todosRequisitosCumplen = $certificado->certificadoRequisitos
                 ->every(fn ($requisito) => $requisito->cumple === 'SI');
 
-            if ($hayObservados) {
-                // Se mantiene en revision hasta que el jefe/tecnico pulse "Notificar al solicitante".
-                $certificado->update(['estado' => 'EN_REVISION']);
-            } elseif ($todosRequisitosCumplen) {
-                $certificado->update(['estado' => 'APROBADO']);
-
-                // Si no hay observaciones, se cierra la etapa activa porque la revision concluyo.
-                $seguimiento->update([
-                    'fecha_derivacion' => now()->toDateString(),
-                    'fecha_final' => now()->toDateString(),
-                ]);
-
-                // Movimiento de cierre tecnico cuando todos los requisitos cumplen.
-                Seguimiento::create([
-                    'id_seguimiento_padre' => $seguimiento->id,
-                    'id_certificado' => $certificado->id,
-                    'fecha_inicio' => now()->toDateString(),
-                    'fecha_derivacion' => now()->toDateString(),
-                    'fecha_final' => now()->toDateString(),
-                    'descripcion_final' => 'Revision tecnica aprobada.',
-                    'referencia' => 'Todos los requisitos cumplen.',
-                    'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
-                    'id_usuario_origen' => auth()->id(),
-                    'id_usuario_siguiente' => null,
-                    'estado' => 'ACTIVO',
-                ]);
-            } else {
-                // Revision parcial: queda pendiente para que otro funcionario complete lo faltante.
-                $certificado->update(['estado' => 'EN_REVISION']);
-            }
+            // Guardar revision no cierra el tramite. El cierre se hace con el boton "Finalizar tramite".
+            $certificado->update(['estado' => 'EN_REVISION']);
 
             DB::commit();
 
             session()->flash('swal', [
-                'title' => $todosRequisitosCumplen && !$hayObservados ? 'Tramite aprobado' : 'Revision guardada',
+                'title' => 'Revision guardada',
                 'text' => $hayObservados
                     ? 'Hay requisitos observados. Use el boton para notificar al solicitante cuando termine la revision.'
                     : ($todosRequisitosCumplen
-                        ? 'La revision tecnica fue aprobada correctamente.'
+                        ? 'Todos los requisitos cumplen. Ahora puede finalizar el tramite.'
                         : 'Se guardo la revision parcial. Los requisitos sin marcar siguen pendientes.'),
                 'icon' => $hayObservados ? 'warning' : 'success',
             ]);
 
-            return redirect()->route('seguimientos_index');
+            return back();
         } catch (\Exception $e) {
             DB::rollBack();
 
             return back()->with('error', 'No se pudo guardar la revision tecnica. ' . $e->getMessage());
+        }
+    }
+
+    // FINALIZAR TRAMITE
+    // Cierra la etapa tecnica solo cuando todos los requisitos ya fueron marcados como cumplidos.
+    public function finalizarTramite(Seguimiento $seguimiento)
+    {
+        if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
+            return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $certificado = $seguimiento->certificado()
+                ->with('certificadoRequisitos')
+                ->firstOrFail();
+
+            if (!$certificado->cumpleTodosLosRequisitos()) {
+                DB::rollBack();
+
+                return back()->with('error', 'No se puede finalizar el tramite porque aun existen requisitos pendientes u observados.');
+            }
+
+            $certificado->update([
+                'estado' => 'APROBADO',
+                'fecha_fin' => now()->toDateString(),
+            ]);
+
+            $seguimiento->update([
+                'fecha_derivacion' => now()->toDateString(),
+                'fecha_final' => now()->toDateString(),
+            ]);
+
+            Seguimiento::create([
+                'id_seguimiento_padre' => $seguimiento->id,
+                'id_certificado' => $certificado->id,
+                'fecha_inicio' => now()->toDateString(),
+                'fecha_derivacion' => now()->toDateString(),
+                'fecha_final' => now()->toDateString(),
+                'descripcion_final' => 'Revision tecnica finalizada.',
+                'referencia' => 'Todos los requisitos cumplen.',
+                'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
+                'id_usuario_origen' => auth()->id(),
+                'id_usuario_siguiente' => null,
+                'estado' => 'FINALIZADO',
+            ]);
+
+            DB::commit();
+
+            session()->flash('swal', [
+                'title' => 'Tramite finalizado',
+                'text' => 'El tramite fue cerrado correctamente y ya puede imprimirse el certificado.',
+                'icon' => 'success',
+            ]);
+
+            return redirect()->route('seguimientos_finalizados');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->with('error', 'No se pudo finalizar el tramite. ' . $e->getMessage());
         }
     }
 

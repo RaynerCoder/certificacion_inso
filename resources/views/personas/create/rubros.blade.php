@@ -1,46 +1,28 @@
-{{-- RUBROS --}}
 <div id="seccion_rubros">
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 px-5 py-3">
+    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-3">
             <h2 class="text-base font-bold text-amber-700">
-                Rubros o Actividad Económica
+                Rubros o actividad económica
             </h2>
         </div>
 
-        <div class="p-6 space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
-                <div class="md:col-span-8">
-                    <x-wire-input label="Nombre del rubro" id="nombreRubro"
-                        placeholder="Ejemplo: Importación de equipos médicos" />
-                </div>
+        <div class="p-6">
+            <label for="rubrosPersona" class="mb-2 block text-sm font-semibold text-slate-700">
+                Seleccione uno o varios rubros
+            </label>
 
-                <div class="md:col-span-2">
-                    <x-wire-native-select label="Estado" id="estadoRubro">
-                        {{-- Estado textual para mantener consistencia con la base de datos: ACTIVO / INACTIVO. --}}
-                        <option value="ACTIVO">Activo</option>
-                        <option value="INACTIVO">Inactivo</option>
-                    </x-wire-native-select>
-                </div>
+            <select id="rubrosPersona" name="rubros[]" multiple
+                class="min-h-[132px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-100">
+                @foreach (($rubrosCatalogo ?? collect()) as $rubro)
+                    <option value="{{ $rubro->id }}" @selected(collect(old('rubros', $rubrosRegistrados ?? []))->map(fn ($id) => (string) $id)->contains((string) $rubro->id))>
+                        {{ $rubro->nombre }}
+                    </option>
+                @endforeach
+            </select>
 
-                <div class="md:col-span-2 flex items-end">
-                    <button type="button" onclick="agregarRubroPersona()"
-                        class="w-full px-4 py-2 rounded-lg bg-amber-600 text-white text-sm hover:bg-amber-700">
-                        Agregar Rubro
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
-                <h3 class="text-sm font-semibold text-gray-700">
-                    Rubros agregados
-                </h3>
-
-                <div id="listaRubrosPersona" class="flex flex-wrap gap-2 mt-3">
-                    <span id="mensajeSinRubros" class="text-sm text-gray-500">
-                        Todavía no se agregaron rubros.
-                    </span>
-                </div>
-            </div>
+            <p class="mt-2 text-xs text-slate-500">
+                Mantenga presionada la tecla Ctrl para seleccionar más de un rubro.
+            </p>
         </div>
     </div>
 </div>

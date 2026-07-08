@@ -5,7 +5,7 @@
     /*
      * Origen del formulario:
      * - Desde Productos: vuelve al listado.
-     * - Desde un trÃ¡mite: vuelve al detalle del trÃ¡mite que abriÃ³ este formulario.
+     * - Desde un trámite: vuelve al detalle del trámite que abrió este formulario.
      */
     $productoCertificadoOrigen = old('form_id_certificado', request('form_id_certificado'));
     $productoBandejaOrigen = old('form_bandeja', request('bandeja', 'recibidas'));
@@ -114,7 +114,7 @@
 
     @if ($productoEmbebido)
         <style>
-            /* Ajuste visual solo para el formulario cargado dentro de Nuevo TrÃ¡mite. */
+            /* Ajuste visual solo para el formulario cargado dentro de Nuevo Trámite. */
             body {
                 margin: 0;
                 background: #ffffff;
@@ -162,13 +162,13 @@
             value="{{ old('form_tipo_producto_temporal_descripcion') }}">
         <input type="hidden" id="form_tipo_producto_temporal_codigo" name="form_tipo_producto_temporal_codigo"
             value="{{ old('form_tipo_producto_temporal_codigo') }}">
-        {{-- Origen del flujo: permite volver a la pantalla que abriÃ³ Producto y relacionarlo al trÃ¡mite. --}}
+        {{-- Origen del flujo: permite volver a la pantalla que abrió Producto y relacionarlo al trámite. --}}
         <input type="hidden" name="form_id_certificado" value="{{ $productoCertificadoOrigen }}">
         <input type="hidden" name="form_bandeja" value="{{ $productoBandejaOrigen }}">
         <input type="hidden" name="form_retorno" value="{{ $productoRetornoSeguro }}">
 
         @unless ($productoEmbebido)
-            {{-- Encabezado principal: se oculta cuando Producto se carga dentro del trÃ¡mite. --}}
+            {{-- Encabezado principal: se oculta cuando Producto se carga dentro del trámite. --}}
             <div class="producto-header">
                 <div class="px-6 py-6">
                     <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -178,14 +178,14 @@
                             </h1>
                             <p class="mt-2 text-sm leading-relaxed text-slate-500">
                                 Complete el producto, sus ingredientes y presentaciones. Luego puede preparar la
-                                autorizaciÃ³n.
+                                autorización.
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Burbujas horizontales: en modo embebido las burbujas las maneja el trÃ¡mite. --}}
+            {{-- Burbujas horizontales: en modo embebido las burbujas las maneja el trámite. --}}
             <div class="producto-stepper-card">
                 <div class="producto-stepper" id="productoStepper">
                     <button type="button" class="producto-burbuja" data-producto-ir="0">
@@ -202,7 +202,7 @@
                     </button>
                     <button type="button" class="producto-burbuja" data-producto-ir="3">
                         <span class="producto-circulo">4</span>
-                        <span>RevisiÃ³n</span>
+                        <span>Revisión</span>
                     </button>
                 </div>
             </div>
@@ -296,7 +296,7 @@
     </form>
 
     @if ($productoEmbebido)
-        {{-- El producto se guarda en un iframe oculto para no sacar al usuario del trÃ¡mite actual. --}}
+        {{-- El producto se guarda en un iframe oculto para no sacar al usuario del trámite actual. --}}
         <iframe name="productoSubmitFrame" class="hidden" title="Guardado de producto"></iframe>
     @endif
 
@@ -319,17 +319,17 @@
                 <div>
                     <label class="producto-field-label" for="modal_fabricante_nombre">Nombre del fabricante</label>
                     <input class="producto-input" id="modal_fabricante_nombre" type="text"
-                        placeholder="Ej: AgroquÃ­mica Andina">
+                        placeholder="Ej: Agroquímica Andina">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_fabricante_razon_social">RazÃ³n social</label>
+                    <label class="producto-field-label" for="modal_fabricante_razon_social">Razón social</label>
                     <input class="producto-input" id="modal_fabricante_razon_social" type="text"
-                        placeholder="Ej: AgroquÃ­mica Andina S.R.L.">
+                        placeholder="Ej: Agroquímica Andina S.R.L.">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_fabricante_descripcion">DescripciÃ³n</label>
+                    <label class="producto-field-label" for="modal_fabricante_descripcion">Descripción</label>
                     <textarea class="producto-textarea" id="modal_fabricante_descripcion"
                         placeholder="Detalle corto del fabricante"></textarea>
                 </div>
@@ -356,20 +356,20 @@
                     </span>
                     <div>
                         <h3 class="producto-modal-title">Nuevo tipo de producto</h3>
-                        <p class="producto-modal-subtitle">Agregue un tipo temporal si no aparece en el catÃ¡logo.</p>
+                        <p class="producto-modal-subtitle">Agregue un tipo temporal si no aparece en el catálogo.</p>
                     </div>
                 </div>
             </div>
 
             <div class="producto-modal-body">
                 <div>
-                    <label class="producto-field-label" for="modal_tipo_producto_descripcion">DescripciÃ³n del tipo</label>
+                    <label class="producto-field-label" for="modal_tipo_producto_descripcion">Descripción del tipo</label>
                     <input class="producto-input" id="modal_tipo_producto_descripcion" type="text"
                         placeholder="Ej: Herbicida">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_tipo_producto_codigo">CÃ³digo</label>
+                    <label class="producto-field-label" for="modal_tipo_producto_codigo">Código</label>
                     <input class="producto-input" id="modal_tipo_producto_codigo" type="text"
                         placeholder="Ej: HERB">
                 </div>
@@ -409,7 +409,7 @@
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_ingrediente_composicion">ComposiciÃ³n</label>
+                    <label class="producto-field-label" for="modal_ingrediente_composicion">Composición</label>
                     <input class="producto-input" id="modal_ingrediente_composicion" type="text"
                         placeholder="Ej: Sal isopropilamina">
                 </div>
@@ -505,7 +505,7 @@
             ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
             ['Ingredientes', 'Agregue los ingredientes y sus porcentajes.'],
             ['Presentaciones y registros', 'Registre la presentacion y los datos del registro del producto.'],
-            ['RevisiÃ³n', 'Revise la informaciÃ³n antes de guardar el producto.'],
+            ['Revisión', 'Revise la información antes de guardar el producto.'],
         ];
 
         const productoColoresPaso = ['is-blue', 'is-teal', 'is-amber', 'is-teal'];
@@ -1153,7 +1153,7 @@
             const ingredienteComposicion = opcionIngrediente?.dataset.composicion || 'Sin composicion';
             const ingredienteRiesgoSalud = opcionIngrediente?.dataset.riesgoSalud || 'Sin riesgo registrado';
             const productoNombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
-            const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin cÃƒÂ³digo';
+            const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin código';
             const ingredienteValido = validarRequeridoProducto('form_ingrediente_select', 'Seleccione un ingrediente.');
             const porcentajeValido = validarNumeroProducto('form_ingrediente_porcentaje', 'Ingrese un porcentaje valido.', 0, 100);
 
@@ -1730,7 +1730,7 @@
             actualizarResumenProducto();
         }
 
-        // Actualiza el panel lateral y el resumen del paso de revisiÃ³n.
+        // Actualiza el panel lateral y el resumen del paso de revisión.
         function actualizarResumenProducto() {
             const nombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
             const codigo = document.getElementById('form_codigo')?.value || 'Sin codigo';

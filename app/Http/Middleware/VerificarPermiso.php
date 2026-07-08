@@ -67,6 +67,7 @@ class VerificarPermiso
             'rubros_' => 'rubros.ver',
             'tipos_certificados_' => 'tipos_certificados.ver',
             'requisitos_' => 'requisitos.ver',
+            'certificados_plantillas_' => 'plantillas_certificados.ver',
             'certificados_emitir' => 'certificados.emitir',
             'certificados_' => 'certificados.ver',
             'fabricantes_' => 'fabricantes.ver',

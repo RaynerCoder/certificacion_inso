@@ -12,7 +12,7 @@ class PresentacionController extends Controller
      */
     public function index()
     {
-        //
+        return view('presentaciones_productos.index');
     }
 
     /**

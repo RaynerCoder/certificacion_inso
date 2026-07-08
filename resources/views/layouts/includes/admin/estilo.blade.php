@@ -1,5 +1,123 @@
 {{-- Estilos locales: mejoran la lectura del menu sin cambiar el layout general. --}}
 <style>
+    .cert-topbar-actions {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .cert-topbar-profile-trigger {
+        display: inline-flex;
+        min-height: 34px;
+        max-width: min(300px, 36vw);
+        align-items: center;
+        gap: 9px;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 3px 7px;
+        text-align: left;
+        line-height: 1.05;
+        transition: background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .cert-topbar-profile-trigger:hover {
+        background: #f8fafc;
+    }
+
+    .cert-topbar-profile-trigger:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px #d1fae5;
+    }
+
+    .cert-topbar-avatar {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        border-radius: 9999px;
+        object-fit: cover;
+        box-shadow: 0 0 0 1px #d1fae5;
+    }
+
+    .cert-topbar-avatar-initials {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #d1fae5;
+        color: #047857;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .cert-topbar-profile-text {
+        display: block;
+        min-width: 0;
+    }
+
+    .cert-topbar-profile-name,
+    .cert-topbar-profile-detail,
+    .cert-topbar-profile-role {
+        display: block;
+        max-width: 190px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cert-topbar-profile-name {
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    .cert-topbar-profile-detail,
+    .cert-topbar-profile-role {
+        margin-top: 1px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .cert-topbar-profile-role {
+        color: #047857;
+    }
+
+    .cert-topbar-profile-chevron {
+        flex: 0 0 auto;
+        color: #94a3b8;
+        font-size: 11px;
+    }
+
+    @media (max-width: 640px) {
+        .cert-topbar-profile-trigger {
+            max-width: 54vw;
+            gap: 7px;
+            padding-inline: 6px;
+        }
+
+        .cert-topbar-avatar {
+            width: 30px;
+            height: 30px;
+            flex-basis: 30px;
+        }
+
+        .cert-topbar-profile-name,
+        .cert-topbar-profile-detail,
+        .cert-topbar-profile-role {
+            max-width: 34vw;
+        }
+
+        .cert-topbar-profile-name {
+            font-size: 12px;
+        }
+
+        .cert-topbar-profile-detail,
+        .cert-topbar-profile-role {
+            font-size: 10px;
+        }
+    }
+
     .cert-sidebar {
         background: #1f2937;
         border-right: 1px solid #374151;
@@ -16,6 +134,7 @@
 
     .cert-sidebar-menu {
         flex: 1 1 auto;
+        padding-top: 2px;
     }
 
     .cert-sidebar-theme-panel {
@@ -76,7 +195,7 @@
     }
 
     .cert-sidebar-section {
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
 
     .cert-menu-link,
@@ -90,7 +209,7 @@
         border-radius: 8px;
         background: transparent;
         color: #cbd5e1;
-        padding: 10px 11px;
+        padding: 8px 10px;
         text-align: left;
         transition: background 160ms ease, color 160ms ease;
     }
@@ -116,8 +235,8 @@
 
     .cert-menu-icon {
         display: inline-flex;
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
         flex: 0 0 auto;
         align-items: center;
         justify-content: center;
@@ -147,7 +266,7 @@
 
     .cert-menu-description {
         display: block;
-        margin-top: 3px;
+        margin-top: 2px;
         color: #94a3b8;
         font-size: 11px;
         font-weight: 500;
@@ -160,7 +279,7 @@
     }
 
     .cert-submenu {
-        margin: 6px 0 8px 16px;
+        margin: 5px 0 7px 16px;
         border-left: 1px solid #4b5563;
         padding-left: 10px;
     }
@@ -171,7 +290,7 @@
         gap: 9px;
         border-radius: 7px;
         color: #cbd5e1;
-        padding: 8px 9px;
+        padding: 7px 9px;
         font-size: 13px;
         font-weight: 700;
         transition: background 160ms ease, color 160ms ease;

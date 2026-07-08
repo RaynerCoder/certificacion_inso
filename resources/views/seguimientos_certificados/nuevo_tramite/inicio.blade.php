@@ -56,7 +56,7 @@
                 </div>
 
                 <div>
-                    <h2 class="tramite-persona-title">Iniciar tr&aacute;mite</h2>
+                    <h2 class="tramite-persona-title">Iniciar trámite</h2>
                     <p class="tramite-persona-subtitle">
                         Complete los datos principales para registrar y enviar la solicitud.
                     </p>
@@ -72,7 +72,7 @@
                     <i class="fa-regular fa-user"></i>
                 </span>
 
-                <span class="tramite-registro-label">Usuario que registra tr&aacute;mite</span>
+                <span class="tramite-registro-label">Usuario que registra trámite</span>
                 <strong>{{ $nombreRegistroTramite ?: 'Usuario del sistema' }}</strong>
                 <span class="tramite-registro-separator"></span>
                 <span class="tramite-registro-role">{{ $detalleRegistroTramite }}</span>
@@ -281,7 +281,7 @@
                 <div>
                     <h2 class="tramite-persona-title">Documentos requeridos</h2>
                     <p class="tramite-persona-subtitle">
-                        Adjunte la evidencia disponible. El funcionario asignado revisar&aacute; si cumple.
+                        Adjunte la evidencia disponible. El funcionario asignado revisará si cumple.
                     </p>
                 </div>
             </div>

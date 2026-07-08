@@ -167,6 +167,13 @@ Route::delete('/requisitos/{requisito}', [RequisitoController::class, 'destroy']
 Route::get('/certificados', [CertificadoController::class, 'index'])->name('certificados_index');
 Route::get('/certificados/create', [CertificadoController::class, 'create'])->name('certificados_create');
 Route::post('/certificados', [CertificadoController::class, 'store'])->name('certificados_store');
+Route::get('/certificados-emitidos', [CertificadoController::class, 'emitidos'])->name('certificados_emitidos_index');
+Route::get('/certificados/plantillas', [CertificadoController::class, 'plantillas'])->name('certificados_plantillas_index');
+Route::get('/certificados/plantillas/create', [CertificadoController::class, 'crearPlantilla'])->name('certificados_plantillas_create');
+Route::post('/certificados/plantillas', [CertificadoController::class, 'guardarPlantilla'])->name('certificados_plantillas_store');
+Route::put('/certificados/plantillas/guardar/{plantillaCertificado}', [CertificadoController::class, 'actualizarPlantilla'])->name('certificados_plantillas_update');
+Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController::class, 'verPlantilla'])->name('certificados_plantillas_show');
+Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])->name('certificados_enviar_solicitante');
@@ -323,6 +330,7 @@ Route::get('/cargos/{cargo}',[CargoController::class, 'show'])->name('cargos_sho
 Route::get('/seguimientos', [SeguimientoController::class, 'index'])->name('seguimientos_index')->middleware('permiso:seguimientos_tramite.atender');
 Route::get('/seguimientos/mis-solicitudes', [SeguimientoController::class, 'index'])->name('seguimientos_mis_solicitudes')->middleware('permiso:seguimientos_tramite.enviados');
 Route::get('/seguimientos/todos', [SeguimientoController::class, 'index'])->name('seguimientos_todos')->middleware('permiso:seguimientos_tramite.consulta_general');
+Route::get('/seguimientos/finalizados', [SeguimientoController::class, 'index'])->name('seguimientos_finalizados')->middleware('permiso:seguimientos_tramite.consulta_general');
 Route::get('/seguimientos/create', [SeguimientoController::class, 'create'])->name('seguimientos_create')->middleware('permiso:seguimientos_tramite.iniciar');
 Route::post('/seguimientos', [SeguimientoController::class, 'store'])
     ->name('seguimientos_store')
@@ -331,6 +339,7 @@ Route::get('/seguimientos/{seguimiento}/historial', [SeguimientoController::clas
 Route::post('/seguimientos/{seguimiento}/asignar-tecnico', [SeguimientoController::class, 'asignarTecnico'])->name('seguimientos_asignar_tecnico')->middleware('permiso:seguimientos_tramite.atender');
 Route::post('/seguimientos/{seguimiento}/derivar-tecnico', [SeguimientoController::class, 'derivarTecnico'])->name('seguimientos_derivar_tecnico')->middleware('permiso:seguimientos_tramite.atender');
 Route::post('/seguimientos/{seguimiento}/revision-tecnica', [SeguimientoController::class, 'revisarTecnico'])->name('seguimientos_revision_tecnica')->middleware('permiso:seguimientos_tramite.atender');
+Route::post('/seguimientos/{seguimiento}/finalizar-tramite', [SeguimientoController::class, 'finalizarTramite'])->name('seguimientos_finalizar_tramite')->middleware('permiso:seguimientos_tramite.atender');
 Route::post('/seguimientos/{seguimiento}/notificar-correccion', [SeguimientoController::class, 'notificarCorreccionSolicitante'])->name('seguimientos_notificar_correccion')->middleware('permiso:seguimientos_tramite.atender');
 Route::post('/seguimientos/{seguimiento}/registrar-correccion-recibida', [SeguimientoController::class, 'registrarCorreccionRecibida'])->name('seguimientos_registrar_correccion_recibida')->middleware('permiso:seguimientos_tramite.atender');
 Route::post('/seguimientos/{seguimiento}/reenviar-correccion', [SeguimientoController::class, 'reenviarCorreccion'])->name('seguimientos_reenviar_correccion')->middleware('permiso:seguimientos_tramite.enviados');
@@ -378,3 +387,41 @@ Route::post('/tipos_evidencias', [TipoEvidenciaController::class, 'store'])->nam
 Route::get('/tipos_evidencias/{tipoEvidencia}/edit', [TipoEvidenciaController::class, 'edit'])->name('tipos_evidencias_edit');
 Route::put('/tipos_evidencias/{tipoEvidencia}', [TipoEvidenciaController::class, 'update'])->name('tipos_evidencias_update');
 Route::delete('/tipos_evidencias/{tipoEvidencia}', [TipoEvidenciaController::class, 'destroy'])->name('tipos_evidencias_destroy');
+
+
+
+
+/* =========================
+   INGREDIENTES
+========================= */
+Route::get('/ingredientes', [IngredienteController::class, 'index'])->name('ingredientes_index');
+Route::get('/ingredientes/create', [IngredienteController::class, 'create'])->name('ingredientes_create');
+Route::post('/ingredientes', [IngredienteController::class, 'store'])->name('ingredientes_store');
+Route::get('/ingredientes/{ingrediente}/edit', [IngredienteController::class, 'edit'])->name('ingredientes_edit');
+Route::put('/ingredientes/{ingrediente}', [IngredienteController::class, 'update'])->name('ingredientes_update');
+Route::delete('/ingredientes/{ingrediente}', [IngredienteController::class, 'destroy'])->name('ingredientes_destroy');
+
+
+
+
+/* =========================
+   PRESENTACIONES
+========================= */
+Route::get('/presentaciones', [PresentacionController::class, 'index'])->name('presentaciones_index');
+Route::get('/presentaciones/create', [PresentacionController::class, 'create'])->name('presentaciones_create');
+Route::post('/presentaciones', [PresentacionController::class, 'store'])->name('presentaciones_store');
+Route::get('/presentaciones/{presentacion}/edit', [PresentacionController::class, 'edit'])->name('presentaciones_edit');
+Route::put('/presentaciones/{presentacion}', [PresentacionController::class, 'update'])->name('presentaciones_update');
+Route::delete('/presentaciones/{presentacion}', [PresentacionController::class, 'destroy'])->name('presentaciones_destroy');
+
+
+
+/* =========================
+   REGISTROS
+========================= */
+Route::get('/registros', [RegistroController::class, 'index'])->name('registros_index');
+Route::get('/registros/create', [RegistroController::class, 'create'])->name('registros_create');
+Route::post('/registros', [RegistroController::class, 'store'])->name('registros_store');
+Route::get('/registros/{registro}/edit', [RegistroController::class, 'edit'])->name('registros_edit');
+Route::put('/registros/{registro}', [RegistroController::class, 'update'])->name('registros_update');
+Route::delete('/registros/{registro}', [RegistroController::class, 'destroy'])->name('registros_destroy');

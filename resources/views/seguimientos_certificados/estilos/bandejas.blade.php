@@ -149,6 +149,69 @@
             max-width: 240px;
         }
 
+        /* Consulta general de seguimiento: columnas compactas y texto con salto de linea. */
+        .solicitudes-panel-body.is-follow-table table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th,
+        .solicitudes-panel-body.is-follow-table table td {
+            line-height: 1.35;
+            vertical-align: top;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(1),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(1) {
+            width: 54px;
+            white-space: nowrap !important;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(2),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(2) {
+            width: 130px;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(3),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(3) {
+            width: 17%;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(4),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(4),
+        .solicitudes-panel-body.is-follow-table table th:nth-child(5),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(5) {
+            width: 13%;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(6),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(6) {
+            width: 145px;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(7),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(7) {
+            width: 165px;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(8),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(8) {
+            width: 105px;
+            text-align: center;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(9),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(9) {
+            width: 118px;
+        }
+
+        .solicitudes-panel-body.is-follow-table table th:nth-child(10),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(10) {
+            width: 138px;
+        }
+
         .solicitudes-panel-badge {
             border-radius: 999px;
             font-size: 11px;

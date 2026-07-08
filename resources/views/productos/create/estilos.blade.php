@@ -200,9 +200,10 @@
     }
 
     /* El card principal ya contiene el paso; por eso se quita el segundo marco visual interno. */
+    .producto-step-grid,
     .producto-step>.producto-section>.grid,
     .producto-step>.producto-section>.space-y-5 {
-        padding: 0 !important;
+        padding: 20px !important;
     }
 
     .producto-step {
@@ -216,14 +217,14 @@
     .producto-step-compose {
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        padding: 0;
+        gap: 18px;
+        padding: 20px;
     }
 
     .producto-form-panel {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
@@ -231,8 +232,59 @@
     }
 
     .producto-form-panel-separated {
-        margin-top: 8px;
-        padding-top: 4px;
+        margin-top: 2px;
+        padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .producto-registro-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        align-items: start;
+        gap: 16px;
+    }
+
+    .producto-registro-grid .md\:col-span-12 {
+        grid-column: 1 / -1;
+    }
+
+    .producto-registro-grid-presentacion .producto-campo-cantidad {
+        grid-column: span 2;
+    }
+
+    .producto-registro-grid-presentacion .producto-campo-unidad {
+        grid-column: span 3;
+    }
+
+    .producto-registro-grid-presentacion .producto-campo-estado {
+        grid-column: span 2;
+    }
+
+    .producto-registro-grid-presentacion .producto-campo-etiqueta {
+        grid-column: span 5;
+    }
+
+    .producto-registro-grid .producto-campo-descripcion,
+    .producto-registro-grid .producto-campo-acciones {
+        grid-column: 1 / -1;
+    }
+
+    .producto-registro-grid-autorizacion .producto-campo-codigo {
+        grid-column: span 4;
+    }
+
+    .producto-registro-grid-autorizacion .producto-campo-fecha,
+    .producto-registro-grid-autorizacion .producto-campo-cantidad,
+    .producto-registro-grid-autorizacion .producto-campo-unidad,
+    .producto-registro-grid-autorizacion .producto-campo-estado {
+        grid-column: span 2;
+    }
+
+    .producto-campo-acciones {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        min-height: 64px;
     }
 
     .producto-inline-head {
@@ -270,7 +322,8 @@
 
     .producto-field-label {
         display: block;
-        margin-bottom: 5px;
+        min-height: 18px;
+        margin-bottom: 6px;
         color: #0f172a;
         font-size: 12px;
         font-weight: 800;
@@ -291,9 +344,9 @@
 
     .producto-input,
     .producto-select {
-        height: 40px;
-        min-height: 40px;
-        padding: 8px 11px;
+        height: 42px;
+        min-height: 42px;
+        padding: 9px 11px;
     }
 
     .producto-textarea {
@@ -555,7 +608,9 @@
     }
 
     .producto-table-registros-presentaciones {
-        min-width: 980px;
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
         overflow: hidden;
@@ -563,7 +618,7 @@
 
     .producto-table-registros-presentaciones th,
     .producto-table-registros-presentaciones td {
-        white-space: nowrap;
+        white-space: normal;
     }
 
     .producto-table-registros-presentaciones th {
@@ -581,7 +636,7 @@
 
     .producto-table-registros-presentaciones td {
         border-right: 1px solid #cbd5e1;
-        padding: 18px 18px;
+        padding: 14px 14px;
     }
 
     .producto-table-registros-presentaciones tbody tr:hover td {
@@ -590,10 +645,9 @@
 
     .producto-table-registros-presentaciones th:first-child,
     .producto-table-registros-presentaciones td:first-child {
-        width: 54px;
-        min-width: 54px;
+        width: 48px;
         color: #0f172a;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 900;
         text-align: center;
         vertical-align: middle;
@@ -601,25 +655,22 @@
 
     .producto-table-registros-presentaciones th:nth-child(2),
     .producto-table-registros-presentaciones td:nth-child(2) {
-        min-width: 220px;
+        width: 20%;
     }
 
     .producto-table-registros-presentaciones th:nth-child(3),
     .producto-table-registros-presentaciones td:nth-child(3) {
-        min-width: 420px;
-        white-space: normal;
+        width: 31%;
     }
 
     .producto-table-registros-presentaciones th:nth-child(4),
     .producto-table-registros-presentaciones td:nth-child(4) {
-        min-width: 380px;
-        white-space: normal;
+        width: 30%;
     }
 
     .producto-table-registros-presentaciones th:nth-child(5),
     .producto-table-registros-presentaciones td:nth-child(5) {
-        min-width: 105px;
-        white-space: nowrap;
+        width: 118px;
         text-align: center;
         vertical-align: middle;
     }
@@ -647,7 +698,7 @@
 
     .producto-table-product {
         display: grid;
-        gap: 18px;
+        gap: 12px;
         min-width: 0;
     }
 
@@ -659,7 +710,7 @@
 
     .producto-table-product-title strong {
         color: #0f172a;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 900;
         line-height: 1.15;
     }
@@ -696,14 +747,14 @@
 
     .producto-table-detail {
         display: grid;
-        gap: 15px;
+        gap: 10px;
     }
 
     .producto-table-detail>div {
         display: grid;
-        grid-template-columns: minmax(120px, 0.45fr) minmax(0, 1fr);
-        align-items: center;
-        gap: 12px;
+        grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+        align-items: start;
+        gap: 8px;
         min-width: 0;
     }
 
@@ -714,7 +765,7 @@
     .producto-table-detail span {
         display: block;
         color: #334155;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         line-height: 1.25;
         text-transform: none;
@@ -724,7 +775,7 @@
         display: block;
         margin-top: 0;
         color: #0f172a;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
         line-height: 1.25;
         white-space: normal;
@@ -747,16 +798,16 @@
     }
 
     .producto-row-actions {
-        display: inline-flex;
+        display: flex;
         flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
+        align-items: center;
+        gap: 8px;
     }
 
     .producto-action-icon {
         display: inline-flex;
-        width: 74px;
-        min-height: 34px;
+        width: 78px;
+        min-height: 32px;
         align-items: center;
         justify-content: center;
         border-radius: 7px;
@@ -1415,8 +1466,8 @@
     }
 
     .producto-upload-card-compact {
-        height: 40px;
-        min-height: 40px;
+        height: 42px;
+        min-height: 42px;
         gap: 7px;
         background: #ffffff;
         padding: 4px 6px;
@@ -1451,31 +1502,31 @@
     }
 
     .producto-table-file-input {
-        display: inline-flex;
+        display: flex;
         max-width: 100%;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
     }
 
     .producto-table-file-icon {
         display: inline-flex;
-        width: auto;
-        height: auto;
+        width: 22px;
+        height: 22px;
         flex: 0 0 auto;
         align-items: center;
         justify-content: center;
         border-radius: 0;
         background: transparent;
         color: #ef4444;
-        font-size: 18px;
+        font-size: 15px;
     }
 
     .producto-table-file-name {
-        max-width: 190px;
+        max-width: 150px;
         overflow: hidden;
         color: #334155;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1567,6 +1618,13 @@
             padding-inline: 14px;
         }
 
+        .producto-step-grid,
+        .producto-step-compose,
+        .producto-step>.producto-section>.grid,
+        .producto-step>.producto-section>.space-y-5 {
+            padding: 14px !important;
+        }
+
         .producto-action-bar {
             align-items: stretch;
             flex-direction: column;
@@ -1580,6 +1638,34 @@
 
         .producto-action-buttons {
             flex-direction: column;
+        }
+
+        .producto-registro-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .producto-registro-grid .md\:col-span-12,
+        .producto-registro-grid-presentacion .producto-campo-cantidad,
+        .producto-registro-grid-presentacion .producto-campo-unidad,
+        .producto-registro-grid-presentacion .producto-campo-estado,
+        .producto-registro-grid-presentacion .producto-campo-etiqueta,
+        .producto-registro-grid .producto-campo-descripcion,
+        .producto-registro-grid .producto-campo-acciones,
+        .producto-registro-grid-autorizacion .producto-campo-codigo,
+        .producto-registro-grid-autorizacion .producto-campo-fecha,
+        .producto-registro-grid-autorizacion .producto-campo-cantidad,
+        .producto-registro-grid-autorizacion .producto-campo-unidad,
+        .producto-registro-grid-autorizacion .producto-campo-estado {
+            grid-column: 1 / -1;
+        }
+
+        .producto-campo-acciones {
+            justify-content: stretch;
+        }
+
+        .producto-campo-acciones .producto-btn {
+            width: 100%;
         }
 
         /* En movil el cargador PDF se apila ordenado para que los botones no aplasten el nombre del archivo. */
@@ -1616,7 +1702,7 @@
         }
 
         .producto-table-registros-presentaciones {
-            min-width: 980px;
+            min-width: 860px;
         }
 
         .producto-table th,

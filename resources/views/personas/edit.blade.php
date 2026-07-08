@@ -31,6 +31,8 @@
                     'form_nombres' => 'Ingrese los nombres.',
                     'form_apellido_paterno' => 'Ingrese el apellido paterno.',
                     'form_genero' => 'Seleccione el genero.',
+                'form_expedido' => 'Seleccione el lugar de expedición.',
+                'form_id_ocupacion' => 'Seleccione la ocupación.',
                     'form_id_tipo_empresa' => 'Seleccione el tipo de empresa.',
                     'form_razon_social' => 'Ingrese la razon social.',
                     'form_matricula' => 'Ingrese la matricula.',
@@ -63,7 +65,7 @@
     @include('personas.create.estilos')
 
     {{-- Formulario principal: conserva la ruta actual y envia todo al controlador existente. --}}
-    <form id="formPersonaWizard" action="{{ route('personas_update', $persona) }}" method="POST" enctype="multipart/form-data"
+    <form id="formPersonaWizard" action="{{ route('personas_update', $persona) }}" method="POST" enctype="multipart/form-data" novalidate
         class="persona-wizard" autocomplete="off" data-modo-formulario="edit" data-persona-id="{{ $persona->id }}"
         data-cuenta-existente="{{ $persona->usuario ? '1' : '0' }}"
         data-tiene-errores="{{ $errors->any() ? '1' : '0' }}">
@@ -243,13 +245,13 @@
                             @include('personas.create.telefonos')
                         </div>
 
-                        {{-- Bloque separado: solo se muestra cuando el registro es Persona Natural. --}}
+                        {{-- Bloque separado: se usa para persona natural y empresa. --}}
                         <div id="bloque_rubros_wizard" class="wizard-section-block is-soft">
                             <div class="wizard-section-heading">
                                 <span class="wizard-section-number">2</span>
                                 <div>
-                                    <h3>Rubros o actividad economica</h3>
-                                    <p>Registre los rubros relacionados con la persona natural.</p>
+                                    <h3>Rubros o actividad económica</h3>
+                                    <p>Seleccione los rubros relacionados con el registro.</p>
                                 </div>
                             </div>
 
@@ -438,7 +440,6 @@
     <script>
         const tieneErroresEdicion = @json($errors->any());
         const telefonosRegistrados = @json(old('telefonos', $telefonosRegistrados));
-        const rubrosRegistrados = @json(old('rubros', $rubrosRegistrados));
         const responsablesRegistrados = @json(old('responsables', $responsablesRegistrados));
 
         // Si vuelve por errores, el script general ya recupera old(); aqui solo precargamos datos guardados.
@@ -449,12 +450,6 @@
                 agregarTelefonoPersona();
             });
 
-            rubrosRegistrados.forEach((rubro) => {
-                document.getElementById('nombreRubro').value = rubro.nombre || '';
-                // Convierte datos antiguos 0/1 a texto para que rubros siempre trabaje con ACTIVO/INACTIVO.
-                document.getElementById('estadoRubro').value = rubro.estado === 'INACTIVO' || rubro.estado === '0' ? 'INACTIVO' : 'ACTIVO';
-                agregarRubroPersona();
-            });
 
             responsablesRegistrados.forEach((responsable) => {
                 rehidratarResponsablePersonaWizard({

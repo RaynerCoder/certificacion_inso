@@ -630,6 +630,13 @@
                                             Guardar revisión
                                         </button>
 
+                                        @if ($puedeFinalizarTramite)
+                                            <button type="submit" form="form-finalizar-tramite" class="tramite-btn tramite-btn-ok">
+                                                <i class="fa-solid fa-circle-check"></i>
+                                                Finalizar trámite
+                                            </button>
+                                        @endif
+
                                         @if ($puedeEmitirCertificado)
                                             <a href="{{ route('certificados_emitir', $certificado) }}" class="tramite-btn tramite-btn-emit">
                                                 <i class="fa-regular fa-file-lines"></i>
@@ -648,6 +655,11 @@
                             </form>
                             @if ($puedeNotificarCorreccion)
                                 <form id="form-notificar-correccion-v2" action="{{ route('seguimientos_notificar_correccion', $seguimientoTecnicoActual) }}" method="POST">
+                                    @csrf
+                                </form>
+                            @endif
+                            @if ($puedeFinalizarTramite)
+                                <form id="form-finalizar-tramite" action="{{ route('seguimientos_finalizar_tramite', $seguimientoTecnicoActual) }}" method="POST">
                                     @csrf
                                 </form>
                             @endif

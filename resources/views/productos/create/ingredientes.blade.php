@@ -1,8 +1,8 @@
 {{-- Paso 2: tabla pivote ingredientes_productos. --}}
 <div class="producto-step" data-producto-step="1">
     <section class="producto-section">
-        <div class="space-y-5 p-5">
-            <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 m-2">
+        <div class="producto-step-grid space-y-5">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
                 <div class="lg:col-span-6">
                     <div class="mb-2 flex items-center justify-between gap-2">
                         <label class="producto-field-label !mb-0" for="form_ingrediente_select">Ingrediente</label>

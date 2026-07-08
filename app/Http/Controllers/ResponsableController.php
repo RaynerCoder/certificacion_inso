@@ -423,18 +423,40 @@ class ResponsableController extends Controller
             }
         }
 
-        Rubro::where('id_persona', $persona->id)->delete();
-        foreach ($datos['rubros'] as $rubro) {
-            if (! empty($rubro['nombre'])) {
-                Rubro::create([
-                    'id_persona' => $persona->id,
-                    'nombre' => $this->mayuscula($rubro['nombre']),
-                    'estado' => $rubro['estado'] ?: 'ACTIVO',
-                ]);
-            }
-        }
+        $this->sincronizarRubrosResponsable($persona, $datos['rubros'] ?? []);
     }
 
+    /**
+     * Guarda los rubros como catalogo y vincula la persona por la tabla pivote.
+     */
+    private function sincronizarRubrosResponsable(Persona $persona, array $rubros): void
+    {
+        $idsRubros = collect($rubros)
+            ->map(function ($rubro) {
+                if (is_array($rubro) && ! empty($rubro['id'])) {
+                    return (int) $rubro['id'];
+                }
+
+                $nombre = is_array($rubro) ? ($rubro['nombre'] ?? null) : $rubro;
+                $nombre = $this->mayuscula($nombre);
+
+                if (! $nombre) {
+                    return null;
+                }
+
+                return Rubro::firstOrCreate(
+                    ['nombre' => $nombre],
+                    ['descripcion' => null, 'estado' => 'ACTIVO']
+                )->id;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $persona->rubros()->sync(
+            $idsRubros->mapWithKeys(fn ($idRubro) => [(int) $idRubro => ['estado' => 'ACTIVO']])->all()
+        );
+    }
     /**
      * Convierte un JSON de listas editables en arreglo seguro para guardar.
      */
@@ -466,3 +488,5 @@ class ResponsableController extends Controller
         return filled($valor) ? mb_strtoupper(trim($valor), 'UTF-8') : null;
     }
 }
+
+

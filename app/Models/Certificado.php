@@ -64,6 +64,7 @@ class Certificado extends Model
     public function puedeEmitirse(): bool
     {
         return $this->cumpleTodosLosRequisitos()
+            && in_array($this->estado, ['APROBADO', 'EMITIDO'], true)
             && !$this->debeMarcarseComoVencido()
             && !in_array($this->estado, ['ANULADO', 'RECHAZADO'], true);
     }
@@ -127,11 +128,7 @@ class Certificado extends Model
             return 'OBSERVADO';
         }
 
-        if ($this->cumpleTodosLosRequisitos()) {
-            return 'APROBADO';
-        }
-
-        // Si todavia no tiene requisitos cargados, se respeta el estado elegido en el formulario.
+        // Cumplir requisitos no aprueba por si solo: el cierre se hace con "Finalizar tramite".
         return $estadoBase === 'VENCIDO' ? 'EN_REVISION' : $estadoBase;
     }
 
@@ -162,7 +159,6 @@ class Certificado extends Model
     public static function actualizarCertificadosEstadosVencidos(): int
     {
         $datosVencido = ['estado' => 'VENCIDO'];
-        $datosAprobado = ['estado' => 'APROBADO'];
         $datosObservado = ['estado' => 'OBSERVADO'];
 
         // Marca como vencidos los certificados cuya fecha final ya paso.
@@ -196,25 +192,7 @@ class Certificado extends Model
             })
             ->update($datosObservado);
 
-        // Si no vencio y todos los requisitos cumplen, el certificado queda aprobado.
-        $aprobados = static::query()
-            ->whereNotIn('estado', ['ANULADO', 'RECHAZADO', 'EMITIDO'])
-            ->where(function ($query) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', now()->toDateString());
-            })
-            ->where(function ($query) {
-                $query->whereNull('estado')
-                    ->orWhere('estado', '!=', 'APROBADO');
-            })
-            ->whereHas('certificadoRequisitos')
-            ->whereDoesntHave('certificadoRequisitos', function ($query) {
-                $query->whereNull('cumple')
-                    ->orWhere('cumple', '!=', 'SI');
-            })
-            ->update($datosAprobado);
-
-        return $vencidos + $observados + $aprobados;
+        return $vencidos + $observados;
     }
 
 

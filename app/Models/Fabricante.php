@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\Auditable;
 
 class Fabricante extends Model
 {
     use SoftDeletes, Auditable;
+
     protected $table = 'fabricantes';
+
     protected $fillable = [
         'nombre',
         'descripcion',
@@ -21,8 +23,5 @@ class Fabricante extends Model
     public function productos()
     {
         return $this->hasMany(Producto::class, 'id_fabricante');
-    }    
-    
-    
-
+    }
 }
