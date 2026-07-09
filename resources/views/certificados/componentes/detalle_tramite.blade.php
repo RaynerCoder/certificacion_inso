@@ -158,7 +158,7 @@
         // Toma la ultima evidencia de archivo del requisito: PDF o imagen.
         $evidenciaArchivoRequisito = function ($requisitoCertificado) {
             return $requisitoCertificado->evidenciasRequisitos
-                ->filter(fn ($evidencia) => in_array($evidencia->tipoEvidencia?->codigo, ['PDF', 'IMAGEN'], true))
+                ->filter(fn ($evidencia) => in_array($evidencia->tipoEvidencia?->codigo, ['PDF', 'IMAGEN', 'PAGO'], true))
                 ->sortByDesc('id')
                 ->first();
         };
@@ -240,7 +240,7 @@
         // Localiza el PDF o imagen de cada requisito usando evidencias_requisitos.
         $urlDocumentoRequisito = function ($requisitoCertificado) {
             $evidencia = $requisitoCertificado->evidenciasRequisitos
-                ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN'], true))
+                ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN', 'PAGO'], true))
                 ->sortByDesc('id')
                 ->first();
 
@@ -664,8 +664,14 @@
                                 </form>
                             @endif
                         @elseif ($seguimientoCorreccionActual)
-                            {{-- Vista del solicitante: solo consulta las observaciones. La recepcion de correccion la registra un funcionario. --}}
-                            <div id="form-correccion-requisitos-v2">
+                            {{-- El solicitante corrige cada requisito segun el tipo de evidencia configurado. --}}
+                            <form id="form-correccion-requisitos-v2"
+                                action="{{ route('seguimientos_reenviar_correccion', $seguimientoCorreccionActual) }}"
+                                method="POST"
+                                enctype="multipart/form-data"
+                                data-prevent-double-submit
+                                data-loading-button="Devolviendo...">
+                                @csrf
 
                                 <div class="cert-show-table-wrap tramite-table-wrap">
                                     <table class="cert-show-table cert-review-table tramite-table tramite-requirements-table cert-correction-table">
@@ -675,20 +681,27 @@
                                                 <th>Requisito</th>
                                                 <th class="cert-review-col-result">Cumple</th>
                                                 <th>Estado</th>
-                                                <th>Documento</th>
+                                                <th>Evidencia actual</th>
                                                 <th>Observación del técnico</th>
+                                                <th>Corrección</th>
                                                 <th class="cert-review-col-history">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                                    @forelse ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado)
-                                                        @php
-                                                            $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
-                                                            $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                            $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
-                                                            // Ultima observacion que el tecnico notifico para este requisito observado.
-                                                            $ultimaObservacionCorreccion = $ultimaObservacionDeRequisito($requisitoCertificado);
-                                                        @endphp
+                                            @forelse ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado)
+                                                @php
+                                                    $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
+                                                    $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                    $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
+                                                    $ultimaObservacionCorreccion = $ultimaObservacionDeRequisito($requisitoCertificado);
+                                                    $evidenciaPrincipalCorreccion = $requisitoCertificado->evidenciasRequisitos->sortByDesc('id')->first();
+                                                    $valorEvidenciaCorreccion = $evidenciaPrincipalCorreccion?->valor;
+                                                    $rutaProductoCorreccion = route('productos_create', [
+                                                        'form_id_certificado' => $certificado->id,
+                                                        'form_id_importador_persona' => $certificado->id_persona_beneficiario,
+                                                        'return_to' => request()->fullUrl(),
+                                                    ]);
+                                                @endphp
                                                 <tr class="cert-requirement-row is-observed tramite-row-observed">
                                                     <td>{{ $loop->iteration }}</td>
                                                     <td>
@@ -718,13 +731,63 @@
                                                             @else
                                                                 <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin evidencia</span>
                                                             @endif
-
                                                         </div>
                                                     </td>
                                                     <td>
                                                         <span class="cert-correction-observation-text">
                                                             {{ $ultimaObservacionCorreccion?->observacion ?? 'Sin observación' }}
                                                         </span>
+                                                    </td>
+                                                    <td>
+                                                        @if (in_array($codigoEvidencia, ['PDF', 'IMAGEN', 'PAGO'], true))
+                                                            <label class="cert-correction-file">
+                                                                <input type="file"
+                                                                    name="documentos_correccion[{{ $requisitoCertificado->id }}]"
+                                                                    accept="{{ $codigoEvidencia === 'IMAGEN' ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf' }}">
+                                                                <span>
+                                                                    <i class="fa-solid fa-upload"></i>
+                                                                    @if ($codigoEvidencia === 'IMAGEN')
+                                                                        Seleccionar imagen
+                                                                    @elseif ($codigoEvidencia === 'PAGO')
+                                                                        Seleccionar comprobante
+                                                                    @else
+                                                                        Seleccionar PDF
+                                                                    @endif
+                                                                </span>
+                                                            </label>
+                                                            @error("documentos_correccion.{$requisitoCertificado->id}")
+                                                                <p class="cert-correction-error">{{ $message }}</p>
+                                                            @enderror
+                                                        @elseif ($codigoEvidencia === 'TEXTO')
+                                                            <textarea
+                                                                name="textos_correccion[{{ $requisitoCertificado->id }}]"
+                                                                class="cert-correction-textarea"
+                                                                rows="3"
+                                                                placeholder="Escriba la corrección solicitada">{{ old("textos_correccion.{$requisitoCertificado->id}", $valorEvidenciaCorreccion) }}</textarea>
+                                                            @error("textos_correccion.{$requisitoCertificado->id}")
+                                                                <p class="cert-correction-error">{{ $message }}</p>
+                                                            @enderror
+                                                        @elseif ($codigoEvidencia === 'PRODUCTO')
+                                                            <a href="{{ $rutaProductoCorreccion }}" class="cert-correction-action">
+                                                                <i class="fa-solid fa-box"></i>
+                                                                Registrar producto
+                                                            </a>
+                                                            @error("requisito_producto_{$requisitoCertificado->id}")
+                                                                <p class="cert-correction-error">{{ $message }}</p>
+                                                            @enderror
+                                                        @elseif ($codigoEvidencia === 'CERTIFICADO')
+                                                            <span class="cert-correction-note">
+                                                                El sistema verificará el certificado requerido.
+                                                            </span>
+                                                        @elseif ($codigoEvidencia === 'PRESENCIAL')
+                                                            <span class="cert-correction-note">
+                                                                La corrección se registra en atención presencial.
+                                                            </span>
+                                                        @else
+                                                            <span class="cert-correction-note">
+                                                                Revise la observación del técnico.
+                                                            </span>
+                                                        @endif
                                                     </td>
                                                     <td>
                                                         <button type="button" class="cert-history-button" data-requirement-history-button data-requirement-id="{{ $requisitoCertificado->id }}">
@@ -735,24 +798,24 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="7" class="text-center">Sin requisitos pendientes.</td>
+                                                    <td colspan="8" class="text-center">Sin requisitos pendientes.</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
                                     </table>
                                 </div>
 
-                                <form action="{{ route('seguimientos_reenviar_correccion', $seguimientoCorreccionActual) }}" method="POST" class="tramite-actions-row mt-4" data-prevent-double-submit data-loading-button="Devolviendo...">
-                                    @csrf
-                                    <input type="hidden" name="accion_correccion" value="enviar">
-
-                                    <button type="submit" class="tramite-btn tramite-btn-primary" onclick="return confirm('El tramite volvera al mismo revisor que envio la observacion. ¿Desea continuar?')">
+                                <div class="tramite-actions-row mt-4">
+                                    <button type="submit" name="accion_correccion" value="guardar" class="tramite-btn tramite-btn-secondary">
+                                        <i class="fa-solid fa-floppy-disk"></i>
+                                        Guardar corrección
+                                    </button>
+                                    <button type="submit" name="accion_correccion" value="enviar" class="tramite-btn tramite-btn-primary" onclick="return confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')">
                                         <i class="fa-solid fa-reply"></i>
                                         Devolver al revisor
                                     </button>
-                                </form>
-
-                            </div>
+                                </div>
+                            </form>
                         @else
                             <div class="cert-show-table-wrap tramite-table-wrap">
                                 <table class="cert-show-table cert-review-table tramite-table tramite-requirements-table">

@@ -518,19 +518,84 @@
 
         .cert-correction-table th:nth-child(3),
         .cert-correction-table td:nth-child(3),
-        .cert-correction-table th:nth-child(6),
-        .cert-correction-table td:nth-child(6) {
-            width: 132px;
-        }
-
         .cert-correction-table th:nth-child(4),
         .cert-correction-table td:nth-child(4) {
-            min-width: 210px;
+            width: 132px;
         }
 
         .cert-correction-table th:nth-child(5),
         .cert-correction-table td:nth-child(5) {
-            min-width: 230px;
+            min-width: 170px;
+        }
+
+        .cert-correction-table th:nth-child(6),
+        .cert-correction-table td:nth-child(6) {
+            min-width: 220px;
+        }
+
+        .cert-correction-table th:nth-child(7),
+        .cert-correction-table td:nth-child(7) {
+            min-width: 240px;
+        }
+
+        .cert-correction-file,
+        .cert-correction-action {
+            align-items: center;
+            border-radius: 8px;
+            display: inline-flex;
+            font-size: 0.82rem;
+            font-weight: 800;
+            gap: 7px;
+            min-height: 34px;
+            padding: 7px 11px;
+        }
+
+        .cert-correction-file {
+            background: #eef6ff;
+            border: 1px dashed #93c5fd;
+            color: #1d4ed8;
+            cursor: pointer;
+        }
+
+        .cert-correction-file input {
+            display: none;
+        }
+
+        .cert-correction-action {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #047857;
+            text-decoration: none;
+        }
+
+        .cert-correction-textarea {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            color: #334155;
+            font-size: 0.86rem;
+            min-height: 74px;
+            padding: 9px 10px;
+            resize: vertical;
+            width: 100%;
+        }
+
+        .cert-correction-note {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            color: #475569;
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.35;
+            padding: 8px 10px;
+        }
+
+        .cert-correction-error {
+            color: #dc2626;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-top: 6px;
         }
 
         .cert-requirement-row.is-observed {

@@ -1034,19 +1034,30 @@ class SeguimientoController extends Controller
         $datos = $request->validate([
             'accion_correccion' => ['required', 'in:guardar,enviar'],
             'documentos_correccion' => ['nullable', 'array'],
-            'documentos_correccion.*' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'documentos_correccion.*' => ['nullable', 'file'],
+            'textos_correccion' => ['nullable', 'array'],
+            'textos_correccion.*' => ['nullable', 'string', 'max:2000'],
         ], [], [
             'accion_correccion' => 'accion de correccion',
             'documentos_correccion.*' => 'documento corregido',
+            'textos_correccion.*' => 'texto corregido',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $certificado = $seguimiento->certificado()->with('certificadoRequisitos')->firstOrFail();
+            $certificado = $seguimiento->certificado()
+                ->with([
+                    'certificadoRequisitos.evidenciasRequisitos.tipoEvidencia',
+                    'registros',
+                    'pagos',
+                ])
+                ->firstOrFail();
             $tecnicoDestinoId = $seguimiento->id_usuario_origen;
             $archivos = $request->file('documentos_correccion', []);
+            $textos = $request->input('textos_correccion', []);
             $soloGuardar = $datos['accion_correccion'] === 'guardar';
+            $requisitosObservados = $certificado->certificadoRequisitos->where('cumple', 'NO');
 
             if (!$tecnicoDestinoId) {
                 DB::rollBack();
@@ -1054,16 +1065,36 @@ class SeguimientoController extends Controller
                 return back()->with('error', 'No se encontro el revisor que envio la observacion.');
             }
 
-            foreach ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado) {
-                if (!empty($archivos[$requisitoCertificado->id])) {
-                    $idTipoEvidencia = $requisitoCertificado->evidenciasRequisitos()
-                        ->latest('id')
-                        ->value('id_tipo_evidencia');
+            if (!$soloGuardar) {
+                $this->validarCorreccionesAntesDeDevolver($certificado, $requisitosObservados, $archivos, $textos);
+            }
+
+            foreach ($requisitosObservados as $requisitoCertificado) {
+                $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
+                $tipoEvidencia = $evidencia?->tipoEvidencia;
+                $codigoEvidencia = mb_strtoupper((string) ($tipoEvidencia?->codigo ?? 'PDF'));
+                $archivoCorreccion = $archivos[$requisitoCertificado->id] ?? null;
+                $textoCorreccion = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
+
+                if ($archivoCorreccion) {
+                    $this->validarArchivoCorreccionRequisito(
+                        $archivoCorreccion,
+                        $tipoEvidencia,
+                        "documentos_correccion.{$requisitoCertificado->id}"
+                    );
 
                     $this->guardarDocumentoRequisito(
-                        $archivos[$requisitoCertificado->id],
+                        $archivoCorreccion,
                         $requisitoCertificado,
-                        $idTipoEvidencia ? (int) $idTipoEvidencia : null
+                        $tipoEvidencia?->id ? (int) $tipoEvidencia->id : null
+                    );
+                }
+
+                if ($codigoEvidencia === 'TEXTO' && $textoCorreccion !== '') {
+                    $this->guardarValorEvidenciaRequisito(
+                        $requisitoCertificado,
+                        $tipoEvidencia?->id ? (int) $tipoEvidencia->id : null,
+                        $textoCorreccion
                     );
                 }
             }
@@ -1080,7 +1111,7 @@ class SeguimientoController extends Controller
                 return back();
             }
 
-            foreach ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado) {
+            foreach ($requisitosObservados as $requisitoCertificado) {
                 // Vuelve a pendiente para que el mismo tecnico revise el documento corregido.
                 $requisitoCertificado->update([
                     'cumple' => null,
@@ -1653,7 +1684,7 @@ class SeguimientoController extends Controller
     private function extensionesPermitidasPorEvidencia(string $codigo): array
     {
         return match ($codigo) {
-            'PDF' => ['pdf'],
+            'PDF', 'PAGO' => ['pdf'],
             'IMAGEN' => ['jpg', 'jpeg', 'png', 'webp'],
             default => [],
         };
@@ -1674,7 +1705,7 @@ class SeguimientoController extends Controller
     private function archivoTieneFormatoPermitidoPorEvidencia(string $codigo, string $mime): bool
     {
         return match ($codigo) {
-            'PDF' => in_array($mime, ['application/pdf', 'application/x-pdf'], true),
+            'PDF', 'PAGO' => in_array($mime, ['application/pdf', 'application/x-pdf'], true),
             'IMAGEN' => str_starts_with($mime, 'image/'),
             default => false,
         };
@@ -1791,6 +1822,99 @@ class SeguimientoController extends Controller
                 'id_usuario_modificacion' => auth()->id(),
             ]
         );
+    }
+
+    // Usa la evidencia configurada mas reciente para saber que debe corregir el solicitante.
+    private function evidenciaPrincipalDelRequisito(RequisitoCertificado $requisitoCertificado): ?EvidenciaRequisito
+    {
+        return $requisitoCertificado->evidenciasRequisitos
+            ->sortByDesc('id')
+            ->first();
+    }
+
+    // Guarda respuestas de texto sin crear columnas nuevas; queda en evidencias_requisitos.valor.
+    private function guardarValorEvidenciaRequisito(
+        RequisitoCertificado $requisitoCertificado,
+        ?int $idTipoEvidencia,
+        string $valor
+    ): void {
+        EvidenciaRequisito::updateOrCreate(
+            [
+                'id_requisito_certificado' => $requisitoCertificado->id,
+                'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('TEXTO'),
+            ],
+            [
+                'valor' => $valor,
+                'estado' => 'REGISTRADO',
+                'id_usuario_registro' => auth()->id(),
+                'id_usuario_modificacion' => auth()->id(),
+            ]
+        );
+    }
+
+    // Protege la correccion: no se acepta cualquier archivo si el requisito no lo permite.
+    private function validarArchivoCorreccionRequisito($archivo, ?TipoEvidencia $tipoEvidencia, string $campo): void
+    {
+        $codigo = mb_strtoupper((string) ($tipoEvidencia?->codigo ?? 'PDF'));
+        $extensionesPermitidas = $this->extensionesPermitidasPorEvidencia($codigo);
+
+        if (empty($extensionesPermitidas)) {
+            throw ValidationException::withMessages([
+                $campo => 'Este requisito no permite subir archivo como correccion.',
+            ]);
+        }
+
+        $extension = mb_strtolower($archivo->getClientOriginalExtension());
+        $mime = (string) $archivo->getMimeType();
+
+        if (
+            !in_array($extension, $extensionesPermitidas, true)
+            || !$this->archivoTieneFormatoPermitidoPorEvidencia($codigo, $mime)
+        ) {
+            throw ValidationException::withMessages([
+                $campo => 'El archivo no corresponde al tipo de evidencia solicitado.',
+            ]);
+        }
+
+        $tamanioMaximoMb = (int) ($tipoEvidencia?->tamanio_maximo_mb ?? 0);
+
+        if ($tamanioMaximoMb > 0 && $archivo->getSize() > ($tamanioMaximoMb * 1024 * 1024)) {
+            throw ValidationException::withMessages([
+                $campo => "El archivo no debe superar {$tamanioMaximoMb} MB.",
+            ]);
+        }
+    }
+
+    // Antes de devolver al revisor, verifica que cada tipo de evidencia tenga una correccion posible.
+    private function validarCorreccionesAntesDeDevolver(Certificado $certificado, $requisitosObservados, array $archivos, array $textos): void
+    {
+        $errores = [];
+
+        foreach ($requisitosObservados as $requisitoCertificado) {
+            $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
+            $codigo = mb_strtoupper((string) ($evidencia?->tipoEvidencia?->codigo ?? 'PDF'));
+            $nombreRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito observado';
+            $valorGuardado = trim((string) ($evidencia?->valor ?? ''));
+            $tieneArchivoNuevo = !empty($archivos[$requisitoCertificado->id]);
+            $textoNuevo = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
+
+            if (in_array($codigo, ['PDF', 'IMAGEN', 'PAGO'], true) && !$tieneArchivoNuevo && $valorGuardado === '') {
+                $errores["documentos_correccion.{$requisitoCertificado->id}"] = "Debe adjuntar la evidencia corregida para: {$nombreRequisito}.";
+            }
+
+            if ($codigo === 'TEXTO' && $textoNuevo === '' && $valorGuardado === '') {
+                $errores["textos_correccion.{$requisitoCertificado->id}"] = "Debe registrar el texto corregido para: {$nombreRequisito}.";
+            }
+
+            if ($codigo === 'PRODUCTO' && $certificado->registros->isEmpty()) {
+                $errores["requisito_producto_{$requisitoCertificado->id}"] = "Debe registrar el producto solicitado para: {$nombreRequisito}.";
+            }
+
+        }
+
+        if ($errores) {
+            throw ValidationException::withMessages($errores);
+        }
     }
 
     // Busca el id del tipo de evidencia configurado. PDF es el respaldo por defecto para documentos.
