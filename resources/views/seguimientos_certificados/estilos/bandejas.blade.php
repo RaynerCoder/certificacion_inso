@@ -1,4 +1,4 @@
-    {{-- Estilos compartidos de bandejas de tramite: cabecera, chips y tablas compactas. --}}
+    {{-- Estilos compartidos para las bandejas de trámites. --}}
     <style>
         .solicitudes-panel {
             background: #ffffff;
@@ -56,160 +56,120 @@
         }
 
         .solicitudes-panel-body {
+            overflow-x: auto;
             padding: 14px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Tabla de solicitudes enviadas: pocas columnas y textos largos con salto de linea. */
-        .solicitudes-panel-body.is-sent-table table {
-            table-layout: fixed;
+        .solicitudes-panel-body table {
             width: 100%;
         }
 
-        .solicitudes-panel-body.is-sent-table table th,
-        .solicitudes-panel-body.is-sent-table table td {
+        .solicitudes-panel-body table th,
+        .solicitudes-panel-body table td {
             line-height: 1.35;
             vertical-align: top;
             white-space: normal !important;
-            overflow-wrap: anywhere;
+            word-break: normal;
+            overflow-wrap: break-word;
         }
 
-        .solicitudes-panel-body.is-sent-table table th:nth-child(1),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(1) {
-            width: 54px;
+        .solicitudes-panel-body table th {
             white-space: nowrap !important;
         }
 
+        .solicitudes-panel-body table th:first-child,
+        .solicitudes-panel-body table td:first-child {
+            min-width: 64px;
+            white-space: nowrap !important;
+        }
+
+        .solicitudes-panel-body table td:last-child {
+            white-space: nowrap !important;
+        }
+
+        .solicitudes-panel-body.is-sent-table table {
+            min-width: 1040px;
+        }
+
+        .solicitudes-panel-body.is-inbox-table table {
+            min-width: 1180px;
+        }
+
+        .solicitudes-panel-body.is-follow-table table {
+            min-width: 1120px;
+        }
+
+        .solicitudes-panel-body.is-final-table table {
+            min-width: 1280px;
+        }
+
         .solicitudes-panel-body.is-sent-table table th:nth-child(2),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(2) {
-            width: 130px;
+        .solicitudes-panel-body.is-sent-table table td:nth-child(2),
+        .solicitudes-panel-body.is-follow-table table th:nth-child(2),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(2),
+        .solicitudes-panel-body.is-final-table table th:nth-child(2),
+        .solicitudes-panel-body.is-final-table table td:nth-child(2) {
+            min-width: 140px;
         }
 
         .solicitudes-panel-body.is-sent-table table th:nth-child(3),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(3) {
-            width: 22%;
+        .solicitudes-panel-body.is-sent-table table td:nth-child(3),
+        .solicitudes-panel-body.is-follow-table table th:nth-child(3),
+        .solicitudes-panel-body.is-follow-table table td:nth-child(3),
+        .solicitudes-panel-body.is-final-table table th:nth-child(3),
+        .solicitudes-panel-body.is-final-table table td:nth-child(3) {
+            min-width: 220px;
         }
 
         .solicitudes-panel-body.is-sent-table table th:nth-child(4),
         .solicitudes-panel-body.is-sent-table table td:nth-child(4),
         .solicitudes-panel-body.is-sent-table table th:nth-child(5),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(5) {
-            width: 17%;
-        }
-
-        .solicitudes-panel-body.is-sent-table table th:nth-child(6),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(6) {
-            width: 125px;
-            white-space: nowrap !important;
-        }
-
-        .solicitudes-panel-body.is-sent-table table th:nth-child(7),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(7) {
-            width: 118px;
-        }
-
-        .solicitudes-panel-body.is-sent-table table th:nth-child(8),
-        .solicitudes-panel-body.is-sent-table table td:nth-child(8) {
-            width: 150px;
-        }
-
-        /* Permite que los textos largos bajen de linea y evita una tabla demasiado ancha. */
-        .solicitudes-panel-body.is-inbox-table table th,
-        .solicitudes-panel-body.is-inbox-table table td {
-            vertical-align: top;
-        }
-
-        .solicitudes-panel-body.is-inbox-table table {
-            width: 100%;
-        }
-
-        .solicitudes-panel-body.is-inbox-table table td {
-            line-height: 1.35;
-            white-space: normal !important;
-            overflow-wrap: anywhere;
-        }
-
-        /* Estas columnas son datos cortos o acciones; conviene mantenerlas en una sola linea. */
-        .solicitudes-panel-body.is-inbox-table table th:nth-child(1),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(1),
-        .solicitudes-panel-body.is-inbox-table table th:nth-child(6),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(6),
-        .solicitudes-panel-body.is-inbox-table table th:nth-child(8),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(8),
-        .solicitudes-panel-body.is-inbox-table table th:nth-child(9),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(9) {
-            white-space: nowrap !important;
-            overflow-wrap: normal;
-        }
-
-        /* Anchos maximos para que beneficiario, tramitador y etapas se acomoden por filas. */
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(3),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(4),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(5),
-        .solicitudes-panel-body.is-inbox-table table td:nth-child(7) {
-            max-width: 240px;
-        }
-
-        /* Consulta general de seguimiento: columnas compactas y texto con salto de linea. */
-        .solicitudes-panel-body.is-follow-table table {
-            table-layout: fixed;
-            width: 100%;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th,
-        .solicitudes-panel-body.is-follow-table table td {
-            line-height: 1.35;
-            vertical-align: top;
-            white-space: normal !important;
-            overflow-wrap: anywhere;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(1),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(1) {
-            width: 54px;
-            white-space: nowrap !important;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(2),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(2) {
-            width: 130px;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(3),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(3) {
-            width: 17%;
-        }
-
+        .solicitudes-panel-body.is-sent-table table td:nth-child(5),
         .solicitudes-panel-body.is-follow-table table th:nth-child(4),
         .solicitudes-panel-body.is-follow-table table td:nth-child(4),
         .solicitudes-panel-body.is-follow-table table th:nth-child(5),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(5) {
-            width: 13%;
+        .solicitudes-panel-body.is-follow-table table td:nth-child(5),
+        .solicitudes-panel-body.is-final-table table th:nth-child(4),
+        .solicitudes-panel-body.is-final-table table td:nth-child(4),
+        .solicitudes-panel-body.is-final-table table th:nth-child(5),
+        .solicitudes-panel-body.is-final-table table td:nth-child(5) {
+            min-width: 180px;
+        }
+
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(2),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(2) {
+            min-width: 140px;
+        }
+
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(3),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(3) {
+            min-width: 220px;
+        }
+
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(4),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(4),
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(5),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(5) {
+            min-width: 180px;
+        }
+
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(7),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(7),
+        .solicitudes-panel-body.is-inbox-table table th:nth-child(8),
+        .solicitudes-panel-body.is-inbox-table table td:nth-child(8) {
+            min-width: 160px;
         }
 
         .solicitudes-panel-body.is-follow-table table th:nth-child(6),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(6) {
-            width: 145px;
-        }
-
+        .solicitudes-panel-body.is-follow-table table td:nth-child(6),
         .solicitudes-panel-body.is-follow-table table th:nth-child(7),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(7) {
-            width: 165px;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(8),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(8) {
-            width: 105px;
-            text-align: center;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(9),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(9) {
-            width: 118px;
-        }
-
-        .solicitudes-panel-body.is-follow-table table th:nth-child(10),
-        .solicitudes-panel-body.is-follow-table table td:nth-child(10) {
-            width: 138px;
+        .solicitudes-panel-body.is-follow-table table td:nth-child(7),
+        .solicitudes-panel-body.is-final-table table th:nth-child(6),
+        .solicitudes-panel-body.is-final-table table td:nth-child(6),
+        .solicitudes-panel-body.is-final-table table th:nth-child(7),
+        .solicitudes-panel-body.is-final-table table td:nth-child(7) {
+            min-width: 170px;
         }
 
         .solicitudes-panel-badge {
@@ -228,5 +188,11 @@
         .solicitudes-panel-badge.is-inbox {
             background: #d1fae5;
             color: #065f46;
+        }
+
+        @media (max-width: 768px) {
+            .solicitudes-panel-body {
+                padding: 10px;
+            }
         }
     </style>

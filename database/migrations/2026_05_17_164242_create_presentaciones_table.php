@@ -22,7 +22,7 @@ return new class extends Migration
 
             // Cantidad y unidad comercial de la presentacion.
             $table->integer('cantidad')->nullable();
-            $table->string('unidad', 50)->nullable();
+            $table->foreignId('id_catalogo_unidad')->nullable()->constrained('catalogos_medidas');
 
             // Descripcion adicional de la presentacion.
             $table->text('descripcion')->nullable();

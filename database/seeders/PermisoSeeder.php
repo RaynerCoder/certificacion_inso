@@ -50,6 +50,7 @@ class PermisoSeeder extends Seeder
             33 => 'empresas.ver',
             34 => 'personas_naturales.ver',
             35 => 'rubros.ver',
+            36 => 'seguimientos_tramite.ver',
         ] as $id => $nombre) {
             $this->guardar('permisos', $id, [
                 'nombre' => $nombre,

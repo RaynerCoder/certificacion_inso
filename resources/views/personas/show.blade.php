@@ -1,4 +1,4 @@
-<x-admin-layout title="Detalle de Persona | Certificador" :breadcrumbs="[
+﻿<x-admin-layout title="Detalle de Persona | Certificador" :breadcrumbs="[
     ['name' => 'Menu', 'href' => route('admin_dashboard')],
     ['name' => 'Personas', 'href' => route('personas_index')],
     ['name' => 'Detalle', 'href' => route('personas_show', $persona)],
@@ -1081,13 +1081,13 @@
                                         <td>
                                             {{ $producto->tipoProducto?->descripcion ?? 'Sin tipo' }}
                                             <span class="persona-o3-muted">Fabricante: {{ $producto->fabricante?->nombre ?? 'Sin fabricante' }}</span>
-                                            <span class="persona-o3-muted">Clasificacion: {{ $producto->clasificacion ?: 'Sin clasificacion' }}</span>
+                                            <span class="persona-o3-muted">Clasificacion: {{ $producto->clasificacionProducto?->nombre ?: 'Sin clasificacion' }}</span>
                                         </td>
                                         <td>{{ $ingredientesTexto ?: 'Sin ingredientes' }}</td>
                                         <td>
                                             @if ($registro)
                                                 <span class="persona-o3-strong">{{ $registro->codigo_autorizacion ?: 'Sin codigo' }}</span>
-                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->unidad ?: '' }}</span>
+                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
                                                 <span class="persona-o3-muted">Vigencia: {{ $fechaCorta($registro->fecha_vigencia) }}</span>
                                             @else
                                                 Sin registro
@@ -1095,7 +1095,7 @@
                                         </td>
                                         <td>
                                             @if ($presentacion)
-                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->unidad ?: '' }}
+                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
                                                 <span class="persona-o3-muted">{{ $presentacion->descripcion ?: 'Sin descripcion' }}</span>
                                                 @if ($etiquetaUrl)
                                                     <a href="{{ $etiquetaUrl }}" target="_blank" class="persona-o3-link">Ver etiqueta PDF</a>
@@ -1163,12 +1163,12 @@
                                         <td>
                                             {{ $registro?->codigo_autorizacion ?? 'Sin registro' }}
                                             @if ($registro)
-                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->unidad ?: '' }}</span>
+                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if ($presentacion)
-                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->unidad ?: '' }}
+                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
                                                 <span class="persona-o3-muted">{{ $presentacion->descripcion ?: 'Sin descripcion' }}</span>
                                             @else
                                                 Sin presentacion
@@ -1197,3 +1197,4 @@
         </div>
     </div>
 </x-admin-layout>
+

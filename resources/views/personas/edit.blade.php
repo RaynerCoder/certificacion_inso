@@ -410,7 +410,9 @@
                     {{-- Historial de errores de edicion: se muestra debajo del progreso para no romper el wizard. --}}
                     <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
                         <p class="font-bold">No se pudo actualizar</p>
-                        <p class="mt-1 text-xs text-red-600">Corrige estos datos para continuar:</p>
+                        <p class="mt-1 text-xs text-red-600">
+                            Estos son los datos que falta corregir:
+                        </p>
 
                         <ul class="mt-3 space-y-2">
                             @if (session('error'))
@@ -423,7 +425,12 @@
                             @foreach ($errors->getBag('default')->keys() as $campoError)
                                 <li class="flex gap-2">
                                     <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"></span>
-                                    <span>{{ mensajePersonaWizard($campoError) }}</span>
+                                    <span>
+                                        <strong>{{ mensajePersonaWizard($campoError) }}</strong>
+                                        <span class="block text-xs font-medium text-red-600">
+                                            {{ $errors->first($campoError) }}
+                                        </span>
+                                    </span>
                                 </li>
                             @endforeach
                         </ul>

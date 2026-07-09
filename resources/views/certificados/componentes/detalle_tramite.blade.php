@@ -45,7 +45,7 @@
 
         // Toma el primer telefono registrado para mantener el resumen compacto.
         $telefonoPersona = function ($persona) {
-            return $persona?->telefonos?->first()?->numero ?? 'Sin telefono';
+            return $persona?->telefonos?->first()?->numero ?? 'Sin teléfono';
         };
 
         // Devuelve nombre completo de funcionario; evita mostrar el usuario corto de acceso.
@@ -175,7 +175,7 @@
 
         $descripcionEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
             return $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->descripcion
-                ?: 'Sin descripcion registrada.';
+                ?: 'Sin descripción registrada.';
         };
         $iconoEvidenciaRequisito = function (string $codigo) {
             return match (strtoupper($codigo)) {
@@ -1228,7 +1228,7 @@
                                                     </div>
                                                     <div class="tramite-definition-row">
                                                         <dt>Clasificación</dt>
-                                                        <dd>{{ $producto?->clasificacion ?: 'Sin clasificación' }}</dd>
+                                                        <dd>{{ $producto?->clasificacionProducto?->nombre ?: 'Sin clasificación' }}</dd>
                                                     </div>
                                                     <div class="tramite-definition-row">
                                                         <dt>Fabricante</dt>
@@ -1271,9 +1271,9 @@
                                                             <tr>
                                                                 <td>{{ $registro->codigo_autorizacion ?: 'Sin código' }}</td>
                                                                 <td>{{ $registro->fecha_vigencia ? \Illuminate\Support\Carbon::parse($registro->fecha_vigencia)->format('d/m/Y') : 'Sin vigencia' }}</td>
-                                                                <td>{{ trim(($registro->cantidad ?? '') . ' ' . ($registro->unidad ?? '')) ?: 'Sin cantidad' }}</td>
+                                                                <td>{{ trim(($registro->cantidad ?? '') . ' ' . ($registro->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}</td>
                                                                 <td>
-                                                                    {{ trim(($presentacionRegistro?->cantidad ?? '') . ' ' . ($presentacionRegistro?->unidad ?? '')) ?: 'Sin cantidad' }}
+                                                                    {{ trim(($presentacionRegistro?->cantidad ?? '') . ' ' . ($presentacionRegistro?->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
                                                                     @if ($presentacionRegistro?->descripcion)
                                                                         <div class="text-xs font-semibold text-slate-500">{{ $presentacionRegistro->descripcion }}</div>
                                                                     @endif
@@ -1349,7 +1349,7 @@
                                                                 $etiquetaPresentacion = $urlArchivo($presentacionProducto->url_etiqueta);
                                                             @endphp
                                                             <tr>
-                                                                <td>{{ trim(($presentacionProducto->cantidad ?? '') . ' ' . ($presentacionProducto->unidad ?? '')) ?: 'Sin cantidad' }}</td>
+                                                                <td>{{ trim(($presentacionProducto->cantidad ?? '') . ' ' . ($presentacionProducto->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}</td>
                                                                 <td>{{ $presentacionProducto->descripcion ?: 'Sin descripción' }}</td>
                                                                 <td>
                                                                     @if ($etiquetaPresentacion)
@@ -1459,5 +1459,7 @@
 
     {{-- Revisión por requisito: confirma decisiones y obliga observación cuando se marca No cumple. --}}
     @include('certificados.partials.show_scripts')
+
+
 
 

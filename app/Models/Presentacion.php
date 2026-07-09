@@ -16,7 +16,7 @@ class Presentacion extends Model
         'id_producto',
         'url_etiqueta',
         'cantidad',
-        'unidad',
+        'id_catalogo_unidad',
         'descripcion',
         'estado',
     ];
@@ -25,6 +25,12 @@ class Presentacion extends Model
     public function producto()
     {
         return $this->belongsTo(Producto::class, 'id_producto');
+    }
+
+    // Relación muchos a uno (muchas presentaciones usan una unidad del catálogo)
+    public function catalogoUnidad()
+    {
+        return $this->belongsTo(CatalogoMedida::class, 'id_catalogo_unidad');
     }
 
     // Relación uno a muchos (una presentación tiene muchos registros)

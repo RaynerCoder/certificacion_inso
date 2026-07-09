@@ -28,7 +28,7 @@ class RoleSeeder extends Seeder
         }
 
         foreach ([
-            1 => ['Administrador', 'administrador', 'Administra usuarios, roles, permisos, catalogos y configuracion general.', 'SISTEMA'],
+            1 => ['Administrador', 'administrador', 'Acceso completo para administrar usuarios, roles, permisos, catalogos y configuracion general.', 'SISTEMA'],
             2 => ['Tecnico Evaluador', 'tecnico-evaluador', 'Funcionario que revisa tramites, requisitos, productos, pagos y observaciones.', null],
             3 => ['Caja Pagos', 'caja-pagos', 'Funcionario encargado de registrar y validar pagos relacionados a tramites.', null],
             4 => ['Solicitante', 'solicitante', 'Persona natural o empresa que inicia y consulta tramites propios.', null],

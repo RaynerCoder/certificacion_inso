@@ -414,4 +414,5 @@
         background: #e2e8f0;
         color: #475569;
     }
+
 </style>

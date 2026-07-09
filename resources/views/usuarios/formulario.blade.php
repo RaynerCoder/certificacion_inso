@@ -32,31 +32,18 @@
     <div class="seg-alert">{{ session('error') }}</div>
 @endif
 
-{{-- Burbujas del formulario: separan cuenta, ficha laboral, cargos y seguridad. --}}
-<div class="seg-wizard" data-usuario-wizard>
-    <button type="button" class="seg-wizard-step is-active" data-usuario-step-button="1">
-        <span>1</span>
-        Cuenta
-    </button>
-    <button type="button" class="seg-wizard-step" data-usuario-step-button="2">
-        <span>2</span>
-        Funcionario
-    </button>
-    <button type="button" class="seg-wizard-step" data-usuario-step-button="3">
-        <span>3</span>
-        Cargos
-    </button>
-    <button type="button" class="seg-wizard-step" data-usuario-step-button="4">
-        <span>4</span>
-        Roles
-    </button>
-    <button type="button" class="seg-wizard-step" data-usuario-step-button="5">
-        <span>5</span>
-        Permisos
-    </button>
-</div>
+@if ($errors->any())
+    <div class="seg-alert">
+        <p class="mb-2 font-bold">Revise los datos del formulario:</p>
+        <ul class="list-disc pl-5">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 
-<section class="seg-card is-blue" data-usuario-step="1">
+<section class="seg-card is-blue">
     <div class="seg-card-head">
         <div class="flex items-center gap-3">
             <span class="seg-section-icon">
@@ -73,16 +60,16 @@
         <div class="seg-grid">
             <div class="seg-col-6">
                 <x-wire-input label="Nombre de usuario" id="form_name" name="form_name" type="text"
-                    placeholder="Nombre visible de la cuenta" value="{{ old('form_name', $usuario->name ?? '') }}" />
+                    placeholder="Nombre visible de la cuenta" value="{{ old('form_name', $usuario->name ?? '') }}" required />
             </div>
 
             <div class="seg-col-6">
                 <x-wire-input label="Correo de acceso" id="form_email" name="form_email" type="email"
-                    placeholder="usuario@correo.com" value="{{ old('form_email', $usuario->email ?? '') }}" />
+                    placeholder="usuario@correo.com" value="{{ old('form_email', $usuario->email ?? '') }}" required />
             </div>
 
             <div class="seg-col-3">
-                <x-wire-native-select label="Estado" id="form_estado" name="form_estado">
+                <x-wire-native-select label="Estado" id="form_estado" name="form_estado" required>
                     <option value="1" @selected((string) old('form_estado', $usuario->estado ?? '1') === '1')>Activo</option>
                     <option value="0" @selected((string) old('form_estado', $usuario->estado ?? '') === '0')>Inactivo</option>
                 </x-wire-native-select>
@@ -91,19 +78,19 @@
             <div class="seg-col-3"></div>
 
             <div class="seg-col-6">
-                <x-wire-input label="{{ $esEdicion ? 'Nueva contrasena' : 'Contrasena' }}" id="form_password"
-                    name="form_password" type="password" placeholder="{{ $esEdicion ? 'Dejar vacio para mantenerla' : 'Minimo 8 caracteres' }}" />
+                <x-wire-input label="Contrasena" id="form_password"
+                    name="form_password" type="password" placeholder="Minimo 8 caracteres" required />
             </div>
 
             <div class="seg-col-6">
                 <x-wire-input label="Confirmar contrasena" id="form_password_confirmation"
-                    name="form_password_confirmation" type="password" placeholder="Repita la contrasena" />
+                    name="form_password_confirmation" type="password" placeholder="Repita la contrasena" required />
             </div>
         </div>
     </div>
 </section>
 
-<section class="seg-card is-emerald hidden" data-usuario-step="2">
+<section class="seg-card is-emerald">
     <div class="seg-card-head">
         <div class="flex items-center gap-3">
             <span class="seg-section-icon">
@@ -121,13 +108,13 @@
             <div class="seg-col-4">
                 <x-wire-input label="Nombres" id="form_funcionario_nombres" name="form_funcionario_nombres" type="text"
                     placeholder="Nombres del funcionario"
-                    value="{{ old('form_funcionario_nombres', $usuario->funcionario->nombres ?? '') }}" />
+                    value="{{ old('form_funcionario_nombres', $usuario->funcionario->nombres ?? '') }}" required />
             </div>
 
             <div class="seg-col-4">
                 <x-wire-input label="Apellido paterno" id="form_funcionario_apellido_paterno" name="form_funcionario_apellido_paterno" type="text"
                     placeholder="Apellido paterno"
-                    value="{{ old('form_funcionario_apellido_paterno', $usuario->funcionario->apellido_paterno ?? '') }}" />
+                    value="{{ old('form_funcionario_apellido_paterno', $usuario->funcionario->apellido_paterno ?? '') }}" required />
             </div>
 
             <div class="seg-col-4">
@@ -139,7 +126,7 @@
             <div class="seg-col-3">
                 <x-wire-input label="Carnet" id="form_funcionario_carnet" name="form_funcionario_carnet" type="text"
                     placeholder="CI o codigo interno"
-                    value="{{ old('form_funcionario_carnet', $usuario->funcionario->carnet ?? '') }}" />
+                    value="{{ old('form_funcionario_carnet', $usuario->funcionario->carnet ?? '') }}" required />
             </div>
 
             <div class="seg-col-3">
@@ -149,16 +136,15 @@
             </div>
 
             <div class="seg-col-3">
-                <x-wire-native-select label="Genero" id="form_funcionario_genero" name="form_funcionario_genero">
+                <x-wire-native-select label="Genero" id="form_funcionario_genero" name="form_funcionario_genero" required>
                     <option value="">Seleccione</option>
-                    <option value="MASCULINO" @selected(old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === 'MASCULINO')>Masculino</option>
-                    <option value="FEMENINO" @selected(old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === 'FEMENINO')>Femenino</option>
-                    <option value="NO ESPECIFICADO" @selected(old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === 'NO ESPECIFICADO')>No especificado</option>
+                    <option value="1" @selected((string) old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === '1')>Masculino</option>
+                    <option value="0" @selected((string) old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === '0')>Femenino</option>
                 </x-wire-native-select>
             </div>
 
             <div class="seg-col-3">
-                <x-wire-native-select label="Estado funcionario" id="form_funcionario_estado" name="form_funcionario_estado">
+                <x-wire-native-select label="Estado funcionario" id="form_funcionario_estado" name="form_funcionario_estado" required>
                     <option value="1" @selected((string) old('form_funcionario_estado', $usuario->funcionario->estado ?? '1') === '1')>Activo</option>
                     <option value="0" @selected((string) old('form_funcionario_estado', $usuario->funcionario->estado ?? '') === '0')>Inactivo</option>
                 </x-wire-native-select>
@@ -167,7 +153,7 @@
     </div>
 </section>
 
-<section class="seg-card is-blue hidden" data-usuario-step="3">
+<section class="seg-card is-blue">
     <div class="seg-card-head">
         <div class="flex items-center gap-3">
             <span class="seg-section-icon">
@@ -175,7 +161,7 @@
             </span>
             <div>
                 <h2 class="seg-card-title">Cargos del funcionario</h2>
-                <p class="seg-card-subtitle">Seleccione cargos existentes o cree uno nuevo si no esta en el catalogo.</p>
+                <p class="seg-card-subtitle">Opcional. Puede guardar el usuario sin cargos y asignarlos despues.</p>
             </div>
         </div>
     </div>
@@ -198,7 +184,7 @@
         <div id="seg_lista_cargos_funcionario" class="seg-chip-list"></div>
 
         <p id="seg_cargos_funcionario_vacio" class="seg-empty-state">
-            Todavia no se agregaron cargos al funcionario.
+            Sin cargos asignados. Este dato no bloquea el registro.
         </p>
     </div>
 </section>
@@ -235,7 +221,7 @@
     </div>
 </div>
 
-<section class="seg-card is-emerald hidden" data-usuario-step="4">
+<section class="seg-card is-emerald">
     <div class="seg-card-head">
         <div class="flex items-center gap-3">
             <span class="seg-section-icon">
@@ -276,10 +262,16 @@
         <p id="seg_roles_vacio" class="seg-empty-state">
             Todavia no se agregaron roles.
         </p>
+        <p id="seg_roles_error" class="mt-2 hidden text-sm font-semibold text-rose-700">
+            Seleccione al menos un rol.
+        </p>
+        @error('form_roles')
+            <p class="mt-2 text-sm font-semibold text-rose-700">{{ $message }}</p>
+        @enderror
     </div>
 </section>
 
-<section class="seg-card is-violet hidden" data-usuario-step="5">
+<section class="seg-card is-violet">
     <div class="seg-card-head">
         <div class="flex items-center gap-3">
             <span class="seg-section-icon">
@@ -316,15 +308,7 @@
         Cancelar
     </x-wire-button>
 
-    <x-wire-button type="button" secondary id="seg_usuario_anterior">
-        Anterior
-    </x-wire-button>
-
-    <x-wire-button type="button" blue id="seg_usuario_siguiente">
-        Siguiente
-    </x-wire-button>
-
-    <x-wire-button type="submit" blue id="seg_usuario_guardar" class="hidden">
+    <x-wire-button type="submit" blue id="seg_usuario_guardar">
         {{ $esEdicion ? 'Actualizar usuario' : 'Guardar usuario' }}
     </x-wire-button>
 </div>
@@ -340,7 +324,6 @@
         window.cargosFuncionarioSeleccionados = @json($cargosSeleccionados);
         window.cargosFuncionarioNuevos = @json($cargosNuevosSeleccionados);
 
-        inicializarFormularioUsuarioBurbujas();
         inicializarCargosFuncionario();
         inicializarAsignacionesSeguridad();
 
@@ -348,47 +331,93 @@
         document.getElementById('seg_cargo_funcionario_nuevo_nombre')?.addEventListener('keydown', eventoEnterCargoNuevoFuncionario);
         document.getElementById('seg_select_rol')?.addEventListener('change', agregarRolSeguridad);
         document.getElementById('seg_select_permiso')?.addEventListener('change', agregarPermisoDirectoSeguridad);
+        document.querySelector('form.seg-page')?.addEventListener('submit', validarEnvioFormularioUsuario);
     });
 
-    // Controla la navegacion por burbujas del formulario de usuario.
-    function inicializarFormularioUsuarioBurbujas() {
-        window.pasoUsuarioActual = 1;
-        window.totalPasosUsuario = 5;
+    // Revisa los campos basicos antes de enviar. El backend vuelve a validar todo al guardar.
+    function validarEnvioFormularioUsuario(evento) {
+        limpiarErrorRolesSeguridad();
 
-        document.querySelectorAll('[data-usuario-step-button]').forEach(boton => {
-            boton.addEventListener('click', () => mostrarPasoUsuario(Number(boton.dataset.usuarioStepButton)));
-        });
+        const camposObligatorios = [
+            { id: 'form_name', mensaje: 'Ingrese el nombre de usuario.' },
+            { id: 'form_email', mensaje: 'Ingrese el correo de acceso.' },
+            { id: 'form_password', mensaje: 'Ingrese la contrasena.' },
+            { id: 'form_password_confirmation', mensaje: 'Confirme la contrasena.' },
+            { id: 'form_funcionario_nombres', mensaje: 'Ingrese los nombres del funcionario.' },
+            { id: 'form_funcionario_apellido_paterno', mensaje: 'Ingrese el apellido paterno.' },
+            { id: 'form_funcionario_carnet', mensaje: 'Ingrese el carnet.' },
+            { id: 'form_funcionario_genero', mensaje: 'Seleccione el genero.' },
+        ];
 
-        document.getElementById('seg_usuario_anterior')?.addEventListener('click', () => {
-            mostrarPasoUsuario(Math.max(1, window.pasoUsuarioActual - 1));
-        });
+        for (const campo of camposObligatorios) {
+            const input = document.getElementById(campo.id);
 
-        document.getElementById('seg_usuario_siguiente')?.addEventListener('click', () => {
-            mostrarPasoUsuario(Math.min(window.totalPasosUsuario, window.pasoUsuarioActual + 1));
-        });
+            if (!input || String(input.value || '').trim() !== '') {
+                continue;
+            }
 
-        mostrarPasoUsuario(1);
+            evento.preventDefault();
+            mostrarMensajeCampoUsuario(input, campo.mensaje);
+            return;
+        }
+
+        if (!validarPasswordUsuario(evento)) {
+            return;
+        }
+
+        if (!(window.rolesSeguridadSeleccionados || []).length) {
+            evento.preventDefault();
+            mostrarErrorRolesSeguridad('Seleccione al menos un rol.');
+            document.getElementById('seg_select_rol')?.focus();
+            return;
+        }
+
+        bloquearBotonGuardarUsuario();
     }
 
-    // Muestra un paso y oculta los demas para que el formulario sea mas facil de llenar.
-    function mostrarPasoUsuario(numeroPaso) {
-        window.pasoUsuarioActual = Number(numeroPaso) || 1;
+    // Muestra el mensaje nativo del navegador sin deformar el diseno del campo.
+    function mostrarMensajeCampoUsuario(input, mensaje) {
+        input.setCustomValidity(mensaje);
+        input.reportValidity();
+        input.focus();
 
-        document.querySelectorAll('[data-usuario-step]').forEach(seccion => {
-            seccion.classList.toggle('hidden', Number(seccion.dataset.usuarioStep) !== window.pasoUsuarioActual);
-        });
+        setTimeout(() => input.setCustomValidity(''), 1200);
+    }
 
-        document.querySelectorAll('[data-usuario-step-button]').forEach(boton => {
-            const activo = Number(boton.dataset.usuarioStepButton) === window.pasoUsuarioActual;
-            const completado = Number(boton.dataset.usuarioStepButton) < window.pasoUsuarioActual;
+    // La contrasena se confirma en pantalla para evitar errores simples antes de guardar.
+    function validarPasswordUsuario(evento) {
+        const password = document.getElementById('form_password');
+        const confirmacion = document.getElementById('form_password_confirmation');
 
-            boton.classList.toggle('is-active', activo);
-            boton.classList.toggle('is-done', completado);
-        });
+        if (!password || !confirmacion) {
+            return true;
+        }
 
-        document.getElementById('seg_usuario_anterior')?.classList.toggle('hidden', window.pasoUsuarioActual === 1);
-        document.getElementById('seg_usuario_siguiente')?.classList.toggle('hidden', window.pasoUsuarioActual === window.totalPasosUsuario);
-        document.getElementById('seg_usuario_guardar')?.classList.toggle('hidden', window.pasoUsuarioActual !== window.totalPasosUsuario);
+        if (password.value.length < 8) {
+            evento.preventDefault();
+            mostrarMensajeCampoUsuario(password, 'La contrasena debe tener al menos 8 caracteres.');
+            return false;
+        }
+
+        if (password.value !== confirmacion.value) {
+            evento.preventDefault();
+            mostrarMensajeCampoUsuario(confirmacion, 'La confirmacion no coincide con la contrasena.');
+            return false;
+        }
+
+        return true;
+    }
+
+    // Evita dobles clics cuando el formulario ya esta enviandose.
+    function bloquearBotonGuardarUsuario() {
+        const boton = document.getElementById('seg_usuario_guardar');
+
+        if (!boton) {
+            return;
+        }
+
+        boton.disabled = true;
+        boton.textContent = 'Guardando...';
     }
 
     // Prepara cargos existentes y nuevos antes de dibujar la interfaz.
@@ -713,6 +742,7 @@
         }
 
         window.rolesSeguridadSeleccionados.push(idRol);
+        limpiarErrorRolesSeguridad();
         limpiarPermisosDirectosCubiertosPorRoles();
         renderRolesSeguridad();
         renderPermisosDirectosSeguridad();
@@ -730,6 +760,29 @@
         renderPermisosDirectosSeguridad();
         refrescarSelectRolesSeguridad();
         refrescarSelectPermisosSeguridad();
+    }
+
+    // Mensaje propio del selector de roles porque la seleccion se guarda en inputs generados por JavaScript.
+    function mostrarErrorRolesSeguridad(mensaje) {
+        const error = document.getElementById('seg_roles_error');
+
+        if (!error) {
+            return;
+        }
+
+        error.textContent = mensaje;
+        error.classList.remove('hidden');
+    }
+
+    function limpiarErrorRolesSeguridad() {
+        const error = document.getElementById('seg_roles_error');
+
+        if (!error) {
+            return;
+        }
+
+        error.textContent = '';
+        error.classList.add('hidden');
     }
 
     // Agrega un permiso directo solo si no esta incluido por un rol.

@@ -17,7 +17,7 @@ class Registro extends Model
         'codigo_autorizacion',
         'fecha_vigencia',
         'cantidad',
-        'unidad',
+        'id_catalogo_unidad',
         'id_presentacion',
         'estado',
     ];
@@ -32,6 +32,12 @@ class Registro extends Model
     public function presentacion()
     {
         return $this->belongsTo(Presentacion::class, 'id_presentacion');
+    }
+
+    // Relación muchos a uno (muchos registros usan una unidad del catálogo)
+    public function catalogoUnidad()
+    {
+        return $this->belongsTo(CatalogoMedida::class, 'id_catalogo_unidad');
     }
 
     // Relación uno a muchos (un registro tiene muchas asignaciones con certificados)

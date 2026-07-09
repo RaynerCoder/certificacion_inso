@@ -69,7 +69,7 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
         $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
-        $rubrosCatalogo = Rubro::where('estado', 'ACTIVO')->orderBy('nombre')->get();
+        $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with([
@@ -714,7 +714,7 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
         $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
-        $rubrosCatalogo = Rubro::where('estado', 'ACTIVO')->orderBy('nombre')->get();
+        $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with(['natural', 'telefonos', 'territorio', 'rubros'])

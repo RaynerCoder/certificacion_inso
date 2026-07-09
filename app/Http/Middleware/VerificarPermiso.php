@@ -39,10 +39,13 @@ class VerificarPermiso
             'notificaciones_tramites' => 'dashboard.ver',
             'notificaciones_tramites_leer' => 'dashboard.ver',
             'notificaciones_tramites_leer_todas' => 'dashboard.ver',
+            // El detalle del certificado tambien se abre desde "Mis tramites".
+            // El controlador valida despues que el tramite pertenezca al usuario.
+            'certificados_show' => ['certificados.ver', 'seguimientos_tramite.ver'],
         ];
 
         if (isset($rutasExactas[$ruta])) {
-            return [$rutasExactas[$ruta]];
+            return (array) $rutasExactas[$ruta];
         }
 
         foreach ($this->permisosPorPrefijo() as $prefijo => $permiso) {

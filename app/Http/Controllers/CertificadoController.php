@@ -248,13 +248,15 @@ class CertificadoController extends Controller
             'certificadoRequisitos.revisionesRequisitos.observacionesRequisitos',
             'registros.producto.tipoProducto',
             'registros.producto.fabricante',
+            'registros.producto.clasificacionProducto',
             'registros.producto.territorio',
             'registros.producto.importadorPersona.natural',
             'registros.producto.importadorPersona.empresa.tipoEmpresa',
             'registros.producto.importadorPersona.territorio',
             'registros.producto.ingredientesProductos.ingrediente',
-            'registros.producto.presentaciones',
-            'registros.presentacion',
+            'registros.producto.presentaciones.catalogoUnidad',
+            'registros.presentacion.catalogoUnidad',
+            'registros.catalogoUnidad',
             'pagos.procedencia',
             'pagos.clientePersona.natural',
             'pagos.clientePersona.empresa',
@@ -275,7 +277,7 @@ class CertificadoController extends Controller
             || $this->usuarioTieneCargoActivo($usuarioActual)
         );
         // El solicitante dueño del tramite es el beneficiario vinculado a la cuenta.
-        // El tramitador no abre "Mis tramites" si no es tambien beneficiario.
+        // El tramitador no abre "Mis trámites" si no es tambien beneficiario.
         $esSolicitante = $usuarioActual
             && (
                 (int) $certificado->beneficiario?->id_usuario === (int) $usuarioActual->id
@@ -1115,7 +1117,9 @@ class CertificadoController extends Controller
             'certificadoRequisitos.revisionesRequisitos.observacionesRequisitos',
             'registros.producto.tipoProducto',
             'registros.producto.fabricante',
-            'registros.presentacion',
+            'registros.producto.clasificacionProducto',
+            'registros.presentacion.catalogoUnidad',
+            'registros.catalogoUnidad',
             'pagos.procedencia',
             'seguimientos.usuarioOrigen.funcionario.cargos',
             'seguimientos.usuarioSiguiente.funcionario.cargos',
@@ -1173,7 +1177,7 @@ class CertificadoController extends Controller
             'producto.codigo' => $primerRegistro?->producto?->codigo ?: 'Sin producto',
             'producto.nombre_comercial' => $primerRegistro?->producto?->nombre_comercial ?: 'Sin producto',
             'producto.nombre_cientifico' => $primerRegistro?->producto?->nombre_cientifico ?: 'Sin dato',
-            'producto.clasificacion' => $primerRegistro?->producto?->clasificacion ?: 'Sin clasificación',
+            'producto.clasificacion' => $primerRegistro?->producto?->clasificacionProducto?->nombre ?: 'Sin clasificación',
             'fabricante.nombre' => $primerRegistro?->producto?->fabricante?->nombre ?: 'Sin fabricante',
             'tipo_producto.codigo' => $primerRegistro?->producto?->tipoProducto?->codigo ?: 'Sin tipo',
             'producto.estado' => $primerRegistro?->producto?->estado ?: 'Sin estado',
@@ -1181,11 +1185,11 @@ class CertificadoController extends Controller
             'registro.codigo' => $primerRegistro?->codigo_autorizacion ?: 'Sin registro',
             'registro.fecha_vigencia' => $primerRegistro?->fecha_vigencia ? \Illuminate\Support\Carbon::parse($primerRegistro->fecha_vigencia)->format('d/m/Y') : 'Sin fecha',
             'registro.cantidad' => $primerRegistro?->cantidad ?: 'Sin cantidad',
-            'registro.unidad' => $primerRegistro?->unidad ?: 'Sin unidad',
+            'registro.unidad' => $this->textoCatalogoUnidad($primerRegistro?->catalogoUnidad),
             'registro.estado' => $primerRegistro?->estado ?: 'Sin estado',
             'presentacion.descripcion' => $primerRegistro?->presentacion?->descripcion ?: 'Sin presentación',
             'presentacion.cantidad' => $primerRegistro?->presentacion?->cantidad ?: 'Sin cantidad',
-            'presentacion.unidad' => $primerRegistro?->presentacion?->unidad ?: 'Sin unidad',
+            'presentacion.unidad' => $this->textoCatalogoUnidad($primerRegistro?->presentacion?->catalogoUnidad),
 
             'pago.tipo_pago' => $primerPago?->tipo_pago ?: 'Sin pago',
             'pago.fecha' => $primerPago?->fecha ? \Illuminate\Support\Carbon::parse($primerPago->fecha)->format('d/m/Y') : 'Sin fecha',
@@ -1201,6 +1205,14 @@ class CertificadoController extends Controller
         ];
     }
 
+    private function textoCatalogoUnidad($unidad): string
+    {
+        if (!$unidad) {
+            return 'Sin unidad';
+        }
+
+        return trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : ''));
+    }
     private function documentoPersona(?Persona $persona): string
     {
         if (!$persona) {
@@ -1251,3 +1263,5 @@ class CertificadoController extends Controller
         return $texto === null ? null : mb_strtoupper(trim($texto), 'UTF-8');
     }
 }
+
+

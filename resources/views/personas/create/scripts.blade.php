@@ -432,11 +432,7 @@
              limpiarCampoPersonaWizard(name);
          });
 
-         const rubrosPersona = document.getElementById('rubrosPersona');
-         if (rubrosPersona) {
-             Array.from(rubrosPersona.options).forEach(option => option.selected = false);
-             rubrosPersona.dispatchEvent(new Event('change', { bubbles: true }));
-         }
+         limpiarRubrosPersonaWizard();
      }
 
      function limpiarSeccionEmpresa() {
@@ -750,6 +746,129 @@
          return opcion?.text?.trim() || valor;
      }
 
+     function rubrosSeleccionadosPersonaWizard() {
+         return Array.from(document.getElementById('rubrosPersona')?.selectedOptions || []);
+     }
+
+     function renderRubrosPersonaWizard() {
+         const lista = document.getElementById('rubrosPersonaLista');
+         const seleccionados = rubrosSeleccionadosPersonaWizard();
+
+         if (!lista) return;
+
+         lista.innerHTML = '';
+
+         if (seleccionados.length === 0) {
+             lista.innerHTML = '<span id="rubrosPersonaVacio" class="text-sm text-slate-500">Todavía no se agregaron rubros.</span>';
+             return;
+         }
+
+         seleccionados.forEach(option => {
+             const item = document.createElement('span');
+             item.className = 'persona-rubro-chip';
+             item.innerHTML = `
+                <span>${escaparHtmlPersonaWizard(option.textContent.trim())}</span>
+                <button type="button" class="persona-rubro-chip-remove" data-quitar-rubro="${escaparHtmlPersonaWizard(option.value)}">x</button>
+            `;
+             lista.appendChild(item);
+         });
+     }
+
+     function cerrarSelectorRubroPersonaWizard() {
+         const contenedor = document.querySelector('[data-rubro-combobox]');
+         const disparador = document.querySelector('[data-rubro-trigger]');
+
+         contenedor?.classList.remove('is-open');
+         disparador?.setAttribute('aria-expanded', 'false');
+     }
+
+     function renderOpcionesRubroPersonaWizard(filtro = '') {
+         const select = document.getElementById('rubroPersonaSelector');
+         const lista = document.querySelector('[data-rubro-options-list]');
+         const seleccionados = rubrosSeleccionadosPersonaWizard().map(option => String(option.value));
+         const textoFiltro = filtro.trim().toLowerCase();
+
+         if (!select || !lista) return;
+
+         const opciones = Array.from(select.options)
+             .filter(option => option.value)
+             .filter(option => !seleccionados.includes(String(option.value)))
+             .filter(option => {
+                 const nombre = option.dataset.nombre || option.text.trim();
+                 return nombre.toLowerCase().includes(textoFiltro);
+             });
+
+         if (opciones.length === 0) {
+             lista.innerHTML = '<div class="persona-rubro-empty">No se encontraron rubros disponibles.</div>';
+             return;
+         }
+
+         lista.innerHTML = opciones.map(option => {
+             const nombre = option.dataset.nombre || option.text.trim();
+             return `
+                <button type="button"
+                    class="persona-rubro-option"
+                    data-rubro-option="${escaparHtmlPersonaWizard(option.value)}">
+                    ${escaparHtmlPersonaWizard(nombre)}
+                </button>
+            `;
+         }).join('');
+     }
+
+     function actualizarSelectorRubroPersonaWizard() {
+         const etiqueta = document.querySelector('[data-rubro-label]');
+         const cantidad = rubrosSeleccionadosPersonaWizard().length;
+         const busqueda = document.querySelector('[data-rubro-search]');
+
+         if (etiqueta) {
+             etiqueta.textContent = cantidad > 0
+                 ? `${cantidad} rubro${cantidad > 1 ? 's' : ''} seleccionado${cantidad > 1 ? 's' : ''}`
+                 : 'Seleccione un rubro';
+         }
+
+         renderOpcionesRubroPersonaWizard(busqueda?.value || '');
+     }
+
+     function agregarRubroPersonaWizard(idRubro) {
+         const selectOculto = document.getElementById('rubrosPersona');
+         const option = selectOculto?.querySelector(`option[value="${idRubro}"]`);
+
+         if (!option) return;
+
+         option.selected = true;
+         selectOculto.dispatchEvent(new Event('change', { bubbles: true }));
+         renderRubrosPersonaWizard();
+         actualizarSelectorRubroPersonaWizard();
+         refrescarResumenSiEstaEnRevisionPersonaWizard();
+         actualizarProgresoPersonaWizard();
+     }
+
+     function quitarRubroPersonaWizard(idRubro) {
+         const selectOculto = document.getElementById('rubrosPersona');
+         const option = selectOculto?.querySelector(`option[value="${idRubro}"]`);
+
+         if (!option) return;
+
+         option.selected = false;
+         selectOculto.dispatchEvent(new Event('change', { bubbles: true }));
+         renderRubrosPersonaWizard();
+         actualizarSelectorRubroPersonaWizard();
+         refrescarResumenSiEstaEnRevisionPersonaWizard();
+         actualizarProgresoPersonaWizard();
+     }
+
+     function limpiarRubrosPersonaWizard() {
+         const selectOculto = document.getElementById('rubrosPersona');
+
+         Array.from(selectOculto?.options || []).forEach(option => {
+             option.selected = false;
+         });
+
+         selectOculto?.dispatchEvent(new Event('change', { bubbles: true }));
+         renderRubrosPersonaWizard();
+         actualizarSelectorRubroPersonaWizard();
+     }
+
      // Lista todos los telefonos que realmente se enviaran al controlador.
      function resumenTelefonosPersonaWizard() {
          const filas = Array.from(document.querySelectorAll('.telefono-agregado'))
@@ -770,7 +889,7 @@
 
      // Lista los rubros seleccionados desde el catalogo principal.
      function resumenRubrosPersonaWizard() {
-         const filas = Array.from(document.getElementById('rubrosPersona')?.selectedOptions || [])
+         const filas = rubrosSeleccionadosPersonaWizard()
              .map((option, indice) => [indice + 1, option.textContent.trim() || 'Sin rubro']);
 
          return tablaResumenPersonaWizard(
@@ -1154,8 +1273,10 @@
          }
 
          if (detalle) {
-             detalle.textContent = listo ? '' : textoCamposPendientesPersonaWizard(pendientes);
-             detalle.classList.toggle('hidden', listo || pendientes.length === 0);
+             const mostrarPendientes = tieneErroresServidorPersona && !listo && pendientes.length > 0;
+
+             detalle.textContent = mostrarPendientes ? textoCamposPendientesPersonaWizard(pendientes) : '';
+             detalle.classList.toggle('hidden', !mostrarPendientes);
          }
      }
 
@@ -3176,6 +3297,47 @@
              cargarPersonaResponsable();
          }
      });
+
+     document.querySelector('[data-rubro-trigger]')?.addEventListener('click', function() {
+         const contenedor = document.querySelector('[data-rubro-combobox]');
+         const abierto = contenedor?.classList.toggle('is-open');
+
+         this.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+
+         if (abierto) {
+             document.querySelector('[data-rubro-search]')?.focus();
+         }
+     });
+
+     document.querySelector('[data-rubro-search]')?.addEventListener('input', function() {
+         renderOpcionesRubroPersonaWizard(this.value);
+     });
+
+     document.querySelector('[data-rubro-options-list]')?.addEventListener('click', function(event) {
+         const boton = event.target.closest('[data-rubro-option]');
+
+         if (!boton || boton.disabled) return;
+
+         agregarRubroPersonaWizard(boton.dataset.rubroOption);
+         cerrarSelectorRubroPersonaWizard();
+     });
+
+     document.getElementById('rubrosPersonaLista')?.addEventListener('click', function(event) {
+         const boton = event.target.closest('[data-quitar-rubro]');
+
+         if (!boton) return;
+
+         quitarRubroPersonaWizard(boton.dataset.quitarRubro);
+     });
+
+     document.addEventListener('click', function(event) {
+         if (!event.target.closest('[data-rubro-combobox]')) {
+             cerrarSelectorRubroPersonaWizard();
+         }
+     });
+
+     renderRubrosPersonaWizard();
+     actualizarSelectorRubroPersonaWizard();
  </script>
 
 

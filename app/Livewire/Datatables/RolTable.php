@@ -55,6 +55,8 @@ class RolTable extends DataTableComponent
                     'items' => $fila->permisos,
                     'campo' => 'nombre',
                     'vacio' => 'Sin permisos',
+                    'limite' => 8,
+                    'tituloModal' => 'Permisos del rol ' . $fila->name,
                 ])),
 
             Column::make("Especial", "especial")

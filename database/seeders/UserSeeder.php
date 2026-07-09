@@ -15,7 +15,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            1 => ['Administrador', 'alcides@gmail.com'],
+            1 => ['Super Administrador', 'super.admin@gmail.com'],
             2 => ['Tecnico Evaluador', 'tecnico@certificador.test'],
             3 => ['Caja Pagos', 'caja@certificador.test'],
             4 => ['rhuanca', 'rhuanca@inso.gob.bo'],
@@ -36,7 +36,7 @@ class UserSeeder extends Seeder
             $this->guardar('users', $id, [
                 'name' => $name,
                 'email' => $email,
-                'password' => bcrypt('12345678'),
+                'password' => bcrypt($id === 1 ? 'Inso1103*' : '12345678'),
                 'estado' => $this->estado('users'),
             ]);
         }

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('id_fabricante')->constrained('fabricantes');
             $table->string('nombre_comercial', 255)->nullable();
             $table->string('nombre_cientifico', 255)->nullable();
-            $table->string('clasificacion', 255)->nullable();
+            $table->foreignId('id_clasificacion_producto')->nullable()->constrained('clasificaciones_productos');
             $table->foreignId('id_tipo_producto')->constrained('tipos_productos');
             // Estados manejados por ahora: ACTIVO e INACTIVO.
             $table->string('estado', 50)->default('ACTIVO');

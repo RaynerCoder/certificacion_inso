@@ -23,7 +23,7 @@
     @endif
 
     <section class="solicitudes-panel">
-        <div class="solicitudes-panel-body is-follow-table">
+        <div class="solicitudes-panel-body is-final-table">
             @livewire('datatables.seguimiento-table', ['bandeja' => $bandeja], key('seguimientos-' . $bandeja))
         </div>
     </section>

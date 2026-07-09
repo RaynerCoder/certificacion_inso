@@ -24,14 +24,49 @@ use App\Http\Controllers\CargoController;
 use App\Http\Controllers\SeguimientoController;
 use App\Http\Controllers\ProcedenciaController;
 use App\Http\Controllers\PagoController;
+use App\Models\Certificado;
 use App\Http\Controllers\TipoEvidenciaController;
 use App\Http\Controllers\TramitadorController;
 use Illuminate\Support\Facades\Route;
 
 
 
-Route::get('/', function(){
-    return view('admin.dashboard');
+Route::get('/', function () {
+    $usuario = auth()->user()?->loadMissing('persona', 'funcionario.cargos', 'roles');
+    $personaId = $usuario?->persona?->id;
+
+    $esUsuarioExterno = $usuario
+        && ! $usuario->tieneRol('administrador')
+        && ! $usuario->funcionario;
+
+    $consultaTramites = Certificado::query();
+
+    if ($esUsuarioExterno && $personaId) {
+        $consultaTramites->where(function ($consulta) use ($personaId) {
+            $consulta->where('id_persona_beneficiario', $personaId)
+                ->orWhere('id_persona_tramitador', $personaId);
+        });
+    }
+
+    if ($esUsuarioExterno && ! $personaId) {
+        $consultaTramites->whereRaw('1 = 0');
+    }
+
+    $estado = fn (array $estados) => (clone $consultaTramites)->whereIn('estado', $estados)->count();
+
+    $resumenInicio = [
+        'es_usuario_externo' => $esUsuarioExterno,
+        'titulo' => $esUsuarioExterno ? 'Resumen de mis trámites' : 'Resumen institucional',
+        'detalle' => $esUsuarioExterno
+            ? 'Estos datos corresponden únicamente a los trámites donde usted participa.'
+            : 'Vista general de los trámites registrados en el sistema.',
+        'total' => (clone $consultaTramites)->count(),
+        'en_revision' => $estado(['PENDIENTE', 'EN_REVISION', 'DERIVADO', 'BORRADOR']),
+        'observados' => $estado(['OBSERVADO', 'CORRECCION_SOLICITADA']),
+        'finalizados' => $estado(['FINALIZADO', 'APROBADO', 'EMITIDO']),
+    ];
+
+    return view('admin.dashboard', compact('resumenInicio'));
 })->name('admin_dashboard');
 
 

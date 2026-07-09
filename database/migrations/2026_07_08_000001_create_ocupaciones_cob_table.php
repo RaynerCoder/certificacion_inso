@@ -16,7 +16,11 @@ return new class extends Migration
             $table->string('codigo_gran_grupo', 20)->nullable();
             $table->text('descripcion_gran_grupo')->nullable();
             $table->string('codigo_subgrupo_principal', 20)->nullable();
-            $table->text('subgrupo_principal')->nullable();
+            $table->text('descripcion_subgrupo_principal')->nullable();
+            $table->string('codigo_subgrupo', 20)->nullable();
+            $table->text('descripcion_subgrupo')->nullable();
+            $table->string('codigo_grupo_primario', 20)->nullable();
+            $table->text('descripcion_grupo_primario')->nullable();
             $table->string('codigo_ocupacion', 20)->nullable();
             $table->text('descripcion_ocupacion');
 

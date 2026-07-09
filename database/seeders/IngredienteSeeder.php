@@ -15,9 +15,9 @@ class IngredienteSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            1 => ['Pralletrina', 'Pralletrina 0.10%', 'Irritante, evitar inhalación directa'],
-            2 => ['Permetrina', 'Permetrina 0.20%', 'Tóxico para organismos acuáticos'],
-            3 => ['Imidacloprid', 'Imidacloprid 0.35%', 'Riesgo para abejas y organismos acuáticos'],
+            1 => ['Pralletrina', 'Pralletrina', 'Irritante, evitar inhalación directa'],
+            2 => ['Permetrina', 'Permetrina', 'Tóxico para organismos acuáticos'],
+            3 => ['Imidacloprid', 'Imidacloprid', 'Riesgo para abejas y organismos acuáticos'],
         ] as $id => [$nombre, $composicion, $riesgo]) {
             $this->guardar('ingredientes', $id, [
                 'nombre' => $nombre,

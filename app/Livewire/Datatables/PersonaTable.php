@@ -96,7 +96,12 @@ class PersonaTable extends DataTableComponent
 
             Column::make("Estado", "estado")
                 ->label(function ($fila) {
-                    return view('tablas.chip_estado', ['estado' => $fila->estado]);
+                    return view('tablas.chip_estado', [
+                        'texto' => $fila->estado ?: 'ACTIVO',
+                        'clase' => strtoupper((string) ($fila->estado ?: 'ACTIVO')) === 'ACTIVO'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-slate-100 text-slate-700',
+                    ]);
                 }),
 
             Column::make('Acciones')

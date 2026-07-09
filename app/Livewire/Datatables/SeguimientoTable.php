@@ -73,7 +73,7 @@ class SeguimientoTable extends DataTableComponent
             // Producto/presentacion llegan por certificados_registros -> registros.
             'certificado.registros.producto.tipoProducto',
             'certificado.registros.producto.fabricante',
-            'certificado.registros.presentacion',
+            'certificado.registros.presentacion.catalogoUnidad',
         ];
     }
 
@@ -166,8 +166,8 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaCodigoTramite(): Column
     {
-        return Column::make('Codigo tramite', 'id_certificado')
-            ->format(fn ($valor, $fila) => $fila->certificado?->codigo ?: 'Sin codigo')
+        return Column::make('Código trámite', 'id_certificado')
+            ->format(fn ($valor, $fila) => $fila->certificado?->codigo ?: 'Sin código')
             ->searchable(function (Builder $query, string $search) {
                 $query->orWhereHas('certificado', function (Builder $consulta) use ($search) {
                     $consulta->where('codigo', 'like', '%' . $search . '%');
@@ -177,7 +177,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaTipoTramite(): Column
     {
-        return Column::make('Tipo de tramite', 'id_certificado')
+        return Column::make('Tipo de trámite', 'id_certificado')
             ->format(fn ($valor, $fila) => $fila->certificado?->tipoCertificado?->nombre ?: 'Sin tipo')
             ->searchable(function (Builder $query, string $search) {
                 $query->orWhereHas('certificado.tipoCertificado', function (Builder $consulta) use ($search) {
@@ -220,7 +220,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaFechasTramite(): Column
     {
-        return Column::make('Inicio / finalizacion', 'fecha_inicio')
+        return Column::make('Inicio / finalización', 'fecha_inicio')
             ->label(fn ($fila) => $this->htmlFechasTramite($fila))
             ->html()
             ->sortable();
@@ -249,7 +249,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaPresentacion(): Column
     {
-        return Column::make('Presentacion')
+        return Column::make('Presentación')
             ->label(fn ($fila) => $this->textoPresentacion($fila));
     }
 
@@ -268,7 +268,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaUltimaEtapa(): Column
     {
-        return Column::make('Ultima etapa')
+        return Column::make('Última etapa')
             ->label(function ($fila) {
                 $seguimiento = $this->ultimoMovimiento($fila);
 
@@ -285,7 +285,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaUltimoUsuario(): Column
     {
-        return Column::make('Ultimo usuario')
+        return Column::make('Último usuario')
             ->label(fn ($fila) => $this->htmlUltimoUsuario($fila))
             ->html();
     }
@@ -469,10 +469,12 @@ class SeguimientoTable extends DataTableComponent
         $presentacion = $this->registroPrincipal($seguimiento)?->presentacion;
 
         if (!$presentacion) {
-            return 'Sin presentacion';
+            return 'Sin presentación';
         }
 
-        $cantidadUnidad = trim(($presentacion->cantidad ?? '') . ' ' . ($presentacion->unidad ?? ''));
+        $unidad = $presentacion->catalogoUnidad;
+        $textoUnidad = $unidad ? trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : '')) : '';
+        $cantidadUnidad = trim(($presentacion->cantidad ?? '') . ' ' . $textoUnidad);
 
         return $cantidadUnidad . ($presentacion->descripcion ? ' - ' . $presentacion->descripcion : '');
     }

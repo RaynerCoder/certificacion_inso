@@ -1,6 +1,6 @@
-<x-admin-layout title="Emitir Certificado | Certificador" :breadcrumbs="[
+﻿<x-admin-layout title="Emitir Certificado | Certificador" :breadcrumbs="[
     ['name' => 'Menu', 'href' => route('admin_dashboard')],
-    ['name' => 'Trámites', 'href' => route('seguimientos_index')],
+    ['name' => 'TrÃ¡mites', 'href' => route('seguimientos_index')],
     ['name' => 'Detalle', 'href' => route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')])],
     ['name' => 'Emitir certificado', 'href' => route('certificados_emitir', $certificado)],
 ]">
@@ -12,7 +12,7 @@
             }
 
             if ($persona->empresa) {
-                return $persona->empresa->razon_social ?: 'Sin razón social';
+                return $persona->empresa->razon_social ?: 'Sin razÃ³n social';
             }
 
             if ($persona->natural) {
@@ -26,7 +26,7 @@
             return 'Persona #' . $persona->id;
         };
 
-        // Identificación visible según el tipo de persona.
+        // IdentificaciÃ³n visible segÃºn el tipo de persona.
         $identificacionPersona = function ($persona) {
             if (!$persona) {
                 return 'Sin dato';
@@ -39,7 +39,7 @@
             return $persona->natural?->ci ?: ($persona->nit ?: 'Sin CI/NIT');
         };
 
-        // Nombre completo del funcionario que revisó o registró.
+        // Nombre completo del funcionario que revisÃ³ o registrÃ³.
         $nombreFuncionario = function ($usuario, string $fallback = 'Sin funcionario') {
             $usuario?->loadMissing('funcionario');
             $funcionario = $usuario?->funcionario;
@@ -571,14 +571,14 @@
         <header class="emit-header">
             <div>
                 <h1 class="emit-title">Emitir certificado</h1>
-                <p class="emit-subtitle">Revise la información aprobada antes de registrar la emisión.</p>
+                <p class="emit-subtitle">Revise la informaciÃ³n aprobada antes de registrar la emisiÃ³n.</p>
             </div>
 
             <div class="emit-actions">
                 <a href="{{ route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')]) }}"
                     class="emit-btn emit-btn-muted">
                     <i class="fa-solid fa-arrow-left"></i>
-                    Volver al trámite
+                    Volver al trÃ¡mite
                 </a>
 
                 <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado>
@@ -617,13 +617,13 @@
                 <section class="emit-section">
                     <div class="emit-section-head">
                         <i class="fa-regular fa-file-lines"></i>
-                        <h2 class="emit-section-title">Datos del trámite</h2>
+                        <h2 class="emit-section-title">Datos del trÃ¡mite</h2>
                     </div>
                     <div class="emit-section-body">
                         <dl class="emit-definition">
                             <div class="emit-field">
-                                <dt>Código</dt>
-                                <dd>{{ $certificado->codigo ?: 'Sin código' }}</dd>
+                                <dt>CÃ³digo</dt>
+                                <dd>{{ $certificado->codigo ?: 'Sin cÃ³digo' }}</dd>
                             </div>
                             <div class="emit-field">
                                 <dt>Tipo de certificado</dt>
@@ -690,7 +690,7 @@
                                     <th>Producto</th>
                                     <th>Fabricante</th>
                                     <th>Registro</th>
-                                    <th>Presentación</th>
+                                    <th>PresentaciÃ³n</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -706,16 +706,16 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                {{ trim(($registro->presentacion?->cantidad ?? '') . ' ' . ($registro->presentacion?->unidad ?? '')) ?: 'Sin cantidad' }}
+                                                {{ trim(($registro->presentacion?->cantidad ?? '') . ' ' . ($registro->presentacion?->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
                                                 <span class="block text-xs text-slate-500">
-                                                    {{ $registro->presentacion?->descripcion ?? 'Sin descripción' }}
+                                                    {{ $registro->presentacion?->descripcion ?? 'Sin descripciÃ³n' }}
                                                 </span>
                                             </td>
                                         </tr>
                                     @endforeach
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center">Este trámite no tiene productos asociados.</td>
+                                        <td colspan="4" class="text-center">Este trÃ¡mite no tiene productos asociados.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -976,3 +976,4 @@
         })();
     </script>
 </x-admin-layout>
+

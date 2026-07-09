@@ -22,7 +22,11 @@ class OcupacionCobSeeder extends Seeder
                 'codigo_gran_grupo' => $codigoGranGrupo,
                 'descripcion_gran_grupo' => $granGrupo,
                 'codigo_subgrupo_principal' => $codigoSubgrupo,
-                'subgrupo_principal' => $subgrupo,
+                'descripcion_subgrupo_principal' => $subgrupo,
+                'codigo_subgrupo' => null,
+                'descripcion_subgrupo' => null,
+                'codigo_grupo_primario' => null,
+                'descripcion_grupo_primario' => null,
                 'codigo_ocupacion' => $codigoOcupacion,
                 'descripcion_ocupacion' => $ocupacion,
             ]);

@@ -67,13 +67,39 @@
         $ingredientesCatalogo =
             $ingredientes ?? \App\Models\Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
 
+        $clasificacionesCatalogo =
+            $clasificacionesProductos ??
+            \App\Models\ClasificacionProducto::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
+
+        $catalogosMedidas =
+            $catalogosMedidas ??
+            \App\Models\CatalogoMedida::query()
+                ->where('estado', 'ACTIVO')
+                ->orderBy('tipo')
+                ->orderBy('nombre')
+                ->get();
+
+        $catalogosUnidades = $catalogosMedidas
+            ->where('tipo', 'unidad de medida')
+            ->values();
+
+        $nombreCatalogoUnidad = function ($idCatalogoUnidad) use ($catalogosMedidas) {
+            $catalogo = $catalogosMedidas->firstWhere('id', (int) $idCatalogoUnidad);
+
+            if (! $catalogo) {
+                return 'Sin unidad';
+            }
+
+            return trim($catalogo->nombre . ($catalogo->abreviatura ? ' (' . $catalogo->abreviatura . ')' : ''));
+        };
+
         /*
          * Catalogo usado solo como apoyo visual para reutilizar presentaciones ya registradas.
          * La vista las filtra por importador y por el codigo/nombre del producto actual.
          */
         $presentacionesCatalogo =
             $presentacionesCatalogo ??
-            \App\Models\Presentacion::with('producto')
+            \App\Models\Presentacion::with(['producto', 'catalogoUnidad'])
                 ->where('estado', 'ACTIVO')
                 ->whereHas('producto', fn ($consulta) => $consulta->where('estado', 'ACTIVO'))
                 ->orderByDesc('id')
@@ -134,7 +160,10 @@
     @endif
 
     @if ($productoEmbebido && session('producto_creado_tramite'))
-        <script>
+        <link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+
+    <script>
             /*
              * Avisa al formulario de tramite que el producto ya fue guardado.
              * El parent solo usa estos datos para mostrar un resumen visual al usuario.
@@ -162,6 +191,16 @@
             value="{{ old('form_tipo_producto_temporal_descripcion') }}">
         <input type="hidden" id="form_tipo_producto_temporal_codigo" name="form_tipo_producto_temporal_codigo"
             value="{{ old('form_tipo_producto_temporal_codigo') }}">
+        <input type="hidden" id="form_clasificacion_temporal_nombre" name="form_clasificacion_temporal_nombre"
+            value="{{ old('form_clasificacion_temporal_nombre') }}">
+        <input type="hidden" id="form_clasificacion_temporal_descripcion" name="form_clasificacion_temporal_descripcion"
+            value="{{ old('form_clasificacion_temporal_descripcion') }}">
+        <input type="hidden" id="form_unidad_temporal_id" name="form_unidad_temporal_id"
+            value="{{ old('form_unidad_temporal_id') }}">
+        <input type="hidden" id="form_unidad_temporal_nombre" name="form_unidad_temporal_nombre"
+            value="{{ old('form_unidad_temporal_nombre') }}">
+        <input type="hidden" id="form_unidad_temporal_abreviatura" name="form_unidad_temporal_abreviatura"
+            value="{{ old('form_unidad_temporal_abreviatura') }}">
         {{-- Origen del flujo: permite volver a la pantalla que abrió Producto y relacionarlo al trámite. --}}
         <input type="hidden" name="form_id_certificado" value="{{ $productoCertificadoOrigen }}">
         <input type="hidden" name="form_bandeja" value="{{ $productoBandejaOrigen }}">
@@ -386,6 +425,87 @@
         </div>
     </div>
 
+    {{-- Modal visual para clasificación del producto. --}}
+    <div class="producto-modal" id="modalClasificacionProducto">
+        <div class="producto-modal-card is-compact">
+            <div class="producto-modal-head">
+                <div class="producto-modal-title-row">
+                    <span class="producto-modal-icon">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </span>
+                    <div>
+                        <h3 class="producto-modal-title">Nueva clasificación</h3>
+                        <p class="producto-modal-subtitle">Agregue una clasificación si no aparece en la lista.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="producto-modal-body">
+                <div>
+                    <label class="producto-field-label" for="modal_clasificacion_nombre">Nombre de la clasificación</label>
+                    <input class="producto-input" id="modal_clasificacion_nombre" type="text"
+                        placeholder="Ej: Insecticida">
+                </div>
+
+                <div>
+                    <label class="producto-field-label" for="modal_clasificacion_descripcion">Descripción</label>
+                    <textarea class="producto-textarea" id="modal_clasificacion_descripcion"
+                        placeholder="Detalle corto de la clasificación"></textarea>
+                </div>
+            </div>
+
+            <div class="producto-modal-actions">
+                <button type="button" class="producto-btn producto-btn-secondary"
+                    onclick="cerrarModalProducto('modalClasificacionProducto')">Cancelar</button>
+                <button type="button" class="producto-btn producto-btn-primary"
+                    onclick="agregarOpcionTemporalProducto('modalClasificacionProducto', 'form_id_clasificacion_producto', 'modal_clasificacion_nombre')">
+                    Agregar a la lista
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Modal visual para unidad de medida. --}}
+    <div class="producto-modal" id="modalUnidadProducto">
+        <div class="producto-modal-card is-compact">
+            <div class="producto-modal-head">
+                <div class="producto-modal-title-row">
+                    <span class="producto-modal-icon">
+                        <i class="fa-solid fa-ruler-combined"></i>
+                    </span>
+                    <div>
+                        <h3 class="producto-modal-title">Nueva unidad</h3>
+                        <p class="producto-modal-subtitle">Agregue una unidad de medida si no aparece en la lista.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="producto-modal-body">
+                <input type="hidden" id="modal_unidad_select_destino" value="form_presentacion_unidad">
+
+                <div>
+                    <label class="producto-field-label" for="modal_unidad_nombre">Nombre de la unidad</label>
+                    <input class="producto-input" id="modal_unidad_nombre" type="text"
+                        placeholder="Ej: Mililitro">
+                </div>
+
+                <div>
+                    <label class="producto-field-label" for="modal_unidad_abreviatura">Abreviatura</label>
+                    <input class="producto-input" id="modal_unidad_abreviatura" type="text"
+                        placeholder="Ej: ml">
+                </div>
+            </div>
+
+            <div class="producto-modal-actions">
+                <button type="button" class="producto-btn producto-btn-secondary"
+                    onclick="cerrarModalProducto('modalUnidadProducto')">Cancelar</button>
+                <button type="button" class="producto-btn producto-btn-primary"
+                    onclick="agregarOpcionTemporalProducto('modalUnidadProducto', document.getElementById('modal_unidad_select_destino')?.value || 'form_presentacion_unidad', 'modal_unidad_nombre')">
+                    Agregar a la lista
+                </button>
+            </div>
+        </div>
+    </div>
     {{-- Modal visual para ingrediente. --}}
     <div class="producto-modal" id="modalIngredienteProducto">
         <div class="producto-modal-card is-compact">
@@ -582,6 +702,60 @@
         // Normaliza texto para comparar codigo/nombre de producto sin depender de mayusculas o espacios dobles.
         function normalizarTextoProducto(valor) {
             return String(valor ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function sincronizarTomSelectProducto(select, valorSeleccionado = null) {
+            if (!select?.tomselect) {
+                if (valorSeleccionado !== null) {
+                    select.value = valorSeleccionado;
+                }
+                return;
+            }
+
+            select.tomselect.sync();
+            if (valorSeleccionado !== null) {
+                select.tomselect.setValue(valorSeleccionado, true);
+            }
+        }
+
+        function inicializarBuscadoresProducto() {
+            if (!window.TomSelect) {
+                return;
+            }
+
+            document.querySelectorAll('[data-producto-buscador]').forEach((select) => {
+                if (select.tomselect) {
+                    return;
+                }
+
+                new TomSelect(select, {
+                    create: false,
+                    allowEmptyOption: true,
+                    maxOptions: 500,
+                    dropdownParent: 'body',
+                    searchField: ['text'],
+                    render: {
+                        option: (data, escape) => `<div class="producto-ts-option">${escape(data.text || '')}</div>`,
+                        item: (data, escape) => `<div>${escape(data.text || '')}</div>`,
+                    },
+                });
+            });
+        }
+
+        function abrirModalUnidadProducto(idSelectDestino) {
+            document.getElementById('modal_unidad_select_destino').value = idSelectDestino || 'form_presentacion_unidad';
+            abrirModalProducto('modalUnidadProducto');
+        }
+        function textoUnidadCatalogoProducto(idUnidad) {
+            if (!idUnidad) {
+                return '';
+            }
+
+            const opcion =
+                document.querySelector(`#form_presentacion_unidad option[value="${CSS.escape(String(idUnidad))}"]`) ||
+                document.querySelector(`#form_registro_unidad option[value="${CSS.escape(String(idUnidad))}"]`);
+
+            return opcion?.dataset.texto || opcion?.textContent?.trim() || '';
         }
 
         // Muestra avisos del wizard con SweetAlert y deja alert como respaldo si la libreria no carga.
@@ -879,7 +1053,7 @@
             }
 
             document.getElementById('form_presentacion_cantidad').value = opcion.dataset.cantidad || '';
-            document.getElementById('form_presentacion_unidad').value = opcion.dataset.unidad || '';
+            document.getElementById('form_presentacion_unidad').value = opcion.dataset.unidadId || '';
             document.getElementById('form_presentacion_descripcion').value = opcion.dataset.descripcion || '';
             document.getElementById('form_presentacion_estado').value = opcion.dataset.estado || 'ACTIVO';
 
@@ -937,7 +1111,8 @@
             opcion.dataset.productoCodigo = document.getElementById('form_codigo')?.value || '';
             opcion.dataset.productoNombre = document.getElementById('form_nombre_comercial')?.value || '';
             opcion.dataset.cantidad = datos.cantidad || '';
-            opcion.dataset.unidad = datos.unidad || '';
+            opcion.dataset.unidadId = datos.id_catalogo_unidad || '';
+            opcion.dataset.unidadTexto = datos.unidad_texto || '';
             opcion.dataset.descripcion = datos.descripcion || '';
             opcion.dataset.estado = datos.estado || 'ACTIVO';
             opcion.dataset.etiquetaUrl = datos.etiquetaUrl || '';
@@ -947,7 +1122,7 @@
         }
 
         // Busca si la presentacion ya existe en el formulario para que el nuevo registro apunte a esa misma fila logica.
-        function buscarIndicePresentacionTemporalProducto(origenId, cantidad, unidad, descripcion) {
+        function buscarIndicePresentacionTemporalProducto(origenId, cantidad, idCatalogoUnidad, descripcion) {
             if (origenId) {
                 const origenExistente = document.querySelector(
                     `#presentacionesOcultasProducto input[name$="[id_presentacion_origen]"][value="${CSS.escape(origenId)}"]`
@@ -960,7 +1135,7 @@
 
             const claveNueva = [
                 normalizarTextoProducto(cantidad),
-                normalizarTextoProducto(unidad),
+                normalizarTextoProducto(idCatalogoUnidad),
                 normalizarTextoProducto(descripcion),
             ].join('|');
 
@@ -968,7 +1143,7 @@
                 const indice = bloque.dataset.presentacionTemporal;
                 const claveActual = [
                     normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][cantidad]"]`)?.value),
-                    normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][unidad]"]`)?.value),
+                    normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][id_catalogo_unidad]"]`)?.value),
                     normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][descripcion]"]`)?.value),
                 ].join('|');
 
@@ -993,7 +1168,7 @@
             bloque.dataset.presentacionTemporal = String(indicePresentacion);
             bloque.innerHTML = `
                 <input type="hidden" name="presentaciones[${indicePresentacion}][cantidad]" value="${escaparHtmlProducto(datos.cantidad)}">
-                <input type="hidden" name="presentaciones[${indicePresentacion}][unidad]" value="${escaparHtmlProducto(datos.unidad)}">
+                <input type="hidden" name="presentaciones[${indicePresentacion}][id_catalogo_unidad]" value="${escaparHtmlProducto(datos.id_catalogo_unidad)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][descripcion]" value="${escaparHtmlProducto(datos.descripcion)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][estado]" value="${escaparHtmlProducto(datos.estado)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][id_presentacion_origen]" value="${escaparHtmlProducto(datos.origenId)}">
@@ -1004,13 +1179,13 @@
         }
 
         // Evita agregar dos veces el mismo registro para una misma presentacion.
-        function existeRegistroDuplicadoProducto(indicePresentacion, codigo, fechaVigencia, cantidad, unidad) {
+        function existeRegistroDuplicadoProducto(indicePresentacion, codigo, fechaVigencia, cantidad, idCatalogoUnidad) {
             const claveNueva = [
                 String(indicePresentacion),
                 normalizarTextoProducto(codigo),
                 normalizarTextoProducto(fechaVigencia),
                 normalizarTextoProducto(cantidad),
-                normalizarTextoProducto(unidad),
+                normalizarTextoProducto(idCatalogoUnidad),
             ].join('|');
 
             return Array.from(document.querySelectorAll('#tablaRegistrosPresentacionesProducto tr[data-presentacion-indice]'))
@@ -1020,7 +1195,7 @@
                         normalizarTextoProducto(fila.querySelector('input[name$="[codigo_autorizacion]"]')?.value),
                         normalizarTextoProducto(fila.querySelector('input[name$="[fecha_vigencia]"]')?.value),
                         normalizarTextoProducto(fila.querySelector('input[name$="[cantidad]"][name^="registros"]')?.value),
-                        normalizarTextoProducto(fila.querySelector('input[name$="[unidad]"][name^="registros"]')?.value),
+                        normalizarTextoProducto(fila.querySelector('input[name$="[id_catalogo_unidad]"][name^="registros"]')?.value),
                     ].join('|');
 
                     return claveFila === claveNueva;
@@ -1150,7 +1325,7 @@
             const ingredienteId = select.value;
             const opcionIngrediente = select.options[select.selectedIndex];
             const ingredienteNombre = opcionIngrediente?.dataset.nombre || opcionIngrediente?.text || 'Sin nombre';
-            const ingredienteComposicion = opcionIngrediente?.dataset.composicion || 'Sin composicion';
+            const ingredienteComposicion = opcionIngrediente?.dataset.composicion || 'Sin composición';
             const ingredienteRiesgoSalud = opcionIngrediente?.dataset.riesgoSalud || 'Sin riesgo registrado';
             const productoNombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
             const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin código';
@@ -1207,9 +1382,29 @@
             actualizarDetalleIngredienteProducto();
             limpiarErrorProducto(select);
             limpiarErrorProducto(porcentaje);
+            actualizarTotalPorcentajeIngredientesProducto();
             actualizarResumenProducto();
         }
 
+
+        // Muestra el total de porcentajes agregados y avisa cuando supera 100%.
+        function actualizarTotalPorcentajeIngredientesProducto() {
+            const total = Array.from(document.querySelectorAll(
+                '#tablaIngredientesProducto input[name*="[porcentaje]"]'
+            )).reduce((suma, input) => suma + (Number(input.value) || 0), 0);
+
+            const totalTexto = document.getElementById('totalPorcentajeIngredientesProducto');
+            const alerta = document.getElementById('alertaPorcentajeIngredientesProducto');
+            const totalFormateado = Number.isInteger(total) ? total : total.toFixed(2);
+
+            if (totalTexto) {
+                totalTexto.textContent = `${totalFormateado}%`;
+            }
+
+            if (alerta) {
+                alerta.classList.toggle('hidden', total <= 100);
+            }
+        }
         // Agrega una presentacion y su registro en una sola accion visual.
         // Internamente se envian dos arrays porque la base de datos guarda presentaciones y registros por separado.
         function agregarPresentacionRegistroProducto() {
@@ -1249,12 +1444,7 @@
 
             const cantidadValida = validarNumeroProducto('form_presentacion_cantidad', 'Ingrese una cantidad valida.', 1);
             const unidadValida = validarRequeridoProducto('form_presentacion_unidad', 'Ingrese la unidad.');
-            const codigoValido = validarRequeridoProducto(
-                'form_registro_codigo_autorizacion',
-                'Ingrese el codigo de autorizacion.'
-            );
-
-            if (!cantidadValida || !unidadValida || !codigoValido) {
+            if (!cantidadValida || !unidadValida) {
                 return;
             }
 
@@ -1272,7 +1462,9 @@
 
             const indicePresentacion = reutilizaPresentacion ? Number(indiceExistente) : productoPresentacionIndice;
             const indiceRegistro = productoRegistroIndice;
-            const presentacionTexto = `${cantidadPresentacion.value} ${unidadPresentacion.value}${descripcion.value ? ' - ' + descripcion.value : ''}`;
+            const textoUnidadPresentacion = textoUnidadCatalogoProducto(unidadPresentacion.value);
+            const textoUnidadRegistro = textoUnidadCatalogoProducto(unidadRegistro.value);
+            const presentacionTexto = `${cantidadPresentacion.value} ${textoUnidadPresentacion}${descripcion.value ? ' - ' + descripcion.value : ''}`;
             const etiquetaUrl = archivoEtiqueta
                 ? (productoEtiquetaPreviewUrl || URL.createObjectURL(archivoEtiqueta))
                 : (productoEtiquetaOrigenActual?.url || productoEtiquetaUrls[indicePresentacion]?.url);
@@ -1302,7 +1494,8 @@
 
                 crearCamposOcultosPresentacionProducto(indicePresentacion, {
                     cantidad: cantidadPresentacion.value,
-                    unidad: unidadPresentacion.value,
+                    id_catalogo_unidad: unidadPresentacion.value,
+                    unidad_texto: textoUnidadPresentacion,
                     descripcion: descripcion.value,
                     estado: estadoPresentacion.value,
                     origenId,
@@ -1342,7 +1535,7 @@
                         </div>
                         <div>
                             <span>Unidad</span>
-                            <strong>${escaparHtmlProducto(unidadPresentacion.value)}</strong>
+                            <strong>${escaparHtmlProducto(textoUnidadPresentacion)}</strong>
                         </div>
                         <div class="is-wide">
                             <span>Descripcion</span>
@@ -1392,7 +1585,7 @@
                         </div>
                         <div>
                             <span>Unidad</span>
-                            <strong>${escaparHtmlProducto(unidadRegistro.value || '-')}</strong>
+                            <strong>${escaparHtmlProducto(textoUnidadRegistro || '-')}</strong>
                         </div>
                         <div class="is-wide">
                             <span>Relacion</span>
@@ -1406,7 +1599,7 @@
                     <input type="hidden" name="registros[${indiceRegistro}][codigo_autorizacion]" value="${escaparHtmlProducto(codigo.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][fecha_vigencia]" value="${escaparHtmlProducto(fechaVigencia.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][cantidad]" value="${escaparHtmlProducto(cantidadRegistro.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][unidad]" value="${escaparHtmlProducto(unidadRegistro.value)}">
+                    <input type="hidden" name="registros[${indiceRegistro}][id_catalogo_unidad]" value="${escaparHtmlProducto(unidadRegistro.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][id_presentacion_temporal]" value="${escaparHtmlProducto(indicePresentacion)}">
                     <input type="hidden" name="registros[${indiceRegistro}][presentacion_texto]" value="${escaparHtmlProducto(presentacionTexto)}">
                     <input type="hidden" name="registros[${indiceRegistro}][estado]" value="${estadoRegistro.value}">
@@ -1452,7 +1645,8 @@
                 registrarOpcionTemporalPresentacionProducto(indicePresentacion, {
                     texto: presentacionTexto,
                     cantidad: cantidadPresentacion.value,
-                    unidad: unidadPresentacion.value,
+                    id_catalogo_unidad: unidadPresentacion.value,
+                    unidad_texto: textoUnidadPresentacion,
                     descripcion: descripcion.value,
                     estado: estadoPresentacion.value,
                     etiquetaUrl,
@@ -1553,7 +1747,7 @@
                 '';
 
             document.getElementById('form_presentacion_cantidad').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][cantidad]"]`);
-            document.getElementById('form_presentacion_unidad').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][unidad]"]`);
+            document.getElementById('form_presentacion_unidad').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][id_catalogo_unidad]"]`);
             document.getElementById('form_presentacion_descripcion').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][descripcion]"]`);
             document.getElementById('form_presentacion_estado').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][estado]"]`) || 'ACTIVO';
             document.getElementById('form_presentacion_origen_id').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][id_presentacion_origen]"]`);
@@ -1561,7 +1755,7 @@
             document.getElementById('form_registro_codigo_autorizacion').value = valorCampo('input[name$="[codigo_autorizacion]"]');
             document.getElementById('form_registro_fecha_vigencia').value = valorCampo('input[name$="[fecha_vigencia]"]');
             document.getElementById('form_registro_cantidad').value = valorCampo('input[name$="[cantidad]"][name^="registros"]');
-            document.getElementById('form_registro_unidad').value = valorCampo('input[name$="[unidad]"][name^="registros"]');
+            document.getElementById('form_registro_unidad').value = valorCampo('input[name$="[id_catalogo_unidad]"][name^="registros"]');
             document.getElementById('form_registro_estado').value = valorCampo('input[name$="[estado]"][name^="registros"]') || 'ACTIVO';
 
             quitarFilaProducto(boton);
@@ -1596,6 +1790,7 @@
 
             asegurarFilaVaciaRegistrosPresentacionesProducto();
             reenumerarFilasProducto('tablaRegistrosPresentacionesProducto', 'sinRegistrosPresentacionesProducto');
+            actualizarTotalPorcentajeIngredientesProducto();
             actualizarResumenProducto();
         }
 
@@ -1673,63 +1868,88 @@
         function agregarOpcionTemporalProducto(idModal, idSelect, idInput) {
             const input = document.getElementById(idInput);
             const select = document.getElementById(idSelect);
-            const texto = input.value.trim();
+            const textoBase = input?.value.trim() || '';
 
-            if (!texto) {
+            if (!textoBase || !select) {
                 marcarErrorProducto(input, 'Ingrese un nombre para agregarlo.');
                 return;
             }
 
-            // Cada select mantiene una sola opcion temporal activa para no llenar el catalogo visual con duplicados.
-            select.querySelectorAll('option[data-temporal="1"]').forEach((opcionTemporal) => {
-                opcionTemporal.remove();
-            });
+            const valorTemporal = `TEMP-${Date.now()}`;
+            let textoVisible = textoBase;
+            let textoUnidad = textoBase;
 
-            const opcion = document.createElement('option');
-            opcion.value = `TEMP-${Date.now()}`;
-            opcion.textContent = texto;
-            opcion.dataset.temporal = '1';
-            opcion.selected = true;
-
-            // Fabricante temporal: se guardan datos extras en hidden para crear el catalogo al guardar.
             if (idSelect === 'form_id_fabricante') {
-                document.getElementById('form_fabricante_temporal_nombre').value = texto;
+                document.getElementById('form_fabricante_temporal_nombre').value = textoBase;
                 document.getElementById('form_fabricante_temporal_razon_social').value =
                     document.getElementById('modal_fabricante_razon_social')?.value.trim() || '';
                 document.getElementById('form_fabricante_temporal_descripcion').value =
                     document.getElementById('modal_fabricante_descripcion')?.value.trim() || '';
             }
 
-            // Tipo de producto temporal: se guarda descripcion y codigo para crear el catalogo al guardar.
             if (idSelect === 'form_id_tipo_producto') {
-                document.getElementById('form_tipo_producto_temporal_descripcion').value = texto;
+                document.getElementById('form_tipo_producto_temporal_descripcion').value = textoBase;
                 document.getElementById('form_tipo_producto_temporal_codigo').value =
                     document.getElementById('modal_tipo_producto_codigo')?.value.trim() || '';
             }
 
-            // Si se crea un ingrediente desde el modal, se guardan tambien sus datos visibles para la tabla.
+            if (idSelect === 'form_id_clasificacion_producto') {
+                document.getElementById('form_clasificacion_temporal_nombre').value = textoBase;
+                document.getElementById('form_clasificacion_temporal_descripcion').value =
+                    document.getElementById('modal_clasificacion_descripcion')?.value.trim() || '';
+            }
+
+            if (idSelect === 'form_presentacion_unidad' || idSelect === 'form_registro_unidad') {
+                const abreviatura = document.getElementById('modal_unidad_abreviatura')?.value.trim() || '';
+                textoVisible = abreviatura ? `${textoBase} (${abreviatura})` : textoBase;
+                textoUnidad = textoVisible;
+
+                document.getElementById('form_unidad_temporal_id').value = valorTemporal;
+                document.getElementById('form_unidad_temporal_nombre').value = textoBase;
+                document.getElementById('form_unidad_temporal_abreviatura').value = abreviatura;
+
+                ['form_presentacion_unidad', 'form_registro_unidad'].forEach((idUnidadSelect) => {
+                    const unidadSelect = document.getElementById(idUnidadSelect);
+                    if (!unidadSelect) return;
+
+                    unidadSelect.querySelectorAll('option[data-temporal="1"]').forEach((opcionTemporal) => opcionTemporal.remove());
+
+                    const opcionUnidad = new Option(textoVisible, valorTemporal, false, idUnidadSelect === idSelect);
+                    opcionUnidad.dataset.temporal = '1';
+                    opcionUnidad.dataset.texto = textoUnidad;
+                    unidadSelect.add(opcionUnidad);
+                    sincronizarTomSelectProducto(unidadSelect, idUnidadSelect === idSelect ? valorTemporal : unidadSelect.value);
+                });
+
+                limpiarErrorProducto(select);
+                limpiarErrorProducto(input);
+                cerrarModalProducto(idModal);
+                actualizarResumenProducto();
+                return;
+            }
+
+            select.querySelectorAll('option[data-temporal="1"]').forEach((opcionTemporal) => opcionTemporal.remove());
+
+            const opcion = new Option(textoVisible, valorTemporal, true, true);
+            opcion.dataset.temporal = '1';
+
             if (idSelect === 'form_ingrediente_select') {
                 const composicion = document.getElementById('modal_ingrediente_composicion')?.value.trim() || '';
                 const riesgoSalud = document.getElementById('modal_ingrediente_riesgo_salud')?.value.trim() || '';
 
-                opcion.textContent = texto;
-                opcion.dataset.nombre = texto;
-                opcion.dataset.composicion = composicion || 'Sin composicion';
+                opcion.dataset.nombre = textoBase;
+                opcion.dataset.composicion = composicion || 'Sin composición';
                 opcion.dataset.riesgoSalud = riesgoSalud || 'Sin riesgo registrado';
             }
 
-            select.appendChild(opcion);
+            select.add(opcion);
+            sincronizarTomSelectProducto(select, valorTemporal);
             limpiarErrorProducto(select);
             limpiarErrorProducto(input);
             actualizarDetalleIngredienteProducto();
-
             cerrarModalProducto(idModal);
-
-            // Limpieza extra despues de agregar: evita que el modal reabra con el ultimo texto escrito.
-            limpiarModalProducto(document.getElementById(idModal));
             actualizarResumenProducto();
         }
-
         // Actualiza el panel lateral y el resumen del paso de revisión.
         function actualizarResumenProducto() {
             const nombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
@@ -1840,7 +2060,7 @@
                         role="option"
                         aria-selected="${seleccionado ? 'true' : 'false'}">
                         <strong>${escaparHtmlProducto(nombre)}</strong>
-                        ${composicion ? `<small>Composicion: ${escaparHtmlProducto(composicion)}</small>` : ''}
+                        ${composicion ? `<small>Composición: ${escaparHtmlProducto(composicion)}</small>` : ''}
                     </button>
                 `;
             }).join('');
@@ -1868,7 +2088,7 @@
             }
 
             etiqueta.textContent = select?.value ? nombre : 'Seleccione un ingrediente';
-            detalle.textContent = select?.value && composicion ? `Composicion: ${composicion}` : 'Composicion como detalle';
+            detalle.textContent = select?.value && composicion ? `Composición: ${composicion}` : 'Composición como detalle';
             renderizarOpcionesIngredienteProducto();
         }
 
@@ -1977,7 +2197,7 @@
             `;
         }
 
-        // Agrupa inputs del tipo presentaciones[0][cantidad] o registros[0][unidad] por indice.
+        // Agrupa inputs del tipo presentaciones[0][cantidad] o registros[0][id_catalogo_unidad] por indice.
         function gruposPorIndiceResumenProducto(prefijo) {
             const patron = new RegExp(`^${prefijo}\\[(\\d+)\\]\\[([^\\]]+)\\]$`);
             const grupos = {};
@@ -2030,7 +2250,7 @@
         // Une cantidad, unidad y descripcion para identificar a que presentacion apunta un registro.
         function textoPresentacionResumenProducto(indice, presentaciones) {
             const presentacion = presentaciones[indice] || {};
-            const base = [presentacion.cantidad, presentacion.unidad].filter(Boolean).join(' ');
+            const base = [presentacion.cantidad, textoUnidadCatalogoProducto(presentacion.id_catalogo_unidad)].filter(Boolean).join(' ');
             const descripcion = presentacion.descripcion ? ` - ${presentacion.descripcion}` : '';
 
             return base || descripcion ? `${base}${descripcion}` : `Presentacion #${indice}`;
@@ -2054,7 +2274,7 @@
                 itemResumenProducto('Codigo', valorResumenProducto('#form_codigo')),
                 itemResumenProducto('Nombre comercial', valorResumenProducto('#form_nombre_comercial')),
                 itemResumenProducto('Nombre cientifico', valorResumenProducto('#form_nombre_cientifico')),
-                itemResumenProducto('Clasificacion', valorResumenProducto('#form_clasificacion')),
+                itemResumenProducto('Clasificacion', textoSelectProducto('form_id_clasificacion_producto')),
                 itemResumenProducto('Importador', textoSelectProducto('form_id_importador_persona')),
                 itemResumenProducto('Pais / territorio', textoSelectProducto('form_id_territorio_pais')),
                 itemResumenProducto('Fabricante', textoSelectProducto('form_id_fabricante')),
@@ -2085,7 +2305,7 @@
             const filasPresentaciones = Object.entries(presentaciones).map(([indice, presentacion]) => [
                 Number(indice) + 1,
                 presentacion.cantidad,
-                presentacion.unidad,
+                textoUnidadCatalogoProducto(presentacion.id_catalogo_unidad),
                 presentacion.descripcion,
                 etiquetaResumenPresentacionProducto(indice, presentacion),
                 presentacion.id_presentacion_origen ? `Reutiliza presentacion #${presentacion.id_presentacion_origen}` : 'Nueva presentacion',
@@ -2097,7 +2317,7 @@
                 registro.codigo_autorizacion,
                 registro.fecha_vigencia,
                 registro.cantidad,
-                registro.unidad,
+                textoUnidadCatalogoProducto(registro.id_catalogo_unidad),
                 textoPresentacionResumenProducto(registro.id_presentacion_temporal, presentaciones),
                 registro.estado || 'ACTIVO',
             ]);
@@ -2110,9 +2330,9 @@
                 ),
                 grupoResumenProducto(
                     'Ingredientes del producto',
-                    'Composicion, riesgo de salud, porcentaje y estado de cada ingrediente agregado.',
+                    'Composición, riesgo de salud, porcentaje y estado de cada ingrediente agregado.',
                     tablaResumenProducto(
-                        ['#', 'Ingrediente', 'Composicion', 'Riesgo salud', 'Porcentaje', 'Estado'],
+                        ['#', 'Ingrediente', 'Composición', 'Riesgo salud', 'Porcentaje', 'Estado'],
                         filasIngredientes,
                         'No se agregaron ingredientes.'
                     )
@@ -2238,8 +2458,12 @@
                 }
             });
 
+            inicializarBuscadoresProducto();
+
             document.getElementById('form_ingrediente_select')?.addEventListener('change', actualizarDetalleIngredienteProducto);
             actualizarDetalleIngredienteProducto();
+
+                        actualizarTotalPorcentajeIngredientesProducto();
 
             document.getElementById('form_presentacion_catalogo')?.addEventListener('change', autocompletarPresentacionProducto);
             filtrarPresentacionesCatalogoProducto();

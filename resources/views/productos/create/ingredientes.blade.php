@@ -24,13 +24,13 @@
                         @endforeach
                     </select>
 
-                    {{-- Selector visual: permite mostrar nombre y composicion en dos lineas dentro del desplegable. --}}
+                    {{-- Selector visual: permite mostrar nombre y composición en dos líneas dentro del desplegable. --}}
                     <div class="producto-ingredient-select" data-ingrediente-combobox>
                         <button type="button" class="producto-ingredient-trigger" data-ingrediente-trigger
                             aria-expanded="false" aria-controls="form_ingrediente_options">
                             <span class="producto-ingredient-trigger-text">
                                 <strong data-ingrediente-label>Seleccione un ingrediente</strong>
-                                <small data-ingrediente-detail>Composicion como detalle</small>
+                                <small data-ingrediente-detail>Composición como detalle</small>
                             </span>
                             <i class="fa-solid fa-chevron-down"></i>
                         </button>
@@ -85,6 +85,17 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="font-semibold">Total de porcentaje de ingredientes</span>
+                    <span class="rounded-full bg-white px-3 py-1 font-bold text-slate-800"
+                        id="totalPorcentajeIngredientesProducto">0%</span>
+                </div>
+                <p class="mt-2 hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 font-semibold text-red-700"
+                    id="alertaPorcentajeIngredientesProducto">
+                    La suma de los porcentajes excedió el 100%.
+                </p>
             </div>
         </div>
     </section>

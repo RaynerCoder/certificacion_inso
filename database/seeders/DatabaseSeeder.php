@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
             TerritorioSeeder::class,
             FabricanteSeeder::class,
             TipoProductoSeeder::class,
+            ClasificacionProductoSeeder::class,
+            CatalogoMedidaSeeder::class,
             PersonaSeeder::class,
             OcupacionCobSeeder::class,
             NaturalSeeder::class,

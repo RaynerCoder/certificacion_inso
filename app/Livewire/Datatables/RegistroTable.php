@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Datatables;
 
+use App\Models\Presentacion;
 use App\Models\Registro;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -24,7 +25,8 @@ class RegistroTable extends DataTableComponent
             ->with([
                 'producto.fabricante',
                 'producto.tipoProducto',
-                'presentacion',
+                'presentacion.catalogoUnidad',
+                'catalogoUnidad',
             ]);
     }
 
@@ -36,7 +38,9 @@ class RegistroTable extends DataTableComponent
             Column::make('Codigo autorizacion', 'codigo_autorizacion')->sortable(),
             $this->columnaFechaVigencia(),
             Column::make('Cantidad', 'cantidad')->sortable(),
-            Column::make('Unidad', 'unidad')->sortable(),
+            Column::make('Unidad', 'id_catalogo_unidad')
+                ->format(fn ($valor, $registro) => $this->textoCatalogoUnidad($registro))
+                ->sortable(),
             $this->columnaPresentacion(),
             $this->columnaEstado(),
         ];
@@ -108,7 +112,7 @@ class RegistroTable extends DataTableComponent
             return '<span class="text-slate-500">Sin presentacion</span>';
         }
 
-        $cantidad = trim(($presentacion->cantidad ?? '') . ' ' . ($presentacion->unidad ?? '')) ?: 'Sin cantidad';
+        $cantidad = trim(($presentacion->cantidad ?? '') . ' ' . $this->textoCatalogoUnidad($presentacion)) ?: 'Sin cantidad';
         $descripcion = $presentacion->descripcion ?: 'Sin descripcion';
 
         return '<div class="max-w-[320px] whitespace-normal break-words leading-snug">'
@@ -117,6 +121,16 @@ class RegistroTable extends DataTableComponent
             . '</div>';
     }
 
+    private function textoCatalogoUnidad(Registro|Presentacion $modelo): string
+    {
+        $unidad = $modelo->catalogoUnidad;
+
+        if (!$unidad) {
+            return 'Sin unidad';
+        }
+
+        return trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : ''));
+    }
     private function chipEstado(?string $estado): string
     {
         $texto = $estado ?: 'Sin estado';
@@ -129,3 +143,4 @@ class RegistroTable extends DataTableComponent
             . '</span>';
     }
 }
+

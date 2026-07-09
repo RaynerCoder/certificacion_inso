@@ -50,7 +50,7 @@
 
     @include('layouts.includes.admin.sidebar')
 
-    <div class="p-4 sm:ml-64">
+    <div class="cert-main-content p-4 sm:ml-64">
         
         <div class="mt-14 flex items-center">
 

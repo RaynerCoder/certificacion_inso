@@ -1715,4 +1715,44 @@
             font-size: 12px;
         }
     }
+
+    .producto-step .ts-wrapper.single .ts-control {
+        min-height: 44px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 9px 12px;
+        color: #0f172a;
+        font-size: 14px;
+        box-shadow: none;
+    }
+
+    .producto-step .ts-wrapper.focus .ts-control {
+        border-color: #0d9488;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    }
+
+    .producto-step .ts-dropdown {
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        overflow: hidden;
+        font-size: 14px;
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+    }
+
+    .producto-step .ts-dropdown .option {
+        padding: 9px 12px;
+        color: #0f172a;
+    }
+
+    .producto-step .ts-dropdown .active {
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .producto-ts-option {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 </style>

@@ -15,8 +15,8 @@ class ProductoSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            1 => [1, 'PROD-SPM-001', 1, 1, 'SPIROMAT', 'Pralletrina + Permetrina', 'INSECTICIDA AEROSOL', 1],
-            2 => [1, 'PROD-SAP-002', 1, 2, 'SAPOLIO INSECTICIDA MATA TODO', 'Imidacloprid', 'INSECTICIDA DOMESTICO', 1],
+            1 => [1, 'PROD-SPM-001', 1, 1, 'SPIROMAT', 'Pralletrina + Permetrina', 1, 1],
+            2 => [1, 'PROD-SAP-002', 1, 2, 'SAPOLIO INSECTICIDA MATA TODO', 'Imidacloprid', 1, 1],
         ] as $id => [$importador, $codigo, $territorio, $fabricante, $comercial, $cientifico, $clasificacion, $tipo]) {
             $this->guardar('productos', $id, [
                 'id_importador_persona' => $importador,
@@ -25,7 +25,7 @@ class ProductoSeeder extends Seeder
                 'id_fabricante' => $fabricante,
                 'nombre_comercial' => $comercial,
                 'nombre_cientifico' => $cientifico,
-                'clasificacion' => $clasificacion,
+                'id_clasificacion_producto' => $clasificacion,
                 'id_tipo_producto' => $tipo,
                 'estado' => 'ACTIVO',
             ]);

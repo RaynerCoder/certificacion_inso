@@ -25,7 +25,7 @@ return new class extends Migration
 
             // Cantidad y unidad autorizada.
             $table->integer('cantidad')->nullable();
-            $table->string('unidad', 50)->nullable();
+            $table->foreignId('id_catalogo_unidad')->nullable()->constrained('catalogos_medidas');
 
             // Presentacion relacionada al registro.
             $table->foreignId('id_presentacion')->nullable()->constrained('presentaciones');

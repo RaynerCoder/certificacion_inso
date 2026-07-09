@@ -21,9 +21,11 @@
                             @foreach ($presentacionesCatalogo as $presentacionCatalogo)
                                 @php
                                     $productoCatalogo = $presentacionCatalogo->producto;
-                                    $textoPresentacionCatalogo = trim(
-                                        ($presentacionCatalogo->cantidad ?? '') . ' ' . ($presentacionCatalogo->unidad ?? '')
-                                    );
+                                    $unidadCatalogo = $presentacionCatalogo->catalogoUnidad;
+                                    $textoUnidadCatalogo = $unidadCatalogo
+                                        ? trim($unidadCatalogo->nombre . ($unidadCatalogo->abreviatura ? ' (' . $unidadCatalogo->abreviatura . ')' : ''))
+                                        : 'Sin unidad';
+                                    $textoPresentacionCatalogo = trim(($presentacionCatalogo->cantidad ?? '') . ' ' . $textoUnidadCatalogo);
                                     $textoPresentacionCatalogo = $textoPresentacionCatalogo ?: 'Presentacion #' . $presentacionCatalogo->id;
                                     $textoPresentacionCatalogo .= $presentacionCatalogo->descripcion ? ' - ' . $presentacionCatalogo->descripcion : '';
                                     $urlEtiquetaCatalogo = $presentacionCatalogo->url_etiqueta
@@ -35,7 +37,8 @@
                                     data-producto-codigo="{{ $productoCatalogo?->codigo }}"
                                     data-producto-nombre="{{ $productoCatalogo?->nombre_comercial }}"
                                     data-cantidad="{{ $presentacionCatalogo->cantidad }}"
-                                    data-unidad="{{ $presentacionCatalogo->unidad }}"
+                                    data-unidad-id="{{ $presentacionCatalogo->id_catalogo_unidad }}"
+                                    data-unidad-texto="{{ $textoUnidadCatalogo }}"
                                     data-descripcion="{{ $presentacionCatalogo->descripcion }}"
                                     data-estado="{{ $presentacionCatalogo->estado }}"
                                     data-etiqueta-url="{{ $urlEtiquetaCatalogo }}"
@@ -57,9 +60,28 @@
                     </div>
 
                     <div class="producto-campo-unidad">
-                        <label class="producto-field-label" for="form_presentacion_unidad">Unidad</label>
-                        <input class="producto-input" id="form_presentacion_unidad" type="text"
-                            placeholder="Ej: Litro, Kg, ml">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <label class="producto-field-label !mb-0" for="form_presentacion_unidad">Unidad</label>
+                            <button type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900"
+                                onclick="abrirModalUnidadProducto('form_presentacion_unidad')">
+                                + Nueva unidad
+                            </button>
+                        </div>
+                        <select class="producto-select producto-select-search" id="form_presentacion_unidad" data-producto-buscador="1">
+                            <option value="">Seleccione unidad</option>
+                            @if (str_starts_with((string) old('form_unidad_temporal_id'), 'TEMP-') && old('form_unidad_temporal_nombre'))
+                                <option value="{{ old('form_unidad_temporal_id') }}" data-temporal="1"
+                                    data-texto="{{ trim(old('form_unidad_temporal_nombre') . (old('form_unidad_temporal_abreviatura') ? ' (' . old('form_unidad_temporal_abreviatura') . ')' : '')) }}">
+                                    {{ old('form_unidad_temporal_nombre') }}{{ old('form_unidad_temporal_abreviatura') ? ' (' . old('form_unidad_temporal_abreviatura') . ')' : '' }}
+                                </option>
+                            @endif
+                            @foreach ($catalogosUnidades as $catalogoUnidad)
+                                <option value="{{ $catalogoUnidad->id }}"
+                                    data-texto="{{ trim($catalogoUnidad->nombre . ($catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '')) }}">
+                                    {{ $catalogoUnidad->nombre }}{{ $catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="producto-campo-estado">
@@ -148,8 +170,28 @@
                     </div>
 
                     <div class="producto-campo-unidad">
-                        <label class="producto-field-label" for="form_registro_unidad">Unidad</label>
-                        <input class="producto-input" id="form_registro_unidad" type="text" placeholder="Cajas">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <label class="producto-field-label !mb-0" for="form_registro_unidad">Unidad</label>
+                            <button type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900"
+                                onclick="abrirModalUnidadProducto('form_registro_unidad')">
+                                + Nueva unidad
+                            </button>
+                        </div>
+                        <select class="producto-select producto-select-search" id="form_registro_unidad" data-producto-buscador="1">
+                            <option value="">Seleccione unidad</option>
+                            @if (str_starts_with((string) old('form_unidad_temporal_id'), 'TEMP-') && old('form_unidad_temporal_nombre'))
+                                <option value="{{ old('form_unidad_temporal_id') }}" data-temporal="1"
+                                    data-texto="{{ trim(old('form_unidad_temporal_nombre') . (old('form_unidad_temporal_abreviatura') ? ' (' . old('form_unidad_temporal_abreviatura') . ')' : '')) }}">
+                                    {{ old('form_unidad_temporal_nombre') }}{{ old('form_unidad_temporal_abreviatura') ? ' (' . old('form_unidad_temporal_abreviatura') . ')' : '' }}
+                                </option>
+                            @endif
+                            @foreach ($catalogosUnidades as $catalogoUnidad)
+                                <option value="{{ $catalogoUnidad->id }}"
+                                    data-texto="{{ trim($catalogoUnidad->nombre . ($catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '')) }}">
+                                    {{ $catalogoUnidad->nombre }}{{ $catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="producto-campo-estado">
@@ -201,7 +243,7 @@
                                 $indicePresentacion = $registroOld['id_presentacion_temporal'] ?? $indice;
                                 $presentacionOld = $presentacionesOld[$indicePresentacion] ?? null;
                                 $presentacionTexto = $registroOld['presentacion_texto'] ?? trim(
-                                    ($presentacionOld['cantidad'] ?? '') . ' ' . ($presentacionOld['unidad'] ?? '')
+                                    ($presentacionOld['cantidad'] ?? '') . ' ' . $nombreCatalogoUnidad($presentacionOld['id_catalogo_unidad'] ?? null)
                                 );
                                 $presentacionTexto = $presentacionTexto ?: 'Presentacion #' . ((int) $indicePresentacion + 1);
                                 $presentacionTexto .= !empty($presentacionOld['descripcion']) ? ' - ' . $presentacionOld['descripcion'] : '';
@@ -245,7 +287,7 @@
                                         </div>
                                         <div>
                                             <span>Unidad</span>
-                                            <strong>{{ $presentacionOld['unidad'] ?? '-' }}</strong>
+                                            <strong>{{ $nombreCatalogoUnidad($presentacionOld['id_catalogo_unidad'] ?? null) }}</strong>
                                         </div>
                                         <div class="is-wide">
                                             <span>Descripcion</span>
@@ -299,8 +341,8 @@
                                     </div>
                                     <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][cantidad]"
                                         value="{{ $presentacionOld['cantidad'] ?? '' }}">
-                                    <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][unidad]"
-                                        value="{{ $presentacionOld['unidad'] ?? '' }}">
+                                    <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][id_catalogo_unidad]"
+                                        value="{{ $presentacionOld['id_catalogo_unidad'] ?? '' }}">
                                     <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][descripcion]"
                                         value="{{ $presentacionOld['descripcion'] ?? '' }}">
                                     <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][estado]"
@@ -324,7 +366,7 @@
                                         </div>
                                         <div>
                                             <span>Unidad</span>
-                                            <strong>{{ $registroOld['unidad'] ?? '-' }}</strong>
+                                            <strong>{{ $nombreCatalogoUnidad($registroOld['id_catalogo_unidad'] ?? null) }}</strong>
                                         </div>
                                         <div class="is-wide">
                                             <span>Relacion</span>
@@ -341,8 +383,8 @@
                                         value="{{ $registroOld['fecha_vigencia'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][cantidad]"
                                         value="{{ $registroOld['cantidad'] ?? '' }}">
-                                    <input type="hidden" name="registros[{{ $indice }}][unidad]"
-                                        value="{{ $registroOld['unidad'] ?? '' }}">
+                                    <input type="hidden" name="registros[{{ $indice }}][id_catalogo_unidad]"
+                                        value="{{ $registroOld['id_catalogo_unidad'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][id_presentacion_temporal]"
                                         value="{{ $indicePresentacion }}">
                                     <input type="hidden" name="registros[{{ $indice }}][presentacion_texto]"

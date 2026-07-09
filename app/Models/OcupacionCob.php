@@ -16,7 +16,11 @@ class OcupacionCob extends Model
         'codigo_gran_grupo',
         'descripcion_gran_grupo',
         'codigo_subgrupo_principal',
-        'subgrupo_principal',
+        'descripcion_subgrupo_principal',
+        'codigo_subgrupo',
+        'descripcion_subgrupo',
+        'codigo_grupo_primario',
+        'descripcion_grupo_primario',
         'codigo_ocupacion',
         'descripcion_ocupacion',
     ];

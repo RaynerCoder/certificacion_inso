@@ -47,10 +47,10 @@ class UsuarioController extends Controller
                 'name' => $datos['form_name'],
                 'email' => $datos['form_email'],
                 'password' => $datos['form_password'],
-                'estado' => $datos['form_estado'],
+                'estado' => (int) $datos['form_estado'],
             ]);
 
-            $usuario->roles()->sync($datos['form_roles'] ?? []);
+            $usuario->roles()->sync($datos['form_roles']);
             $usuario->permisosDirectos()->sync($datos['form_permisos'] ?? []);
 
             // Crea la ficha laboral del funcionario vinculada uno a uno con la cuenta.
@@ -60,8 +60,8 @@ class UsuarioController extends Controller
                 'apellido_materno' => $datos['form_funcionario_apellido_materno'] ?? null,
                 'carnet' => $datos['form_funcionario_carnet'],
                 'telefono' => $datos['form_funcionario_telefono'] ?? null,
-                'genero' => $datos['form_funcionario_genero'] ?? null,
-                'estado' => $datos['form_funcionario_estado'],
+                'genero' => (int) $datos['form_funcionario_genero'],
+                'estado' => (int) $datos['form_funcionario_estado'],
             ]);
 
             $funcionario->cargos()->sync($this->obtenerCargosFuncionario($datos));
@@ -77,6 +77,7 @@ class UsuarioController extends Controller
             return redirect()->route('usuarios_index');
         } catch (\Exception $e) {
             DB::rollBack();
+            report($e);
 
             return back()
                 ->with('error', 'No se pudo registrar el usuario.')
@@ -121,16 +122,12 @@ class UsuarioController extends Controller
             $campos = [
                 'name' => $datos['form_name'],
                 'email' => $datos['form_email'],
-                'estado' => $datos['form_estado'],
+                'password' => $datos['form_password'],
+                'estado' => (int) $datos['form_estado'],
             ];
 
-            // La contrasena solo se cambia cuando el usuario escribe una nueva.
-            if (!empty($datos['form_password'])) {
-                $campos['password'] = $datos['form_password'];
-            }
-
             $usuario->update($campos);
-            $usuario->roles()->sync($datos['form_roles'] ?? []);
+            $usuario->roles()->sync($datos['form_roles']);
             $usuario->permisosDirectos()->sync($datos['form_permisos'] ?? []);
 
             // Actualiza o crea la ficha de funcionario en caso de editar un usuario antiguo.
@@ -142,8 +139,8 @@ class UsuarioController extends Controller
                     'apellido_materno' => $datos['form_funcionario_apellido_materno'] ?? null,
                     'carnet' => $datos['form_funcionario_carnet'],
                     'telefono' => $datos['form_funcionario_telefono'] ?? null,
-                    'genero' => $datos['form_funcionario_genero'] ?? null,
-                    'estado' => $datos['form_funcionario_estado'],
+                    'genero' => (int) $datos['form_funcionario_genero'],
+                    'estado' => (int) $datos['form_funcionario_estado'],
                 ]
             );
 
@@ -160,6 +157,7 @@ class UsuarioController extends Controller
             return redirect()->route('usuarios_index');
         } catch (\Exception $e) {
             DB::rollBack();
+            report($e);
 
             return back()
                 ->with('error', 'No se pudo actualizar el usuario.')
@@ -213,15 +211,10 @@ class UsuarioController extends Controller
         }
     }
 
-    // Valida los datos del usuario y cambia la regla de contrasena segun sea crear o editar.
+    // Reglas centrales del formulario. Se mantienen aqui para que crear y editar pidan lo mismo.
     private function validarUsuario(Request $solicitud, ?User $usuario = null): array
     {
         $idUsuario = $usuario?->id;
-
-        // En creacion la contrasena es obligatoria; en edicion solo se exige si se escribe.
-        $reglasPassword = $usuario
-            ? ['nullable', 'string', 'min:8', 'confirmed']
-            : ['required', 'string', 'min:8', 'confirmed'];
 
         return $solicitud->validate([
             'form_name' => ['required', 'string', 'max:255'],
@@ -231,7 +224,8 @@ class UsuarioController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($idUsuario),
             ],
-            'form_password' => $reglasPassword,
+            'form_password' => ['required', 'string', 'min:8', 'confirmed'],
+            'form_password_confirmation' => ['required', 'string', 'min:8'],
             'form_estado' => ['required', 'in:0,1'],
             'form_funcionario_nombres' => ['required', 'string', 'max:255'],
             'form_funcionario_apellido_paterno' => ['required', 'string', 'max:255'],
@@ -243,20 +237,33 @@ class UsuarioController extends Controller
                 Rule::unique('funcionarios', 'carnet')->ignore($usuario?->funcionario?->id),
             ],
             'form_funcionario_telefono' => ['nullable', 'string', 'max:50'],
-            'form_funcionario_genero' => ['nullable', 'string', 'max:50'],
+            'form_funcionario_genero' => ['required', 'in:0,1'],
             'form_funcionario_estado' => ['required', 'in:0,1'],
             'form_cargos' => ['nullable', 'array'],
             'form_cargos.*' => ['integer', 'exists:cargos,id'],
             'form_cargos_nuevos' => ['nullable', 'array'],
             'form_cargos_nuevos.*' => ['nullable', 'string', 'max:255', 'distinct:ignore_case'],
-            'form_roles' => ['nullable', 'array'],
-            'form_roles.*' => ['integer', 'exists:roles,id'],
+            'form_roles' => ['required', 'array', 'min:1'],
+            'form_roles.*' => ['integer', 'distinct', 'exists:roles,id'],
             'form_permisos' => ['nullable', 'array'],
             'form_permisos.*' => ['integer', 'exists:permisos,id'],
-        ], [], [
+        ], [
+            'required' => 'El campo :attribute es obligatorio.',
+            'email' => 'El campo :attribute debe ser un correo valido.',
+            'unique' => 'El valor de :attribute ya esta registrado.',
+            'min' => 'El campo :attribute debe tener al menos :min caracteres.',
+            'max' => 'El campo :attribute no debe superar :max caracteres.',
+            'confirmed' => 'La confirmacion de :attribute no coincide.',
+            'in' => 'El valor seleccionado en :attribute no es valido.',
+            'exists' => 'El valor seleccionado en :attribute no existe.',
+            'distinct' => 'El campo :attribute tiene datos repetidos.',
+            'form_roles.required' => 'Debe seleccionar al menos un rol.',
+            'form_roles.min' => 'Debe seleccionar al menos un rol.',
+        ], [
             'form_name' => 'nombre del usuario',
             'form_email' => 'correo de acceso',
             'form_password' => 'contrasena',
+            'form_password_confirmation' => 'confirmacion de contrasena',
             'form_estado' => 'estado',
             'form_funcionario_nombres' => 'nombres del funcionario',
             'form_funcionario_apellido_paterno' => 'apellido paterno',
@@ -268,7 +275,8 @@ class UsuarioController extends Controller
             'form_cargos' => 'cargos',
             'form_cargos_nuevos' => 'cargos nuevos',
             'form_cargos_nuevos.*' => 'cargo nuevo',
-            'form_roles' => 'roles',
+            'form_roles' => 'rol',
+            'form_roles.*' => 'rol',
             'form_permisos' => 'permisos directos',
         ]);
     }

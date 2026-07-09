@@ -16,7 +16,7 @@ class PermisoRoleSeeder extends Seeder
     {
         $permisosPorRol = [
             // Administrador: acceso completo a los modulos activos del sistema.
-            1 => range(1, 35),
+            1 => range(1, 36),
 
             // Tecnico Evaluador: atiende tramites y consulta informacion tecnica necesaria.
             2 => [
@@ -30,13 +30,13 @@ class PermisoRoleSeeder extends Seeder
             3 => [1, 5, 10, 12, 30, 31],
 
             // Solicitante: inicia y consulta sus propios tramites.
-            4 => [1, 8, 9, 12],
+            4 => [1, 8, 9, 12, 36],
 
             // Representante legal: puede iniciar y seguir tramites de su empresa.
-            5 => [1, 8, 9, 12],
+            5 => [1, 8, 9, 12, 36],
 
             // Tramitador: puede iniciar y seguir tramites de empresas donde este autorizado.
-            6 => [1, 8, 9, 12],
+            6 => [1, 8, 9, 12, 36],
         ];
 
         $id = 1;

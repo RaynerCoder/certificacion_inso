@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogoMedida;
+use App\Models\ClasificacionProducto;
 use App\Models\IngredienteProducto;
 use App\Models\Certificado;
 use App\Models\Fabricante;
@@ -59,6 +61,7 @@ class ProductoController extends Controller
              */
             $idFabricante = $this->resolverFabricante($request, $datos['form_id_fabricante']);
             $idTipoProducto = $this->resolverTipoProducto($request, $datos['form_id_tipo_producto']);
+            $idClasificacion = $this->resolverClasificacionProducto($request, $datos['form_id_clasificacion_producto'] ?? null);
 
             // Primero se guarda productos porque las demas tablas dependen de su id.
             $producto = Producto::create([
@@ -69,7 +72,7 @@ class ProductoController extends Controller
                 'codigo' => $datos['form_codigo'],
                 'nombre_comercial' => $datos['form_nombre_comercial'],
                 'nombre_cientifico' => $datos['form_nombre_cientifico'] ?? null,
-                'clasificacion' => $datos['form_clasificacion'] ?? null,
+                'id_clasificacion_producto' => $idClasificacion,
                 'estado' => $datos['form_estado'],
             ]);
 
@@ -119,7 +122,7 @@ class ProductoController extends Controller
                     'id_producto' => $producto->id,
                     'url_etiqueta' => $rutaEtiqueta,
                     'cantidad' => $presentacionDato['cantidad'],
-                    'unidad' => $presentacionDato['unidad'],
+                    'id_catalogo_unidad' => $this->resolverCatalogoUnidad($request, $presentacionDato['id_catalogo_unidad']),
                     'descripcion' => $presentacionDato['descripcion'] ?? null,
                     'estado' => $presentacionDato['estado'] ?? 'ACTIVO',
                 ]);
@@ -137,7 +140,9 @@ class ProductoController extends Controller
                     'codigo_autorizacion' => $registroDato['codigo_autorizacion'] ?? null,
                     'fecha_vigencia' => $registroDato['fecha_vigencia'] ?? null,
                     'cantidad' => $registroDato['cantidad'] ?? null,
-                    'unidad' => $registroDato['unidad'] ?? null,
+                    'id_catalogo_unidad' => !empty($registroDato['id_catalogo_unidad'])
+                        ? $this->resolverCatalogoUnidad($request, $registroDato['id_catalogo_unidad'])
+                        : null,
                     'id_presentacion' => $indicePresentacion !== null
                         ? ($presentacionesCreadas[$indicePresentacion] ?? null)
                         : null,
@@ -192,7 +197,7 @@ class ProductoController extends Controller
                 'form_codigo' => ['required', 'string', 'max:150'],
                 'form_nombre_comercial' => ['required', 'string', 'max:255'],
                 'form_nombre_cientifico' => ['nullable', 'string', 'max:255'],
-                'form_clasificacion' => ['nullable', 'string', 'max:255'],
+                'form_id_clasificacion_producto' => ['nullable', 'string', 'max:50'],
                 'form_id_importador_persona' => ['required', 'integer', 'exists:personas,id'],
                 'form_id_territorio_pais' => ['required', 'integer', 'exists:territorios,id'],
                 'form_id_fabricante' => ['required', 'string', 'max:50'],
@@ -203,6 +208,11 @@ class ProductoController extends Controller
                 'form_fabricante_temporal_descripcion' => ['nullable', 'string'],
                 'form_tipo_producto_temporal_descripcion' => ['nullable', 'string', 'max:255'],
                 'form_tipo_producto_temporal_codigo' => ['nullable', 'string', 'max:150'],
+                'form_clasificacion_temporal_nombre' => ['nullable', 'string', 'max:255'],
+                'form_clasificacion_temporal_descripcion' => ['nullable', 'string'],
+                'form_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
+                'form_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
+                'form_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
 
                 'ingredientes_productos' => ['nullable', 'array'],
                 'ingredientes_productos.*.id_ingrediente' => ['required_with:ingredientes_productos', 'string', 'max:50'],
@@ -214,17 +224,17 @@ class ProductoController extends Controller
 
                 'presentaciones' => ['nullable', 'array'],
                 'presentaciones.*.cantidad' => ['required_with:presentaciones', 'integer', 'min:1'],
-                'presentaciones.*.unidad' => ['required_with:presentaciones', 'string', 'max:50'],
+                'presentaciones.*.id_catalogo_unidad' => ['required_with:presentaciones', 'string', 'max:50'],
                 'presentaciones.*.descripcion' => ['nullable', 'string'],
                 'presentaciones.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
                 'presentaciones.*.id_presentacion_origen' => ['nullable', 'integer', 'exists:presentaciones,id'],
                 'presentaciones.*.url_etiqueta' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
 
                 'registros' => ['nullable', 'array'],
-                'registros.*.codigo_autorizacion' => ['required_with:registros', 'string', 'max:255'],
+                'registros.*.codigo_autorizacion' => ['nullable', 'string', 'max:255'],
                 'registros.*.fecha_vigencia' => ['nullable', 'date'],
                 'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
-                'registros.*.unidad' => ['nullable', 'string', 'max:50'],
+                'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
                 'registros.*.id_presentacion_temporal' => ['required_with:registros', 'integer'],
                 'registros.*.presentacion_texto' => ['nullable', 'string', 'max:255'],
                 'registros.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
@@ -252,7 +262,7 @@ class ProductoController extends Controller
                 'ingredientes_productos.*.id_ingrediente' => 'ingrediente',
                 'ingredientes_productos.*.porcentaje' => 'porcentaje',
                 'presentaciones.*.cantidad' => 'cantidad',
-                'presentaciones.*.unidad' => 'unidad',
+                'presentaciones.*.id_catalogo_unidad' => 'unidad',
                 'presentaciones.*.id_presentacion_origen' => 'presentacion registrada',
                 'presentaciones.*.url_etiqueta' => 'etiqueta PDF',
                 'registros.*.codigo_autorizacion' => 'codigo de autorizacion',
@@ -290,12 +300,24 @@ class ProductoController extends Controller
                 }
             }
 
+            if ($request->filled('form_id_clasificacion_producto') && !$this->esIdExistente($request->input('form_id_clasificacion_producto'), ClasificacionProducto::class)) {
+                if (!$this->esTemporal($request->input('form_id_clasificacion_producto')) || !$request->filled('form_clasificacion_temporal_nombre')) {
+                    $validador->errors()->add('form_id_clasificacion_producto', 'Seleccione una clasificación válida o registre una nueva.');
+                }
+            }
             $presentaciones = $request->input('presentaciones', []);
 
             foreach ($presentaciones as $indice => $presentacionDato) {
                 $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
                 $idPresentacionOrigen = $presentacionDato['id_presentacion_origen'] ?? null;
 
+                $idUnidadPresentacion = $presentacionDato['id_catalogo_unidad'] ?? null;
+                if (!$this->catalogoUnidadValido($request, $idUnidadPresentacion)) {
+                    $validador->errors()->add(
+                        "presentaciones.$indice.id_catalogo_unidad",
+                        'Seleccione una unidad válida o registre una nueva.'
+                    );
+                }
                 if (!$archivoEtiqueta && !$idPresentacionOrigen) {
                     $validador->errors()->add(
                         "presentaciones.$indice.url_etiqueta",
@@ -332,6 +354,13 @@ class ProductoController extends Controller
                     continue;
                 }
 
+                $idUnidadRegistro = $registroDato['id_catalogo_unidad'] ?? null;
+                if ($idUnidadRegistro && !$this->catalogoUnidadValido($request, $idUnidadRegistro)) {
+                    $validador->errors()->add(
+                        "registros.$indice.id_catalogo_unidad",
+                        'Seleccione una unidad válida o registre una nueva.'
+                    );
+                }
                 $claveRegistro = $this->claveRegistroProducto($indicePresentacion, $registroDato);
 
                 if (isset($registrosAgregados[$claveRegistro])) {
@@ -409,7 +438,7 @@ class ProductoController extends Controller
     {
         return implode('|', [
             mb_strtolower(trim((string) ($presentacionDato['cantidad'] ?? ''))),
-            mb_strtolower(trim((string) ($presentacionDato['unidad'] ?? ''))),
+            mb_strtolower(trim((string) ($presentacionDato['id_catalogo_unidad'] ?? ''))),
             mb_strtolower(trim((string) ($presentacionDato['descripcion'] ?? ''))),
             mb_strtolower(trim((string) ($presentacionDato['estado'] ?? 'ACTIVO'))),
         ]);
@@ -426,7 +455,7 @@ class ProductoController extends Controller
             mb_strtolower(trim((string) ($registroDato['codigo_autorizacion'] ?? ''))),
             mb_strtolower(trim((string) ($registroDato['fecha_vigencia'] ?? ''))),
             mb_strtolower(trim((string) ($registroDato['cantidad'] ?? ''))),
-            mb_strtolower(trim((string) ($registroDato['unidad'] ?? ''))),
+            mb_strtolower(trim((string) ($registroDato['id_catalogo_unidad'] ?? ''))),
         ]);
     }
 
@@ -502,6 +531,57 @@ class ProductoController extends Controller
         return $tipoProducto->id;
     }
 
+    private function catalogoUnidadValido(Request $request, $valor): bool
+    {
+        if ($this->esIdExistente($valor, CatalogoMedida::class)) {
+            return true;
+        }
+
+        return $this->esTemporal((string) $valor)
+            && $request->input('form_unidad_temporal_id') === $valor
+            && $request->filled('form_unidad_temporal_nombre');
+    }
+
+    private function resolverClasificacionProducto(Request $request, $valor): ?int
+    {
+        if (blank($valor)) {
+            return null;
+        }
+
+        if (ctype_digit((string) $valor)) {
+            return (int) $valor;
+        }
+
+        $clasificacion = ClasificacionProducto::firstOrCreate(
+            ['nombre' => $request->input('form_clasificacion_temporal_nombre')],
+            [
+                'descripcion' => $request->input('form_clasificacion_temporal_descripcion'),
+                'estado' => 'ACTIVO',
+            ],
+        );
+
+        return $clasificacion->id;
+    }
+
+    private function resolverCatalogoUnidad(Request $request, $valor): int
+    {
+        if (ctype_digit((string) $valor)) {
+            return (int) $valor;
+        }
+
+        $unidad = CatalogoMedida::firstOrCreate(
+            [
+                'nombre' => $request->input('form_unidad_temporal_nombre'),
+                'tipo' => 'unidad de medida',
+            ],
+            [
+                'abreviatura' => $request->input('form_unidad_temporal_abreviatura'),
+                'estado' => 'ACTIVO',
+            ],
+        );
+
+        return $unidad->id;
+    }
     // Devuelve el id de ingrediente existente o crea el nuevo ingrediente temporal.
     private function resolverIngrediente(array $ingredienteProducto): int
     {
@@ -557,3 +637,4 @@ class ProductoController extends Controller
         //
     }
 }
+

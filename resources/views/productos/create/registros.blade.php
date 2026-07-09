@@ -25,8 +25,25 @@
                 </div>
 
                 <div class="lg:col-span-3">
-                    <label class="producto-field-label" for="form_registro_unidad">Unidad</label>
-                    <input class="producto-input" id="form_registro_unidad" type="text" placeholder="Ej: Litros">
+                    <div class="mb-1 flex items-center justify-between gap-2">
+                        <label class="producto-field-label mb-0" for="form_registro_unidad">Unidad</label>
+                        <button type="button" class="producto-link-action" onclick="abrirModalUnidadProducto('form_registro_unidad')">
+                            + Nueva unidad
+                        </button>
+                    </div>
+                    <select class="producto-select producto-select-search" id="form_registro_unidad" data-producto-buscador="1">
+                        <option value="">Seleccione unidad</option>
+                        @if (str_starts_with((string) old('form_unidad_temporal_id'), 'TEMP-'))
+                            <option value="{{ old('form_unidad_temporal_id') }}" selected>
+                                {{ old('form_unidad_temporal_nombre') }}{{ old('form_unidad_temporal_abreviatura') ? ' (' . old('form_unidad_temporal_abreviatura') . ')' : '' }}
+                            </option>
+                        @endif
+                        @foreach ($catalogosUnidades as $catalogoUnidad)
+                            <option value="{{ $catalogoUnidad->id }}">
+                                {{ $catalogoUnidad->nombre }}{{ $catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="lg:col-span-8">
@@ -82,14 +99,14 @@
                                     <input type="hidden" name="registros[{{ $indice }}][codigo_autorizacion]" value="{{ $registroOld['codigo_autorizacion'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][fecha_vigencia]" value="{{ $registroOld['fecha_vigencia'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][cantidad]" value="{{ $registroOld['cantidad'] ?? '' }}">
-                                    <input type="hidden" name="registros[{{ $indice }}][unidad]" value="{{ $registroOld['unidad'] ?? '' }}">
+                                    <input type="hidden" name="registros[{{ $indice }}][id_catalogo_unidad]" value="{{ $registroOld['id_catalogo_unidad'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][id_presentacion_temporal]" value="{{ $registroOld['id_presentacion_temporal'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][presentacion_texto]" value="{{ $registroOld['presentacion_texto'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][estado]" value="{{ $registroOld['estado'] ?? 'ACTIVO' }}">
                                 </td>
                                 <td>{{ $registroOld['fecha_vigencia'] ?? 'Sin fecha' }}</td>
                                 <td>{{ $registroOld['cantidad'] ?? '-' }}</td>
-                                <td>{{ $registroOld['unidad'] ?? '-' }}</td>
+                                <td>{{ $nombreCatalogoUnidad($registroOld['id_catalogo_unidad'] ?? null) }}</td>
                                 <td>{{ $registroOld['presentacion_texto'] ?? 'Sin presentacion' }}</td>
                                 <td><span class="producto-pill">{{ $registroOld['estado'] ?? 'ACTIVO' }}</span></td>
                                 <td>
@@ -119,3 +136,4 @@
         </div>
     </section>
 </div>
+

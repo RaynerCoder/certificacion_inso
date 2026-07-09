@@ -23,6 +23,7 @@ class PresentacionTable extends DataTableComponent
             ->with([
                 'producto.fabricante',
                 'producto.tipoProducto',
+                'catalogoUnidad',
             ]);
     }
 
@@ -33,7 +34,9 @@ class PresentacionTable extends DataTableComponent
             $this->columnaProducto(),
             $this->columnaEtiqueta(),
             Column::make('Cantidad', 'cantidad')->sortable(),
-            Column::make('Unidad', 'unidad')->sortable(),
+            Column::make('Unidad', 'id_catalogo_unidad')
+                ->format(fn ($valor, $presentacion) => $this->textoCatalogoUnidad($presentacion))
+                ->sortable(),
             $this->columnaDescripcion(),
             $this->columnaEstado(),
         ];
@@ -116,6 +119,16 @@ class PresentacionTable extends DataTableComponent
             . '</div>';
     }
 
+    private function textoCatalogoUnidad(Presentacion $presentacion): string
+    {
+        $unidad = $presentacion->catalogoUnidad;
+
+        if (!$unidad) {
+            return 'Sin unidad';
+        }
+
+        return trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : ''));
+    }
     private function chipEstado(?string $estado): string
     {
         $texto = $estado ?: 'Sin estado';
@@ -128,3 +141,4 @@ class PresentacionTable extends DataTableComponent
             . '</span>';
     }
 }
+

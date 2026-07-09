@@ -18,7 +18,7 @@ class Producto extends Model
         'codigo',
         'nombre_comercial',
         'nombre_cientifico',
-        'clasificacion',
+        'id_clasificacion_producto',
         'estado',
     ];
     
@@ -39,6 +39,12 @@ class Producto extends Model
     public function tipoProducto()
     {
         return $this->belongsTo(TipoProducto::class, 'id_tipo_producto');
+    }
+
+    // Relación muchos a uno (muchos productos pertenecen a una clasificación)
+    public function clasificacionProducto()
+    {
+        return $this->belongsTo(ClasificacionProducto::class, 'id_clasificacion_producto');
     }
     
     // Relación muchos a uno (muchos productos pertenecen a una persona que es el importador)
