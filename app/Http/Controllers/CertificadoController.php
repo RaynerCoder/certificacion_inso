@@ -422,8 +422,10 @@ class CertificadoController extends Controller
     {
         $certificado->load($this->relacionesParaEmision());
 
-        if (!$this->usuarioPuedeEmitirCertificado($certificado)) {
-            abort(403, 'No puede emitir este certificado.');
+        $puedeGestionarEmision = $this->usuarioPuedeEmitirCertificado($certificado);
+
+        if (!$puedeGestionarEmision && !$this->usuarioPuedeImprimirCertificado($certificado)) {
+            abort(403, 'No puede imprimir este certificado.');
         }
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
@@ -432,7 +434,8 @@ class CertificadoController extends Controller
         return view('certificados.emitir_certificado.create', compact(
             'certificado',
             'plantillaCertificado',
-            'valoresPlantilla'
+            'valoresPlantilla',
+            'puedeGestionarEmision'
         ));
     }
 
@@ -1240,6 +1243,25 @@ class CertificadoController extends Controller
                 || $usuario->tieneRol('tecnico-evaluador')
                 || $this->usuarioTieneCargoActivo($usuario)
             );
+    }
+
+    // Permite imprimir desde "Mis trámites" sin habilitar acciones internas de emisión.
+    private function usuarioPuedeImprimirCertificado(Certificado $certificado): bool
+    {
+        $usuario = auth()->user();
+
+        if (!$usuario || !$certificado->puedeEmitirse()) {
+            return false;
+        }
+
+        $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
+
+        return collect([
+            $certificado->beneficiario?->usuario,
+            $certificado->tramitador?->usuario,
+        ])
+            ->filter()
+            ->contains(fn ($usuarioVinculado) => (int) $usuarioVinculado->id === (int) $usuario->id);
     }
 
     // USUARIOS A NOTIFICAR

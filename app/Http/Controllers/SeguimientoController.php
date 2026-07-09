@@ -1031,10 +1031,6 @@ class SeguimientoController extends Controller
             return back()->with('error', 'Este tramite no esta disponible para correccion del usuario actual.');
         }
 
-        // Por ahora la correccion se recibe presencialmente en INSO.
-        // Se bloquea este reenvio digital para evitar movimientos duplicados del solicitante.
-        return back()->with('error', 'La correccion de este tramite debe registrarla un funcionario cuando reciba la documentacion en INSO.');
-
         $datos = $request->validate([
             'accion_correccion' => ['required', 'in:guardar,enviar'],
             'documentos_correccion' => ['nullable', 'array'],
@@ -1051,6 +1047,12 @@ class SeguimientoController extends Controller
             $tecnicoDestinoId = $seguimiento->id_usuario_origen;
             $archivos = $request->file('documentos_correccion', []);
             $soloGuardar = $datos['accion_correccion'] === 'guardar';
+
+            if (!$tecnicoDestinoId) {
+                DB::rollBack();
+
+                return back()->with('error', 'No se encontro el revisor que envio la observacion.');
+            }
 
             foreach ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado) {
                 if (!empty($archivos[$requisitoCertificado->id])) {
@@ -1088,7 +1090,7 @@ class SeguimientoController extends Controller
 
             $certificado->update(['estado' => 'EN_REVISION']);
 
-            // Cierra la etapa del solicitante y devuelve el tramite al tecnico que observo.
+            // Cierra la etapa del solicitante y devuelve el tramite al mismo revisor que observo.
             $seguimiento->update([
                 'fecha_derivacion' => now()->toDateString(),
             ]);

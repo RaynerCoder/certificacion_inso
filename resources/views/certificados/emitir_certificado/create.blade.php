@@ -1,10 +1,12 @@
 ﻿<x-admin-layout title="Emitir Certificado | Certificador" :breadcrumbs="[
     ['name' => 'Menu', 'href' => route('admin_dashboard')],
-    ['name' => 'TrÃ¡mites', 'href' => route('seguimientos_index')],
+    ['name' => 'Trámites', 'href' => route('seguimientos_index')],
     ['name' => 'Detalle', 'href' => route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')])],
     ['name' => 'Emitir certificado', 'href' => route('certificados_emitir', $certificado)],
 ]">
     @php
+        $puedeGestionarEmision = $puedeGestionarEmision ?? false;
+
         // Nombre visible: razon social para empresa o nombre completo para persona natural.
         $nombrePersona = function ($persona) {
             if (!$persona) {
@@ -12,7 +14,7 @@
             }
 
             if ($persona->empresa) {
-                return $persona->empresa->razon_social ?: 'Sin razÃ³n social';
+                return $persona->empresa->razon_social ?: 'Sin razón social';
             }
 
             if ($persona->natural) {
@@ -26,7 +28,7 @@
             return 'Persona #' . $persona->id;
         };
 
-        // IdentificaciÃ³n visible segÃºn el tipo de persona.
+        // Identificación visible según el tipo de persona.
         $identificacionPersona = function ($persona) {
             if (!$persona) {
                 return 'Sin dato';
@@ -39,7 +41,7 @@
             return $persona->natural?->ci ?: ($persona->nit ?: 'Sin CI/NIT');
         };
 
-        // Nombre completo del funcionario que revisÃ³ o registrÃ³.
+        // Nombre completo del funcionario que revisó o registró.
         $nombreFuncionario = function ($usuario, string $fallback = 'Sin funcionario') {
             $usuario?->loadMissing('funcionario');
             $funcionario = $usuario?->funcionario;
@@ -571,14 +573,14 @@
         <header class="emit-header">
             <div>
                 <h1 class="emit-title">Emitir certificado</h1>
-                <p class="emit-subtitle">Revise la informaciÃ³n aprobada antes de registrar la emisiÃ³n.</p>
+                <p class="emit-subtitle">Revise la información aprobada antes de registrar la emisión.</p>
             </div>
 
             <div class="emit-actions">
                 <a href="{{ route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')]) }}"
                     class="emit-btn emit-btn-muted">
                     <i class="fa-solid fa-arrow-left"></i>
-                    Volver al trÃ¡mite
+                    Volver al trámite
                 </a>
 
                 <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado>
@@ -586,28 +588,30 @@
                     Imprimir certificado
                 </button>
 
-                <a href="{{ route('certificados_emitir', ['certificado' => $certificado, 'modo' => $modoPrueba ? null : 'prueba']) }}"
-                    class="emit-btn emit-btn-muted">
-                    <i class="fa-solid fa-vial"></i>
-                    {{ $modoPrueba ? 'Quitar prueba' : 'Prueba' }}
-                </a>
+                @if ($puedeGestionarEmision)
+                    <a href="{{ route('certificados_emitir', ['certificado' => $certificado, 'modo' => $modoPrueba ? null : 'prueba']) }}"
+                        class="emit-btn emit-btn-muted">
+                        <i class="fa-solid fa-vial"></i>
+                        {{ $modoPrueba ? 'Quitar prueba' : 'Prueba' }}
+                    </a>
 
-                @if ($certificado->estado !== 'EMITIDO')
-                    <form action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST">
-                        @csrf
-                        <button type="submit" class="emit-btn emit-btn-primary">
-                            <i class="fa-solid fa-file-circle-check"></i>
-                            Emitir certificado
-                        </button>
-                    </form>
-                @else
-                    <form action="{{ route('certificados_enviar_solicitante', $certificado) }}" method="POST">
-                        @csrf
-                        <button type="submit" class="emit-btn emit-btn-info">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            Enviar al solicitante
-                        </button>
-                    </form>
+                    @if ($certificado->estado !== 'EMITIDO')
+                        <form action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="emit-btn emit-btn-primary">
+                                <i class="fa-solid fa-file-circle-check"></i>
+                                Emitir certificado
+                            </button>
+                        </form>
+                    @else
+                        <form action="{{ route('certificados_enviar_solicitante', $certificado) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="emit-btn emit-btn-info">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                Enviar al solicitante
+                            </button>
+                        </form>
+                    @endif
                 @endif
             </div>
         </header>
@@ -617,13 +621,13 @@
                 <section class="emit-section">
                     <div class="emit-section-head">
                         <i class="fa-regular fa-file-lines"></i>
-                        <h2 class="emit-section-title">Datos del trÃ¡mite</h2>
+                        <h2 class="emit-section-title">Datos del trámite</h2>
                     </div>
                     <div class="emit-section-body">
                         <dl class="emit-definition">
                             <div class="emit-field">
-                                <dt>CÃ³digo</dt>
-                                <dd>{{ $certificado->codigo ?: 'Sin cÃ³digo' }}</dd>
+                                <dt>Código</dt>
+                                <dd>{{ $certificado->codigo ?: 'Sin código' }}</dd>
                             </div>
                             <div class="emit-field">
                                 <dt>Tipo de certificado</dt>
@@ -690,7 +694,7 @@
                                     <th>Producto</th>
                                     <th>Fabricante</th>
                                     <th>Registro</th>
-                                    <th>PresentaciÃ³n</th>
+                                    <th>Presentación</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -708,14 +712,14 @@
                                             <td>
                                                 {{ trim(($registro->presentacion?->cantidad ?? '') . ' ' . ($registro->presentacion?->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
                                                 <span class="block text-xs text-slate-500">
-                                                    {{ $registro->presentacion?->descripcion ?? 'Sin descripciÃ³n' }}
+                                                    {{ $registro->presentacion?->descripcion ?? 'Sin descripción' }}
                                                 </span>
                                             </td>
                                         </tr>
                                     @endforeach
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center">Este trÃ¡mite no tiene productos asociados.</td>
+                                        <td colspan="4" class="text-center">Este trámite no tiene productos asociados.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

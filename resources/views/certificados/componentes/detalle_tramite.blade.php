@@ -742,6 +742,16 @@
                                     </table>
                                 </div>
 
+                                <form action="{{ route('seguimientos_reenviar_correccion', $seguimientoCorreccionActual) }}" method="POST" class="tramite-actions-row mt-4" data-prevent-double-submit data-loading-button="Devolviendo...">
+                                    @csrf
+                                    <input type="hidden" name="accion_correccion" value="enviar">
+
+                                    <button type="submit" class="tramite-btn tramite-btn-primary" onclick="return confirm('El tramite volvera al mismo revisor que envio la observacion. ¿Desea continuar?')">
+                                        <i class="fa-solid fa-reply"></i>
+                                        Devolver al revisor
+                                    </button>
+                                </form>
+
                             </div>
                         @else
                             <div class="cert-show-table-wrap tramite-table-wrap">
