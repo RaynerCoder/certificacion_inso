@@ -9,6 +9,31 @@
             const botonesHistorial = vistaDetalleActiva.querySelectorAll('[data-requirement-history-button]');
             const swalDisponible = () => Boolean(window.Swal);
 
+            // Muestra el archivo que el solicitante acaba de seleccionar antes de devolver la correccion.
+            vistaDetalleActiva.querySelectorAll('[data-correction-file-input]').forEach((input) => {
+                input.addEventListener('change', () => {
+                    const archivo = input.files && input.files[0];
+                    const contenedor = input.closest('td')?.querySelector('[data-correction-file-preview]');
+                    const nombre = contenedor?.querySelector('[data-correction-file-name]');
+                    const enlace = contenedor?.querySelector('[data-correction-file-link]');
+
+                    if (!contenedor || !nombre || !enlace) {
+                        return;
+                    }
+
+                    if (!archivo) {
+                        contenedor.hidden = true;
+                        nombre.textContent = '';
+                        enlace.removeAttribute('href');
+                        return;
+                    }
+
+                    nombre.textContent = archivo.name;
+                    enlace.href = URL.createObjectURL(archivo);
+                    contenedor.hidden = false;
+                });
+            });
+
             // Selector visual de funcionario: busca por nombre/cargo/area y sincroniza el select real del formulario.
             vistaDetalleActiva.querySelectorAll('[data-technical-selector]').forEach((selector) => {
                 const selectReal = selector.querySelector('[data-technical-native]');

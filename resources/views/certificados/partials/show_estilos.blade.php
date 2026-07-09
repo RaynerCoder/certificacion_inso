@@ -561,6 +561,23 @@
             display: none;
         }
 
+        .cert-correction-file-preview {
+            align-items: center;
+            color: #475569;
+            display: flex;
+            flex-wrap: wrap;
+            font-size: 0.78rem;
+            font-weight: 700;
+            gap: 8px;
+            margin-top: 7px;
+        }
+
+        .cert-correction-file-preview a {
+            color: #047857;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
         .cert-correction-action {
             background: #ecfdf5;
             border: 1px solid #a7f3d0;

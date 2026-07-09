@@ -1086,7 +1086,8 @@ class SeguimientoController extends Controller
                     $this->guardarDocumentoRequisito(
                         $archivoCorreccion,
                         $requisitoCertificado,
-                        $tipoEvidencia?->id ? (int) $tipoEvidencia->id : null
+                        $tipoEvidencia?->id ? (int) $tipoEvidencia->id : null,
+                        true
                     );
                 }
 
@@ -1094,7 +1095,8 @@ class SeguimientoController extends Controller
                     $this->guardarValorEvidenciaRequisito(
                         $requisitoCertificado,
                         $tipoEvidencia?->id ? (int) $tipoEvidencia->id : null,
-                        $textoCorreccion
+                        $textoCorreccion,
+                        true
                     );
                 }
             }
@@ -1684,7 +1686,7 @@ class SeguimientoController extends Controller
     private function extensionesPermitidasPorEvidencia(string $codigo): array
     {
         return match ($codigo) {
-            'PDF', 'PAGO' => ['pdf'],
+            'PDF' => ['pdf'],
             'IMAGEN' => ['jpg', 'jpeg', 'png', 'webp'],
             default => [],
         };
@@ -1705,7 +1707,7 @@ class SeguimientoController extends Controller
     private function archivoTieneFormatoPermitidoPorEvidencia(string $codigo, string $mime): bool
     {
         return match ($codigo) {
-            'PDF', 'PAGO' => in_array($mime, ['application/pdf', 'application/x-pdf'], true),
+            'PDF' => in_array($mime, ['application/pdf', 'application/x-pdf'], true),
             'IMAGEN' => str_starts_with($mime, 'image/'),
             default => false,
         };
@@ -1791,13 +1793,21 @@ class SeguimientoController extends Controller
 
     // GUARDA EL ARCHIVO DE UN REQUISITO
     // No crea columnas nuevas: el archivo se ubica por el id de requisitos_certificados.
-    private function guardarDocumentoRequisito($archivo, RequisitoCertificado $requisitoCertificado, ?int $idTipoEvidencia): void
+    private function guardarDocumentoRequisito(
+        $archivo,
+        RequisitoCertificado $requisitoCertificado,
+        ?int $idTipoEvidencia,
+        bool $mantenerHistorial = false
+    ): void
     {
         $extension = mb_strtolower($archivo->getClientOriginalExtension() ?: 'pdf');
+        $nombreArchivo = $mantenerHistorial
+            ? 'documento_' . now()->format('YmdHis') . '.' . $extension
+            : 'documento.' . $extension;
 
         $ruta = $archivo->storeAs(
             'tramites/' . $requisitoCertificado->id_certificado . '/requisitos/' . $requisitoCertificado->id,
-            'documento.' . $extension,
+            $nombreArchivo,
             'public'
         );
 
@@ -1809,18 +1819,29 @@ class SeguimientoController extends Controller
             File::copy($rutaStorage, $rutaPublica);
         }
 
-        // Guarda la ruta en evidencias_requisitos para no mezclar documentos con la revision tecnica.
+        $datosEvidencia = [
+            'valor' => 'storage/' . $ruta,
+            'estado' => 'REGISTRADO',
+            'id_usuario_registro' => auth()->id(),
+            'id_usuario_modificacion' => auth()->id(),
+        ];
+
+        if ($mantenerHistorial) {
+            EvidenciaRequisito::create([
+                'id_requisito_certificado' => $requisitoCertificado->id,
+                'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('PDF'),
+            ] + $datosEvidencia);
+
+            return;
+        }
+
+        // En el registro inicial se actualiza la evidencia configurada; en correcciones se crea historial.
         EvidenciaRequisito::updateOrCreate(
             [
                 'id_requisito_certificado' => $requisitoCertificado->id,
                 'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('PDF'),
             ],
-            [
-                'valor' => 'storage/' . $ruta,
-                'estado' => 'REGISTRADO',
-                'id_usuario_registro' => auth()->id(),
-                'id_usuario_modificacion' => auth()->id(),
-            ]
+            $datosEvidencia
         );
     }
 
@@ -1836,19 +1857,31 @@ class SeguimientoController extends Controller
     private function guardarValorEvidenciaRequisito(
         RequisitoCertificado $requisitoCertificado,
         ?int $idTipoEvidencia,
-        string $valor
+        string $valor,
+        bool $mantenerHistorial = false
     ): void {
+        $datosEvidencia = [
+            'valor' => $valor,
+            'estado' => 'REGISTRADO',
+            'id_usuario_registro' => auth()->id(),
+            'id_usuario_modificacion' => auth()->id(),
+        ];
+
+        if ($mantenerHistorial) {
+            EvidenciaRequisito::create([
+                'id_requisito_certificado' => $requisitoCertificado->id,
+                'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('TEXTO'),
+            ] + $datosEvidencia);
+
+            return;
+        }
+
         EvidenciaRequisito::updateOrCreate(
             [
                 'id_requisito_certificado' => $requisitoCertificado->id,
                 'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('TEXTO'),
             ],
-            [
-                'valor' => $valor,
-                'estado' => 'REGISTRADO',
-                'id_usuario_registro' => auth()->id(),
-                'id_usuario_modificacion' => auth()->id(),
-            ]
+            $datosEvidencia
         );
     }
 
@@ -1894,20 +1927,18 @@ class SeguimientoController extends Controller
             $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
             $codigo = mb_strtoupper((string) ($evidencia?->tipoEvidencia?->codigo ?? 'PDF'));
             $nombreRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito observado';
-            $valorGuardado = trim((string) ($evidencia?->valor ?? ''));
             $tieneArchivoNuevo = !empty($archivos[$requisitoCertificado->id]);
             $textoNuevo = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
+            $ultimaObservacion = $this->ultimaObservacionRequisito($requisitoCertificado);
+            $yaTieneCorreccionGuardada = $evidencia
+                && (!$ultimaObservacion || $evidencia->created_at?->gt($ultimaObservacion->created_at));
 
-            if (in_array($codigo, ['PDF', 'IMAGEN', 'PAGO'], true) && !$tieneArchivoNuevo && $valorGuardado === '') {
+            if (in_array($codigo, ['PDF', 'IMAGEN'], true) && !$tieneArchivoNuevo && !$yaTieneCorreccionGuardada) {
                 $errores["documentos_correccion.{$requisitoCertificado->id}"] = "Debe adjuntar la evidencia corregida para: {$nombreRequisito}.";
             }
 
-            if ($codigo === 'TEXTO' && $textoNuevo === '' && $valorGuardado === '') {
+            if ($codigo === 'TEXTO' && $textoNuevo === '' && !$yaTieneCorreccionGuardada) {
                 $errores["textos_correccion.{$requisitoCertificado->id}"] = "Debe registrar el texto corregido para: {$nombreRequisito}.";
-            }
-
-            if ($codigo === 'PRODUCTO' && $certificado->registros->isEmpty()) {
-                $errores["requisito_producto_{$requisitoCertificado->id}"] = "Debe registrar el producto solicitado para: {$nombreRequisito}.";
             }
 
         }

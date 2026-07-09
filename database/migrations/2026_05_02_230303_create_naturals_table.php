@@ -24,16 +24,16 @@ return new class extends Migration
             $table->string('apellido_casado', 100)->nullable();
             $table->dateTime('fecha_nacimiento')->nullable();
             $table->tinyInteger('genero')->comment('1=masculino, 0=femenino');
+            $table->foreignId('id_ocupacion')->nullable()->constrained('ocupaciones_cob');
             $table->string('ocupacion', 255)->nullable();
 
-            // Auditoría
+            // Auditoria
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');
             $table->foreignId('id_usuario_modificacion')->nullable()->constrained('users');
             $table->foreignId('id_usuario_eliminacion')->nullable()->constrained('users');
-                        
-            $table->timestamps();
-            $table->softDeletes();            
 
+            $table->timestamps();
+            $table->softDeletes();
         });
     }
 

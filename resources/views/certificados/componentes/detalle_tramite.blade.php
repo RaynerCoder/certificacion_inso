@@ -240,7 +240,7 @@
         // Localiza el PDF o imagen de cada requisito usando evidencias_requisitos.
         $urlDocumentoRequisito = function ($requisitoCertificado) {
             $evidencia = $requisitoCertificado->evidenciasRequisitos
-                ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN', 'PAGO'], true))
+                ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN'], true))
                 ->sortByDesc('id')
                 ->first();
 
@@ -739,22 +739,21 @@
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        @if (in_array($codigoEvidencia, ['PDF', 'IMAGEN', 'PAGO'], true))
+                                                        @if (in_array($codigoEvidencia, ['PDF', 'IMAGEN'], true))
                                                             <label class="cert-correction-file">
                                                                 <input type="file"
                                                                     name="documentos_correccion[{{ $requisitoCertificado->id }}]"
-                                                                    accept="{{ $codigoEvidencia === 'IMAGEN' ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf' }}">
+                                                                    accept="{{ $codigoEvidencia === 'IMAGEN' ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf' }}"
+                                                                    data-correction-file-input>
                                                                 <span>
                                                                     <i class="fa-solid fa-upload"></i>
-                                                                    @if ($codigoEvidencia === 'IMAGEN')
-                                                                        Seleccionar imagen
-                                                                    @elseif ($codigoEvidencia === 'PAGO')
-                                                                        Seleccionar comprobante
-                                                                    @else
-                                                                        Seleccionar PDF
-                                                                    @endif
+                                                                    {{ $codigoEvidencia === 'IMAGEN' ? 'Seleccionar imagen' : 'Seleccionar PDF' }}
                                                                 </span>
                                                             </label>
+                                                            <div class="cert-correction-file-preview" data-correction-file-preview hidden>
+                                                                <span data-correction-file-name></span>
+                                                                <a href="#" target="_blank" data-correction-file-link>Ver seleccionado</a>
+                                                            </div>
                                                             @error("documentos_correccion.{$requisitoCertificado->id}")
                                                                 <p class="cert-correction-error">{{ $message }}</p>
                                                             @enderror
@@ -775,6 +774,10 @@
                                                             @error("requisito_producto_{$requisitoCertificado->id}")
                                                                 <p class="cert-correction-error">{{ $message }}</p>
                                                             @enderror
+                                                        @elseif ($codigoEvidencia === 'PAGO')
+                                                            <span class="cert-correction-note">
+                                                                No requiere archivo en esta pantalla.
+                                                            </span>
                                                         @elseif ($codigoEvidencia === 'CERTIFICADO')
                                                             <span class="cert-correction-note">
                                                                 El sistema verificará el certificado requerido.

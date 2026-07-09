@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Crea el catalogo oficial de ocupaciones COB usado por personas naturales.
      */
     public function up(): void
     {
@@ -35,7 +35,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Elimina el catalogo de ocupaciones COB.
      */
     public function down(): void
     {

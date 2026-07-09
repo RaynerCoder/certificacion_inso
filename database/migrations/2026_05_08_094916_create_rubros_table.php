@@ -14,15 +14,15 @@ return new class extends Migration
         Schema::create('rubros', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('id_persona')->constrained('personas');
             $table->string('nombre', 255);
-            $table->string('estado', 50)->nullable();
+            $table->text('descripcion')->nullable();
+            $table->string('estado', 50)->default('ACTIVO');
 
-            // Auditoría
+            // Auditoria
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');
             $table->foreignId('id_usuario_modificacion')->nullable()->constrained('users');
             $table->foreignId('id_usuario_eliminacion')->nullable()->constrained('users');
-                        
+
             $table->timestamps();
             $table->softDeletes();
         });
