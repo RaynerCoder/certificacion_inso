@@ -1,5 +1,5 @@
 @php
-    // Perfil del usuario autenticado: alimenta el boton y el menu desplegable del encabezado.
+    // Datos que se muestran junto a la campana de notificaciones.
     $usuarioCabecera = Auth::user();
     $usuarioCabecera?->loadMissing(['funcionario.cargos', 'roles', 'persona.empresa', 'persona.natural']);
 
@@ -20,6 +20,12 @@
         ])))
         : '';
 
+    $tipoPersonaCabecera = match (true) {
+        (bool) $usuarioCabecera?->persona?->empresa => 'Empresa',
+        (bool) $usuarioCabecera?->persona?->natural => 'Persona natural',
+        default => 'Usuario del sistema',
+    };
+
     $nombrePerfilCabecera = $nombreFuncionarioCabecera !== ''
         ? $nombreFuncionarioCabecera
         : ($usuarioCabecera?->persona?->empresa?->razon_social
@@ -27,7 +33,9 @@
     $cargoPerfilCabecera = $funcionarioCabecera
         ? $funcionarioCabecera->cargos->pluck('nombre')->filter()->unique()->implode(', ')
         : '';
-    $cargoPerfilCabecera = $cargoPerfilCabecera !== '' ? $cargoPerfilCabecera : 'Sin cargo';
+    $detallePerfilCabecera = $cargoPerfilCabecera !== ''
+        ? $cargoPerfilCabecera
+        : $tipoPersonaCabecera;
     $rolesPerfilCabecera = $usuarioCabecera?->roles->pluck('name')->filter()->unique()->implode(', ') ?? '';
     $rolesPerfilCabecera = $rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Sin rol asignado';
     $correoPerfilCabecera = $usuarioCabecera?->email ?? 'Sin correo registrado';
@@ -246,8 +254,8 @@
                                     <span class="cert-topbar-profile-name" title="{{ $nombrePerfilCabecera }}">
                                         {{ $nombrePerfilCabecera }}
                                     </span>
-                                    <span class="cert-topbar-profile-detail" title="{{ $cargoPerfilCabecera }}">
-                                        {{ $cargoPerfilCabecera }}
+                                    <span class="cert-topbar-profile-detail" title="{{ $detallePerfilCabecera }}">
+                                        {{ $detallePerfilCabecera }}
                                     </span>
                                     <span class="cert-topbar-profile-role" title="{{ $rolesPerfilCabecera }}">
                                         {{ $rolesPerfilCabecera }}
@@ -265,7 +273,7 @@
                                     {{ $nombrePerfilCabecera }}
                                 </strong>
                                 <span class="mt-1 block text-xs font-bold text-emerald-700">
-                                    {{ $cargoPerfilCabecera }}
+                                    {{ $detallePerfilCabecera }}
                                 </span>
                                 <span class="mt-1 block text-xs font-semibold text-slate-600">
                                     {{ $rolesPerfilCabecera }}

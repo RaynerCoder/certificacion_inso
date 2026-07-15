@@ -10,27 +10,25 @@ use App\Models\Role;
 use App\Models\Rubro;
 use App\Models\Telefono;
 use App\Models\Territorio;
+use App\Services\GestionTramitadoresService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class TramitadorController extends Controller
 {
+    public function __construct(private GestionTramitadoresService $gestionTramitadores)
+    {
+    }
+
     /**
      * Muestra la tabla de tramitadores registrados.
      * Un tramitador se guarda como responsable de empresa con rol TRAMITADOR.
      */
     public function index(Request $request)
     {
-        $empresas = Empresa::query()
-            ->with('persona')
-            ->orderBy('razon_social')
-            ->get();
-
-        $empresa = $request->filled('id_empresa')
-            ? Empresa::query()->with('persona')->find($request->id_empresa)
-            : null;
+        $empresa = $this->empresaAutenticada();
+        $empresas = collect([$empresa]);
 
         $tramitadores = Responsable::query()
             ->with([
@@ -45,7 +43,7 @@ class TramitadorController extends Controller
                 $query->where('slug', 'tramitador')
                     ->orWhere('name', 'like', '%TRAMITADOR%');
             })
-            ->when($empresa, fn ($query) => $query->where('id_empresa', $empresa->id))
+            ->where('id_empresa', $empresa->id)
             ->orderByDesc('id')
             ->get();
 
@@ -57,17 +55,15 @@ class TramitadorController extends Controller
      */
     public function create()
     {
-        $empresas = Empresa::query()
-            ->with('persona')
-            ->orderBy('razon_social')
-            ->get();
+        $empresa = $this->empresaAutenticada();
+        $empresas = collect([$empresa]);
 
         $territorios = Territorio::query()
             ->orderBy('nombre')
             ->get();
 
-        // Los roles salen del catalogo para guardar responsables.id_rol.
-        $roles = Role::where('estado', 1)->orderBy('name')->get();
+        // El modulo siempre registra responsables con rol tramitador.
+        $roles = Role::where('slug', 'tramitador')->where('estado', 1)->get();
 
         return view('tramitadores.create', compact('empresas', 'territorios', 'roles'));
     }
@@ -77,7 +73,9 @@ class TramitadorController extends Controller
      */
     public function store(Request $solicitud)
     {
-        $datos = $this->validarTramitador($solicitud);
+        $empresa = $this->empresaAutenticada();
+        $datos = $this->validarTramitador($solicitud, $empresa);
+        $idRolTramitador = $this->idRolTramitador();
 
         try {
             DB::beginTransaction();
@@ -130,9 +128,9 @@ class TramitadorController extends Controller
 
             // Finalmente se asocia la persona natural como tramitador de la empresa.
             Responsable::create([
-                'id_empresa' => $datos['form_id_empresa'],
+                'id_empresa' => $empresa->id,
                 'id_persona' => $persona->id,
-                'id_rol' => $datos['form_id_rol'],
+                'id_rol' => $idRolTramitador,
                 'url_respaldo' => $this->guardarRespaldo($solicitud),
                 'fecha_registro' => $datos['form_fecha_registro'] ?? now()->toDateString(),
                 'fecha_baja' => null,
@@ -143,11 +141,11 @@ class TramitadorController extends Controller
 
             session()->flash('swal', [
                 'title' => 'Registrado',
-                'text' => 'El tramitador se registro correctamente.',
+                'text' => 'El tramitador se registró correctamente.',
                 'icon' => 'success',
             ]);
 
-            return redirect()->route('tramitadores_index', ['id_empresa' => $datos['form_id_empresa']]);
+            return redirect()->route('tramitadores_index');
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -158,13 +156,43 @@ class TramitadorController extends Controller
     }
 
     /**
+     * Da de baja la relacion del tramitador con la empresa actual.
+     * Las correcciones abiertas pasan al beneficiario para no dejar tramites sin responsable.
+     */
+    public function darBaja(Responsable $tramitador)
+    {
+        $empresa = $this->empresaAutenticada();
+
+        abort_unless((int) $tramitador->id_empresa === (int) $empresa->id, 403);
+
+        try {
+            $cantidadTransferida = DB::transaction(fn () => $this->gestionTramitadores->darDeBaja(
+                $tramitador,
+                auth()->user()
+            ));
+
+            session()->flash('swal', [
+                'title' => 'Tramitador dado de baja',
+                'text' => $cantidadTransferida
+                    ? "Se transfirieron {$cantidadTransferida} tramite(s) pendientes al beneficiario."
+                    : 'El tramitador no tenia correcciones pendientes.',
+                'icon' => 'success',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        return redirect()->route('tramitadores_index');
+    }
+
+    /**
      * Valida los datos necesarios para crear persona natural y relacionarla con la empresa.
      */
-    private function validarTramitador(Request $solicitud): array
+    private function validarTramitador(Request $solicitud, Empresa $empresa): array
     {
         return $solicitud->validate([
-            'form_id_empresa' => ['required', 'exists:empresas,id'],
-            'form_id_rol' => ['required', 'exists:roles,id'],
+            'form_id_empresa' => ['required', Rule::in([$empresa->id])],
+            'form_id_rol' => ['nullable', 'exists:roles,id'],
             'form_url_respaldo' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
             'form_fecha_registro' => ['nullable', 'date'],
             'form_estado' => ['nullable', 'string', 'max:50'],
@@ -194,6 +222,33 @@ class TramitadorController extends Controller
             'form_apellido_paterno' => 'apellido paterno',
             'form_genero' => 'genero',
         ]);
+    }
+
+    /**
+     * La empresa sale de la cuenta autenticada. No se acepta otra empresa enviada desde la vista.
+     */
+    private function empresaAutenticada(): Empresa
+    {
+        $empresa = auth()->user()
+            ?->loadMissing('persona.empresa')
+            ?->persona
+            ?->empresa;
+
+        abort_if(!$empresa, 403, 'Solo una empresa puede registrar tramitadores.');
+
+        return $empresa;
+    }
+
+    /**
+     * Mantiene fijo el rol que corresponde al modulo, aunque alguien cambie el formulario.
+     */
+    private function idRolTramitador(): int
+    {
+        $idRol = Role::where('slug', 'tramitador')->where('estado', 1)->value('id');
+
+        abort_if(!$idRol, 422, 'No existe el rol tramitador activo.');
+
+        return (int) $idRol;
     }
 
     /**

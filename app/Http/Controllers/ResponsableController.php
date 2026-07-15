@@ -135,6 +135,10 @@ class ResponsableController extends Controller
     public function update(Request $solicitud, Responsable $responsable)
     {
         $datos = $this->validarResponsable($solicitud, true);
+
+        if ($this->esTramitador($responsable) && ($datos['form_estado'] ?? 'ACTIVO') !== 'ACTIVO') {
+            return back()->with('error', 'La baja de un tramitador debe realizarse desde el módulo Tramitadores.');
+        }
         $esNuevoResponsable = $datos['form_id_persona'] === self::NUEVO_RESPONSABLE;
         $datosPersona = $this->validarPersonaResponsable(
             $solicitud,
@@ -196,6 +200,10 @@ class ResponsableController extends Controller
      */
     public function destroy(Responsable $responsable)
     {
+        if ($this->esTramitador($responsable)) {
+            return back()->with('error', 'Un tramitador no se elimina desde Responsables. Use el módulo Tramitadores para darlo de baja.');
+        }
+
         $responsable->delete();
 
         session()->flash('swal', [
@@ -205,6 +213,16 @@ class ResponsableController extends Controller
         ]);
 
         return redirect()->route('responsables_index');
+    }
+
+    /**
+     * Los tramitadores conservan historial; por eso no usan la eliminación general de responsables.
+     */
+    private function esTramitador(Responsable $responsable): bool
+    {
+        $responsable->loadMissing('rol');
+
+        return $responsable->rol?->slug === 'tramitador';
     }
 
     /**

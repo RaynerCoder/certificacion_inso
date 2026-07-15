@@ -63,8 +63,12 @@ class Certificado extends Model
     // Se centraliza aqui para usar la misma regla en vista, controlador y futuras plantillas.
     public function puedeEmitirse(): bool
     {
+        $tramiteFinalizado = $this->seguimientos()
+            ->where('estado', 'FINALIZADO')
+            ->exists();
+
         return $this->cumpleTodosLosRequisitos()
-            && in_array($this->estado, ['APROBADO', 'EMITIDO'], true)
+            && (in_array($this->estado, ['APROBADO', 'EMITIDO'], true) || $tramiteFinalizado)
             && !$this->debeMarcarseComoVencido()
             && !in_array($this->estado, ['ANULADO', 'RECHAZADO'], true);
     }

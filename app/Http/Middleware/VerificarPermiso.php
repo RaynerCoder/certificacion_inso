@@ -39,6 +39,7 @@ class VerificarPermiso
             'notificaciones_tramites' => 'dashboard.ver',
             'notificaciones_tramites_leer' => 'dashboard.ver',
             'notificaciones_tramites_leer_todas' => 'dashboard.ver',
+            'reportes_index' => 'reportes.ver',
             // El detalle del certificado tambien se abre desde "Mis tramites".
             // El controlador valida despues que el tramite pertenezca al usuario.
             'certificados_show' => ['certificados.ver', 'seguimientos_tramite.ver'],
@@ -89,6 +90,7 @@ class VerificarPermiso
             'procedencias_' => 'procedencias.ver',
             'pagos_' => 'pagos.ver',
             'tipos_evidencias_' => 'tipos_evidencias.ver',
+            'reportes_' => 'reportes.ver',
         ];
     }
 }

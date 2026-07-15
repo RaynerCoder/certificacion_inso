@@ -9,8 +9,14 @@
     </x-wire-button>
 
     @if ($seguimiento->certificado?->puedeEmitirse())
-        <x-wire-button href="{{ route('certificados_emitir', $seguimiento->certificado) }}" amber xs>
-            Imprimir certificado
-        </x-wire-button>
+        @if ($seguimiento->certificado?->tipoCertificado?->plantillaActiva)
+            <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados']) }}" amber xs>
+                Emitir certificado
+            </x-wire-button>
+        @else
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold leading-none text-amber-700">
+                Plantilla no configurada
+            </span>
+        @endif
     @endif
 </div>

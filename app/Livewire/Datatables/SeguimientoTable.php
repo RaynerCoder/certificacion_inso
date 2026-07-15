@@ -55,7 +55,7 @@ class SeguimientoTable extends DataTableComponent
     private function relacionesNecesarias(): array
     {
         return [
-            'certificado.tipoCertificado',
+            'certificado.tipoCertificado.plantillaActiva',
             'certificado.beneficiario.natural',
             'certificado.beneficiario.empresa',
             'certificado.tramitador.natural',
@@ -150,7 +150,7 @@ class SeguimientoTable extends DataTableComponent
             $this->columnaTipoTramite(),
             $this->columnaBeneficiario(),
             $this->columnaTramitador(),
-            $this->columnaFecha(),
+            $this->columnaFechaHoraInicio(),
             $this->columnaDerivadoPor(),
             $this->columnaReferencia(),
             $this->columnaEstado(),
@@ -204,10 +204,11 @@ class SeguimientoTable extends DataTableComponent
             });
     }
 
-    private function columnaFecha(): Column
+    // fecha_inicio guarda el día; created_at conserva la hora en que se creó la atención.
+    private function columnaFechaHoraInicio(): Column
     {
-        return Column::make('Fecha', 'fecha_inicio')
-            ->format(fn ($valor) => $valor ? Carbon::parse($valor)->format('d/m/Y') : 'Sin fecha')
+        return Column::make('Fecha y hora', 'created_at')
+            ->format(fn ($valor, $fila) => $this->fechaInicioConHora($fila))
             ->sortable();
     }
 
@@ -364,13 +365,18 @@ class SeguimientoTable extends DataTableComponent
     // Bandeja del solicitante: muestra tramites donde su usuario es beneficiario o tramitador.
     private function filtrarSolicitudesEnviadas(Builder $query): Builder
     {
+        $idPersonaActual = auth()->user()?->loadMissing('persona')?->persona?->id;
+
         return $query->where(function (Builder $consulta) {
             $consulta
                 ->whereHas('certificado.beneficiario', function (Builder $persona) {
                     $persona->where('id_usuario', auth()->id());
                 })
-                ->orWhereHas('certificado.tramitador', function (Builder $persona) {
-                    $persona->where('id_usuario', auth()->id());
+                ->orWhereHas('certificado.beneficiario.empresa.responsables', function (Builder $responsable) use ($idPersonaActual) {
+                    $responsable
+                        ->where('id_persona', $idPersonaActual)
+                        ->where('estado', 'ACTIVO')
+                        ->whereHas('rol', fn (Builder $rol) => $rol->where('slug', 'tramitador'));
                 });
         });
     }
@@ -617,6 +623,20 @@ class SeguimientoTable extends DataTableComponent
         $movimiento = $this->movimientoActualDelTramite($seguimiento);
 
         return $this->formatearFechaHora($movimiento?->created_at ?: $movimiento?->fecha_inicio);
+    }
+
+    private function fechaInicioConHora(Seguimiento $seguimiento): string
+    {
+        $fecha = $seguimiento->fecha_inicio ?: $seguimiento->created_at;
+
+        if (!$fecha) {
+            return 'Sin fecha';
+        }
+
+        $fechaInicio = Carbon::parse($fecha)->format('d/m/Y');
+        $horaInicio = $seguimiento->created_at?->format('H:i');
+
+        return trim($fechaInicio . ' ' . $horaInicio);
     }
 
     private function movimientoActivoParaUsuario(Seguimiento $seguimiento): ?Seguimiento

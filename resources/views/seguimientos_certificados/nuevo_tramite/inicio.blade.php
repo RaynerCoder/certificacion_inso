@@ -42,7 +42,8 @@
     $opcionesTramitadores = collect($tramitadoresIniciales ?? []);
     $opcionesTiposCertificados = collect($tiposCertificadosSelect ?? []);
     $beneficiarioActual = $opcionesBeneficiarios->firstWhere('id', (int) $beneficiarioSeleccionado);
-    $tramitadorActual = $opcionesTramitadores->firstWhere('id', (int) $tramitadorSeleccionado);
+    $tramitadorActual = $opcionesTramitadores->firstWhere('id', (int) $tramitadorSeleccionado)
+        ?: ($tramitadorAutomatico ?? null);
     $tipoCertificadoActual = $opcionesTiposCertificados->firstWhere('id', (int) $tipoSeleccionado);
 @endphp
 
@@ -79,6 +80,10 @@
             </div>
 
             <div class="tramite-fields">
+                @unless ($mostrarTramitador)
+                    <input type="hidden" name="form_id_persona_tramitador" value="{{ $tramitadorSeleccionado }}">
+                @endunless
+
                 <div class="tramite-field-6 tramite-inicio-field">
                     <div class="tramite-persona-select {{ $beneficiarioBloqueado ? 'is-locked' : '' }}"
                         data-tramite-selector
@@ -143,14 +148,22 @@
                     <x-input-error for="form_id_persona_beneficiario" class="mt-2" />
                 </div>
 
+                @if ($mostrarTramitador)
                 <div class="tramite-field-6 tramite-inicio-field">
-                    <div class="tramite-persona-select" data-tramite-selector data-tramite-select="tramitador">
+                    <div class="tramite-persona-select {{ $tramitadorBloqueado ? 'is-locked' : '' }}"
+                        data-tramite-selector
+                        data-tramite-select="tramitador"
+                        data-bloqueado="{{ $tramitadorBloqueado ? '1' : '0' }}">
                         <label class="tramite-persona-select-label" for="form_id_persona_tramitador">Tramitador</label>
 
-                        {{-- Select real: se actualiza desde JS cuando cambia el beneficiario. --}}
+                        @if ($tramitadorBloqueado)
+                            <input type="hidden" name="form_id_persona_tramitador" value="{{ $tramitadorSeleccionado }}">
+                        @endif
+
+                        {{-- El solicitante externo siempre tramita con su propia cuenta. --}}
                         <select id="form_id_persona_tramitador" name="form_id_persona_tramitador"
                             class="tramite-persona-native-select @error('form_id_persona_tramitador') is-invalid @enderror"
-                            data-tramite-native required>
+                            data-tramite-native required @disabled($tramitadorBloqueado)>
                             <option value="">Seleccione tramitador</option>
                             @foreach ($opcionesTramitadores as $opcion)
                                 <option value="{{ $opcion['id'] }}" data-label="{{ $opcion['nombre'] }}"
@@ -162,13 +175,15 @@
                         </select>
 
                         <button type="button" class="tramite-persona-select-control" data-tramite-toggle
-                            data-placeholder="Seleccione tramitador" data-help="Busque por nombre o tipo">
+                            @disabled($tramitadorBloqueado)
+                            data-placeholder="Seleccione tramitador"
+                            data-help="{{ $tramitadorBloqueado ? 'Asignado automaticamente a la cuenta que inicia el tramite.' : 'Busque por nombre o tipo' }}">
                             <span class="tramite-persona-select-text">
                                 <span class="tramite-persona-select-name" data-tramite-label>
                                     {{ $tramitadorActual['nombre'] ?? 'Seleccione tramitador' }}
                                 </span>
                                 <span class="tramite-persona-select-help" data-tramite-help>
-                                    {{ $tramitadorActual['detalle'] ?? 'Busque por nombre o tipo' }}
+                                    {{ $tramitadorBloqueado ? 'Asignado automaticamente a la cuenta que inicia el tramite.' : ($tramitadorActual['detalle'] ?? 'Busque por nombre o tipo') }}
                                 </span>
                             </span>
 
@@ -200,13 +215,16 @@
                         </div>
                     </div>
 
-                    <label class="tramite-mini-check">
-                        <input type="checkbox" id="mismoBeneficiario">
-                        <span>Beneficiario y tramitador son la misma persona</span>
-                    </label>
+                    @unless ($tramitadorBloqueado)
+                        <label class="tramite-mini-check">
+                            <input type="checkbox" id="mismoBeneficiario">
+                            <span>Beneficiario y tramitador son la misma persona</span>
+                        </label>
+                    @endunless
 
                     <x-input-error for="form_id_persona_tramitador" class="mt-2" />
                 </div>
+                @endif
 
                 <div class="tramite-field-12 tramite-inicio-field">
                     <div class="tramite-persona-select is-single-line" data-tramite-selector data-tramite-select="tipo-certificado">

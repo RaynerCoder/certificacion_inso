@@ -18,7 +18,12 @@ class PlantillaCertificado extends Model
         'descripcion',
         'tamano_papel',
         'orientacion',
+        'ancho_lienzo_px',
+        'alto_lienzo_px',
         'url_fondo',
+        'ajuste_fondo',
+        'fondo_trabajo',
+        'imprimir_transparente',
         'estado',
     ];
 

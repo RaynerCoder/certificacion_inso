@@ -18,7 +18,6 @@ return new class extends Migration
         Schema::create('plantillas_columnas', function (Blueprint $table) {
             $table->id();
 
-            // Elemento tipo TABLA al que pertenece la columna.
             $table->foreignId('id_plantilla_elemento')->constrained('plantillas_elementos');
 
             // Codigo controlado que se resolvera por cada fila: producto.nombre_comercial, registro.codigo, etc.

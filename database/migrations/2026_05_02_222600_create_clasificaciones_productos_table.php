@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('estado', 50)->default('ACTIVO');
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique('nombre', 'clasificaciones_productos_nombre_unique');
         });
     }
 

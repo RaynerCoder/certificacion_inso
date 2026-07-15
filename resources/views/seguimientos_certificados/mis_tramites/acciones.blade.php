@@ -4,7 +4,7 @@
         Ver trámite
     </x-wire-button>
 
-    @if ($seguimiento->certificado?->puedeEmitirse())
+    @if ($seguimiento->certificado?->estado === 'EMITIDO')
         <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'enviadas']) }}" amber xs>
             Imprimir certificado
         </x-wire-button>

@@ -631,21 +631,17 @@
                                         </button>
 
                                         @if ($puedeFinalizarTramite)
-                                            <button type="submit" form="form-finalizar-tramite" class="tramite-btn tramite-btn-ok">
+                                            <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
+                                                @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
+                                                class="tramite-btn tramite-btn-ok"
+                                                @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
                                                 <i class="fa-solid fa-circle-check"></i>
                                                 Finalizar trámite
                                             </button>
                                         @endif
 
-                                        @if ($puedeEmitirCertificado)
-                                            <a href="{{ route('certificados_emitir', $certificado) }}" class="tramite-btn tramite-btn-emit">
-                                                <i class="fa-regular fa-file-lines"></i>
-                                                Emitir certificado
-                                            </a>
-                                        @endif
-
                                         @if ($puedeNotificarCorreccion)
-                                            <button type="submit" form="form-notificar-correccion-v2" class="tramite-btn tramite-btn-notify" onclick="return confirm('Se devolverá el trámite al solicitante para que corrija los requisitos observados. ¿Desea continuar?')">
+                                            <button type="button" class="tramite-btn tramite-btn-notify" data-open-correction-recipient-modal>
                                                 <i class="fa-solid fa-paper-plane"></i>
                                                 Notificar solicitante
                                             </button>
@@ -654,13 +650,83 @@
                                 </div>
                             </form>
                             @if ($puedeNotificarCorreccion)
-                                <form id="form-notificar-correccion-v2" action="{{ route('seguimientos_notificar_correccion', $seguimientoTecnicoActual) }}" method="POST">
+                                <form id="form-notificar-correccion-v2" action="{{ route('seguimientos_notificar_correccion', $seguimientoTecnicoActual) }}" method="POST" data-prevent-double-submit data-loading-button="Notificando...">
                                     @csrf
                                 </form>
+
+                                <div class="tramite-modal" data-correction-recipient-modal aria-hidden="true">
+                                    <div class="tramite-modal-backdrop" data-close-correction-recipient-modal></div>
+                                    <section class="tramite-modal-panel" role="dialog" aria-modal="true" aria-labelledby="tituloDestinoCorreccion">
+                                        <div class="tramite-modal-head">
+                                            <div>
+                                                <h2 id="tituloDestinoCorreccion" class="tramite-card-title">
+                                                    <i class="fa-solid fa-paper-plane"></i>
+                                                    Notificar solicitante
+                                                </h2>
+                                                <p>Seleccione quién corregirá los requisitos observados.</p>
+                                            </div>
+                                            <button type="button" class="tramite-modal-close" data-close-correction-recipient-modal aria-label="Cerrar">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </div>
+
+                                        @php
+                                            $destinatarioSeleccionado = $destinatariosCorreccion->firstWhere('id', $idDestinatarioCorreccion);
+                                        @endphp
+                                        <div class="cert-technical-field" data-correction-recipient-selector>
+                                            <label class="cert-show-label" for="id_usuario_responsable_correccion">Responsable de la corrección</label>
+                                            <input type="hidden" id="id_usuario_responsable_correccion" name="id_usuario_responsable_correccion"
+                                                form="form-notificar-correccion-v2" value="{{ $idDestinatarioCorreccion }}" data-correction-recipient-value>
+                                            <button type="button" class="cert-technical-control" data-correction-recipient-toggle
+                                                @disabled($destinatarioCorreccionBloqueado) aria-expanded="false">
+                                                <span class="cert-technical-avatar"><i class="fa-regular fa-user"></i></span>
+                                                <span class="cert-technical-selected">
+                                                    <span class="cert-technical-selected-name" data-correction-recipient-name>{{ $destinatarioSeleccionado['nombre'] ?? 'Seleccione una persona' }}</span>
+                                                    <span class="cert-technical-selected-help" data-correction-recipient-type>{{ $destinatarioSeleccionado['tipo'] ?? '' }}</span>
+                                                </span>
+                                                <i class="fa-solid fa-chevron-down cert-technical-chevron"></i>
+                                            </button>
+                                            <div class="cert-technical-dropdown" data-correction-recipient-menu hidden>
+                                                <div class="cert-technical-search">
+                                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                                    <input type="search" data-correction-recipient-search placeholder="Buscar beneficiario o tramitador">
+                                                </div>
+                                                <div class="cert-technical-options">
+                                                    @foreach ($destinatariosCorreccion as $destinatario)
+                                                        <button type="button" class="cert-technical-option" data-correction-recipient-option
+                                                            data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
+                                                            data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
+                                                            <span class="cert-technical-option-icon"><i class="fa-regular fa-user"></i></span>
+                                                            <span class="cert-technical-option-main">
+                                                                <strong>{{ $destinatario['nombre'] }}</strong>
+                                                                <span>{{ $destinatario['tipo'] }}</span>
+                                                            </span>
+                                                        </button>
+                                                    @endforeach
+                                                    <div class="cert-technical-empty is-hidden" data-correction-recipient-empty>No se encontraron resultados.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @if ($destinatarioCorreccionBloqueado)
+                                            <p class="mt-2 text-sm text-slate-600">La persona natural es beneficiario y tramitador del mismo trámite.</p>
+                                        @endif
+
+                                        <div class="tramite-actions-row mt-5">
+                                            <button type="button" class="tramite-btn tramite-btn-muted" data-close-correction-recipient-modal>Cancelar</button>
+                                            <button type="submit" form="form-notificar-correccion-v2" class="tramite-btn tramite-btn-notify">
+                                                <i class="fa-solid fa-paper-plane"></i>
+                                                Notificar solicitante
+                                            </button>
+                                        </div>
+                                    </section>
+                                </div>
                             @endif
                             @if ($puedeFinalizarTramite)
                                 <form id="form-finalizar-tramite" action="{{ route('seguimientos_finalizar_tramite', $seguimientoTecnicoActual) }}" method="POST">
                                     @csrf
+                                    @if ($tramiteRequiereHabilitarTramitador)
+                                        <input type="hidden" name="aceptar_tramitador" id="aceptar-tramitador" value="">
+                                    @endif
                                 </form>
                             @endif
                         @elseif ($seguimientoCorreccionActual)
@@ -1535,6 +1601,38 @@
 
     {{-- Revisión por requisito: confirma decisiones y obliga observación cuando se marca No cumple. --}}
     @include('certificados.partials.show_scripts')
+
+    @if ($puedeFinalizarTramite && $tramiteRequiereHabilitarTramitador)
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const boton = document.querySelector('[data-confirmar-tramitador]');
+                const formulario = document.getElementById('form-finalizar-tramite');
+                const confirmacion = document.getElementById('aceptar-tramitador');
+
+                if (!boton || !formulario || !confirmacion) {
+                    return;
+                }
+
+                boton.addEventListener('click', async () => {
+                    const resultado = await Swal.fire({
+                        title: 'Aceptar tramitador',
+                        text: @json('Se habilitará a ' . $nombrePersona($certificado->tramitador) . ' como tramitador de ' . $nombrePersona($certificado->beneficiario) . '.'),
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar y finalizar',
+                        cancelButtonText: 'Cancelar',
+                    });
+
+                    if (!resultado.isConfirmed) {
+                        return;
+                    }
+
+                    confirmacion.value = '1';
+                    formulario.submit();
+                });
+            });
+        </script>
+    @endif
 
 
 

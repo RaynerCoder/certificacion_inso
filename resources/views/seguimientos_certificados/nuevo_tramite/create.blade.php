@@ -25,7 +25,7 @@
 
         // Mantiene lo que el usuario eligio si Laravel devuelve errores.
         $beneficiarioSeleccionado = old('form_id_persona_beneficiario', $beneficiarioAutomatico['id'] ?? null);
-        $tramitadorSeleccionado = old('form_id_persona_tramitador');
+        $tramitadorSeleccionado = old('form_id_persona_tramitador', $tramitadorAutomatico['id'] ?? null);
         $tipoSeleccionado = old('form_id_tipo_certificado');
 
         // Al volver con error, se cargan solo los tramitadores del beneficiario elegido.

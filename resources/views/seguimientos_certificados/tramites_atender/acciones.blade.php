@@ -8,9 +8,4 @@
         Seguimiento
     </x-wire-button>
 
-    @if ($seguimiento->certificado?->puedeEmitirse())
-        <x-wire-button href="{{ route('certificados_emitir', $seguimiento->certificado) }}" amber xs>
-            Imprimir certificado
-        </x-wire-button>
-    @endif
 </div>

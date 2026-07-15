@@ -1,4 +1,4 @@
-﻿<x-admin-layout title="Emitir Certificado | Certificador" :breadcrumbs="[
+<x-admin-layout title="Emitir Certificado | Certificador" :breadcrumbs="[
     ['name' => 'Menu', 'href' => route('admin_dashboard')],
     ['name' => 'Trámites', 'href' => route('seguimientos_index')],
     ['name' => 'Detalle', 'href' => route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')])],
@@ -6,6 +6,9 @@
 ]">
     @php
         $puedeGestionarEmision = $puedeGestionarEmision ?? false;
+        $vieneDeFinalizados = request('bandeja') === 'finalizados';
+        $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
+        $abrirModalEmision = $errors->emisionCertificado->any();
 
         // Nombre visible: razon social para empresa o nombre completo para persona natural.
         $nombrePersona = function ($persona) {
@@ -75,17 +78,28 @@
         );
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
-        $medidasPlantilla = $papelPlantilla === 'OFICIO'
+        $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
             ? ['ancho' => 816, 'alto' => 1248, 'css' => 'legal']
             : ['ancho' => 816, 'alto' => 1056, 'css' => 'letter'];
 
         if ($orientacionPlantilla === 'HORIZONTAL') {
-            $medidasPlantilla = [
-                'ancho' => $medidasPlantilla['alto'],
-                'alto' => $medidasPlantilla['ancho'],
-                'css' => $medidasPlantilla['css'],
+            $medidasBasePlantilla = [
+                'ancho' => $medidasBasePlantilla['alto'],
+                'alto' => $medidasBasePlantilla['ancho'],
+                'css' => $medidasBasePlantilla['css'],
             ];
         }
+
+        $medidasPlantilla = [
+            'ancho' => (int) ($plantillaCertificado?->ancho_lienzo_px ?: $medidasBasePlantilla['ancho']),
+            'alto' => (int) ($plantillaCertificado?->alto_lienzo_px ?: $medidasBasePlantilla['alto']),
+            'css' => $medidasBasePlantilla['css'],
+        ];
+        $ajusteFondoPlantilla = match (strtoupper((string) ($plantillaCertificado?->ajuste_fondo ?? 'ESTIRAR'))) {
+            'CONTENER' => 'contain',
+            'CUBRIR' => 'cover',
+            default => 'fill',
+        };
 
         $anchoImpresion = '8.5in';
         $altoImpresion = $papelPlantilla === 'OFICIO' ? '14in' : '11in';
@@ -126,19 +140,59 @@
             return null;
         };
 
-        $fondoPlantilla = $resolverFondoImagen($plantillaCertificado?->url_fondo)
-            ?: $resolverFondoImagen('documentos/plantillas_certificados/modelo_certificado.png');
+        $imprimirTransparente = (bool) ($plantillaCertificado?->imprimir_transparente ?? false);
+        $fondoPlantilla = $imprimirTransparente
+            ? null
+            : ($resolverFondoImagen($plantillaCertificado?->url_fondo)
+                ?: $resolverFondoImagen('documentos/plantillas_certificados/modelo_certificado.png'));
         $elementosPlantilla = $plantillaCertificado?->elementosActivos ?? collect();
         if ($elementosPlantilla->isEmpty()) {
             $elementosPlantilla = collect([
-                (object) ['tipo_elemento' => 'CAMPO', 'codigo_campo' => 'certificado.codigo', 'texto_fijo' => null, 'posicion_x' => 670, 'posicion_y' => 205, 'ancho' => 150, 'alto' => 24, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => true],
-                (object) ['tipo_elemento' => 'CAMPO', 'codigo_campo' => 'beneficiario.nombre', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 360, 'ancho' => 430, 'alto' => 34, 'tamano_letra' => 15, 'alineacion' => 'CENTRO', 'negrita' => true],
-                (object) ['tipo_elemento' => 'CAMPO', 'codigo_campo' => 'producto.nombre_comercial', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 410, 'ancho' => 430, 'alto' => 26, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => false],
-                (object) ['tipo_elemento' => 'CAMPO', 'codigo_campo' => 'registro.codigo', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 445, 'ancho' => 430, 'alto' => 24, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => false],
-                (object) ['tipo_elemento' => 'CAMPO', 'codigo_campo' => 'certificado.fecha_fin', 'texto_fijo' => null, 'posicion_x' => 565, 'posicion_y' => 675, 'ancho' => 170, 'alto' => 22, 'tamano_letra' => 11, 'alineacion' => 'CENTRO', 'negrita' => false],
+                (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'certificado.codigo', 'texto_fijo' => null, 'posicion_x' => 670, 'posicion_y' => 205, 'ancho' => 150, 'alto' => 24, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => true],
+                (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'beneficiario.nombre', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 360, 'ancho' => 430, 'alto' => 34, 'tamano_letra' => 15, 'alineacion' => 'CENTRO', 'negrita' => true],
+                (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'producto.nombre_comercial', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 410, 'ancho' => 430, 'alto' => 26, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => false],
+                (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'registro.codigo', 'texto_fijo' => null, 'posicion_x' => 260, 'posicion_y' => 445, 'ancho' => 430, 'alto' => 24, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => false],
+                (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'certificado.fecha_fin', 'texto_fijo' => null, 'posicion_x' => 565, 'posicion_y' => 675, 'ancho' => 170, 'alto' => 22, 'tamano_letra' => 11, 'alineacion' => 'CENTRO', 'negrita' => false],
             ]);
         }
-        $modoPrueba = request('modo') === 'prueba';
+        $valoresPlantillaConAlias = array_merge(
+            $valoresPlantilla,
+            collect($valoresPlantilla)
+                ->mapWithKeys(fn ($valor, $clave) => [str_replace('.', '_', $clave) => $valor])
+                ->all()
+        );
+        $resolverTextoPlantilla = function (?string $texto) use ($valoresPlantillaConAlias) {
+            if (blank($texto)) {
+                return '';
+            }
+
+            return preg_replace_callback('/\{\{\s*([^}]+)\s*\}\}/', function ($coincidencia) use ($valoresPlantillaConAlias) {
+                $clave = trim($coincidencia[1]);
+
+                return $valoresPlantillaConAlias[$clave] ?? $coincidencia[0];
+            }, $texto);
+        };
+        $filasTablaPlantilla = function ($elemento) use ($resolverTextoPlantilla) {
+            $datos = json_decode((string) ($elemento->texto_fijo ?? ''), true);
+            $filas = is_array($datos['filas'] ?? null) ? $datos['filas'] : [];
+
+            if (!$filas) {
+                $filas = [
+                    collect($elemento->columnas ?? [])
+                        ->map(fn ($columna) => '{{' . str_replace('.', '_', $columna->codigo_campo) . '}}')
+                        ->values()
+                        ->all(),
+                ];
+            }
+
+            return collect($filas)
+                ->map(fn ($fila) => collect($fila)
+                    ->map(fn ($celda) => $resolverTextoPlantilla((string) $celda))
+                    ->values()
+                    ->all())
+                ->values()
+                ->all();
+        };
     @endphp
 
     <style>
@@ -215,8 +269,8 @@
 
         .emit-grid {
             display: grid;
-            gap: 16px;
-            grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+            gap: 14px;
+            grid-template-columns: minmax(250px, 0.72fr) minmax(520px, 1.28fr);
         }
 
         .emit-section {
@@ -245,13 +299,13 @@
         }
 
         .emit-section-body {
-            padding: 16px;
+            padding: 12px;
         }
 
         .emit-definition {
             display: grid;
-            gap: 10px;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            grid-template-columns: 1fr;
         }
 
         .emit-field {
@@ -291,8 +345,8 @@
         .emit-table th,
         .emit-table td {
             border-bottom: 1px solid #e2e8f0;
-            font-size: 0.82rem;
-            padding: 10px;
+            font-size: 0.78rem;
+            padding: 7px;
             text-align: left;
             vertical-align: top;
         }
@@ -309,16 +363,7 @@
             background: #f8fafc;
             border: 1px solid #dbe4ee;
             border-radius: 8px;
-            padding: 14px;
-        }
-
-        .emit-paper {
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
-            min-height: 520px;
-            padding: 26px;
+            padding: 10px;
         }
 
         .emit-template-stage {
@@ -349,7 +394,7 @@
 
         .emit-template-background img {
             display: block;
-            object-fit: cover;
+            object-fit: {{ $ajusteFondoPlantilla }};
         }
 
         .emit-template-missing {
@@ -367,129 +412,162 @@
         }
 
         .emit-template-field {
-            align-items: center;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            box-sizing: border-box;
             color: #0f172a;
-            display: flex;
+            display: block;
             line-height: 1.25;
             overflow: hidden;
-            padding: 2px 4px;
+            padding: 5px 7px;
             position: absolute;
+            text-align: left;
             white-space: normal;
             z-index: 2;
         }
 
-        .emit-template-field.is-center {
+        .emit-template-field.is-texto {
+            white-space: pre-wrap;
+        }
+
+        .emit-template-field.is-texto.is-justify {
+            white-space: pre-line;
+        }
+
+        .emit-template-field.is-imagen {
+            padding: 0;
+        }
+
+        .emit-template-field.is-imagen img {
+            display: block;
+            height: 100%;
+            object-fit: contain;
+            width: 100%;
+        }
+
+        .emit-template-field.is-tabla {
+            padding: 0;
+        }
+
+        .emit-template-field.is-qr {
+            align-items: center;
+            border: 1px dashed #0f766e;
+            display: flex;
             justify-content: center;
+            text-align: center;
+        }
+
+        .emit-template-field.is-qr img {
+            display: block;
+            height: 100%;
+            object-fit: contain;
+            width: 100%;
+        }
+
+        .emit-template-word-table {
+            border-collapse: collapse;
+            font-size: inherit;
+            height: 100%;
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .emit-template-word-table th,
+        .emit-template-word-table td {
+            border: 1px solid currentColor;
+            line-height: 1.15;
+            padding: 4px 6px;
+            vertical-align: middle;
+            word-break: break-word;
+        }
+
+        .emit-template-word-table th {
+            font-weight: 900;
+        }
+
+        .emit-template-field.is-center {
             text-align: center;
         }
 
         .emit-template-field.is-right {
-            justify-content: flex-end;
             text-align: right;
         }
 
-        .emit-template-watermark {
-            color: rgba(220, 38, 38, 0.16);
-            font-size: 84px;
-            font-weight: 950;
-            left: 50%;
-            letter-spacing: 8px;
-            position: absolute;
-            top: 50%;
-            transform: translate(-50%, -50%) rotate(-25deg);
-            z-index: 3;
+        .emit-template-field.is-justify {
+            display: block;
+            text-align: justify;
         }
 
-        .emit-paper-head {
+        .emit-modal-backdrop {
             align-items: center;
-            border-bottom: 2px solid #047857;
+            background: rgba(15, 23, 42, 0.45);
             display: flex;
-            gap: 12px;
-            padding-bottom: 14px;
-        }
-
-        .emit-logo {
-            align-items: center;
-            border: 2px solid #10b981;
-            border-radius: 8px;
-            color: #047857;
-            display: inline-flex;
-            font-size: 0.78rem;
-            font-weight: 950;
-            height: 46px;
+            inset: 0;
             justify-content: center;
-            width: 46px;
+            padding: 18px;
+            position: fixed;
+            z-index: 60;
         }
 
-        .emit-paper-title {
-            font-size: 1.05rem;
-            font-weight: 950;
-            text-transform: uppercase;
+        .emit-modal-backdrop[hidden] {
+            display: none;
         }
 
-        .emit-paper-subtitle {
-            color: #64748b;
-            font-size: 0.78rem;
-            font-weight: 800;
+        .emit-modal-card {
+            background: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+            max-width: 720px;
+            overflow: hidden;
+            width: min(100%, 720px);
         }
 
-        .emit-paper-content {
-            display: grid;
-            gap: 14px;
-            margin-top: 22px;
-        }
-
-        .emit-paper-line {
+        .emit-modal-head {
+            align-items: center;
             border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 10px;
-        }
-
-        .emit-paper-line span {
-            color: #64748b;
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 950;
-            text-transform: uppercase;
-        }
-
-        .emit-paper-line strong {
-            display: block;
-            font-size: 0.94rem;
-            margin-top: 4px;
-        }
-
-        .emit-paper-foot {
-            align-items: end;
             display: flex;
             justify-content: space-between;
-            margin-top: 48px;
+            padding: 16px 18px;
         }
 
-        .emit-qr {
+        .emit-modal-title {
+            font-size: 1rem;
+            font-weight: 950;
+        }
+
+        .emit-modal-body {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            padding: 18px;
+        }
+
+        .emit-modal-field-full {
+            grid-column: 1 / -1;
+        }
+
+        .emit-modal-actions {
             align-items: center;
-            border: 1px dashed #94a3b8;
-            border-radius: 6px;
-            color: #64748b;
-            display: inline-flex;
-            font-size: 0.72rem;
-            font-weight: 900;
-            height: 72px;
-            justify-content: center;
-            width: 72px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+            padding: 14px 18px;
         }
 
-        .emit-signature {
-            border-top: 1px solid #0f172a;
-            font-size: 0.75rem;
-            font-weight: 900;
-            padding-top: 8px;
-            text-align: center;
-            width: 180px;
+        .emit-modal-close {
+            color: #64748b;
+            font-size: 1.05rem;
+            line-height: 1;
         }
 
         @media (max-width: 1024px) {
             .emit-grid,
-            .emit-definition {
+            .emit-definition,
+            .emit-modal-body {
                 grid-template-columns: 1fr;
             }
         }
@@ -540,11 +618,6 @@
                 width: var(--emit-print-width);
             }
 
-            .emit-paper {
-                border: none;
-                box-shadow: none;
-            }
-
             .emit-template-stage {
                 background: transparent;
                 border: none;
@@ -589,21 +662,12 @@
                 </button>
 
                 @if ($puedeGestionarEmision)
-                    <a href="{{ route('certificados_emitir', ['certificado' => $certificado, 'modo' => $modoPrueba ? null : 'prueba']) }}"
-                        class="emit-btn emit-btn-muted">
-                        <i class="fa-solid fa-vial"></i>
-                        {{ $modoPrueba ? 'Quitar prueba' : 'Prueba' }}
-                    </a>
-
                     @if ($certificado->estado !== 'EMITIDO')
-                        <form action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="emit-btn emit-btn-primary">
-                                <i class="fa-solid fa-file-circle-check"></i>
-                                Emitir certificado
-                            </button>
-                        </form>
-                    @else
+                        <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-emision>
+                            <i class="fa-solid fa-file-circle-check"></i>
+                            Emitir certificado
+                        </button>
+                    @elseif ($puedeEnviarSolicitante)
                         <form action="{{ route('certificados_enviar_solicitante', $certificado) }}" method="POST">
                             @csrf
                             <button type="submit" class="emit-btn emit-btn-info">
@@ -615,6 +679,82 @@
                 @endif
             </div>
         </header>
+
+        <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
+            <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="bandeja" value="{{ request('bandeja', 'finalizados') }}">
+
+                <div class="emit-modal-head">
+                    <div>
+                        <h2 class="emit-modal-title">Datos finales del certificado</h2>
+                        <p class="emit-subtitle">Complete la información que quedará registrada antes de enviar al solicitante.</p>
+                    </div>
+                    <button type="button" class="emit-modal-close" data-cerrar-modal-emision aria-label="Cerrar">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="emit-modal-body">
+                    <div>
+                        <x-wire-input id="form_fecha_inicio" label="Fecha de inicio" name="form_fecha_inicio" type="date"
+                            value="{{ old('form_fecha_inicio', $certificado->fecha_inicio?->format('Y-m-d') ?: now()->format('Y-m-d')) }}" />
+                        @error('form_fecha_inicio', 'emisionCertificado')
+                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <x-wire-input id="form_vigencia_dias" label="Días de vigencia" name="form_vigencia_dias" type="number" min="1"
+                            value="{{ old('form_vigencia_dias') }}" />
+                        <p class="mt-1 text-xs text-slate-500">Solo se usa para calcular la fecha final.</p>
+                        @error('form_vigencia_dias', 'emisionCertificado')
+                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <x-wire-input id="form_fecha_fin" label="Fecha final" name="form_fecha_fin" type="date"
+                            value="{{ old('form_fecha_fin', $certificado->fecha_fin?->format('Y-m-d') ?? '') }}" />
+                        @error('form_fecha_fin', 'emisionCertificado')
+                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <label class="emit-modal-field-full flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <input id="form_vigencia_indefinida" name="form_vigencia_indefinida" type="checkbox" value="1"
+                            @checked(old('form_vigencia_indefinida'))>
+                        Vigencia indefinida
+                    </label>
+
+                    <div class="emit-modal-field-full">
+                        <x-wire-textarea label="Descripción final del certificado" name="form_descripcion"
+                            placeholder="Ingrese la descripción final que acompañará la emisión.">{{ old('form_descripcion', $certificado->descripcion ?? '') }}</x-wire-textarea>
+                        @error('form_descripcion', 'emisionCertificado')
+                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="emit-modal-field-full text-sm text-slate-600">
+                        @if ($certificado->url_documento)
+                            <a class="mt-2 inline-flex text-xs font-bold text-emerald-700" href="{{ asset('storage/' . $certificado->url_documento) }}" target="_blank">
+                                Ver documento actual
+                            </a>
+                        @else
+                            El PDF se generará automáticamente con la plantilla activa al guardar la emisión.
+                        @endif
+                    </div>
+                </div>
+
+                <div class="emit-modal-actions">
+                    <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-emision>Cancelar</button>
+                    <button type="submit" class="emit-btn emit-btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        Guardar emisión
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div class="emit-grid">
             <div class="space-y-4">
@@ -768,13 +908,13 @@
             </div>
 
             <aside class="emit-preview">
-                <div class="emit-template-stage" id="certificado-imprimible"
+                <div class="emit-template-stage {{ $imprimirTransparente ? 'is-transparent-print' : '' }}" id="certificado-imprimible"
                     style="--emit-page-width: {{ $medidasPlantilla['ancho'] }}px; --emit-page-height: {{ $medidasPlantilla['alto'] }}px; --emit-print-width: {{ $anchoImpresion }}; --emit-print-height: {{ $altoImpresion }};">
                     <div class="emit-template-page">
                         <div class="emit-template-background">
-                            @if ($fondoPlantilla)
+                            @if (!$imprimirTransparente && $fondoPlantilla)
                                 <img src="{{ $fondoPlantilla }}" alt="Plantilla del certificado">
-                            @else
+                            @elseif (!$imprimirTransparente)
                                 <div class="emit-template-missing">
                                     Suba la plantilla como imagen PNG, JPG o WEBP para imprimir el certificado completo.
                                 </div>
@@ -783,36 +923,91 @@
 
                         @foreach ($elementosPlantilla as $elementoPlantilla)
                             @php
-                                $valorCampo = $elementoPlantilla->tipo_elemento === 'TEXTO'
-                                    ? $elementoPlantilla->texto_fijo
-                                    : ($valoresPlantilla[$elementoPlantilla->codigo_campo] ?? '');
+                                $valorCampo = match ($elementoPlantilla->tipo_elemento) {
+                                    'TEXTO' => $resolverTextoPlantilla($elementoPlantilla->texto_fijo),
+                                    'IMAGEN' => $elementoPlantilla->texto_fijo,
+                                    'TABLA' => 'TABLA',
+                                    'QR' => filled($elementoPlantilla->texto_fijo)
+                                        ? $elementoPlantilla->texto_fijo
+                                        : ($valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? 'QR'),
+                                    default => $valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? '',
+                                };
+                                $filasTabla = $elementoPlantilla->tipo_elemento === 'TABLA'
+                                    ? $filasTablaPlantilla($elementoPlantilla)
+                                    : [];
+                                $esImagenQr = $elementoPlantilla->tipo_elemento === 'QR'
+                                    && \Illuminate\Support\Str::startsWith((string) $valorCampo, 'data:image');
                                 $alineacion = strtoupper((string) ($elementoPlantilla->alineacion ?? 'IZQUIERDA'));
                                 $claseAlineacion = $alineacion === 'CENTRO'
                                     ? 'is-center'
-                                    : ($alineacion === 'DERECHA' ? 'is-right' : '');
+                                    : ($alineacion === 'DERECHA' ? 'is-right' : ($alineacion === 'JUSTIFICADO' ? 'is-justify' : ''));
+                                $claseTipoElemento = match ($elementoPlantilla->tipo_elemento) {
+                                    'TEXTO', 'FIRMA' => 'is-texto',
+                                    'IMAGEN' => 'is-imagen',
+                                    'TABLA' => 'is-tabla',
+                                    'QR' => 'is-qr',
+                                    default => '',
+                                };
+                                $usaPaddingElemento = !in_array($elementoPlantilla->tipo_elemento, ['IMAGEN', 'TABLA', 'QR'], true);
+                                $paddingXElemento = (float) data_get($elementoPlantilla, 'padding_x', $usaPaddingElemento ? 7 : 0);
+                                $paddingYElemento = (float) data_get($elementoPlantilla, 'padding_y', $usaPaddingElemento ? 5 : 0);
                             @endphp
 
                             @if (filled($valorCampo))
-                                <div class="emit-template-field {{ $claseAlineacion }}"
+                                <div class="emit-template-field {{ $claseTipoElemento }} {{ $claseAlineacion }}"
                                     style="
                                         left: {{ (float) $elementoPlantilla->posicion_x }}px;
                                         top: {{ (float) $elementoPlantilla->posicion_y }}px;
                                         width: {{ (float) $elementoPlantilla->ancho }}px;
-                                        min-height: {{ (float) $elementoPlantilla->alto }}px;
+                                        height: {{ (float) $elementoPlantilla->alto }}px;
                                         font-size: {{ (int) $elementoPlantilla->tamano_letra }}px;
-                                        font-weight: {{ $elementoPlantilla->negrita ? 900 : 700 }};
-                                        font-style: {{ $elementoPlantilla->cursiva ? 'italic' : 'normal' }};
-                                        text-decoration: {{ $elementoPlantilla->subrayado ? 'underline' : 'none' }};
-                                        color: {{ $elementoPlantilla->color_texto ?: '#0f172a' }};
+                                        font-weight: {{ data_get($elementoPlantilla, 'negrita') ? 900 : 700 }};
+                                        font-style: {{ data_get($elementoPlantilla, 'cursiva') ? 'italic' : 'normal' }};
+                                        text-decoration: {{ data_get($elementoPlantilla, 'subrayado') ? 'underline' : 'none' }};
+                                        color: {{ data_get($elementoPlantilla, 'color_texto', '#0f172a') ?: '#0f172a' }};
+                                        font-family: '{{ data_get($elementoPlantilla, 'tipo_letra', 'Arial') ?: 'Arial' }}', Arial, sans-serif;
+                                        line-height: {{ (float) data_get($elementoPlantilla, 'interlineado', 1.25) }};
+                                        padding: {{ $paddingYElemento }}px {{ $paddingXElemento }}px;
+                                        z-index: {{ (int) data_get($elementoPlantilla, 'z_index', 3) }};
                                     ">
-                                    {{ $valorCampo }}
+                                    @if ($elementoPlantilla->tipo_elemento === 'IMAGEN')
+                                        <img src="{{ $valorCampo }}" alt="Imagen del certificado" style="display:block; width:100%; height:100%; object-fit:contain;">
+                                    @elseif ($esImagenQr)
+                                        <img src="{{ $valorCampo }}" alt="QR del certificado" style="display:block; width:100%; height:100%; object-fit:contain;">
+                                    @elseif ($elementoPlantilla->tipo_elemento === 'TABLA')
+                                        <table class="emit-template-word-table">
+                                            <thead>
+                                                <tr>
+                                                    @forelse ($elementoPlantilla->columnas as $columna)
+                                                        <th style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
+                                                            {{ $columna->titulo_columna ?: $columna->codigo_campo }}
+                                                        </th>
+                                                    @empty
+                                                        <th>Dato</th>
+                                                    @endforelse
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse ($filasTabla as $filaTabla)
+                                                    <tr>
+                                                        @foreach ($filaTabla as $celdaTabla)
+                                                            <td>{{ $celdaTabla }}</td>
+                                                        @endforeach
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td>Sin datos</td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    @else
+                                        {!! nl2br(e($valorCampo)) !!}
+                                    @endif
                                 </div>
                             @endif
                         @endforeach
 
-                        @if ($modoPrueba)
-                            <div class="emit-template-watermark">PRUEBA</div>
-                        @endif
                     </div>
                 </div>
             </aside>
@@ -870,41 +1065,95 @@
 
                     .emit-template-background img {
                         display: block;
-                        object-fit: cover;
+                        object-fit: {{ $ajusteFondoPlantilla }};
                     }
 
                     .emit-template-field {
                         position: absolute;
                         z-index: 2;
-                        display: flex;
-                        align-items: center;
+                        display: block;
+                        background: transparent;
+                        border: 1px solid transparent;
+                        border-radius: 7px;
+                        box-sizing: border-box;
                         overflow: hidden;
-                        padding: 0;
-                        line-height: 1.15;
+                        padding: 5px 7px;
+                        line-height: 1.25;
+                        text-align: left;
                         white-space: normal;
                     }
 
-                    .emit-template-field.is-center {
+                    .emit-template-field.is-texto {
+                        white-space: pre-wrap;
+                    }
+
+                    .emit-template-field.is-texto.is-justify {
+                        white-space: pre-line;
+                    }
+
+                    .emit-template-field.is-imagen {
+                        padding: 0;
+                    }
+
+                    .emit-template-field.is-imagen img {
+                        display: block;
+                        width: 100%;
+                        height: 100%;
+                        object-fit: contain;
+                    }
+
+                    .emit-template-field.is-tabla {
+                        padding: 0;
+                    }
+
+                    .emit-template-field.is-qr {
+                        align-items: center;
+                        border: 1px dashed #0f766e;
+                        display: flex;
                         justify-content: center;
                         text-align: center;
                     }
 
+                    .emit-template-field.is-qr img {
+                        display: block;
+                        height: 100%;
+                        object-fit: contain;
+                        width: 100%;
+                    }
+
+                    .emit-template-word-table {
+                        border-collapse: collapse;
+                        font-size: inherit;
+                        height: 100%;
+                        table-layout: fixed;
+                        width: 100%;
+                    }
+
+                    .emit-template-word-table th,
+                    .emit-template-word-table td {
+                        border: 1px solid currentColor;
+                        line-height: 1.15;
+                        padding: 4px 6px;
+                        vertical-align: middle;
+                        word-break: break-word;
+                    }
+
+                    .emit-template-word-table th {
+                        font-weight: 900;
+                    }
+
+                    .emit-template-field.is-center {
+                        text-align: center;
+                    }
+
                     .emit-template-field.is-right {
-                        justify-content: flex-end;
                         text-align: right;
                     }
 
-                    .emit-template-watermark {
-                        position: absolute;
-                        z-index: 3;
-                        left: 50%;
-                        top: 50%;
-                        transform: translate(-50%, -50%) rotate(-25deg);
-                        color: rgba(220, 38, 38, 0.16);
-                        font-size: 84px;
-                        font-weight: 950;
-                        letter-spacing: 8px;
+                    .emit-template-field.is-justify {
+                        text-align: justify;
                     }
+
                 `;
             }
 
@@ -972,10 +1221,66 @@
                 });
             }
 
+            function prepararModalEmision() {
+                const modal = document.querySelector('[data-modal-emision]');
+                const botonAbrir = document.querySelector('[data-abrir-modal-emision]');
+                const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-emision]');
+                const fechaInicio = document.getElementById('form_fecha_inicio');
+                const diasVigencia = document.getElementById('form_vigencia_dias');
+                const fechaFinal = document.getElementById('form_fecha_fin');
+                const vigenciaIndefinida = document.getElementById('form_vigencia_indefinida');
+
+                // Los días son un apoyo del formulario: la fecha final sigue siendo el valor que se guarda.
+                const actualizarFechaFinal = () => {
+                    if (!fechaFinal || !vigenciaIndefinida) {
+                        return;
+                    }
+
+                    const esIndefinida = vigenciaIndefinida.checked;
+                    fechaFinal.disabled = esIndefinida;
+
+                    if (esIndefinida) {
+                        fechaFinal.value = '';
+                        return;
+                    }
+
+                    if (!fechaInicio?.value || !diasVigencia?.value) {
+                        return;
+                    }
+
+                    const fecha = new Date(`${fechaInicio.value}T00:00:00`);
+                    fecha.setDate(fecha.getDate() + Number(diasVigencia.value));
+                    fechaFinal.value = fecha.toISOString().slice(0, 10);
+                };
+
+                if (!modal || !botonAbrir) {
+                    return;
+                }
+
+                botonAbrir.addEventListener('click', () => {
+                    modal.hidden = false;
+                });
+
+                botonesCerrar.forEach((boton) => {
+                    boton.addEventListener('click', () => {
+                        modal.hidden = true;
+                    });
+                });
+
+                fechaInicio?.addEventListener('change', actualizarFechaFinal);
+                diasVigencia?.addEventListener('input', actualizarFechaFinal);
+                vigenciaIndefinida?.addEventListener('change', actualizarFechaFinal);
+                actualizarFechaFinal();
+            }
+
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', prepararImpresionCertificado);
+                document.addEventListener('DOMContentLoaded', function () {
+                    prepararImpresionCertificado();
+                    prepararModalEmision();
+                });
             } else {
                 prepararImpresionCertificado();
+                prepararModalEmision();
             }
         })();
     </script>

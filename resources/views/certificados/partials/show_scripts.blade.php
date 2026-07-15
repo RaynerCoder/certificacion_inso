@@ -693,6 +693,79 @@
             });
 
             botonQuitarPagoPdf?.addEventListener('click', limpiarPdfPagoTemporal);
+
+            const modalDestinoCorreccion = document.querySelector('[data-correction-recipient-modal]');
+
+            function abrirModalDestinoCorreccion() {
+                if (!modalDestinoCorreccion) return;
+
+                modalDestinoCorreccion.classList.add('is-open');
+                modalDestinoCorreccion.setAttribute('aria-hidden', 'false');
+            }
+
+            function cerrarModalDestinoCorreccion() {
+                if (!modalDestinoCorreccion) return;
+
+                modalDestinoCorreccion.classList.remove('is-open');
+                modalDestinoCorreccion.setAttribute('aria-hidden', 'true');
+            }
+
+            document.querySelectorAll('[data-open-correction-recipient-modal]').forEach((boton) => {
+                boton.addEventListener('click', abrirModalDestinoCorreccion);
+            });
+
+            document.querySelectorAll('[data-close-correction-recipient-modal]').forEach((boton) => {
+                boton.addEventListener('click', cerrarModalDestinoCorreccion);
+            });
+
+            document.querySelectorAll('[data-correction-recipient-selector]').forEach((selector) => {
+                const input = selector.querySelector('[data-correction-recipient-value]');
+                const boton = selector.querySelector('[data-correction-recipient-toggle]');
+                const menu = selector.querySelector('[data-correction-recipient-menu]');
+                const buscador = selector.querySelector('[data-correction-recipient-search]');
+                const nombre = selector.querySelector('[data-correction-recipient-name]');
+                const tipo = selector.querySelector('[data-correction-recipient-type]');
+                const opciones = Array.from(selector.querySelectorAll('[data-correction-recipient-option]'));
+                const mensajeVacio = selector.querySelector('[data-correction-recipient-empty]');
+
+                if (!input || !boton || !menu || !buscador) return;
+
+                const cerrarMenu = () => {
+                    menu.hidden = true;
+                    boton.setAttribute('aria-expanded', 'false');
+                };
+
+                boton.addEventListener('click', () => {
+                    menu.hidden = !menu.hidden;
+                    boton.setAttribute('aria-expanded', String(!menu.hidden));
+
+                    if (!menu.hidden) {
+                        buscador.focus();
+                    }
+                });
+
+                opciones.forEach((opcion) => {
+                    opcion.addEventListener('click', () => {
+                        input.value = opcion.dataset.value || '';
+                        nombre.textContent = opcion.dataset.nombre || '';
+                        tipo.textContent = opcion.dataset.tipo || '';
+                        cerrarMenu();
+                    });
+                });
+
+                buscador.addEventListener('input', () => {
+                    const criterio = buscador.value.trim().toLocaleLowerCase();
+                    let visibles = 0;
+
+                    opciones.forEach((opcion) => {
+                        const mostrar = (opcion.dataset.busqueda || '').includes(criterio);
+                        opcion.hidden = !mostrar;
+                        visibles += mostrar ? 1 : 0;
+                    });
+
+                    mensajeVacio?.classList.toggle('is-hidden', visibles > 0);
+                });
+            });
         });
     </script>
 

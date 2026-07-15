@@ -3,6 +3,7 @@
 namespace App\Livewire\Datatables;
 
 use App\Models\Responsable;
+use App\Models\Seguimiento;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
@@ -20,6 +21,11 @@ class TramitadorTable extends DataTableComponent
 
     public function builder(): Builder
     {
+        $empresa = auth()->user()
+            ?->loadMissing('persona.empresa')
+            ?->persona
+            ?->empresa;
+
         return Responsable::query()
             ->select('responsables.*')
             // Datos calculados para ordenar y buscar sin cargar texto repetido en responsables.
@@ -28,6 +34,16 @@ class TramitadorTable extends DataTableComponent
             ->selectRaw("personas.correo as correo_tramitador")
             ->selectRaw("naturals.ci as ci_tramitador")
             ->selectRaw("TRIM(CONCAT_WS(' ', naturals.nombres, naturals.apellido_paterno, naturals.apellido_materno)) as nombre_tramitador")
+            ->selectSub(
+                Seguimiento::query()
+                    ->selectRaw('COUNT(*)')
+                    ->join('certificados', 'seguimientos.id_certificado', '=', 'certificados.id')
+                    ->whereColumn('seguimientos.id_usuario_siguiente', 'personas.id_usuario')
+                    ->where('seguimientos.estado', 'ACTIVO')
+                    ->whereNull('seguimientos.fecha_derivacion')
+                    ->where('certificados.estado', 'OBSERVADO'),
+                'tramites_pendientes'
+            )
             ->join('roles', 'responsables.id_rol', '=', 'roles.id')
             ->leftJoin('empresas', 'responsables.id_empresa', '=', 'empresas.id')
             ->leftJoin('personas as personas_empresa', 'empresas.id_persona', '=', 'personas_empresa.id')
@@ -38,6 +54,11 @@ class TramitadorTable extends DataTableComponent
                 $query->where('roles.slug', 'tramitador')
                     ->orWhere('roles.name', 'like', '%TRAMITADOR%');
             })
+            ->when(
+                $empresa,
+                fn (Builder $query) => $query->where('responsables.id_empresa', $empresa->id),
+                fn (Builder $query) => $query->whereRaw('1 = 0')
+            )
             ->with([
                 'empresa.persona',
                 'persona.natural',
@@ -90,13 +111,19 @@ class TramitadorTable extends DataTableComponent
                 }),
 
             Column::make('Estado', 'estado')
-                ->format(fn ($valor) => $valor ?: 'Sin estado')
+                ->label(function (Responsable $fila) {
+                    return view('tablas.chip_estado', [
+                        'estado' => $fila->estado ?: 'ACTIVO',
+                    ]);
+                })
+                ->html()
                 ->sortable(),
 
             Column::make('Acciones')
                 ->label(function ($fila) {
                     return view('tramitadores.accion', ['tramitador' => $fila]);
-                }),
+                })
+                ->html(),
         ];
     }
 }

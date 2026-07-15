@@ -30,8 +30,21 @@ return new class extends Migration
             // Define si el documento se emitira vertical u horizontal.
             $table->string('orientacion', 50)->default('VERTICAL');
 
+            // Medida exacta del lienzo usado para diseñar y emitir la plantilla.
+            $table->unsignedInteger('ancho_lienzo_px')->default(816);
+            $table->unsignedInteger('alto_lienzo_px')->default(1056);
+
             // Ruta del fondo cargado por el usuario: imagen o PDF.
             $table->text('url_fondo')->nullable();
+
+            // ESTIRAR, CONTENER o CUBRIR. Debe usarse igual en diseño e impresión.
+            $table->string('ajuste_fondo', 50)->default('ESTIRAR');
+
+            // Controla si el diseñador muestra la plantilla cargada o una hoja blanca.
+            $table->string('fondo_trabajo', 50)->default('PLANTILLA');
+
+            // Si esta activo, la emisión imprime solo los datos colocados sobre la hoja.
+            $table->boolean('imprimir_transparente')->default(false);
 
             // Permite tener una plantilla activa por tipo de certificado.
             $table->string('estado', 50)->default('ACTIVO');

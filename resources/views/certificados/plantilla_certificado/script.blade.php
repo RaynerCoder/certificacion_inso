@@ -1,183 +1,125 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const selectorTipo = document.querySelector('[data-plantilla-tipo]');
+        const selectorTamano = document.querySelector('[name="form_tamano_papel"]') || document.querySelector('[data-plantilla-tamano]');
+        const selectorOrientacion = document.querySelector('[name="form_orientacion"]') || document.querySelector('[data-plantilla-orientacion]');
+        const selectorAjusteFondo = document.querySelector('[name="form_ajuste_fondo"]') || document.querySelector('[data-plantilla-ajuste-fondo]');
+        const selectorFondoTrabajo = document.querySelector('[name="form_fondo_trabajo"]') || document.querySelector('[data-plantilla-fondo-trabajo]');
         const resumenTipo = document.querySelector('[data-plantilla-resumen-tipo]');
-        const requisitosLista = document.querySelector('[data-plantilla-requisitos]');
+        const buscadorCampo = document.querySelector('[data-plantilla-buscar-campo]');
+        const lienzo = document.querySelector('[data-plantilla-lienzo]');
+        const inputElementos = document.querySelector('[data-plantilla-elementos-input]');
+        const formularioPlantilla = inputElementos?.closest('form');
+        const contadorElementos = document.querySelector('[data-plantilla-contador-campos]');
+        const panelPropiedades = document.querySelector('[data-plantilla-propiedades]');
+        const panelCapas = document.querySelector('[data-plantilla-capas]');
+        const zoomValor = document.querySelector('[data-plantilla-zoom-valor]');
         const fondoInput = document.querySelector('[data-plantilla-fondo-input]');
         const fondoPreview = document.querySelector('[data-plantilla-fondo-preview]');
+        const fondoPlaceholder = document.querySelector('[data-plantilla-fondo-placeholder]');
+        const fondoMedidas = document.querySelector('[data-plantilla-fondo-medidas]');
         const fondoSeleccionar = document.querySelector('[data-plantilla-fondo-seleccionar]');
         const fondoVer = document.querySelector('[data-plantilla-fondo-ver]');
         const fondoQuitar = document.querySelector('[data-plantilla-fondo-quitar]');
         const fondoNombre = document.querySelector('[data-plantilla-fondo-nombre]');
         const fondoQuitarInput = document.querySelector('[data-plantilla-fondo-quitar-input]');
-        const lienzo = document.querySelector('[data-plantilla-lienzo]');
-        const mensajeVacio = document.querySelector('[data-plantilla-empty]');
-        const propiedades = document.querySelector('[data-plantilla-propiedades]');
-        const contadorCampos = document.querySelector('[data-plantilla-contador-campos]');
-        const inputElementos = document.querySelector('[data-plantilla-elementos-input]');
-        const formulario = inputElementos?.closest('form');
-        const botonVistaPrevia = document.querySelector('[data-plantilla-vista-previa]');
-        const botonImprimirPrueba = document.querySelector('[data-plantilla-imprimir-prueba]');
-        const botonQuitarCampo = document.querySelector('[data-plantilla-quitar-campo]');
-        const propiedadX = document.querySelector('[data-prop-x]');
-        const propiedadY = document.querySelector('[data-prop-y]');
-        const propiedadAncho = document.querySelector('[data-prop-ancho]');
-        const propiedadAlto = document.querySelector('[data-prop-alto]');
-        const propiedadTamanoLetra = document.querySelector('[data-prop-tamano-letra]');
-        const propiedadAlineacion = document.querySelector('[data-prop-alineacion]');
-        const propiedadNegrita = document.querySelector('[data-prop-negrita]');
-        const propiedadCursiva = document.querySelector('[data-prop-cursiva]');
-        const propiedadSubrayado = document.querySelector('[data-prop-subrayado]');
-        const propiedadColorTexto = document.querySelector('[data-prop-color-texto]');
 
         const tiposCertificados = window.tiposCertificadosPlantilla || [];
-        const nombresCampos = new Map(
-            [...document.querySelectorAll('[data-plantilla-campo]')]
-                .map((boton) => [boton.dataset.codigo, boton.dataset.nombre])
-        );
+        const campos = [...document.querySelectorAll('[data-plantilla-campo]')].map((boton) => ({
+            codigo: boton.dataset.codigo,
+            nombre: boton.dataset.nombre,
+            boton,
+        }));
 
-        // Valores solo para previsualizar la plantilla antes de emitir un certificado real.
-        const datosPrueba = {
-            'certificado.codigo': 'CERT-2026-0001',
-            'certificado.fecha_inicio': '06/07/2026',
-            'certificado.fecha_fin': '06/07/2027',
-            'certificado.descripcion': 'Certificado emitido por INSO',
-            'certificado.estado': 'EMITIDO',
-            'tipo_certificado.nombre': 'Registro de Producto Plaguicida',
-            'area.nombre': 'Área de Plaguicidas',
-            'beneficiario.nombre': 'AGROPARC EI S.R.L.',
-            'beneficiario.documento': '4895621',
-            'beneficiario.correo': 'contacto@agroparc.test',
-            'beneficiario.domicilio': 'La Paz, Bolivia',
-            'beneficiario.telefono': '+591 72000000',
-            'beneficiario.territorio': 'LA PAZ',
-            'beneficiario.tipo_persona': 'Empresa',
-            'empresa.razon_social': 'AGROPARC EI S.R.L.',
-            'empresa.matricula': 'MAT-2026-001',
-            'empresa.tipo_empresa': 'S.R.L.',
-            'natural.nombres': 'Mario Erwin',
-            'natural.apellido_paterno': 'Pedraza',
-            'natural.apellido_materno': 'Merida',
-            'natural.ocupacion': 'Representante legal',
-            'tramitador.nombre': 'Mario Erwin Pedraza Merida',
-            'tramitador.documento': '4895621',
-            'tramitador.correo': 'mario.pedraza@agroparc.test',
-            'tramitador.telefono': '+591 72000000',
-            'tramitador.rol': 'Tramitador',
-            'tramitador.respaldo': 'Respaldo registrado',
-            'producto.codigo': 'PROD-001',
-            'producto.nombre_comercial': 'SPIROMAT',
-            'producto.nombre_cientifico': 'Insecticida doméstico',
-            'producto.clasificacion': 'Insecticida',
-            'producto.fabricante': 'Fabricante de prueba',
-            'tipo_producto.codigo': 'PUD',
-            'producto.estado': 'ACTIVO',
-            'registro.codigo': 'INSO-RP-2026-0001',
-            'registro.fecha_vigencia': '06/07/2027',
-            'registro.cantidad': '1',
-            'registro.unidad': 'Unidad',
-            'registro.estado': 'ACTIVO',
-            'presentacion.descripcion': '1 x 360 ml frasco aerosol',
-            'presentacion.cantidad': '360',
-            'presentacion.unidad': 'ml',
-            'presentacion.url_etiqueta': 'Etiqueta registrada',
-            'presentacion.estado': 'ACTIVO',
-            'ingrediente.nombre': 'Permetrina',
-            'ingrediente.composicion': 'Composición de prueba',
-            'ingrediente.riesgo_salud': 'Moderado',
-            'ingrediente.porcentaje': '10%',
-            'pago.resumen': 'Pago validado',
-            'pago.tipo_pago': 'Depósito',
-            'pago.fecha': '06/07/2026',
-            'pago.monto': '150.00',
-            'pago.comprobante': 'Comprobante registrado',
-            'pago.factura': 'Factura registrada',
-            'pago.procedencia': 'INSO',
-            'pago.fecha_validacion': '06/07/2026',
-            'pago.funcionario_validador': 'Caja Pagos',
-            'requisito.descripcion': 'Solicitud firmada',
-            'requisito.tipo_evidencia': 'PDF',
-            'requisito.cumple': 'Sí cumple',
-            'requisito.estado_revision': 'Aprobado',
-            'requisito.observacion': 'Sin observación',
-            'evidencia.valor': 'Documento registrado',
-            'evidencia.estado': 'ACTIVO',
-            'seguimiento.fecha_inicio': '06/07/2026',
-            'seguimiento.fecha_derivacion': '06/07/2026',
-            'seguimiento.referencia': 'Derivación inicial',
-            'seguimiento.descripcion_final': 'Trámite revisado',
-            'seguimiento.usuario_origen': 'Solicitante',
-            'seguimiento.usuario_siguiente': 'Jefe de área',
-            'seguimiento.estado': 'EN_REVISIÓN',
-            'revision.usuario': 'Técnico revisor',
-            'revision.resultado': 'Cumple',
-            'revision.observacion': 'Sin observación',
-            'firma.director': 'Director General Ejecutivo',
-            'firma.responsable_area': 'Responsable de área',
-            'qr.verificacion': 'QR-VERIFICACION',
-        };
+        let elementos = Array.isArray(window.elementosPlantillaIniciales)
+            ? window.elementosPlantillaIniciales.map(normalizarElemento)
+            : [];
+        let indiceSeleccionado = elementos.length ? 0 : null;
+        let urlArchivoPlantilla = fondoInput?.dataset.plantillaFondoUrl || '';
+        let ultimoCampoSeleccionado = campos[0]?.codigo || null;
+        let historial = [];
+        let historialRehacer = [];
+        let elementoCopiado = null;
+        let zoomActual = 1;
+        let cuadriculaActiva = true;
+        let preparandoHistorialPropiedad = false;
 
-        let campoSeleccionado = null;
-        let urlArchivoFondo = fondoInput?.dataset.plantillaFondoUrl || '';
-
-        // Resumen del tipo seleccionado y sus requisitos.
         function tipoSeleccionado() {
             return tiposCertificados.find((tipo) => String(tipo.id) === String(selectorTipo?.value));
         }
 
-        function actualizarResumenTipo() {
-            const tipo = tipoSeleccionado();
+        function campoPorCodigo(codigo) {
+            return campos.find((campo) => campo.codigo === codigo);
+        }
 
-            if (!resumenTipo) {
+        function clonarElementos() {
+            return JSON.parse(JSON.stringify(elementos));
+        }
+
+        function guardarHistorial() {
+            historial.push(clonarElementos());
+
+            if (historial.length > 50) {
+                historial.shift();
+            }
+
+            historialRehacer = [];
+        }
+
+        function restaurarElementos(lista) {
+            elementos = lista.map(normalizarElemento);
+            indiceSeleccionado = elementos.length ? Math.min(indiceSeleccionado ?? 0, elementos.length - 1) : null;
+            renderizarLienzo();
+        }
+
+        function deshacerCambio() {
+            if (!historial.length) {
                 return;
             }
 
-            if (!tipo) {
-                resumenTipo.innerHTML = '<span class="text-sm text-slate-500">Seleccione un tipo de certificado.</span>';
-                requisitosLista.innerHTML = '<div class="text-sm text-slate-500">Sin requisitos para mostrar.</div>';
+            historialRehacer.push(clonarElementos());
+            restaurarElementos(historial.pop());
+        }
+
+        function rehacerCambio() {
+            if (!historialRehacer.length) {
                 return;
             }
 
-            resumenTipo.innerHTML = `
-                <div class="grid gap-1 text-sm">
-                    <span class="font-bold text-emerald-700">${tipo.nombre}</span>
-                    <span class="text-slate-600">${tipo.area || 'Sin área asignada'}</span>
-                    <span class="plantilla-chip">${tipo.estado || 'ACTIVO'}</span>
-                </div>
-            `;
-
-            const requisitos = tipo.requisitos || [];
-            requisitosLista.innerHTML = requisitos.length
-                ? requisitos.map((requisito) => `
-                    <div class="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700">
-                        <div class="font-semibold">${requisito.descripcion || 'Sin descripción'}</div>
-                        <div class="mt-1 text-xs text-slate-500">
-                            ${requisito.evidencia || 'Sin evidencia'}
-                            ${requisito.certificado_requerido ? ' · ' + requisito.certificado_requerido : ''}
-                        </div>
-                    </div>
-                `).join('')
-                : '<div class="text-sm text-slate-500">Sin requisitos para mostrar.</div>';
+            historial.push(clonarElementos());
+            restaurarElementos(historialRehacer.pop());
         }
 
-        function nombreCampo(codigo) {
-            return nombresCampos.get(codigo) || codigo || 'Texto fijo';
+        function marcadorDesdeCodigo(codigo) {
+            const llave = String(codigo || 'campo')
+                .replace(/[^a-zA-Z0-9]+/g, '_')
+                .replace(/^_|_$/g, '');
+
+            return '{' + '{' + llave + '}' + '}';
         }
 
-        function textoElemento(codigo, textoFijo = '') {
-            return textoFijo || nombreCampo(codigo);
-        }
+        function nombreElemento(elemento) {
+            if (elemento.tipo_elemento === 'TEXTO') {
+                return 'Texto con marcadores';
+            }
 
-        function valorPrueba(codigo, textoFijo = '') {
-            return textoFijo || datosPrueba[codigo] || nombreCampo(codigo);
+            if (elemento.tipo_elemento === 'FIRMA') {
+                return 'Firma';
+            }
+
+            if (elemento.tipo_elemento === 'QR') {
+                return 'QR de verificación';
+            }
+
+            return campoPorCodigo(elemento.codigo_elemento)?.nombre || elemento.codigo_elemento || 'Campo del sistema';
         }
 
         function columnasPorDefecto(codigo) {
             const columnas = {
                 'producto.tabla': [
-                    { codigo_campo: 'producto.nombre_comercial', titulo_columna: 'Producto', ancho: 33, estado: 'ACTIVO' },
-                    { codigo_campo: 'registro.codigo', titulo_columna: 'Registro', ancho: 33, estado: 'ACTIVO' },
-                    { codigo_campo: 'presentacion.descripcion', titulo_columna: 'Presentación', ancho: 34, estado: 'ACTIVO' },
+                    { codigo_campo: 'producto.nombres_comerciales', titulo_columna: 'Producto', ancho: 35, estado: 'ACTIVO' },
+                    { codigo_campo: 'registro.codigos', titulo_columna: 'Registro', ancho: 30, estado: 'ACTIVO' },
+                    { codigo_campo: 'presentacion.descripciones', titulo_columna: 'Presentación', ancho: 35, estado: 'ACTIVO' },
                 ],
                 'ingrediente.tabla': [
                     { codigo_campo: 'ingrediente.nombre', titulo_columna: 'Ingrediente', ancho: 30, estado: 'ACTIVO' },
@@ -189,413 +131,880 @@
                     { codigo_campo: 'requisito.tipo_evidencia', titulo_columna: 'Evidencia', ancho: 25, estado: 'ACTIVO' },
                     { codigo_campo: 'requisito.estado_revision', titulo_columna: 'Estado', ancho: 30, estado: 'ACTIVO' },
                 ],
-                'seguimiento.tabla': [
-                    { codigo_campo: 'seguimiento.fecha_derivacion', titulo_columna: 'Fecha', ancho: 25, estado: 'ACTIVO' },
-                    { codigo_campo: 'seguimiento.usuario_origen', titulo_columna: 'Derivado por', ancho: 35, estado: 'ACTIVO' },
-                    { codigo_campo: 'seguimiento.usuario_siguiente', titulo_columna: 'Derivado a', ancho: 40, estado: 'ACTIVO' },
-                ],
             };
 
             return columnas[codigo] || [];
         }
 
-        function actualizarEstadoVacio() {
-            const total = document.querySelectorAll('[data-plantilla-elemento]').length;
-
-            if (contadorCampos) {
-                contadorCampos.textContent = String(total);
+        function anchoInicialPorTipo(tipo) {
+            if (tipo === 'TABLA') {
+                return 520;
             }
 
-            if (mensajeVacio) {
-                mensajeVacio.style.display = total ? 'none' : 'grid';
-            }
-        }
-
-        function aplicarPosicion(elemento) {
-            const x = Number(elemento.dataset.x || 12);
-            const y = Number(elemento.dataset.y || 12);
-            const ancho = Number(elemento.dataset.ancho || 180);
-            const alto = Number(elemento.dataset.alto || 30);
-            const tamanoLetra = Number(elemento.dataset.tamanoLetra || 12);
-            const alineacion = elemento.dataset.alineacion || 'IZQUIERDA';
-
-            elemento.style.left = `${x}px`;
-            elemento.style.top = `${y}px`;
-            elemento.style.width = `${ancho}px`;
-            elemento.style.height = `${alto}px`;
-            elemento.style.fontSize = `${tamanoLetra}px`;
-            elemento.style.color = elemento.dataset.colorTexto || '#0f172a';
-            elemento.style.fontWeight = Number(elemento.dataset.negrita || 0) ? '900' : '700';
-            elemento.style.fontStyle = Number(elemento.dataset.cursiva || 0) ? 'italic' : 'normal';
-            elemento.style.textDecoration = Number(elemento.dataset.subrayado || 0) ? 'underline' : 'none';
-            elemento.style.textAlign = alineacion === 'CENTRO'
-                ? 'center'
-                : (alineacion === 'DERECHA' ? 'right' : 'left');
-        }
-
-        function pintarTextoCampo(elemento, texto) {
-            let contenedorTexto = elemento.querySelector('[data-plantilla-texto]');
-
-            if (!contenedorTexto) {
-                elemento.textContent = '';
-                contenedorTexto = document.createElement('span');
-                contenedorTexto.className = 'plantilla-element-text';
-                contenedorTexto.dataset.plantillaTexto = '1';
-                elemento.appendChild(contenedorTexto);
+            if (tipo === 'QR') {
+                return 86;
             }
 
-            contenedorTexto.textContent = texto;
-        }
-
-        function actualizarPanelMedidas(elemento) {
-            if (propiedadX) propiedadX.value = elemento.dataset.x || 0;
-            if (propiedadY) propiedadY.value = elemento.dataset.y || 0;
-            if (propiedadAncho) propiedadAncho.value = elemento.dataset.ancho || 180;
-            if (propiedadAlto) propiedadAlto.value = elemento.dataset.alto || 30;
-            if (propiedadTamanoLetra) propiedadTamanoLetra.value = elemento.dataset.tamanoLetra || 12;
-            if (propiedadNegrita) propiedadNegrita.checked = Number(elemento.dataset.negrita || 0) === 1;
-            if (propiedadCursiva) propiedadCursiva.checked = Number(elemento.dataset.cursiva || 0) === 1;
-            if (propiedadSubrayado) propiedadSubrayado.checked = Number(elemento.dataset.subrayado || 0) === 1;
-            if (propiedadColorTexto) propiedadColorTexto.value = elemento.dataset.colorTexto || '#0f172a';
-        }
-
-        function prepararRedimension(elemento) {
-            if (elemento.querySelector('[data-plantilla-resize]')) {
-                return;
+            if (tipo === 'FIRMA') {
+                return 260;
             }
 
-            const manija = document.createElement('span');
-            manija.className = 'plantilla-resize-handle';
-            manija.dataset.plantillaResize = '1';
-            manija.setAttribute('aria-hidden', 'true');
-            elemento.appendChild(manija);
+            if (tipo === 'IMAGEN') {
+                return 160;
+            }
 
-            manija.addEventListener('pointerdown', function (evento) {
-                evento.preventDefault();
-                evento.stopPropagation();
-                seleccionarElemento(elemento);
-
-                const inicioX = evento.clientX;
-                const inicioY = evento.clientY;
-                const anchoInicial = Number(elemento.dataset.ancho || 180);
-                const altoInicial = Number(elemento.dataset.alto || 30);
-
-                function redimensionar(eventoMover) {
-                    elemento.dataset.ancho = String(Math.max(35, anchoInicial + eventoMover.clientX - inicioX));
-                    elemento.dataset.alto = String(Math.max(18, altoInicial + eventoMover.clientY - inicioY));
-                    aplicarPosicion(elemento);
-                    actualizarPanelMedidas(elemento);
-                    actualizarInputElementos();
-                }
-
-                function soltar() {
-                    document.removeEventListener('pointermove', redimensionar);
-                    document.removeEventListener('pointerup', soltar);
-                }
-
-                document.addEventListener('pointermove', redimensionar);
-                document.addEventListener('pointerup', soltar);
-            });
+            return tipo === 'TEXTO' ? 430 : 190;
         }
 
-        function datosElemento(elemento, orden) {
+        function altoInicialPorTipo(tipo) {
+            if (tipo === 'TABLA') {
+                return 118;
+            }
+
+            if (tipo === 'QR') {
+                return 86;
+            }
+
+            if (tipo === 'FIRMA') {
+                return 58;
+            }
+
+            if (tipo === 'IMAGEN') {
+                return 90;
+            }
+
+            return tipo === 'TEXTO' ? 88 : 34;
+        }
+
+        function normalizarElemento(item) {
+            const tipo = item.tipo_elemento || (String(item.codigo_elemento || '').endsWith('.tabla') ? 'TABLA' : 'CAMPO');
+            const textoInicial = ['TABLA', 'QR'].includes(tipo)
+                ? ''
+                : (item.codigo_elemento ? marcadorDesdeCodigo(item.codigo_elemento) : '');
+            const usaPadding = !['IMAGEN', 'TABLA', 'QR'].includes(tipo);
+
             return {
-                tipo_elemento: elemento.dataset.tipoElemento || 'CAMPO',
-                codigo_campo: elemento.dataset.codigo || '',
-                texto_fijo: elemento.dataset.textoFijo || '',
-                pagina: Number(elemento.dataset.pagina || 1),
-                posicion_x: Number(elemento.dataset.x || 0),
-                posicion_y: Number(elemento.dataset.y || 0),
-                ancho: Number(elemento.dataset.ancho || 180),
-                alto: Number(elemento.dataset.alto || 30),
-                tamano_letra: Number(elemento.dataset.tamanoLetra || 12),
-                alineacion: elemento.dataset.alineacion || 'IZQUIERDA',
-                negrita: Number(elemento.dataset.negrita || 0),
-                cursiva: Number(elemento.dataset.cursiva || 0),
-                subrayado: Number(elemento.dataset.subrayado || 0),
-                color_texto: elemento.dataset.colorTexto || '#0f172a',
-                orden,
-                columnas: JSON.parse(elemento.dataset.columnas || '[]'),
+                tipo_elemento: tipo,
+                codigo_elemento: item.codigo_elemento || null,
+                texto_fijo: item.texto_fijo || textoInicial,
+                pagina: Number(item.pagina || 1),
+                posicion_x: Number(item.posicion_x ?? 28),
+                posicion_y: Number(item.posicion_y ?? 28),
+                ancho: Number(item.ancho || anchoInicialPorTipo(tipo)),
+                alto: Number(item.alto || altoInicialPorTipo(tipo)),
+                tamano_letra: Number(item.tamano_letra || 12),
+                alineacion: normalizarAlineacion(item.alineacion),
+                padding_x: Number(item.padding_x ?? (usaPadding ? 7 : 0)),
+                padding_y: Number(item.padding_y ?? (usaPadding ? 5 : 0)),
+                interlineado: Number(item.interlineado ?? 1.25),
+                negrita: Boolean(item.negrita),
+                cursiva: Boolean(item.cursiva),
+                subrayado: Boolean(item.subrayado),
+                color_texto: item.color_texto || '#0f172a',
+                tipo_letra: item.tipo_letra || 'Arial',
+                z_index: Number(item.z_index || 3),
+                estado: item.estado || 'ACTIVO',
+                columnas: Array.isArray(item.columnas) && item.columnas.length ? item.columnas : columnasPorDefecto(item.codigo_elemento),
             };
         }
 
-        function actualizarInputElementos() {
-            const elementos = [...document.querySelectorAll('[data-plantilla-elemento]')]
-                .map((elemento, index) => datosElemento(elemento, index + 1));
+        function normalizarAlineacion(valor) {
+            const alineacion = String(valor || 'IZQUIERDA').toUpperCase();
+
+            return ['IZQUIERDA', 'CENTRO', 'DERECHA', 'JUSTIFICADO'].includes(alineacion)
+                ? alineacion
+                : 'IZQUIERDA';
+        }
+
+        function textoVisible(elemento) {
+            if (elemento.tipo_elemento === 'TEXTO') {
+                return elemento.texto_fijo || 'Escriba el texto del certificado aquí...';
+            }
+
+            if (elemento.tipo_elemento === 'FIRMA') {
+                return elemento.texto_fijo || textoFirmaPlantilla(elemento.codigo_elemento);
+            }
+
+            if (elemento.tipo_elemento === 'QR') {
+                return 'QR';
+            }
+
+            if (elemento.tipo_elemento === 'IMAGEN') {
+                return elemento.texto_fijo || '';
+            }
+
+            return elemento.texto_fijo || marcadorDesdeCodigo(elemento.codigo_elemento);
+        }
+
+        function textoFirmaPlantilla(codigo) {
+            if (codigo === 'firma.director') {
+                return [
+                    marcadorDesdeCodigo('funcionario.director_nombre'),
+                    marcadorDesdeCodigo('funcionario.director_cargo'),
+                ].join('\n');
+            }
+
+            return [
+                marcadorDesdeCodigo('funcionario.responsable_area_nombre'),
+                marcadorDesdeCodigo('funcionario.responsable_area_cargo'),
+            ].join('\n');
+        }
+
+        function columnasTabla(elemento) {
+            if (!Array.isArray(elemento.columnas) || !elemento.columnas.length) {
+                elemento.columnas = columnasPorDefecto(elemento.codigo_elemento);
+            }
+
+            if (!elemento.columnas.length) {
+                elemento.columnas = [
+                    { codigo_campo: 'tabla.columna_1', titulo_columna: 'Columna 1', ancho: 50, estado: 'ACTIVO' },
+                    { codigo_campo: 'tabla.columna_2', titulo_columna: 'Columna 2', ancho: 50, estado: 'ACTIVO' },
+                ];
+            }
+
+            return elemento.columnas;
+        }
+
+        function filasTabla(elemento) {
+            const columnas = columnasTabla(elemento);
+            let filas = [];
+
+            try {
+                const datos = JSON.parse(elemento.texto_fijo || '{}');
+                filas = Array.isArray(datos.filas) ? datos.filas : [];
+            } catch (error) {
+                filas = [];
+            }
+
+            if (!filas.length) {
+                filas = [
+                    columnas.map((columna) => columna.codigo_campo ? marcadorDesdeCodigo(columna.codigo_campo) : ''),
+                ];
+            }
+
+            return filas.map((fila) => columnas.map((_, index) => fila?.[index] ?? ''));
+        }
+
+        function guardarFilasTabla(elemento, filas) {
+            elemento.texto_fijo = JSON.stringify({ filas });
+        }
+
+        function ajustarFilasTabla(elemento, cantidad) {
+            const columnas = columnasTabla(elemento);
+            const totalFilas = Math.max(1, Math.min(30, Number(cantidad || 1)));
+            const filas = filasTabla(elemento).slice(0, totalFilas);
+
+            while (filas.length < totalFilas) {
+                filas.push(columnas.map(() => ''));
+            }
+
+            guardarFilasTabla(elemento, filas);
+        }
+
+        function ajustarColumnasTabla(elemento, cantidad) {
+            const totalColumnas = Math.max(1, Math.min(12, Number(cantidad || 1)));
+            const columnas = columnasTabla(elemento).slice(0, totalColumnas);
+
+            while (columnas.length < totalColumnas) {
+                const numero = columnas.length + 1;
+                columnas.push({
+                    codigo_campo: `tabla.columna_${numero}`,
+                    titulo_columna: `Columna ${numero}`,
+                    ancho: Math.round(100 / totalColumnas),
+                    estado: 'ACTIVO',
+                });
+            }
+
+            elemento.columnas = columnas.map((columna) => ({
+                ...columna,
+                ancho: Number(columna.ancho || Math.round(100 / totalColumnas)),
+            }));
+
+            const filas = filasTabla(elemento).map((fila) => elemento.columnas.map((_, index) => fila[index] ?? ''));
+            guardarFilasTabla(elemento, filas);
+        }
+
+        function htmlTablaPlantilla(elemento) {
+            const columnas = columnasTabla(elemento);
+            const filas = filasTabla(elemento);
+
+            if (!columnas.length) {
+                return '<table class="plantilla-word-table"><tbody><tr><td>Tabla</td><td>Dato</td></tr><tr><td>Fila 1</td><td>Valor</td></tr></tbody></table>';
+            }
+
+            const encabezado = columnas
+                .map((columna) => `<th style="width:${Number(columna.ancho || 25)}%">${escaparHtml(columna.titulo_columna || columna.codigo_campo || 'Columna')}</th>`)
+                .join('');
+            const cuerpo = filas
+                .map((fila) => `<tr>${fila.map((celda) => `<td>${textoConMarcadores(celda)}</td>`).join('')}</tr>`)
+                .join('');
+
+            return `<table class="plantilla-word-table"><thead><tr>${encabezado}</tr></thead><tbody>${cuerpo}</tbody></table>`;
+        }
+
+        function htmlQrPlantilla(elemento) {
+            if (String(elemento.texto_fijo || '').startsWith('data:image')) {
+                return `<img src="${escaparHtml(elemento.texto_fijo)}" alt="QR de plantilla">`;
+            }
+
+            return `<span>${escaparHtml(campoPorCodigo(elemento.codigo_elemento)?.nombre || 'QR')}</span>`;
+        }
+
+        function contenidoElementoPlantilla(elemento) {
+            if (elemento.tipo_elemento === 'IMAGEN') {
+                return `<img src="${escaparHtml(textoVisible(elemento))}" alt="Imagen de plantilla">`;
+            }
+
+            if (elemento.tipo_elemento === 'TABLA') {
+                return htmlTablaPlantilla(elemento);
+            }
+
+            if (elemento.tipo_elemento === 'QR') {
+                return htmlQrPlantilla(elemento);
+            }
+
+            return textoConMarcadores(textoVisible(elemento));
+        }
+
+        function textoConMarcadores(texto) {
+            return escaparHtml(texto || '');
+        }
+
+        function escaparHtml(texto) {
+            return String(texto)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function claseAlineacion(elemento) {
+            const alineacion = normalizarAlineacion(elemento.alineacion);
+
+            if (alineacion === 'CENTRO') {
+                return 'is-center';
+            }
+
+            if (alineacion === 'DERECHA') {
+                return 'is-right';
+            }
+
+            if (alineacion === 'JUSTIFICADO') {
+                return 'is-justify';
+            }
+
+            return '';
+        }
+
+        function actualizarInput() {
+            const elementosParaGuardar = elementos.map(normalizarElemento);
 
             if (inputElementos) {
-                inputElementos.value = JSON.stringify(elementos);
+                inputElementos.value = JSON.stringify(elementosParaGuardar);
             }
 
-            actualizarEstadoVacio();
-        }
-
-        // Permite seleccionar y mover campos dentro del lienzo.
-        function seleccionarElemento(elemento) {
-            document.querySelectorAll('[data-plantilla-elemento]').forEach((item) => item.classList.remove('is-selected'));
-
-            campoSeleccionado = elemento;
-            elemento.classList.add('is-selected');
-
-            if (propiedades) {
-                propiedades.querySelector('[data-prop-codigo]').textContent = elemento.dataset.codigo || 'Texto fijo';
-                propiedades.querySelector('[data-prop-nombre]').textContent = textoElemento(elemento.dataset.codigo, elemento.dataset.textoFijo);
-            }
-
-            actualizarPanelMedidas(elemento);
-            if (propiedadAlineacion) {
-                const valor = elemento.dataset.alineacion || 'IZQUIERDA';
-                propiedadAlineacion.value = valor.charAt(0) + valor.slice(1).toLowerCase();
-            }
-
-            if (botonQuitarCampo) {
-                botonQuitarCampo.disabled = false;
+            if (contadorElementos) {
+                contadorElementos.textContent = String(elementosParaGuardar.length);
             }
         }
 
-        function aplicarPropiedadSeleccionada(campo, valor) {
-            if (!campoSeleccionado) {
-                return;
-            }
-
-            const minimos = { ancho: 35, alto: 18, tamanoLetra: 6 };
-            campoSeleccionado.dataset[campo] = minimos[campo]
-                ? String(Math.max(minimos[campo], Number(valor || minimos[campo])))
-                : valor;
-
-            aplicarPosicion(campoSeleccionado);
-            actualizarPanelMedidas(campoSeleccionado);
-            actualizarInputElementos();
-        }
-
-        function activarMovimiento(elemento) {
-            aplicarPosicion(elemento);
-            prepararRedimension(elemento);
-
-            elemento.addEventListener('click', () => seleccionarElemento(elemento));
-            elemento.addEventListener('pointerdown', function (evento) {
-                if (evento.button !== 0 || evento.target.closest('[data-plantilla-resize]')) {
-                    return;
-                }
-
-                seleccionarElemento(elemento);
-                const inicioX = evento.clientX;
-                const inicioY = evento.clientY;
-                const origenX = Number(elemento.dataset.x || 0);
-                const origenY = Number(elemento.dataset.y || 0);
-
-                function mover(eventoMover) {
-                    elemento.dataset.x = String(Math.max(0, origenX + eventoMover.clientX - inicioX));
-                    elemento.dataset.y = String(Math.max(0, origenY + eventoMover.clientY - inicioY));
-                    aplicarPosicion(elemento);
-                    actualizarInputElementos();
-                }
-
-                function soltar() {
-                    document.removeEventListener('pointermove', mover);
-                    document.removeEventListener('pointerup', soltar);
-                }
-
-                document.addEventListener('pointermove', mover);
-                document.addEventListener('pointerup', soltar);
-            });
-        }
-
-        // Crea el bloque visual que luego se guarda como elemento de plantilla.
-        function crearElemento({ codigo = '', nombre = '', textoFijo = '', tipo = 'CAMPO' }) {
+        function renderizarLienzo() {
             if (!lienzo) {
-                return null;
+                return;
             }
 
-            const tipoElemento = codigo.endsWith('.tabla') ? 'TABLA' : tipo;
-            const esTabla = tipoElemento === 'TABLA';
-            const elemento = document.createElement(esTabla ? 'div' : 'button');
-            const cantidad = document.querySelectorAll('[data-plantilla-elemento]').length;
+            lienzo.querySelectorAll('[data-plantilla-elemento]').forEach((nodo) => nodo.remove());
+            actualizarFormaLienzo();
 
-            if (!esTabla) {
-                elemento.type = 'button';
+            elementos.forEach((elemento, index) => {
+                const nodo = document.createElement('button');
+                nodo.type = 'button';
+                nodo.className = [
+                    'plantilla-element',
+                    elemento.tipo_elemento === 'TEXTO' ? 'is-texto' : '',
+                    elemento.tipo_elemento === 'TABLA' ? 'is-tabla' : '',
+                    elemento.tipo_elemento === 'FIRMA' ? 'is-firma' : '',
+                    elemento.tipo_elemento === 'QR' ? 'is-qr' : '',
+                    elemento.tipo_elemento === 'IMAGEN' ? 'is-imagen' : '',
+                    claseAlineacion(elemento),
+                    index === indiceSeleccionado ? 'is-selected' : '',
+                ].filter(Boolean).join(' ');
+                nodo.dataset.plantillaElemento = String(index);
+                nodo.style.left = `${elemento.posicion_x}px`;
+                nodo.style.top = `${elemento.posicion_y}px`;
+                nodo.style.width = `${elemento.ancho}px`;
+                nodo.style.height = `${elemento.alto}px`;
+                nodo.style.fontSize = `${elemento.tamano_letra}px`;
+                nodo.style.fontWeight = elemento.negrita ? '900' : '700';
+                nodo.style.fontStyle = elemento.cursiva ? 'italic' : 'normal';
+                nodo.style.textDecoration = elemento.subrayado ? 'underline' : 'none';
+                nodo.style.color = elemento.color_texto || '#0f172a';
+                nodo.style.fontFamily = elemento.tipo_letra || 'Arial';
+                nodo.style.lineHeight = String(elemento.interlineado || 1.25);
+                nodo.style.padding = `${elemento.padding_y}px ${elemento.padding_x}px`;
+                nodo.style.zIndex = String(elemento.z_index || 3);
+                nodo.innerHTML = contenidoElementoPlantilla(elemento);
+
+                if (index === indiceSeleccionado) {
+                    const controlTamano = document.createElement('span');
+                    controlTamano.className = 'plantilla-resize-handle';
+                    controlTamano.dataset.resizeHandle = '1';
+                    nodo.appendChild(controlTamano);
+                }
+
+                lienzo.appendChild(nodo);
+            });
+
+            actualizarInput();
+            renderizarPropiedades();
+            renderizarCapas();
+        }
+
+        function actualizarNodoSeleccionado() {
+            const elemento = elementoSeleccionado();
+            const nodo = Number.isInteger(indiceSeleccionado)
+                ? lienzo?.querySelector(`[data-plantilla-elemento="${indiceSeleccionado}"]`)
+                : null;
+
+            if (!elemento || !nodo) {
+                return;
             }
 
-            elemento.dataset.plantillaElemento = '1';
-            elemento.dataset.tipoElemento = tipoElemento;
-            elemento.dataset.codigo = codigo;
-            elemento.dataset.nombre = nombre || textoElemento(codigo, textoFijo);
-            elemento.dataset.textoFijo = textoFijo;
-            elemento.dataset.pagina = '1';
-            elemento.dataset.x = String(18 + (cantidad % 3) * 26);
-            elemento.dataset.y = String(18 + cantidad * 42);
-            elemento.dataset.ancho = esTabla ? '460' : '210';
-            elemento.dataset.alto = esTabla ? '95' : '34';
-            elemento.dataset.tamanoLetra = '12';
-            elemento.dataset.alineacion = 'IZQUIERDA';
-            elemento.dataset.negrita = '0';
-            elemento.dataset.cursiva = '0';
-            elemento.dataset.subrayado = '0';
-            elemento.dataset.colorTexto = '#0f172a';
-            elemento.dataset.columnas = JSON.stringify(columnasPorDefecto(codigo));
-            elemento.className = esTabla ? 'plantilla-table-sample' : 'plantilla-element';
+            nodo.className = [
+                'plantilla-element',
+                elemento.tipo_elemento === 'TEXTO' ? 'is-texto' : '',
+                elemento.tipo_elemento === 'TABLA' ? 'is-tabla' : '',
+                elemento.tipo_elemento === 'FIRMA' ? 'is-firma' : '',
+                elemento.tipo_elemento === 'QR' ? 'is-qr' : '',
+                elemento.tipo_elemento === 'IMAGEN' ? 'is-imagen' : '',
+                claseAlineacion(elemento),
+                'is-selected',
+            ].filter(Boolean).join(' ');
+            nodo.style.left = `${elemento.posicion_x}px`;
+            nodo.style.top = `${elemento.posicion_y}px`;
+            nodo.style.width = `${elemento.ancho}px`;
+            nodo.style.height = `${elemento.alto}px`;
+            nodo.style.fontSize = `${elemento.tamano_letra}px`;
+            nodo.style.fontWeight = elemento.negrita ? '900' : '700';
+            nodo.style.fontStyle = elemento.cursiva ? 'italic' : 'normal';
+            nodo.style.textDecoration = elemento.subrayado ? 'underline' : 'none';
+            nodo.style.color = elemento.color_texto || '#0f172a';
+            nodo.style.fontFamily = elemento.tipo_letra || 'Arial';
+            nodo.style.lineHeight = String(elemento.interlineado || 1.25);
+            nodo.style.padding = `${elemento.padding_y}px ${elemento.padding_x}px`;
+            nodo.style.zIndex = String(elemento.z_index || 3);
+            nodo.innerHTML = contenidoElementoPlantilla(elemento);
+            const controlTamano = document.createElement('span');
+            controlTamano.className = 'plantilla-resize-handle';
+            controlTamano.dataset.resizeHandle = '1';
+            nodo.appendChild(controlTamano);
+            actualizarInput();
+            renderizarCapas();
+        }
 
-            if (esTabla) {
-                elemento.innerHTML = tablaPrueba(elemento);
+        function actualizarFormaLienzo() {
+            if (!lienzo) {
+                return;
+            }
+
+            const esOficio = selectorTamano?.value === 'OFICIO';
+            const esHorizontal = selectorOrientacion?.value === 'HORIZONTAL';
+            const medidas = esOficio
+                ? { ancho: 816, alto: 1248 }
+                : { ancho: 816, alto: 1056 };
+            const anchoFinal = esHorizontal ? medidas.alto : medidas.ancho;
+            const altoFinal = esHorizontal ? medidas.ancho : medidas.alto;
+
+            lienzo.classList.toggle('is-oficio', esOficio);
+            lienzo.classList.toggle('is-horizontal', esHorizontal);
+            lienzo.classList.toggle('is-grid', cuadriculaActiva);
+            lienzo.classList.toggle('is-work-white', selectorFondoTrabajo?.value === 'BLANCO');
+            lienzo.style.width = `${anchoFinal}px`;
+            lienzo.style.height = `${altoFinal}px`;
+            lienzo.style.zoom = zoomActual;
+
+            if (zoomValor) {
+                zoomValor.textContent = `${Math.round(zoomActual * 100)}%`;
+            }
+        }
+
+        function actualizarPapelPlantilla() {
+            actualizarFormaLienzo();
+            aplicarFondoTrabajo();
+            actualizarInput();
+        }
+
+        function ajusteFondoCss() {
+            const ajuste = selectorAjusteFondo?.value || 'ESTIRAR';
+
+            if (ajuste === 'CONTENER') {
+                return 'contain';
+            }
+
+            if (ajuste === 'CUBRIR') {
+                return 'cover';
+            }
+
+            return 'fill';
+        }
+
+        function seleccionarElemento(index) {
+            indiceSeleccionado = Number.isInteger(index) ? index : null;
+            renderizarLienzo();
+        }
+
+        function elementoSeleccionado() {
+            return Number.isInteger(indiceSeleccionado) ? elementos[indiceSeleccionado] : null;
+        }
+
+        function renderizarCapas() {
+            if (!panelCapas) {
+                return;
+            }
+
+            if (!elementos.length) {
+                panelCapas.innerHTML = '<div class="plantilla-editor-ayuda">Todavía no hay bloques en el lienzo.</div>';
+                return;
+            }
+
+            panelCapas.innerHTML = elementos.map((elemento, index) => `
+                <button type="button" class="plantilla-layer-item ${index === indiceSeleccionado ? 'is-active' : ''}" data-capa-index="${index}">
+                    <span>${index + 1}</span>
+                    <div>
+                        <strong>${escaparHtml(nombreElemento(elemento))}</strong>
+                        <small>${escaparHtml(elemento.codigo_elemento || elemento.tipo_elemento)}</small>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function eliminarElementoSeleccionado() {
+            if (!Number.isInteger(indiceSeleccionado)) {
+                return;
+            }
+
+            guardarHistorial();
+            elementos.splice(indiceSeleccionado, 1);
+            indiceSeleccionado = elementos.length ? Math.max(0, indiceSeleccionado - 1) : null;
+            renderizarLienzo();
+        }
+
+        function duplicarElementoSeleccionado() {
+            const elemento = elementoSeleccionado();
+
+            if (!elemento) {
+                return;
+            }
+
+            guardarHistorial();
+            const copia = normalizarElemento({
+                ...JSON.parse(JSON.stringify(elemento)),
+                posicion_x: Number(elemento.posicion_x || 0) + 18,
+                posicion_y: Number(elemento.posicion_y || 0) + 18,
+            });
+
+            elementos.push(copia);
+            seleccionarElemento(elementos.length - 1);
+        }
+
+        function moverCapaSeleccionada(direccion) {
+            if (!Number.isInteger(indiceSeleccionado)) {
+                return;
+            }
+
+            guardarHistorial();
+            const [elemento] = elementos.splice(indiceSeleccionado, 1);
+
+            if (direccion === 'frente') {
+                elementos.push(elemento);
+                indiceSeleccionado = elementos.length - 1;
             } else {
-                pintarTextoCampo(elemento, textoElemento(codigo, textoFijo));
+                elementos.unshift(elemento);
+                indiceSeleccionado = 0;
             }
 
-            lienzo.appendChild(elemento);
-            activarMovimiento(elemento);
-            seleccionarElemento(elemento);
-            actualizarInputElementos();
-
-            return elemento;
+            renderizarLienzo();
         }
 
-        function elegirCampoDesdeLista() {
-            const opciones = Object.fromEntries([...nombresCampos.entries()]);
-
-            if (window.Swal) {
-                Swal.fire({
-                    title: 'Agregar campo',
-                    input: 'select',
-                    inputOptions: opciones,
-                    inputPlaceholder: 'Seleccione un campo',
-                    showCancelButton: true,
-                    confirmButtonText: 'Agregar',
-                    cancelButtonText: 'Cancelar',
-                }).then((resultado) => {
-                    if (resultado.isConfirmed && resultado.value) {
-                        crearElemento({ codigo: resultado.value, nombre: nombreCampo(resultado.value) });
-                    }
-                });
-                return;
+        function cambiarZoom(accion) {
+            if (accion === 'mas') {
+                zoomActual = Math.min(1.6, zoomActual + 0.1);
             }
 
-            const primerCampo = [...nombresCampos.keys()][0];
-            if (primerCampo) {
-                crearElemento({ codigo: primerCampo, nombre: nombreCampo(primerCampo) });
+            if (accion === 'menos') {
+                zoomActual = Math.max(0.55, zoomActual - 0.1);
             }
+
+            actualizarFormaLienzo();
         }
 
-        function pedirTextoFijo() {
-            if (window.Swal) {
-                Swal.fire({
-                    title: 'Agregar texto fijo',
-                    input: 'text',
-                    inputPlaceholder: 'Escriba el texto',
-                    showCancelButton: true,
-                    confirmButtonText: 'Agregar',
-                    cancelButtonText: 'Cancelar',
-                }).then((resultado) => {
-                    if (resultado.isConfirmed && resultado.value) {
-                        crearElemento({ textoFijo: resultado.value, tipo: 'TEXTO' });
-                    }
-                });
-                return;
-            }
-
-            crearElemento({ textoFijo: 'Texto fijo', tipo: 'TEXTO' });
-        }
-
-        function tablaPrueba(elemento) {
-            const columnas = JSON.parse(elemento.dataset.columnas || '[]');
-            const columnasValidas = columnas.length ? columnas : columnasPorDefecto('producto.tabla');
+        function htmlEditorTabla(elemento) {
+            const columnas = columnasTabla(elemento);
+            const filas = filasTabla(elemento);
+            const ejemploCelda = marcadorDesdeCodigo('campo');
+            const ejemploBeneficiario = marcadorDesdeCodigo('beneficiario.nombre');
+            const encabezados = columnas.map((columna, index) => `
+                <input
+                    class="plantilla-table-editor-input is-header"
+                    type="text"
+                    data-tabla-encabezado="${index}"
+                    value="${escaparHtml(columna.titulo_columna || `Columna ${index + 1}`)}"
+                    title="Encabezado de columna">
+            `).join('');
+            const celdas = filas.map((fila, filaIndex) => fila.map((celda, columnaIndex) => `
+                <input
+                    class="plantilla-table-editor-input"
+                    type="text"
+                    data-tabla-celda="1"
+                    data-fila="${filaIndex}"
+                    data-columna="${columnaIndex}"
+                    value="${escaparHtml(celda)}"
+                    placeholder="Texto o ${escaparHtml(ejemploCelda)}">
+            `).join('')).join('');
 
             return `
-                <table>
-                    <thead>
-                        <tr>
-                            ${columnasValidas.map((columna) => `<th>${columna.titulo_columna || nombreCampo(columna.codigo_campo)}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            ${columnasValidas.map((columna) => `<td>${valorPrueba(columna.codigo_campo)}</td>`).join('')}
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="plantilla-prop-full plantilla-table-editor">
+                    <div class="plantilla-table-editor-head">
+                        <label>
+                            <span class="plantilla-prop-label">Filas</span>
+                            <input class="plantilla-prop-input" type="number" min="1" max="30" data-tabla-filas value="${filas.length}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Columnas</span>
+                            <input class="plantilla-prop-input" type="number" min="1" max="12" data-tabla-columnas value="${columnas.length}">
+                        </label>
+                    </div>
+                    <div class="plantilla-table-editor-note">
+                        Puede escribir texto normal o marcadores como ${escaparHtml(ejemploBeneficiario)} dentro de una celda.
+                    </div>
+                    <div class="plantilla-table-editor-scroll">
+                        <div class="plantilla-table-editor-grid" style="grid-template-columns: repeat(${columnas.length}, minmax(120px, 1fr));">
+                            ${encabezados}${celdas}
+                        </div>
+                    </div>
+                </div>
             `;
         }
 
-        // Abre una muestra imprimible usando datos de prueba.
-        function abrirVistaPrevia(imprimir = false) {
-            if (!lienzo) {
+        function htmlPropiedadesQr(elemento) {
+            const camposQr = campos.filter((campo) => String(campo.codigo || '').startsWith('qr.'));
+            const opcionesQr = (camposQr.length ? camposQr : [{ codigo: 'qr.verificacion', nombre: 'QR de verificación' }])
+                .map((campo) => `
+                    <option value="${escaparHtml(campo.codigo)}" ${campo.codigo === elemento.codigo_elemento ? 'selected' : ''}>
+                        ${escaparHtml(campo.nombre)}
+                    </option>
+                `).join('');
+            const modoActual = String(elemento.texto_fijo || '').startsWith('data:image')
+                ? 'Imagen cargada'
+                : 'Dato del sistema';
+
+            return `
+                <div class="plantilla-prop-full plantilla-qr-editor">
+                    <span class="plantilla-prop-label">Origen del QR</span>
+                    <select class="plantilla-prop-select" data-qr-codigo>
+                        ${opcionesQr}
+                    </select>
+                    <div class="plantilla-qr-actions">
+                        <button type="button" class="plantilla-action-btn is-primary" data-qr-usar-campo>
+                            Usar dato del sistema
+                        </button>
+                        <button type="button" class="plantilla-action-btn" data-qr-imagen>
+                            Seleccionar imagen
+                        </button>
+                    </div>
+                    <div class="plantilla-table-editor-note">Actual: ${modoActual}</div>
+                </div>
+            `;
+        }
+
+        function renderizarPropiedades() {
+            if (!panelPropiedades) {
                 return;
             }
 
-            const canvas = document.querySelector('.plantilla-canvas');
-            const contenidoCompleto = canvas ? canvas.cloneNode(true) : lienzo.cloneNode(true);
+            const elemento = elementoSeleccionado();
 
-            contenidoCompleto.querySelectorAll('[data-plantilla-elemento]').forEach((elemento) => {
-                elemento.classList.remove('is-selected');
+            if (!elemento) {
+                panelPropiedades.innerHTML = `
+                    <div class="plantilla-editor-ayuda">
+                        Seleccione un bloque del lienzo para editar su texto, tamaño, posición y formato.
+                    </div>
+                `;
+                return;
+            }
 
-                if (elemento.classList.contains('plantilla-table-sample')) {
-                    elemento.querySelector('[data-plantilla-resize]')?.remove();
-                    elemento.innerHTML = tablaPrueba(elemento);
+            panelPropiedades.innerHTML = `
+                <div class="plantilla-prop-grid">
+                    <div class="plantilla-prop-full">
+                        <div class="text-xs font-black uppercase text-emerald-700">${nombreElemento(elemento)}</div>
+                        <div class="mt-1 text-xs font-semibold text-slate-500">${elemento.codigo_elemento || elemento.tipo_elemento}</div>
+                    </div>
+
+                    <label>
+                        <span class="plantilla-prop-label">Posición X</span>
+                        <input class="plantilla-prop-input" type="number" data-prop="posicion_x" value="${elemento.posicion_x}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Posición Y</span>
+                        <input class="plantilla-prop-input" type="number" data-prop="posicion_y" value="${elemento.posicion_y}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Ancho</span>
+                        <input class="plantilla-prop-input" type="number" min="20" data-prop="ancho" value="${elemento.ancho}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Alto</span>
+                        <input class="plantilla-prop-input" type="number" min="20" data-prop="alto" value="${elemento.alto}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Tamaño</span>
+                        <input class="plantilla-prop-input" type="number" min="6" max="72" data-prop="tamano_letra" value="${elemento.tamano_letra}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Espacio X</span>
+                        <input class="plantilla-prop-input" type="number" min="0" max="60" data-prop="padding_x" value="${elemento.padding_x}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Espacio Y</span>
+                        <input class="plantilla-prop-input" type="number" min="0" max="60" data-prop="padding_y" value="${elemento.padding_y}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Interlineado</span>
+                        <input class="plantilla-prop-input" type="number" min="0.8" max="3" step="0.05" data-prop="interlineado" value="${elemento.interlineado}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Nivel</span>
+                        <input class="plantilla-prop-input" type="number" min="1" max="99" data-prop="z_index" value="${elemento.z_index}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Color</span>
+                        <input class="plantilla-prop-input" type="color" data-prop="color_texto" value="${elemento.color_texto || '#0f172a'}">
+                    </label>
+                    <label class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Tipo de letra</span>
+                        <select class="plantilla-prop-select" data-prop="tipo_letra">
+                            <option value="Arial" ${elemento.tipo_letra === 'Arial' ? 'selected' : ''}>Arial</option>
+                            <option value="Calibri" ${elemento.tipo_letra === 'Calibri' ? 'selected' : ''}>Calibri</option>
+                            <option value="Times New Roman" ${elemento.tipo_letra === 'Times New Roman' ? 'selected' : ''}>Times New Roman</option>
+                            <option value="Georgia" ${elemento.tipo_letra === 'Georgia' ? 'selected' : ''}>Georgia</option>
+                            <option value="Verdana" ${elemento.tipo_letra === 'Verdana' ? 'selected' : ''}>Verdana</option>
+                            <option value="Tahoma" ${elemento.tipo_letra === 'Tahoma' ? 'selected' : ''}>Tahoma</option>
+                            <option value="Courier New" ${elemento.tipo_letra === 'Courier New' ? 'selected' : ''}>Courier New</option>
+                        </select>
+                    </label>
+                    <label class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Alineación</span>
+                        <select class="plantilla-prop-select" data-prop="alineacion">
+                            <option value="IZQUIERDA" ${elemento.alineacion === 'IZQUIERDA' ? 'selected' : ''}>Izquierda</option>
+                            <option value="CENTRO" ${elemento.alineacion === 'CENTRO' ? 'selected' : ''}>Centro</option>
+                            <option value="DERECHA" ${elemento.alineacion === 'DERECHA' ? 'selected' : ''}>Derecha</option>
+                            <option value="JUSTIFICADO" ${elemento.alineacion === 'JUSTIFICADO' ? 'selected' : ''}>Justificado</option>
+                        </select>
+                    </label>
+                    <div class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Formato</span>
+                        <div class="plantilla-format-row">
+                            <button type="button" class="plantilla-format-btn ${elemento.negrita ? 'is-active' : ''}" data-toggle-formato="negrita">B</button>
+                            <button type="button" class="plantilla-format-btn ${elemento.cursiva ? 'is-active' : ''}" data-toggle-formato="cursiva">I</button>
+                            <button type="button" class="plantilla-format-btn ${elemento.subrayado ? 'is-active' : ''}" data-toggle-formato="subrayado">U</button>
+                        </div>
+                    </div>
+                    ${elemento.tipo_elemento === 'TABLA' ? htmlEditorTabla(elemento) : ''}
+                    ${elemento.tipo_elemento === 'QR' ? htmlPropiedadesQr(elemento) : ''}
+                    ${elemento.tipo_elemento !== 'TABLA' && elemento.tipo_elemento !== 'QR' ? `
+                    <label class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Texto del bloque</span>
+                        <textarea class="plantilla-prop-textarea" data-prop-texto>${escaparHtml(elemento.texto_fijo || '')}</textarea>
+                    </label>
+                    ` : ''}
+                    <div class="plantilla-prop-full plantilla-format-row">
+                        <button type="button" class="plantilla-action-btn is-primary" data-insertar-marcador>
+                            Insertar campo seleccionado
+                        </button>
+                        <button type="button" class="plantilla-action-btn is-danger" data-eliminar-elemento>
+                            Quitar bloque
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function seleccionarImagen(callback) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png,image/jpeg,image/webp';
+
+            input.addEventListener('change', function () {
+                const archivo = this.files && this.files[0];
+
+                if (!archivo) {
                     return;
                 }
 
-                elemento.textContent = valorPrueba(elemento.dataset.codigo, elemento.dataset.textoFijo);
+                const lector = new FileReader();
+                lector.onload = () => callback(String(lector.result || ''));
+                lector.readAsDataURL(archivo);
             });
 
-            contenidoCompleto.querySelector('[data-plantilla-empty]')?.remove();
+            input.click();
+        }
 
-            const ventana = window.open('', '_blank');
-            if (!ventana) {
+        function agregarElemento(tipo, codigo = null, datos = {}) {
+            guardarHistorial();
+            const textoBase = tipo === 'FIRMA'
+                ? textoFirmaPlantilla(codigo)
+                : (tipo === 'TEXTO'
+                    ? textoInicialCertificado()
+                    : (['TABLA', 'QR'].includes(tipo) ? '' : (codigo ? marcadorDesdeCodigo(codigo) : '')));
+
+            const base = normalizarElemento({
+                tipo_elemento: tipo,
+                codigo_elemento: codigo,
+                texto_fijo: datos.texto_fijo || textoBase,
+                posicion_x: 36 + (elementos.length % 2) * 220,
+                posicion_y: 48 + Math.floor(elementos.length / 2) * 72,
+                ancho: anchoInicialPorTipo(tipo),
+                alto: altoInicialPorTipo(tipo),
+                tamano_letra: tipo === 'TEXTO' ? 12 : 11,
+            });
+
+            if (tipo === 'TABLA') {
+                guardarFilasTabla(base, filasTabla(base));
+            }
+
+            elementos.push(base);
+            seleccionarElemento(elementos.length - 1);
+        }
+
+        function insertarMarcadorEnTexto(codigo) {
+            const elemento = elementoSeleccionado();
+            const marcador = marcadorDesdeCodigo(codigo);
+
+            if (!elemento || elemento.tipo_elemento !== 'TEXTO') {
+                agregarElemento('CAMPO', codigo);
                 return;
             }
 
-            ventana.document.open();
-            ventana.document.title = 'Vista previa de certificado';
+            guardarHistorial();
+            elemento.texto_fijo = `${elemento.texto_fijo || ''} ${marcador}`.trim();
+            renderizarLienzo();
+        }
 
-            const estilos = ventana.document.createElement('style');
-            estilos.textContent = `
-                body { margin: 0; background: #e5e7eb; font-family: Arial, sans-serif; }
-                .preview-page { width: 794px; min-height: 1123px; margin: 24px auto; background: #fff; padding: 0; box-shadow: 0 10px 28px rgba(15,23,42,.18); }
-                .plantilla-canvas { position: relative; aspect-ratio: 794 / 1123; width: 794px; background: #fff; overflow: hidden; }
-                .plantilla-fondo { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; opacity: .92; object-fit: cover; pointer-events: none; }
-                .plantilla-fondo { object-fit: cover; }
-                .plantilla-paper-content { position: absolute; inset: 0; z-index: 1; padding: 0; }
-                .plantilla-drop-zone { position: absolute; inset: 0; border: 0; background: transparent; }
-                .plantilla-element { position: absolute; border: 0; background: transparent; color: #111827; font-size: 13px; font-weight: 700; }
-                .plantilla-table-sample { position: absolute; border: 0; background: #fff; }
-                table { width: 100%; border-collapse: collapse; font-size: 12px; }
-                th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
-                th { background: #f3f4f6; }
-                @media print {
-                    body { background: #fff; }
-                    .preview-page { margin: 0; width: auto; min-height: auto; box-shadow: none; }
-                }
+        function actualizarResumenTipo() {
+            const tipo = tipoSeleccionado();
+
+            if (!resumenTipo) {
+                return;
+            }
+
+            if (!tipo) {
+                resumenTipo.textContent = 'Seleccione un tipo de certificado.';
+                return;
+            }
+
+            resumenTipo.innerHTML = `
+                <div class="font-bold text-emerald-800">${tipo.nombre}</div>
+                <div class="mt-1 text-sm text-slate-600">${tipo.area || 'Sin área asignada'}</div>
+                <span class="plantilla-chip">${tipo.estado || 'ACTIVO'}</span>
             `;
-            ventana.document.head.appendChild(estilos);
 
-            const pagina = ventana.document.createElement('main');
-            pagina.className = 'preview-page';
-            pagina.appendChild(ventana.document.importNode(contenidoCompleto, true));
-            ventana.document.body.appendChild(pagina);
-            ventana.document.close();
-
-            if (imprimir) {
-                ventana.addEventListener('load', () => ventana.print());
-            }
         }
 
-        function mostrarFondoSeleccionado(nombre, url, esImagen) {
-            urlArchivoFondo = url || '';
-            fondoNombre.textContent = nombre || 'Sin archivo seleccionado';
-            fondoVer.disabled = !urlArchivoFondo;
-            fondoQuitar.disabled = !urlArchivoFondo;
+        function filtrarCampos() {
+            const texto = (buscadorCampo?.value || '').toLowerCase().trim();
 
-            fondoPreview?.removeAttribute('src');
-            if (fondoPreview) {
-                fondoPreview.style.display = 'none';
+            campos.forEach((campo) => {
+                const coincide = !texto
+                    || campo.codigo.toLowerCase().includes(texto)
+                    || campo.nombre.toLowerCase().includes(texto);
+
+                campo.boton.style.display = coincide ? '' : 'none';
+            });
+        }
+
+        function mostrarArchivoSeleccionado(nombre, url, esImagen = false) {
+            urlArchivoPlantilla = url || '';
+
+            if (fondoNombre) {
+                fondoNombre.textContent = nombre || 'Sin archivo seleccionado';
             }
 
-            if (esImagen && fondoPreview) {
-                fondoPreview.src = urlArchivoFondo;
+            if (fondoVer) {
+                fondoVer.disabled = !urlArchivoPlantilla;
+            }
+
+            if (fondoQuitar) {
+                fondoQuitar.disabled = !urlArchivoPlantilla;
+            }
+
+            if (!fondoPreview || !fondoPlaceholder) {
+                return;
+            }
+
+            if (urlArchivoPlantilla && esImagen) {
+                fondoPreview.onload = function () {
+                    mostrarMedidasImagen(this.naturalWidth, this.naturalHeight);
+                };
+                fondoPreview.src = urlArchivoPlantilla;
                 fondoPreview.style.display = 'block';
+                fondoPlaceholder.style.display = 'none';
+                aplicarFondoTrabajo();
+                return;
             }
+
+            fondoPreview.removeAttribute('src');
+            fondoPreview.style.display = 'none';
+            fondoPlaceholder.style.display = 'grid';
+            mostrarMedidasImagen(null, null);
+            aplicarFondoTrabajo();
         }
 
-        function limpiarFondo() {
+        function aplicarFondoTrabajo() {
+            if (!lienzo || !fondoPreview || !fondoPlaceholder) {
+                return;
+            }
+
+            const usarHojaBlanca = selectorFondoTrabajo?.value === 'BLANCO';
+            lienzo.classList.toggle('is-work-white', usarHojaBlanca);
+            fondoPreview.style.objectFit = ajusteFondoCss();
+
+            if (usarHojaBlanca) {
+                fondoPreview.style.display = 'none';
+                fondoPlaceholder.style.display = 'none';
+                return;
+            }
+
+            if (urlArchivoPlantilla && fondoPreview.getAttribute('src')) {
+                fondoPreview.style.display = 'block';
+                fondoPlaceholder.style.display = 'none';
+                return;
+            }
+
+            fondoPreview.style.display = 'none';
+            fondoPlaceholder.style.display = 'grid';
+        }
+
+        function mostrarMedidasImagen(ancho, alto) {
+            if (!fondoMedidas) {
+                return;
+            }
+
+            if (!ancho || !alto) {
+                fondoMedidas.textContent = 'Sin imagen cargada para medir.';
+                return;
+            }
+
+            const proporcion = (ancho / alto).toFixed(4);
+            fondoMedidas.innerHTML = `
+                Tamaño real de la imagen:
+                <strong>${ancho} x ${alto} px</strong>
+                · Proporción: <strong>${proporcion}</strong>.
+                Use una imagen con la misma proporción del papel para evitar diferencias al imprimir.
+            `;
+        }
+
+        function limpiarArchivoPlantilla() {
             if (fondoInput) {
                 fondoInput.value = '';
             }
@@ -604,194 +1013,410 @@
                 fondoQuitarInput.value = '1';
             }
 
-            mostrarFondoSeleccionado('Sin archivo seleccionado', '', false);
+            mostrarArchivoSeleccionado('Sin archivo seleccionado', '', false);
         }
 
-        document.querySelectorAll('[data-plantilla-campo]').forEach((boton) => {
-            boton.addEventListener('click', function () {
-                crearElemento({ codigo: this.dataset.codigo, nombre: this.dataset.nombre });
-            });
-        });
+        function textoInicialCertificado() {
+            const marcadorBeneficiario = marcadorDesdeCodigo('beneficiario.nombre');
+            const marcadorDocumento = marcadorDesdeCodigo('beneficiario.documento');
+            const marcadorProductos = marcadorDesdeCodigo('producto.nombres_comerciales');
+
+            return `Se certifica que ${marcadorBeneficiario}, con CI/NIT ${marcadorDocumento}, cuenta con ${marcadorProductos}.`;
+        }
 
         document.querySelectorAll('[data-plantilla-tool]').forEach((boton) => {
             boton.addEventListener('click', function () {
                 const accion = this.dataset.plantillaTool;
 
                 if (accion === 'texto') {
-                    pedirTextoFijo();
-                }
-
-                if (accion === 'campo') {
-                    elegirCampoDesdeLista();
+                    agregarElemento('TEXTO');
                 }
 
                 if (accion === 'tabla') {
-                    crearElemento({ codigo: 'producto.tabla', nombre: 'Tabla de productos', tipo: 'TABLA' });
+                    agregarElemento('TABLA', 'producto.tabla');
                 }
 
                 if (accion === 'firma') {
-                    crearElemento({ codigo: 'firma.responsable_area', nombre: 'Firma responsable de área', tipo: 'FIRMA' });
+                    agregarElemento('FIRMA', 'firma.responsable_area');
                 }
 
                 if (accion === 'qr') {
-                    crearElemento({ codigo: 'qr.verificacion', nombre: 'QR de verificación', tipo: 'QR' });
+                    agregarElemento('QR', 'qr.verificacion');
+                }
+
+                if (accion === 'imagen') {
+                    seleccionarImagen((imagen) => {
+                        agregarElemento('IMAGEN', null, { texto_fijo: imagen });
+                    });
+                }
+
+                if (accion === 'deshacer') {
+                    deshacerCambio();
+                }
+
+                if (accion === 'rehacer') {
+                    rehacerCambio();
+                }
+
+                if (accion === 'duplicar') {
+                    duplicarElementoSeleccionado();
+                }
+
+                if (accion === 'eliminar') {
+                    eliminarElementoSeleccionado();
+                }
+
+                if (accion === 'frente' || accion === 'fondo') {
+                    moverCapaSeleccionada(accion);
+                }
+
+                if (accion === 'grid') {
+                    cuadriculaActiva = !cuadriculaActiva;
+                    actualizarFormaLienzo();
                 }
             });
         });
 
-        document.querySelectorAll('[data-plantilla-elemento]').forEach((elemento, index) => {
-            if (!elemento.dataset.x) {
-                elemento.dataset.x = String(18 + (index % 3) * 26);
-            }
-
-            if (!elemento.dataset.y) {
-                elemento.dataset.y = String(18 + index * 42);
-            }
-
-            if (!elemento.dataset.ancho) {
-                elemento.dataset.ancho = elemento.dataset.tipoElemento === 'TABLA' ? '460' : '210';
-            }
-
-            if (!elemento.dataset.alto) {
-                elemento.dataset.alto = elemento.dataset.tipoElemento === 'TABLA' ? '95' : '34';
-            }
-
-            if (!elemento.dataset.tipoElemento) {
-                elemento.dataset.tipoElemento = 'CAMPO';
-            }
-
-            if (!elemento.dataset.columnas) {
-                elemento.dataset.columnas = '[]';
-            }
-
-            if (!elemento.dataset.cursiva) {
-                elemento.dataset.cursiva = '0';
-            }
-
-            if (!elemento.dataset.subrayado) {
-                elemento.dataset.subrayado = '0';
-            }
-
-            if (!elemento.dataset.colorTexto) {
-                elemento.dataset.colorTexto = '#0f172a';
-            }
-
-            if (elemento.dataset.tipoElemento === 'TABLA') {
-                elemento.className = 'plantilla-table-sample';
-                elemento.innerHTML = tablaPrueba(elemento);
-            } else {
-                elemento.className = 'plantilla-element';
-                pintarTextoCampo(elemento, textoElemento(elemento.dataset.codigo, elemento.dataset.textoFijo));
-            }
-
-            activarMovimiento(elemento);
+        document.querySelectorAll('[data-plantilla-campo]').forEach((boton) => {
+            boton.addEventListener('click', () => {
+                ultimoCampoSeleccionado = boton.dataset.codigo;
+                insertarMarcadorEnTexto(boton.dataset.codigo);
+            });
+            boton.draggable = true;
+            boton.addEventListener('dragstart', (event) => {
+                ultimoCampoSeleccionado = boton.dataset.codigo;
+                event.dataTransfer.setData('text/plain', boton.dataset.codigo);
+            });
         });
 
-        botonQuitarCampo?.addEventListener('click', function () {
-            if (!campoSeleccionado) {
+        lienzo?.addEventListener('dragover', (event) => event.preventDefault());
+        lienzo?.addEventListener('drop', function (event) {
+            event.preventDefault();
+            const codigo = event.dataTransfer.getData('text/plain');
+
+            if (!codigo) {
                 return;
             }
 
-            campoSeleccionado.remove();
-            campoSeleccionado = null;
-            this.disabled = true;
+            const caja = lienzo.getBoundingClientRect();
+            agregarElemento('CAMPO', codigo);
+            const elemento = elementos[elementos.length - 1];
+            elemento.posicion_x = Math.round((event.clientX - caja.left) / zoomActual);
+            elemento.posicion_y = Math.round((event.clientY - caja.top) / zoomActual);
+            renderizarLienzo();
+        });
 
-            if (propiedades) {
-                propiedades.querySelector('[data-prop-codigo]').textContent = 'Sin campo seleccionado';
-                propiedades.querySelector('[data-prop-nombre]').textContent = 'Seleccione un campo del lienzo.';
+        lienzo?.addEventListener('mousedown', function (event) {
+            const nodo = event.target.closest('[data-plantilla-elemento]');
+
+            if (!nodo || !lienzo) {
+                return;
             }
 
-            actualizarInputElementos();
-        });
+            event.preventDefault();
 
-        fondoSeleccionar?.addEventListener('click', () => fondoInput?.click());
-        fondoVer?.addEventListener('click', () => {
-            if (urlArchivoFondo) {
-                window.open(urlArchivoFondo, '_blank');
+            const index = Number(nodo.dataset.plantillaElemento);
+            indiceSeleccionado = index;
+            lienzo.querySelectorAll('[data-plantilla-elemento]').forEach((item) => {
+                item.classList.toggle('is-selected', item === nodo);
+            });
+
+            if (!nodo.querySelector('[data-resize-handle]')) {
+                const controlTamano = document.createElement('span');
+                controlTamano.className = 'plantilla-resize-handle';
+                controlTamano.dataset.resizeHandle = '1';
+                nodo.appendChild(controlTamano);
             }
-        });
-        fondoQuitar?.addEventListener('click', limpiarFondo);
-        propiedadX?.addEventListener('input', () => aplicarPropiedadSeleccionada('x', propiedadX.value || '0'));
-        propiedadY?.addEventListener('input', () => aplicarPropiedadSeleccionada('y', propiedadY.value || '0'));
-        propiedadAncho?.addEventListener('input', () => aplicarPropiedadSeleccionada('ancho', propiedadAncho.value || '180'));
-        propiedadAlto?.addEventListener('input', () => aplicarPropiedadSeleccionada('alto', propiedadAlto.value || '30'));
-        propiedadTamanoLetra?.addEventListener('input', () => aplicarPropiedadSeleccionada('tamanoLetra', propiedadTamanoLetra.value || '12'));
-        propiedadAlineacion?.addEventListener('change', () => {
-            const valor = (propiedadAlineacion.value || 'Izquierda').toUpperCase();
-            aplicarPropiedadSeleccionada('alineacion', valor);
-        });
-        propiedadNegrita?.addEventListener('change', () => {
-            aplicarPropiedadSeleccionada('negrita', propiedadNegrita.checked ? '1' : '0');
-        });
-        propiedadCursiva?.addEventListener('change', () => {
-            aplicarPropiedadSeleccionada('cursiva', propiedadCursiva.checked ? '1' : '0');
-        });
-        propiedadSubrayado?.addEventListener('change', () => {
-            aplicarPropiedadSeleccionada('subrayado', propiedadSubrayado.checked ? '1' : '0');
-        });
-        propiedadColorTexto?.addEventListener('input', () => {
-            aplicarPropiedadSeleccionada('colorTexto', propiedadColorTexto.value || '#0f172a');
-        });
 
-        document.querySelectorAll('[data-prop-accion]').forEach((boton) => {
-            boton.addEventListener('click', function () {
-                if (!campoSeleccionado) {
+            renderizarPropiedades();
+            renderizarCapas();
+            guardarHistorial();
+
+            const elemento = elementos[index];
+            const estaRedimensionando = Boolean(event.target.closest('[data-resize-handle]'));
+            const inicioX = event.clientX;
+            const inicioY = event.clientY;
+            const posicionInicialX = Number(elemento.posicion_x || 0);
+            const posicionInicialY = Number(elemento.posicion_y || 0);
+            const anchoInicial = Number(elemento.ancho || nodo.offsetWidth);
+            const altoInicial = Number(elemento.alto || nodo.offsetHeight);
+
+            function mover(eventMove) {
+                eventMove.preventDefault();
+
+                if (estaRedimensionando) {
+                    const nuevoAncho = Math.max(28, anchoInicial + (eventMove.clientX - inicioX));
+                    const nuevoAlto = Math.max(24, altoInicial + (eventMove.clientY - inicioY));
+
+                    elemento.ancho = Math.round(nuevoAncho);
+                    elemento.alto = Math.round(nuevoAlto);
+                    nodo.style.width = `${elemento.ancho}px`;
+                    nodo.style.minHeight = `${elemento.alto}px`;
+                    actualizarInput();
+                    renderizarPropiedades();
                     return;
                 }
 
-                const accion = this.dataset.propAccion;
-                const tamanoActual = Number(campoSeleccionado.dataset.tamanoLetra || 12);
+                const maxX = Math.max(0, lienzo.clientWidth - nodo.offsetWidth);
+                const maxY = Math.max(0, lienzo.clientHeight - nodo.offsetHeight);
+                const nuevaX = posicionInicialX + (eventMove.clientX - inicioX);
+                const nuevaY = posicionInicialY + (eventMove.clientY - inicioY);
 
-                if (accion === 'letra_menos') {
-                    aplicarPropiedadSeleccionada('tamanoLetra', String(Math.max(6, tamanoActual - 1)));
-                }
+                elemento.posicion_x = Math.round(Math.min(Math.max(0, nuevaX), maxX));
+                elemento.posicion_y = Math.round(Math.min(Math.max(0, nuevaY), maxY));
+                nodo.style.left = `${elemento.posicion_x}px`;
+                nodo.style.top = `${elemento.posicion_y}px`;
+                actualizarInput();
+                renderizarPropiedades();
+            }
 
-                if (accion === 'letra_mas') {
-                    aplicarPropiedadSeleccionada('tamanoLetra', String(tamanoActual + 1));
-                }
+            function soltar() {
+                document.removeEventListener('mousemove', mover);
+                document.removeEventListener('mouseup', soltar);
+                renderizarLienzo();
+            }
 
-                if (accion === 'negrita') {
-                    aplicarPropiedadSeleccionada('negrita', Number(campoSeleccionado.dataset.negrita || 0) ? '0' : '1');
-                }
-
-                if (accion === 'cursiva') {
-                    aplicarPropiedadSeleccionada('cursiva', Number(campoSeleccionado.dataset.cursiva || 0) ? '0' : '1');
-                }
-
-                if (accion === 'subrayado') {
-                    aplicarPropiedadSeleccionada('subrayado', Number(campoSeleccionado.dataset.subrayado || 0) ? '0' : '1');
-                }
-            });
+            document.addEventListener('mousemove', mover);
+            document.addEventListener('mouseup', soltar);
         });
 
-        if (fondoInput) {
-            fondoInput.addEventListener('change', function () {
-                const archivo = this.files && this.files[0];
-                if (!archivo) {
-                    return;
+        function actualizarPropiedadDesdePanel(event) {
+            const elemento = elementoSeleccionado();
+
+            if (!elemento) {
+                return;
+            }
+
+            if (event.target.matches('[data-tabla-filas]')) {
+                ajustarFilasTabla(elemento, event.target.value);
+                renderizarPropiedades();
+                actualizarNodoSeleccionado();
+                return;
+            }
+
+            if (event.target.matches('[data-tabla-columnas]')) {
+                ajustarColumnasTabla(elemento, event.target.value);
+                renderizarPropiedades();
+                actualizarNodoSeleccionado();
+                return;
+            }
+
+            if (event.target.matches('[data-tabla-encabezado]')) {
+                const columnaIndex = Number(event.target.dataset.tablaEncabezado);
+                const columnas = columnasTabla(elemento);
+
+                if (columnas[columnaIndex]) {
+                    columnas[columnaIndex].titulo_columna = event.target.value;
+                    actualizarNodoSeleccionado();
                 }
 
-                if (fondoQuitarInput) {
-                    fondoQuitarInput.value = '0';
+                return;
+            }
+
+            if (event.target.matches('[data-tabla-celda]')) {
+                const filaIndex = Number(event.target.dataset.fila);
+                const columnaIndex = Number(event.target.dataset.columna);
+                const filas = filasTabla(elemento);
+
+                if (filas[filaIndex]) {
+                    filas[filaIndex][columnaIndex] = event.target.value;
+                    guardarFilasTabla(elemento, filas);
+                    actualizarNodoSeleccionado();
                 }
 
-                const url = URL.createObjectURL(archivo);
-                mostrarFondoSeleccionado(archivo.name, url, archivo.type.startsWith('image/'));
-            });
+                return;
+            }
 
-            if (fondoInput.dataset.plantillaFondoUrl) {
-                const url = fondoInput.dataset.plantillaFondoUrl;
-                const esImagen = /\.(jpg|jpeg|png|webp)$/i.test(url);
-                mostrarFondoSeleccionado(fondoNombre?.textContent || 'Plantilla guardada', url, esImagen);
+            if (event.target.matches('[data-qr-codigo]')) {
+                elemento.codigo_elemento = event.target.value;
+                elemento.texto_fijo = '';
+                actualizarNodoSeleccionado();
+                renderizarPropiedades();
+                return;
+            }
+
+            const prop = event.target.dataset.prop;
+
+            if (prop) {
+                if (['posicion_x', 'posicion_y', 'ancho', 'alto', 'tamano_letra', 'padding_x', 'padding_y', 'interlineado', 'z_index'].includes(prop)) {
+                    elemento[prop] = Number(event.target.value || 0);
+                } else if (prop === 'alineacion') {
+                    elemento[prop] = normalizarAlineacion(event.target.value);
+                } else {
+                    elemento[prop] = event.target.value;
+                }
+
+                actualizarNodoSeleccionado();
+            }
+
+            if (event.target.matches('[data-prop-texto]')) {
+                elemento.texto_fijo = event.target.value;
+                actualizarNodoSeleccionado();
             }
         }
 
-        selectorTipo?.addEventListener('change', actualizarResumenTipo);
-        botonVistaPrevia?.addEventListener('click', () => abrirVistaPrevia(false));
-        botonImprimirPrueba?.addEventListener('click', () => abrirVistaPrevia(true));
-        formulario?.addEventListener('submit', actualizarInputElementos);
+        panelPropiedades?.addEventListener('input', actualizarPropiedadDesdePanel);
+        panelPropiedades?.addEventListener('change', actualizarPropiedadDesdePanel);
 
+        panelPropiedades?.addEventListener('focusin', function (event) {
+            if (!preparandoHistorialPropiedad && event.target.matches('[data-prop], [data-prop-texto], [data-tabla-filas], [data-tabla-columnas], [data-tabla-encabezado], [data-tabla-celda], [data-qr-codigo]')) {
+                guardarHistorial();
+                preparandoHistorialPropiedad = true;
+            }
+        });
+
+        panelPropiedades?.addEventListener('focusout', function () {
+            preparandoHistorialPropiedad = false;
+        });
+
+        panelPropiedades?.addEventListener('click', function (event) {
+            const elemento = elementoSeleccionado();
+
+            if (!elemento) {
+                return;
+            }
+
+            const formato = event.target.closest('[data-toggle-formato]');
+            const eliminar = event.target.closest('[data-eliminar-elemento]');
+            const insertar = event.target.closest('[data-insertar-marcador]');
+            const qrImagen = event.target.closest('[data-qr-imagen]');
+            const qrCampo = event.target.closest('[data-qr-usar-campo]');
+
+            if (formato) {
+                const propiedad = formato.dataset.toggleFormato;
+                guardarHistorial();
+                elemento[propiedad] = !elemento[propiedad];
+                renderizarLienzo();
+            }
+
+            if (eliminar) {
+                eliminarElementoSeleccionado();
+            }
+
+            if (insertar) {
+                if (ultimoCampoSeleccionado) {
+                    insertarMarcadorEnTexto(ultimoCampoSeleccionado);
+                }
+            }
+
+            if (qrImagen) {
+                seleccionarImagen((imagen) => {
+                    guardarHistorial();
+                    elemento.texto_fijo = imagen;
+                    elemento.codigo_elemento = null;
+                    elemento.ancho = Math.max(Number(elemento.ancho || 0), 86);
+                    elemento.alto = Math.max(Number(elemento.alto || 0), 86);
+                    renderizarLienzo();
+                });
+            }
+
+            if (qrCampo) {
+                guardarHistorial();
+                elemento.texto_fijo = '';
+                elemento.codigo_elemento = elemento.codigo_elemento || 'qr.verificacion';
+                renderizarLienzo();
+            }
+        });
+
+        panelCapas?.addEventListener('click', function (event) {
+            const boton = event.target.closest('[data-capa-index]');
+
+            if (!boton) {
+                return;
+            }
+
+            seleccionarElemento(Number(boton.dataset.capaIndex));
+        });
+
+        document.querySelectorAll('[data-plantilla-zoom]').forEach((boton) => {
+            boton.addEventListener('click', () => cambiarZoom(boton.dataset.plantillaZoom));
+        });
+
+        document.addEventListener('keydown', function (event) {
+            const estaEscribiendo = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName);
+
+            if (estaEscribiendo) {
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+                event.preventDefault();
+                deshacerCambio();
+            }
+
+            if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
+                event.preventDefault();
+                rehacerCambio();
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && elementoSeleccionado()) {
+                event.preventDefault();
+                elementoCopiado = JSON.parse(JSON.stringify(elementoSeleccionado()));
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v' && elementoCopiado) {
+                event.preventDefault();
+                guardarHistorial();
+                elementos.push(normalizarElemento({
+                    ...JSON.parse(JSON.stringify(elementoCopiado)),
+                    posicion_x: Number(elementoCopiado.posicion_x || 0) + 18,
+                    posicion_y: Number(elementoCopiado.posicion_y || 0) + 18,
+                }));
+                seleccionarElemento(elementos.length - 1);
+            }
+
+            if (event.key === 'Delete' || event.key === 'Backspace') {
+                event.preventDefault();
+                eliminarElementoSeleccionado();
+            }
+        });
+
+        buscadorCampo?.addEventListener('input', filtrarCampos);
+        selectorTipo?.addEventListener('change', actualizarResumenTipo);
+        ['input', 'change'].forEach((evento) => {
+            selectorTamano?.addEventListener(evento, actualizarPapelPlantilla);
+            selectorOrientacion?.addEventListener(evento, actualizarPapelPlantilla);
+            selectorAjusteFondo?.addEventListener(evento, actualizarPapelPlantilla);
+            selectorFondoTrabajo?.addEventListener(evento, actualizarPapelPlantilla);
+        });
+        document.addEventListener('change', function (event) {
+            if (event.target.matches('[name="form_tamano_papel"], [name="form_orientacion"], [name="form_ajuste_fondo"], [name="form_fondo_trabajo"]')) {
+                actualizarPapelPlantilla();
+            }
+        });
+        fondoSeleccionar?.addEventListener('click', () => fondoInput?.click());
+        fondoVer?.addEventListener('click', () => {
+            if (urlArchivoPlantilla) {
+                window.open(urlArchivoPlantilla, '_blank');
+            }
+        });
+        fondoQuitar?.addEventListener('click', limpiarArchivoPlantilla);
+
+        fondoInput?.addEventListener('change', function () {
+            const archivo = this.files && this.files[0];
+
+            if (!archivo) {
+                return;
+            }
+
+            if (fondoQuitarInput) {
+                fondoQuitarInput.value = '0';
+            }
+
+            mostrarArchivoSeleccionado(archivo.name, URL.createObjectURL(archivo), archivo.type.startsWith('image/'));
+        });
+
+        formularioPlantilla?.addEventListener('submit', actualizarInput);
+
+        if (urlArchivoPlantilla) {
+            mostrarArchivoSeleccionado(
+                fondoNombre?.textContent || 'Plantilla guardada',
+                urlArchivoPlantilla,
+                /\.(jpg|jpeg|png|webp)$/i.test(urlArchivoPlantilla)
+            );
+        }
+
+        renderizarLienzo();
         actualizarResumenTipo();
-        actualizarInputElementos();
     });
 </script>

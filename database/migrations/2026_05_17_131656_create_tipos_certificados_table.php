@@ -30,6 +30,8 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique('nombre', 'tipos_certificados_nombre_unique');
         });
     }
 

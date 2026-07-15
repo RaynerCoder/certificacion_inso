@@ -73,7 +73,7 @@ class TipoCertificadoController extends Controller
     {
         $datos = $solicitud->validate([
             'form_nombre' => ['required','string','max:255',
-                Rule::unique('tipos_certificados', 'nombre')->whereNull('deleted_at'),],
+                Rule::unique('tipos_certificados', 'nombre'),],
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
             'form_estado' => 'string|max:50',
             'requisitos_asignados' => ['nullable', 'array'],
@@ -83,7 +83,9 @@ class TipoCertificadoController extends Controller
             'requisitos_asignados.*.descripcion' => ['nullable', 'string'],
             'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
             'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
-        ], [], [
+        ], [
+            'form_nombre.unique' => 'El nombre del tipo de certificado ya está registrado.',
+        ], [
             'form_nombre' => 'nombre del tipo de certificado',
             'form_id_area' => 'area responsable',
             'form_estado' => 'estado',
@@ -451,8 +453,7 @@ class TipoCertificadoController extends Controller
     {
         $datos = $solicitud->validate(['form_nombre' => ['required','string','max:255',
                 Rule::unique('tipos_certificados', 'nombre')
-                    ->ignore($tipoCertificado->id)
-                    ->whereNull('deleted_at'),
+                    ->ignore($tipoCertificado->id),
             ],
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
             'form_estado' => 'string|max:50',
@@ -463,7 +464,9 @@ class TipoCertificadoController extends Controller
             'requisitos_asignados.*.descripcion' => ['nullable', 'string'],
             'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
             'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
-        ], [], [
+        ], [
+            'form_nombre.unique' => 'El nombre del tipo de certificado ya está registrado.',
+        ], [
             'form_nombre' => 'nombre del tipo de certificado',
             'form_id_area' => 'area responsable',
             'form_estado' => 'estado',

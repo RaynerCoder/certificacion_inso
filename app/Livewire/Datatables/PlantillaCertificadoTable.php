@@ -45,22 +45,22 @@ class PlantillaCertificadoTable extends DataTableComponent
 
             Column::make('Tipo de certificado', 'nombre')
                 ->format(fn ($valor, $fila) => view('tablas.texto_ajustado', [
-                    'texto' => $valor . ' | ' . $fila->requisitos_activos_count . ' requisitos activos',
+                    'texto' => $valor,
                     'clase' => 'font-semibold text-slate-800',
                 ]))
                 ->sortable()
                 ->searchable(),
 
-            Column::make('Area responsable')
-                ->label(fn ($fila) => view('tablas.texto_ajustado', [
-                    'texto' => $fila->area?->nombre ?: 'Sin area',
-                    'clase' => $fila->area ? 'text-slate-700' : 'text-rose-500 font-semibold',
+            Column::make('Cantidad requisitos')
+                ->label(fn ($fila) => view('tablas.chip_estado', [
+                    'texto' => $fila->requisitos_activos_count . ' requisitos',
+                    'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
                 ])),
 
-            Column::make('Plantilla')
+            Column::make('Area responsable')
                 ->label(fn ($fila) => view('tablas.texto_ajustado', [
-                    'texto' => $this->textoPlantilla($fila),
-                    'clase' => $fila->plantillaActiva ? 'text-slate-700' : 'text-slate-400',
+                    'texto' => $fila->area?->nombre ?: 'Sin área',
+                    'clase' => $fila->area ? 'text-slate-700' : 'text-rose-500 font-semibold',
                 ])),
 
             Column::make('Campos')
@@ -72,9 +72,9 @@ class PlantillaCertificadoTable extends DataTableComponent
             Column::make('Estado')
                 ->label(fn ($fila) => view('tablas.chip_estado', [
                     'texto' => $this->textoEstado($fila->plantillaActiva?->estado ?? $fila->estado),
-                    'clase' => $fila->plantillaActiva
+                    'clase' => strtoupper((string) ($fila->plantillaActiva?->estado ?? $fila->estado)) === 'ACTIVO'
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-amber-200 bg-amber-50 text-amber-700',
+                        : 'border-slate-200 bg-slate-100 text-slate-600',
                 ])),
 
             Column::make('Acciones')
@@ -82,20 +82,6 @@ class PlantillaCertificadoTable extends DataTableComponent
                     'tipoCertificado' => $fila,
                 ])),
         ];
-    }
-
-    /**
-     * Muestra la plantilla activa o indica que falta configurarla.
-     */
-    private function textoPlantilla(TipoCertificado $tipoCertificado): string
-    {
-        $plantilla = $tipoCertificado->plantillaActiva;
-
-        if (!$plantilla) {
-            return 'Sin plantilla';
-        }
-
-        return trim($plantilla->nombre . ' | ' . $plantilla->tamano_papel . ' | ' . $plantilla->orientacion);
     }
 
     private function textoEstado(?string $estado): string

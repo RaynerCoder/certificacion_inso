@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('estado', 50)->default('ACTIVO');
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique('nombre', 'catalogos_medidas_nombre_unique');
+            $table->unique('abreviatura', 'catalogos_medidas_abreviatura_unique');
         });
     }
 

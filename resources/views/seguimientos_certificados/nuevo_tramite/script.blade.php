@@ -75,6 +75,10 @@
                 return 'Revision presencial pendiente.';
             }
 
+            if (codigo === 'TRAMITADOR') {
+                return 'La habilitación del tramitador será revisada por el técnico.';
+            }
+
             if (codigo === 'TEXTO') {
                 return 'Dato pendiente de revision.';
             }

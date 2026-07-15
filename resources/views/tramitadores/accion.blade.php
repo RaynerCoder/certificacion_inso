@@ -1,6 +1,5 @@
 @php
-    // El modulo de tramitadores puede usar rutas propias cuando existan.
-    // Mientras tanto, reutiliza las rutas de responsables porque la relacion se guarda en esa tabla.
+    // Los tramitadores se guardan como responsables. Por eso se reutilizan sus vistas de detalle y edición.
     $registro = $tramitador ?? $responsable ?? null;
     $rutaVer = $registro && Route::has('tramitadores_show')
         ? route('tramitadores_show', $registro)
@@ -10,14 +9,24 @@
         : ($registro && Route::has('responsables_edit') ? route('responsables_edit', $registro) : '#');
 @endphp
 
-<div class="flex flex-wrap items-center gap-2">
-    <a href="{{ $rutaVer }}"
-        class="inline-flex min-h-8 items-center justify-center rounded-md border border-sky-200 bg-sky-50 px-3 text-xs font-bold text-sky-700 hover:bg-sky-100">
+<div class="flex items-center space-x-2">
+    <x-wire-button href="{{ $rutaVer }}" emerald xs>
         Ver
-    </a>
+    </x-wire-button>
 
-    <a href="{{ $rutaEditar }}"
-        class="inline-flex min-h-8 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100">
+    <x-wire-button href="{{ $rutaEditar }}" blue xs>
         Editar
-    </a>
+    </x-wire-button>
+
+    @if ($registro && $registro->estado === 'ACTIVO' && Route::has('tramitadores_baja'))
+        <form action="{{ route('tramitadores_baja', $registro) }}" method="POST"
+            data-tramitador-baja
+            data-tramitador-nombre="{{ $registro->nombre_tramitador ?: 'este tramitador' }}"
+            data-tramites-pendientes="{{ (int) ($registro->tramites_pendientes ?? 0) }}">
+            @csrf
+            <x-wire-button type="submit" red xs>
+                Dar de baja
+            </x-wire-button>
+        </form>
+    @endif
 </div>

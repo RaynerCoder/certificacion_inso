@@ -27,6 +27,7 @@ use App\Http\Controllers\PagoController;
 use App\Models\Certificado;
 use App\Http\Controllers\TipoEvidenciaController;
 use App\Http\Controllers\TramitadorController;
+use App\Http\Controllers\ReporteController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -68,6 +69,11 @@ Route::get('/', function () {
 
     return view('admin.dashboard', compact('resumenInicio'));
 })->name('admin_dashboard');
+
+/* =========================
+   REPORTES
+========================= */
+Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes_index')->middleware('permiso:reportes.ver');
 
 
 
@@ -147,9 +153,12 @@ Route::delete('/responsables/{responsable}', [ResponsableController::class, 'des
 /* =========================
    TRAMITADORES
 ========================= */
-Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index');
-Route::get('/tramitadores/create', [TramitadorController::class, 'create'])->name('tramitadores_create');
-Route::post('/tramitadores', [TramitadorController::class, 'store'])->name('tramitadores_store');
+Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/create', [TramitadorController::class, 'create'])->name('tramitadores_create')->middleware('permiso:tramitadores.ver');
+Route::post('/tramitadores', [TramitadorController::class, 'store'])->name('tramitadores_store')->middleware('permiso:tramitadores.ver');
+Route::post('/tramitadores/{tramitador}/dar-baja', [TramitadorController::class, 'darBaja'])
+    ->name('tramitadores_baja')
+    ->middleware('permiso:tramitadores.ver');
 
 
 

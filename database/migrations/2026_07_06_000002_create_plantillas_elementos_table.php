@@ -24,8 +24,8 @@ return new class extends Migration
             // TEXTO, CAMPO, TABLA, FIRMA, QR o IMAGEN.
             $table->string('tipo_elemento', 50);
 
-            // Codigo controlado que el backend resolvera al emitir: beneficiario.nombre, producto.tabla, etc.
-            $table->string('codigo_campo', 150)->nullable();
+            // Identifica el bloque de la plantilla: beneficiario.nombre, producto.tabla, firma.director, etc.
+            $table->string('codigo_elemento', 150)->nullable();
 
             // Texto fijo cuando el elemento no depende de un dato de la base de datos.
             $table->text('texto_fijo')->nullable();
@@ -37,10 +37,15 @@ return new class extends Migration
             $table->decimal('alto', 10, 2)->default(30);
             $table->unsignedInteger('tamano_letra')->default(12);
             $table->string('alineacion', 50)->default('IZQUIERDA');
+            $table->decimal('padding_x', 10, 2)->default(7);
+            $table->decimal('padding_y', 10, 2)->default(5);
+            $table->decimal('interlineado', 5, 2)->default(1.25);
             $table->boolean('negrita')->default(false);
             $table->boolean('cursiva')->default(false);
             $table->boolean('subrayado')->default(false);
             $table->string('color_texto', 20)->default('#0f172a');
+            $table->string('tipo_letra', 100)->default('Arial');
+            $table->unsignedInteger('z_index')->default(3);
             $table->unsignedInteger('orden')->default(1);
             $table->string('estado', 50)->default('ACTIVO');
 

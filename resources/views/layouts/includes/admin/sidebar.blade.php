@@ -58,6 +58,8 @@
 
     // Usuario autenticado usado para decidir que opciones del menu puede ver.
     $usuarioMenu = auth()->user();
+    $usuarioMenu?->loadMissing('persona.empresa');
+    $esCuentaEmpresa = (bool) $usuarioMenu?->persona?->empresa;
 
     // Helper visual del menu: usa permisos dinamicos guardados en la base de datos.
     $puedeVerModulo = fn(string|array $permisos) => $usuarioMenu?->puede($permisos) ?? false;
@@ -170,12 +172,29 @@
             ],
         ],
         [
+            'name' => 'Tramitadores',
+            'description' => 'Personas autorizadas',
+            'icon' => 'fa-solid fa-user-check',
+            'href' => $href('tramitadores_index'),
+            'active' => $activo(['tramitadores_']),
+            'permission' => 'tramitadores.ver',
+            'visible' => $esCuentaEmpresa,
+        ],
+        [
             'name' => 'Productos',
             'description' => 'Productos registrados',
             'icon' => 'fa-solid fa-box',
             'href' => $href('productos_index'),
             'active' => $activo(['productos_']),
             'permission' => 'productos.ver',
+        ],
+        [
+            'name' => 'Reportes',
+            'description' => 'Indicadores de gestion',
+            'icon' => 'fa-solid fa-chart-column',
+            'href' => $href('reportes_index'),
+            'active' => $activo(['reportes_']),
+            'permission' => 'reportes.ver',
         ],
         [
             // Modulo operativo: separa claramente lo que el usuario envia y lo que debe atender.
@@ -374,6 +393,7 @@
         <ul class="space-y-1 cert-sidebar-menu">
             @foreach ($links as $link)
                 @continue(isset($link['permission']) && !$puedeVerModulo($link['permission']))
+                @continue(isset($link['visible']) && !$link['visible'])
 
                 <li class="cert-sidebar-section">
                     @if (isset($link['submenu']))
@@ -399,6 +419,7 @@
                         <ul id="{{ $submenuId }}" class="cert-submenu {{ $link['active'] ? '' : 'hidden' }}">
                             @foreach ($link['submenu'] as $item)
                                 @continue(isset($item['permission']) && !$puedeVerModulo($item['permission']))
+                                @continue(isset($item['visible']) && !$item['visible'])
 
                                 <li>
                                     <a href="{{ $item['href'] }}"

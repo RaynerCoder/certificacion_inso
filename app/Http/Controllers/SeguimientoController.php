@@ -12,11 +12,13 @@ use App\Models\Persona;
 use App\Models\RequisitoCertificado;
 use App\Models\RequisitoTipoCertificado;
 use App\Models\Responsable;
+use App\Models\Role;
 use App\Models\RevisionRequisito;
 use App\Models\Seguimiento;
 use App\Models\TipoCertificado;
 use App\Models\TipoEvidencia;
 use App\Models\User;
+use App\Services\GestionTramitadoresService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -27,6 +29,10 @@ use Illuminate\Validation\ValidationException;
 class SeguimientoController extends Controller
 {
     private const TOKENS_INICIO_TRAMITE = 'tokens_inicio_tramite';
+
+    public function __construct(private GestionTramitadoresService $gestionTramitadores)
+    {
+    }
 
     /**
      * Muestra una sola bandeja de tramites segun la ruta actual:
@@ -104,6 +110,7 @@ class SeguimientoController extends Controller
 
         // El tramitador final se decide en backend para no confiar en datos manipulados desde la vista.
         $datos['form_id_persona_tramitador'] = $this->resolverTramitadorDelBeneficiario(
+            $solicitud->user(),
             (int) $datos['form_id_persona_beneficiario'],
             isset($datos['form_id_persona_tramitador']) ? (int) $datos['form_id_persona_tramitador'] : null
         );
@@ -315,30 +322,22 @@ class SeguimientoController extends Controller
     // El solicitante puede ver el historial si su cuenta pertenece al beneficiario o al tramitador.
     private function usuarioEsSolicitanteHistorial(?User $usuario, Certificado $certificado): bool
     {
-        if (!$usuario) {
-            return false;
-        }
-
-        return in_array((int) $usuario->id, [
-            (int) $certificado->beneficiario?->id_usuario,
-            (int) $certificado->tramitador?->id_usuario,
-        ], true);
+        return $usuario && $this->gestionTramitadores->usuarioPuedeConsultarTramite($usuario, $certificado);
     }
 
     // Usuario interno participante: quien registro, recibio o tuvo antes el tramite.
     private function usuarioParticipaEnHistorial(?User $usuario, Certificado $certificado, bool $esUsuarioInterno): bool
     {
-        if (!$usuario) {
+        if (!$usuario || !$esUsuarioInterno) {
             return false;
         }
 
-        return $certificado->seguimientos->contains(function ($movimiento) use ($usuario, $esUsuarioInterno) {
-            return (
-                    $esUsuarioInterno
-                    && (int) $movimiento->id_usuario_origen === (int) $usuario->id
-                )
-                || (int) $movimiento->id_usuario_siguiente === (int) $usuario->id
-                || (int) $movimiento->id_usuario_anterior === (int) $usuario->id;
+        return $certificado->seguimientos->contains(function ($movimiento) use ($usuario) {
+            return in_array((int) $usuario->id, [
+                (int) $movimiento->id_usuario_origen,
+                (int) $movimiento->id_usuario_siguiente,
+                (int) $movimiento->id_usuario_anterior,
+            ], true);
         });
     }
 
@@ -375,12 +374,8 @@ class SeguimientoController extends Controller
             ->map(function ($notificacion) use ($request) {
                 $certificado = $notificacion->certificado;
                 $remitente = $this->datosUsuarioNotificacion($notificacion->usuarioEmisor);
-                // La notificacion puede llegar al beneficiario o al tramitador que representa el tramite.
                 $esSolicitante = $certificado
-                    && (
-                        (int) $certificado->beneficiario?->id_usuario === (int) $request->user()->id
-                        || (int) $certificado->tramitador?->id_usuario === (int) $request->user()->id
-                    );
+                    && $this->gestionTramitadores->usuarioPuedeConsultarTramite($request->user(), $certificado);
 
                 return [
                     'id' => $notificacion->id,
@@ -751,7 +746,7 @@ class SeguimientoController extends Controller
 
     // FINALIZAR TRAMITE
     // Cierra la etapa tecnica solo cuando todos los requisitos ya fueron marcados como cumplidos.
-    public function finalizarTramite(Seguimiento $seguimiento)
+    public function finalizarTramite(Request $request, Seguimiento $seguimiento)
     {
         if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
@@ -761,13 +756,27 @@ class SeguimientoController extends Controller
             DB::beginTransaction();
 
             $certificado = $seguimiento->certificado()
-                ->with('certificadoRequisitos')
+                ->with([
+                    'beneficiario.empresa',
+                    'tramitador.natural',
+                    'certificadoRequisitos.evidenciasRequisitos.tipoEvidencia',
+                ])
                 ->firstOrFail();
 
             if (!$certificado->cumpleTodosLosRequisitos()) {
                 DB::rollBack();
 
                 return back()->with('error', 'No se puede finalizar el tramite porque aun existen requisitos pendientes u observados.');
+            }
+
+            if ($this->tramiteRequiereHabilitarTramitador($certificado)) {
+                $request->validate([
+                    'aceptar_tramitador' => ['accepted'],
+                ], [], [
+                    'aceptar_tramitador' => 'aceptacion del tramitador',
+                ]);
+
+                $this->habilitarTramitadorDelTramite($certificado);
             }
 
             $certificado->update([
@@ -812,7 +821,7 @@ class SeguimientoController extends Controller
 
     // NOTIFICAR OBSERVACIONES AL SOLICITANTE
     // Devuelve el mismo tramite al solicitante para que corrija los requisitos observados.
-    public function notificarCorreccionSolicitante(Seguimiento $seguimiento)
+    public function notificarCorreccionSolicitante(Request $request, Seguimiento $seguimiento)
     {
         if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'No puede notificar observaciones desde esta etapa.');
@@ -835,16 +844,17 @@ class SeguimientoController extends Controller
                 return back()->with('error', 'No hay requisitos observados para notificar al solicitante.');
             }
 
-            // La observacion debe llegar al beneficiario y al tramitador cuando ambos tienen cuenta.
-            // El seguimiento solo admite un responsable siguiente, por eso se usa el primero como etapa operativa.
-            $usuariosSolicitantes = $this->usuariosSolicitantesParaNotificacion($certificado);
-            $usuarioResponsableCorreccion = $usuariosSolicitantes->first();
+            $datos = $request->validate([
+                'id_usuario_responsable_correccion' => ['required', 'integer'],
+            ], [], [
+                'id_usuario_responsable_correccion' => 'destinatario de la correccion',
+            ]);
 
-            if (!$usuarioResponsableCorreccion) {
-                DB::rollBack();
-
-                return back()->with('error', 'El tramite no tiene usuario beneficiario o tramitador para notificar.');
-            }
+            // El servicio vuelve a validar que la cuenta elegida pertenece al beneficiario o es un tramitador habilitado.
+            $usuarioResponsableCorreccion = $this->gestionTramitadores->destinatarioCorreccionValido(
+                $certificado,
+                (int) $datos['id_usuario_responsable_correccion']
+            );
 
             $observaciones = $requisitosObservados
                 ->map(function ($requisitoCertificado) {
@@ -881,20 +891,18 @@ class SeguimientoController extends Controller
                 'estado' => 'ACTIVO',
             ]);
 
-            foreach ($usuariosSolicitantes as $usuarioSolicitante) {
-                $this->notificarUsuarioTramite(
-                    $usuarioSolicitante,
-                    $certificado,
-                    'Tramite observado',
-                    'Tiene requisitos observados para corregir en el mismo tramite.'
-                );
-            }
+            $this->notificarUsuarioTramite(
+                $usuarioResponsableCorreccion,
+                $certificado,
+                'Tramite observado',
+                'Tiene requisitos observados para corregir en el mismo tramite.'
+            );
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Tramite devuelto',
-                'text' => 'El tramite fue notificado a las cuentas vinculadas del beneficiario y tramitador.',
+                'text' => 'El tramite fue notificado a la persona seleccionada para la correccion.',
                 'icon' => 'success',
             ]);
 
@@ -1221,18 +1229,35 @@ class SeguimientoController extends Controller
 
         $personasBase = $this->beneficiariosVisiblesParaIniciarTramite($personasBase);
 
+        // El registro interno permite elegir ambas personas; una cuenta externa solo usa su propia persona.
+        $registroInterno = $this->usuarioPuedeAtenderTramites();
+        $personaUsuario = $registroInterno
+            ? null
+            : Persona::query()
+                ->with(['natural', 'empresa'])
+                ->where('id_usuario', auth()->id())
+                ->where('estado', 'ACTIVO')
+                ->first();
+        $tramitadorAutomatico = $personaUsuario ? $this->opcionPersonaTramite($personaUsuario) : null;
+        $tramitadorBloqueado = (bool) $tramitadorAutomatico;
+        $mostrarTramitador = $registroInterno
+            || $this->personaEsTramitadorVerificado($personaUsuario);
+
         // Personas que pueden iniciar un tramite como beneficiarias.
         // Se manda como arreglo simple para que la vista no haga consultas.
         $personas = $personasBase
             ->map(fn (Persona $persona) => $this->opcionPersonaTramite($persona))
             ->values();
-        $beneficiarioBloqueado = !$this->usuarioPuedeAtenderTramites() && $personas->count() === 1;
+        $beneficiarioBloqueado = !$registroInterno && $personas->count() === 1;
         $beneficiarioAutomatico = $beneficiarioBloqueado ? $personas->first() : null;
 
-        // Tramitadores permitidos por beneficiario.
-        // Empresa: se toman sus responsables activos con rol TRAMITADOR.
-        // Persona natural: se permite que la misma persona actue como tramitadora.
-        $tramitadoresPorBeneficiario = $personasBase->mapWithKeys(function (Persona $persona) {
+        // El solicitante externo no puede cambiar el tramitador desde la vista.
+        // Para funcionarios se conserva la lista de tramitadores autorizados por empresa.
+        $tramitadoresPorBeneficiario = $personasBase->mapWithKeys(function (Persona $persona) use ($tramitadorAutomatico) {
+            if ($tramitadorAutomatico) {
+                return [$persona->id => collect([$tramitadorAutomatico])];
+            }
+
             if ($persona->empresa) {
                 $tramitadores = $persona->empresa->responsables
                     ->filter(fn (Responsable $responsable) => $this->responsableEsTramitadorActivo($responsable))
@@ -1292,7 +1317,10 @@ class SeguimientoController extends Controller
             'dependenciasPorTipoCertificado',
             'certificadosVigentesPorPersona',
             'beneficiarioBloqueado',
-            'beneficiarioAutomatico'
+            'beneficiarioAutomatico',
+            'tramitadorAutomatico',
+            'tramitadorBloqueado',
+            'mostrarTramitador'
         );
     }
 
@@ -1332,6 +1360,26 @@ class SeguimientoController extends Controller
             );
 
         return $estadoActivo && $esTramitador && $responsable->persona;
+    }
+
+    // Una persona habilitada como tramitador puede iniciar trámites para las empresas donde está registrada.
+    private function personaEsTramitadorVerificado(?Persona $persona): bool
+    {
+        if (!$persona?->natural) {
+            return false;
+        }
+
+        return Responsable::query()
+            ->where('id_persona', $persona->id)
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('rol', function ($rol) {
+                $rol->where('estado', 1)
+                    ->where(function ($query) {
+                        $query->where('slug', 'tramitador')
+                            ->orWhere('name', 'like', '%TRAMITADOR%');
+                    });
+            })
+            ->exists();
     }
 
     // Agrupa los certificados previos que exige cada tipo de certificado.
@@ -1484,10 +1532,8 @@ class SeguimientoController extends Controller
         return array_values(array_unique(array_merge($idsPermitidos, $idsEmpresas)));
     }
 
-    // RESUELVE Y VALIDA LA RELACION BENEFICIARIO/TRAMITADOR
-    // Persona natural: el backend fuerza que el tramitador sea la misma persona.
-    // Empresa: solo acepta tramitadores activos de esa empresa o la misma empresa cuando se marca esa opcion.
-    private function resolverTramitadorDelBeneficiario(int $idBeneficiario, ?int $idTramitador): int
+    // El servidor conserva al titular de la cuenta externa como tramitador para evitar cambios desde el navegador.
+    private function resolverTramitadorDelBeneficiario(?User $usuario, int $idBeneficiario, ?int $idTramitador): int
     {
         $beneficiario = Persona::query()
             ->with(['empresa.responsables.rol'])
@@ -1495,15 +1541,26 @@ class SeguimientoController extends Controller
 
         if (!$beneficiario) {
             throw ValidationException::withMessages([
-                'form_id_persona_beneficiario' => 'El beneficiario seleccionado no es valido.',
+                'form_id_persona_beneficiario' => 'El beneficiario seleccionado no es válido.',
             ]);
         }
 
-        if (!$beneficiario->empresa) {
-            return $idBeneficiario;
+        if (!$this->usuarioPuedeVerBandejasInternas($usuario)) {
+            $personaUsuario = Persona::query()
+                ->where('id_usuario', $usuario?->id)
+                ->where('estado', 'ACTIVO')
+                ->first();
+
+            if (!$personaUsuario) {
+                throw ValidationException::withMessages([
+                    'form_id_persona_tramitador' => 'Su cuenta no está vinculada a una persona activa.',
+                ]);
+            }
+
+            return $personaUsuario->id;
         }
 
-        if ($idBeneficiario === $idTramitador) {
+        if (!$beneficiario->empresa || $idBeneficiario === $idTramitador) {
             return $idBeneficiario;
         }
 
@@ -1524,6 +1581,49 @@ class SeguimientoController extends Controller
         }
 
         return $idTramitador;
+    }
+
+    // La evidencia TRAMITADOR solo habilita a una persona natural vinculada a una empresa.
+    private function tramiteRequiereHabilitarTramitador(Certificado $certificado): bool
+    {
+        $tieneEvidenciaTramitador = $certificado->certificadoRequisitos
+            ->flatMap(fn (RequisitoCertificado $requisito) => $requisito->evidenciasRequisitos)
+            ->contains(fn (EvidenciaRequisito $evidencia) => mb_strtoupper((string) $evidencia->tipoEvidencia?->codigo) === 'TRAMITADOR');
+
+        return $tieneEvidenciaTramitador
+            && (bool) $certificado->beneficiario?->empresa
+            && (bool) $certificado->tramitador?->natural;
+    }
+
+    // La relación responsable activa autoriza al tramitador a iniciar trámites para la empresa.
+    private function habilitarTramitadorDelTramite(Certificado $certificado): void
+    {
+        $idRolTramitador = Role::query()
+            ->where('slug', 'tramitador')
+            ->where('estado', 1)
+            ->value('id');
+
+        if (!$idRolTramitador) {
+            throw new \Exception('No existe el rol tramitador activo.');
+        }
+
+        $responsable = Responsable::withTrashed()->firstOrNew([
+            'id_empresa' => $certificado->beneficiario->empresa->id,
+            'id_persona' => $certificado->tramitador->id,
+            'id_rol' => $idRolTramitador,
+        ]);
+
+        $responsable->fill([
+            'fecha_registro' => $responsable->fecha_registro ?: now()->toDateString(),
+            'fecha_baja' => null,
+            'estado' => 'ACTIVO',
+        ]);
+
+        if ($responsable->trashed()) {
+            $responsable->restore();
+        }
+
+        $responsable->save();
     }
 
     // VALIDACION DEL INICIO DE TRAMITE
@@ -2256,9 +2356,16 @@ class SeguimientoController extends Controller
     // Verifica que el usuario logueado sea quien recibio la observacion.
     private function usuarioPuedeReenviarCorreccion(Seguimiento $seguimiento): bool
     {
-        return auth()->check()
-            && (int) $seguimiento->id_usuario_siguiente === (int) auth()->id()
-            && $seguimiento->certificado?->estado === 'OBSERVADO';
+        $usuario = auth()->user();
+        $certificado = $seguimiento->certificado;
+
+        return $usuario
+            && $certificado
+            && (int) $seguimiento->id_usuario_siguiente === (int) $usuario->id
+            && $seguimiento->estado === 'ACTIVO'
+            && ! $seguimiento->fecha_derivacion
+            && $certificado->estado === 'OBSERVADO'
+            && $this->gestionTramitadores->usuarioPuedeResponderCorreccion($usuario, $certificado);
     }
 
     // Verifica si un funcionario puede registrar que la correccion presencial ya fue recibida.
@@ -2281,21 +2388,6 @@ class SeguimientoController extends Controller
         return auth()->user()->tieneRol('administrador')
             || auth()->user()->tieneRol('tecnico-evaluador')
             || $this->usuarioTieneCargoActivo(auth()->user());
-    }
-
-    // DESTINOS DE NOTIFICACION PARA OBSERVACIONES
-    // Incluye beneficiario y tramitador, evitando duplicar si ambos usan la misma cuenta.
-    private function usuariosSolicitantesParaNotificacion(Certificado $certificado)
-    {
-        $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
-
-        return collect([
-            $certificado->beneficiario?->usuario,
-            $certificado->tramitador?->usuario,
-        ])
-            ->filter()
-            ->unique('id')
-            ->values();
     }
 
     // REMITENTE DE NOTIFICACION

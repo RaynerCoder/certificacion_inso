@@ -318,6 +318,13 @@ class ProductoController extends Controller
                         'Seleccione una unidad válida o registre una nueva.'
                     );
                 }
+
+                if ($this->abreviaturaUnidadYaRegistrada($request, $idUnidadPresentacion)) {
+                    $validador->errors()->add(
+                        "presentaciones.$indice.id_catalogo_unidad",
+                        'La abreviatura de la unidad ya está registrada.'
+                    );
+                }
                 if (!$archivoEtiqueta && !$idPresentacionOrigen) {
                     $validador->errors()->add(
                         "presentaciones.$indice.url_etiqueta",
@@ -542,6 +549,28 @@ class ProductoController extends Controller
             && $request->filled('form_unidad_temporal_nombre');
     }
 
+    private function abreviaturaUnidadYaRegistrada(Request $request, $valor): bool
+    {
+        if (
+            !$this->esTemporal((string) $valor)
+            || $request->input('form_unidad_temporal_id') !== $valor
+        ) {
+            return false;
+        }
+
+        $nombre = trim((string) $request->input('form_unidad_temporal_nombre'));
+        $abreviatura = trim((string) $request->input('form_unidad_temporal_abreviatura'));
+
+        if ($nombre === '' || $abreviatura === '') {
+            return false;
+        }
+
+        return CatalogoMedida::withTrashed()
+            ->where('abreviatura', $abreviatura)
+            ->where('nombre', '!=', $nombre)
+            ->exists();
+    }
+
     private function resolverClasificacionProducto(Request $request, $valor): ?int
     {
         if (blank($valor)) {
@@ -552,13 +581,21 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $clasificacion = ClasificacionProducto::firstOrCreate(
-            ['nombre' => $request->input('form_clasificacion_temporal_nombre')],
-            [
+        $clasificacion = ClasificacionProducto::withTrashed()->firstOrNew(
+            ['nombre' => trim((string) $request->input('form_clasificacion_temporal_nombre'))],
+        );
+
+        if (!$clasificacion->exists) {
+            $clasificacion->fill([
                 'descripcion' => $request->input('form_clasificacion_temporal_descripcion'),
                 'estado' => 'ACTIVO',
-            ],
-        );
+            ]);
+            $clasificacion->save();
+        } elseif ($clasificacion->trashed()) {
+            $clasificacion->restore();
+            $clasificacion->estado = 'ACTIVO';
+            $clasificacion->save();
+        }
 
         return $clasificacion->id;
     }
@@ -569,16 +606,22 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $unidad = CatalogoMedida::firstOrCreate(
-            [
-                'nombre' => $request->input('form_unidad_temporal_nombre'),
-                'tipo' => 'unidad de medida',
-            ],
-            [
-                'abreviatura' => $request->input('form_unidad_temporal_abreviatura'),
-                'estado' => 'ACTIVO',
-            ],
+        $unidad = CatalogoMedida::withTrashed()->firstOrNew(
+            ['nombre' => trim((string) $request->input('form_unidad_temporal_nombre'))],
         );
+
+        if (!$unidad->exists) {
+            $unidad->fill([
+                'abreviatura' => $request->input('form_unidad_temporal_abreviatura'),
+                'tipo' => 'unidad de medida',
+                'estado' => 'ACTIVO',
+            ]);
+            $unidad->save();
+        } elseif ($unidad->trashed()) {
+            $unidad->restore();
+            $unidad->estado = 'ACTIVO';
+            $unidad->save();
+        }
 
         return $unidad->id;
     }
