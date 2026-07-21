@@ -14,11 +14,9 @@ class SeguimientoTable extends DataTableComponent
 {
     protected $model = Seguimiento::class;
 
-    // Nombre interno de la bandeja. Debe coincidir con las opciones del menú:
-    // recibidas   -> Trámites para atender: llegaron al usuario actual.
-    // enviadas    -> Mis trámites: fueron iniciados o gestionados por el solicitante.
-    // todos       -> Seguimiento de Trámites: consulta general interna.
-    // finalizados -> Trámites finalizados: ya cerraron su revisión.
+    // Nombre interno de la bandeja. Debe coincidir con las opciones del menú.
+    // recibidas: trámites para atender; enviadas: mis trámites del solicitante.
+    // registrados: trámites creados por el usuario interno; todos y finalizados: consulta interna.
     public string $bandeja = 'recibidas';
 
     public function configure(): void
@@ -47,6 +45,7 @@ class SeguimientoTable extends DataTableComponent
         // Cada opción del menú usa la misma tabla, pero con un filtro distinto.
         return match ($this->bandeja) {
             'enviadas' => $this->filtrarSolicitudesEnviadas($query),
+            'registrados' => $this->filtrarTramitesRegistradosPorMi($query),
             'recibidas' => $this->filtrarSolicitudesRecibidas($query),
             'todos' => $this->filtrarTodosLosTramites($query),
             'finalizados' => $this->filtrarTramitesFinalizados($query),
@@ -86,6 +85,7 @@ class SeguimientoTable extends DataTableComponent
     {
         return match ($this->bandeja) {
             'enviadas' => $this->columnasMisTramites(),
+            'registrados' => $this->columnasTramitesRegistradosPorMi(),
             'recibidas' => $this->columnasTramitesAtender(),
             'todos' => $this->columnasConsultaGeneral(),
             'finalizados' => $this->columnasTramitesFinalizados(),
@@ -106,6 +106,12 @@ class SeguimientoTable extends DataTableComponent
             $this->columnaEstado(),
             $this->columnaAcciones(),
         ];
+    }
+
+    // El personal INSO ve las mismas columnas, pero los registros se filtran por quien los creó.
+    private function columnasTramitesRegistradosPorMi(): array
+    {
+        return $this->columnasMisTramites();
     }
 
     // Seguimiento de Trámites: vista interna para ubicar cualquier trámite.
@@ -313,7 +319,8 @@ class SeguimientoTable extends DataTableComponent
     private function vistaAccionesBandeja(): string
     {
         return match ($this->bandeja) {
-            'enviadas' => 'seguimientos_certificados.mis_tramites.acciones',
+            'enviadas' => 'seguimientos_certificados.mis_tramites_beneficiario.acciones',
+            'registrados' => 'seguimientos_certificados.tramites_registrados_funcionario.acciones',
             'recibidas' => 'seguimientos_certificados.tramites_atender.acciones',
             'todos' => 'seguimientos_certificados.seguimiento_tramite.acciones',
             'finalizados' => 'seguimientos_certificados.tramites_finalizados.acciones',
@@ -345,6 +352,14 @@ class SeguimientoTable extends DataTableComponent
                         ->where('estado', 'ACTIVO')
                         ->whereHas('rol', fn (Builder $rol) => $rol->where('slug', 'tramitador'));
                 });
+        });
+    }
+
+    // No muestra trámites de otros funcionarios, aunque el usuario conozca su código o URL.
+    private function filtrarTramitesRegistradosPorMi(Builder $query): Builder
+    {
+        return $query->whereHas('certificado', function (Builder $certificado) {
+            $certificado->where('id_usuario_registro', auth()->id());
         });
     }
 

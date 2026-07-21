@@ -25,12 +25,12 @@ class PermisoRoleSeeder extends Seeder
             // El administrador recibe todos los permisos activos, incluidos los que se agreguen más adelante.
             1 => $permisosAdministrador,
 
-            // Tecnico Evaluador: atiende tramites y consulta informacion tecnica necesaria.
+            // Tecnico Evaluador: atiende trámites, consulta información técnica y ve lo que registró en ventanilla.
             2 => [
                 1, 2, 3, 4, 10, 11, 12,
                 18, 19, 21, 22, 23,
                 24, 25, 26, 27, 28,
-                29, 30, 31, 32, 33, 34, 35, 37,
+                29, 30, 31, 32, 33, 34, 35, 37, 38,
             ],
 
             // Caja Pagos: consulta tramites cuando corresponde y gestiona pagos.

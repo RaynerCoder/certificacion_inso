@@ -52,6 +52,7 @@ class PermisoSeeder extends Seeder
             35 => 'rubros.ver',
             36 => 'seguimientos_tramite.ver',
             37 => 'reportes.ver',
+            38 => 'seguimientos_tramite.registrados',
         ] as $id => $nombre) {
             $this->guardar('permisos', $id, [
                 'nombre' => $nombre,

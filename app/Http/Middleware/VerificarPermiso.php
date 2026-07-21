@@ -42,7 +42,11 @@ class VerificarPermiso
             'reportes_index' => 'reportes.ver',
             // El detalle del certificado tambien se abre desde "Mis tramites".
             // El controlador valida despues que el tramite pertenezca al usuario.
-            'certificados_show' => ['certificados.ver', 'seguimientos_tramite.ver'],
+            'certificados_show' => [
+                'certificados.ver',
+                'seguimientos_tramite.ver',
+                'seguimientos_tramite.registrados',
+            ],
             // La vista de impresión se abre desde "Mis trámites"; el controlador valida que sea propio.
             'certificados_emitir' => ['certificados.emitir', 'seguimientos_tramite.enviados'],
         ];

@@ -39,49 +39,75 @@ class SeguimientoController extends Controller
 
     public function index(Request $request)
     {
-        // Se usa en el detalle cuando el tramite puede asignarse o derivarse.
-        $tecnicos = $this->tecnicosDisponiblesParaAsignacion();
+        $configuracion = $this->configuracionBandejaTramites($request);
+        $bandeja = $configuracion['bandeja'];
 
-        // seguimientos_mis_solicitudes -> Mis trámites.
-        // seguimientos_index           -> Trámites para atender.
-        // seguimientos_todos           -> Seguimiento de Trámites.
-        // seguimientos_finalizados     -> Trámites finalizados.
-        $bandeja = match (true) {
-            $request->routeIs('seguimientos_mis_solicitudes') => 'enviadas',
-            $request->routeIs('seguimientos_todos') => 'todos',
-            $request->routeIs('seguimientos_finalizados') => 'finalizados',
-            default => 'recibidas',
-        };
-
-        // Las bandejas internas no deben abrirse para solicitantes externos.
-        if (in_array($bandeja, ['recibidas', 'todos', 'finalizados'], true) && !$this->usuarioPuedeAtenderTramites()) {
+        // Las vistas internas no deben abrirse para solicitantes externos.
+        if ($configuracion['requiere_funcionario'] && !$this->usuarioPuedeAtenderTramites()) {
             return redirect()
-                ->route('seguimientos_mis_solicitudes')
+                ->route('seguimientos_mis_tramites_beneficiario')
                 ->with('error', 'Su usuario solo puede consultar las solicitudes que envio.');
         }
 
-        $tituloPagina = match ($bandeja) {
-            'enviadas' => 'Solicitudes enviadas por mi',
-            'todos' => 'Consulta general de tramites',
-            'finalizados' => 'Tramites finalizados',
-            default => 'Solicitudes recibidas para atender',
-        };
-        $descripcionPagina = match ($bandeja) {
-            'enviadas' => 'Consulte los tramites que usted inicio y revise en que etapa se encuentran.',
-            'todos' => 'Listado de solo lectura para hacer seguimiento de cualquier tramite registrado.',
-            'finalizados' => 'Listado de tramites cerrados y listos para imprimir su certificado.',
-            default => 'Bandeja de trabajo para revisar, asignar o derivar tramites que llegaron a su usuario.',
-        };
+        return view($configuracion['vista'], [
+            'bandeja' => $bandeja,
+            'tituloPagina' => $configuracion['titulo'],
+            'descripcionPagina' => $configuracion['descripcion'],
+        ]);
+    }
 
-        // Cada seccion tiene su propia carpeta de vista para ubicar rapido sus botones y textos.
-        $vistaBandeja = match ($bandeja) {
-            'enviadas' => 'seguimientos_certificados.mis_tramites.index',
-            'todos' => 'seguimientos_certificados.seguimiento_tramite.index',
-            'finalizados' => 'seguimientos_certificados.tramites_finalizados.index',
-            default => 'seguimientos_certificados.tramites_atender.index',
-        };
+    /**
+     * Relaciona cada opción del menú Trámites con su vista y el filtro de su tabla.
+     * Al agregar otra bandeja, se registra aquí y luego se crea su filtro en SeguimientoTable.
+     */
+    private function configuracionBandejaTramites(Request $request): array
+    {
+        return match (true) {
+            // Menú: Mis trámites. Solo muestra los trámites del beneficiario o tramitador externo.
+            $request->routeIs('seguimientos_mis_tramites_beneficiario') => [
+                'bandeja' => 'enviadas',
+                'titulo' => 'Mis trámites',
+                'descripcion' => 'Consulte los trámites que inició y revise en qué etapa se encuentran.',
+                'vista' => 'seguimientos_certificados.mis_tramites_beneficiario.index',
+                'requiere_funcionario' => false,
+            ],
 
-        return view($vistaBandeja, compact('tecnicos', 'bandeja', 'tituloPagina', 'descripcionPagina'));
+            // Menú: Trámites registrados. Solo muestra los trámites creados por el funcionario actual.
+            $request->routeIs('seguimientos_tramites_registrados_funcionario') => [
+                'bandeja' => 'registrados',
+                'titulo' => 'Trámites registrados',
+                'descripcion' => 'Consulte los trámites que registró personalmente desde INSO.',
+                'vista' => 'seguimientos_certificados.tramites_registrados_funcionario.index',
+                'requiere_funcionario' => true,
+            ],
+
+            // Menú: Seguimiento de Trámites. Consulta interna de solo lectura para cualquier trámite.
+            $request->routeIs('seguimientos_todos') => [
+                'bandeja' => 'todos',
+                'titulo' => 'Seguimiento de Trámites',
+                'descripcion' => 'Listado de solo lectura para hacer seguimiento de cualquier trámite registrado.',
+                'vista' => 'seguimientos_certificados.seguimiento_tramite.index',
+                'requiere_funcionario' => true,
+            ],
+
+            // Menú: Trámites finalizados. Muestra los casos cerrados y listos para imprimir.
+            $request->routeIs('seguimientos_finalizados') => [
+                'bandeja' => 'finalizados',
+                'titulo' => 'Trámites finalizados',
+                'descripcion' => 'Listado de trámites cerrados y listos para imprimir su certificado.',
+                'vista' => 'seguimientos_certificados.tramites_finalizados.index',
+                'requiere_funcionario' => true,
+            ],
+
+            // Menú: Trámites para atender. Es la bandeja de trabajo de quien recibe el trámite.
+            default => [
+                'bandeja' => 'recibidas',
+                'titulo' => 'Trámites para atender',
+                'descripcion' => 'Bandeja de trabajo para revisar, asignar o derivar trámites que llegaron a su usuario.',
+                'vista' => 'seguimientos_certificados.tramites_atender.index',
+                'requiere_funcionario' => true,
+            ],
+        };
     }
 
     /**
@@ -393,7 +419,7 @@ class SeguimientoController extends Controller
                             'certificado' => $certificado,
                             'bandeja' => $esSolicitante ? 'enviadas' : 'recibidas',
                         ])
-                        : ($esSolicitante ? route('seguimientos_mis_solicitudes') : route('seguimientos_index')),
+                        : ($esSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')),
                     'fecha' => $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha',
                     'fecha_humana' => $notificacion->created_at?->diffForHumans() ?? 'Sin fecha',
                 ];
@@ -1170,7 +1196,7 @@ class SeguimientoController extends Controller
                 'icon' => 'success',
             ]);
 
-            return redirect()->route('seguimientos_mis_solicitudes');
+            return redirect()->route('seguimientos_mis_tramites_beneficiario');
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -1815,16 +1841,16 @@ class SeguimientoController extends Controller
         };
     }
 
-    // Decide a que bandeja volver despues de registrar un tramite nuevo.
-    // Solo el beneficiario ve su solicitud en "Mis tramites"; funcionarios van al seguimiento general.
+    // Decide a qué bandeja volver después de registrar un trámite nuevo.
+    // El solicitante ve Mis trámites; el personal INSO ve únicamente los trámites que registró.
     private function rutaDespuesDeRegistrarTramite(Certificado $certificado, ?User $usuario): string
     {
         if ($this->usuarioEsBeneficiarioDelTramite($certificado, $usuario)) {
-            return 'seguimientos_mis_solicitudes';
+            return 'seguimientos_mis_tramites_beneficiario';
         }
 
-        return $usuario?->puede('seguimientos_tramite.consulta_general')
-            ? 'seguimientos_todos'
+        return $this->usuarioPuedeVerBandejasInternas($usuario)
+            ? 'seguimientos_tramites_registrados_funcionario'
             : 'seguimientos_index';
     }
 

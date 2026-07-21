@@ -370,7 +370,8 @@ Route::get('/cargos/{cargo}',[CargoController::class, 'show'])->name('cargos_sho
    SEGUIMIENTOS - TRAMITE
 ========================= */
 Route::get('/seguimientos', [SeguimientoController::class, 'index'])->name('seguimientos_index')->middleware('permiso:seguimientos_tramite.atender');
-Route::get('/seguimientos/mis-solicitudes', [SeguimientoController::class, 'index'])->name('seguimientos_mis_solicitudes')->middleware('permiso:seguimientos_tramite.enviados');
+Route::get('/seguimientos/mis-solicitudes', [SeguimientoController::class, 'index'])->name('seguimientos_mis_tramites_beneficiario')->middleware('permiso:seguimientos_tramite.enviados');
+Route::get('/seguimientos/registrados-por-mi', [SeguimientoController::class, 'index'])->name('seguimientos_tramites_registrados_funcionario')->middleware('permiso:seguimientos_tramite.registrados');
 Route::get('/seguimientos/todos', [SeguimientoController::class, 'index'])->name('seguimientos_todos')->middleware('permiso:seguimientos_tramite.consulta_general');
 Route::get('/seguimientos/finalizados', [SeguimientoController::class, 'index'])->name('seguimientos_finalizados')->middleware('permiso:seguimientos_tramite.consulta_general');
 Route::get('/seguimientos/create', [SeguimientoController::class, 'create'])->name('seguimientos_create')->middleware('permiso:seguimientos_tramite.iniciar');

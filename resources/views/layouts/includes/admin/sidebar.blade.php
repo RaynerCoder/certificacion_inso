@@ -12,14 +12,19 @@
 
     // Bandeja actual del modulo Tramites:
     // - enviadas: tramites creados por el solicitante.
+    // - registrados: tramites creados por un usuario interno.
     // - recibidas: tramites que llegaron para atender.
     // - todos: consulta general de seguimiento.
     // En detalle o historial este dato puede llegar por query string (?bandeja=recibidas).
     $bandejaTramiteActual = request('bandeja');
 
     // Si la URL no trae ?bandeja=..., se deduce por la ruta para mantener activo el submenu correcto.
-    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_mis_solicitudes')) {
+    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_mis_tramites_beneficiario')) {
         $bandejaTramiteActual = 'enviadas';
+    }
+
+    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_tramites_registrados_funcionario')) {
+        $bandejaTramiteActual = 'registrados';
     }
 
     if (!$bandejaTramiteActual && request()->routeIs('seguimientos_todos')) {
@@ -40,7 +45,8 @@
     // Rutas propias del modulo Tramites. Si el usuario esta en una de ellas, el menu queda resaltado.
     $estaEnRutaDeTramites = request()->routeIs(
         'seguimientos_create',
-        'seguimientos_mis_solicitudes',
+        'seguimientos_mis_tramites_beneficiario',
+        'seguimientos_tramites_registrados_funcionario',
         'seguimientos_index',
         'seguimientos_todos',
         'seguimientos_finalizados',
@@ -51,15 +57,18 @@
     // Algunas pantallas de detalle usan certificados_show, pero siguen perteneciendo al flujo de Tramites.
     $estaEnDetalleDeTramite =
         request()->routeIs('certificados_show') &&
-        in_array($bandejaTramiteActual, ['enviadas', 'recibidas', 'todos', 'finalizados'], true);
+        in_array($bandejaTramiteActual, ['enviadas', 'registrados', 'recibidas', 'todos', 'finalizados'], true);
 
     // Resultado final usado por el item principal "Tramites" del sidebar.
     $rutaTramiteActiva = $estaEnRutaDeTramites || $estaEnDetalleDeTramite;
 
     // Usuario autenticado usado para decidir que opciones del menu puede ver.
     $usuarioMenu = auth()->user();
-    $usuarioMenu?->loadMissing('persona.empresa');
+    $usuarioMenu?->loadMissing('persona.empresa', 'funcionario');
     $esCuentaEmpresa = (bool) $usuarioMenu?->persona?->empresa;
+    // La ficha de funcionario define si la cuenta pertenece al personal INSO.
+    // Así no se mezcla su bandeja de registros con la bandeja del beneficiario.
+    $esFuncionarioInso = (bool) $usuarioMenu?->funcionario;
 
     // Helper visual del menu: usa permisos dinamicos guardados en la base de datos.
     $puedeVerModulo = fn(string|array $permisos) => $usuarioMenu?->puede($permisos) ?? false;
@@ -69,6 +78,7 @@
     $permisosMenuTramites = [
         'seguimientos_tramite.iniciar',
         'seguimientos_tramite.enviados',
+        'seguimientos_tramite.registrados',
         'seguimientos_tramite.atender',
         'seguimientos_tramite.consulta_general',
     ];
@@ -214,9 +224,9 @@
                 [
                     'name' => 'Mis trámites',
                     'icon' => 'fa-solid fa-paper-plane',
-                    'href' => $href('seguimientos_mis_solicitudes'),
+                    'href' => $href('seguimientos_mis_tramites_beneficiario'),
                     'active' =>
-                        request()->routeIs('seguimientos_mis_solicitudes') ||
+                        request()->routeIs('seguimientos_mis_tramites_beneficiario') ||
                         (request()->routeIs(
                             'certificados_show',
                             'seguimientos_show',
@@ -224,6 +234,18 @@
                         ) &&
                             $bandejaTramiteActual === 'enviadas'),
                     'permission' => 'seguimientos_tramite.enviados',
+                    'visible' => !$esFuncionarioInso,
+                ],
+                [
+                    'name' => 'Trámites registrados',
+                    'icon' => 'fa-solid fa-file-circle-check',
+                    'href' => $href('seguimientos_tramites_registrados_funcionario'),
+                    'active' =>
+                        request()->routeIs('seguimientos_tramites_registrados_funcionario') ||
+                        (request()->routeIs('certificados_show', 'seguimientos_show', 'seguimientos_tramite_historial') &&
+                            $bandejaTramiteActual === 'registrados'),
+                    'permission' => 'seguimientos_tramite.registrados',
+                    'visible' => $esFuncionarioInso,
                 ],
                 [
                     'name' => 'Trámites para atender',

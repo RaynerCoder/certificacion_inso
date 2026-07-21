@@ -197,7 +197,7 @@
                                             'certificado' => $certificadoNotificacion,
                                             'bandeja' => $esNotificacionSolicitante ? 'enviadas' : 'recibidas',
                                         ])
-                                        : ($esNotificacionSolicitante ? route('seguimientos_mis_solicitudes') : route('seguimientos_index'));
+                                        : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index'));
                                     $remitenteNotificacion = $datosRemitenteNotificacion($notificacion->usuarioEmisor);
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
                                 @endphp

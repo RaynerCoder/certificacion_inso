@@ -5,7 +5,7 @@
     ],
     [
         'name' => $tituloPagina,
-        'href' => route('seguimientos_mis_solicitudes'),
+        'href' => route('seguimientos_mis_tramites_beneficiario'),
     ],
 ]">
     @php

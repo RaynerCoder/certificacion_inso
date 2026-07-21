@@ -297,6 +297,10 @@ class CertificadoController extends Controller
             || $usuarioActual->tieneRol('tecnico-evaluador')
             || $this->usuarioTieneCargoActivo($usuarioActual)
         );
+        // Un funcionario puede abrir desde esta bandeja solo los trámites que registró con su cuenta.
+        $esRegistroPropio = request('bandeja') === 'registrados'
+            && $usuarioActual
+            && (int) $certificado->id_usuario_registro === (int) $usuarioActual->id;
         // Ultima etapa abierta: desde aqui el jefe puede asignar o revisar si aun no derivo a tecnico.
         $seguimientoAtencionActual = $certificado->seguimientos
             ->sortByDesc('id')
@@ -317,7 +321,7 @@ class CertificadoController extends Controller
             ], true)
         );
 
-        if (!$esSolicitante && !$participaEnSeguimiento && !$puedeConsultaGeneral) {
+        if (!$esSolicitante && !$esRegistroPropio && !$participaEnSeguimiento && !$puedeConsultaGeneral) {
             abort(403, 'No tiene permiso para ver este tramite.');
         }
 
@@ -415,7 +419,7 @@ class CertificadoController extends Controller
         $procedenciasPago = Procedencia::orderBy('codigo')->get();
 
         $vistaDetalle = request('bandeja') === 'enviadas'
-            ? 'seguimientos_certificados.mis_tramites.ver_tramite'
+            ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
             : 'certificados.show';
 
         return view($vistaDetalle, compact(

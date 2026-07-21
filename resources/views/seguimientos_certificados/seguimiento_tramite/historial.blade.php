@@ -6,7 +6,7 @@
     [
         'name' => $bandeja === 'enviadas' ? 'Solicitudes enviadas' : ($bandeja === 'todos' ? 'Consulta general' : 'Solicitudes recibidas'),
         'href' => $bandeja === 'enviadas'
-            ? route('seguimientos_mis_solicitudes')
+            ? route('seguimientos_mis_tramites_beneficiario')
             : ($bandeja === 'todos' ? route('seguimientos_todos') : route('seguimientos_index')),
     ],
     [

@@ -33,7 +33,7 @@
                 'icono' => 'fa-solid fa-paper-plane',
                 'color' => 'azul',
                 'permiso' => 'seguimientos_tramite.enviados',
-                'ruta' => $ruta('seguimientos_mis_solicitudes'),
+                'ruta' => $ruta('seguimientos_mis_tramites_beneficiario'),
             ],
             [
                 'titulo' => 'Trámites por atender',
