@@ -81,9 +81,7 @@ Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes_ind
    TERRITORIOS
 ========================= */
 Route::get('/territorios', [TerritorioController::class, 'index'])->name('territorios_index');
-Route::get('/territorios/create', [TerritorioController::class, 'create'])->name('territorios_create');
 Route::post('/territorios', [TerritorioController::class, 'store'])->name('territorios_store');
-Route::get('/territorios/{territorio}/edit', [TerritorioController::class, 'edit'])->name('territorios_edit');
 Route::put('/territorios/{territorio}', [TerritorioController::class, 'update'])->name('territorios_update');
 Route::delete('/territorios/{territorio}', [TerritorioController::class, 'destroy'])->name('territorios_destroy');
 

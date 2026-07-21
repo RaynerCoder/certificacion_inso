@@ -22,7 +22,7 @@ class SeguimientoSeeder extends Seeder
             'fecha_derivacion' => null,
             'fecha_final' => null,
             'descripcion_final' => 'Solicitud recibida por jefatura UTHSI.',
-            'referencia' => 'Inicio del trámite TRM-2026-000001.',
+            'referencia' => 'Inicio del trámite',
             'id_usuario_anterior' => null,
             'id_usuario_origen' => 9,
             'id_usuario_siguiente' => 4,

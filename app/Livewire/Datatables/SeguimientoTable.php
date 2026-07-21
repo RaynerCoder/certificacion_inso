@@ -14,11 +14,11 @@ class SeguimientoTable extends DataTableComponent
 {
     protected $model = Seguimiento::class;
 
-    // Bandeja activa:
-    // - recibidas: tramites que debe atender el funcionario.
-    // - enviadas: tramites propios del solicitante.
-    // - todos: consulta general institucional.
-    // - finalizados: tramites cerrados y listos para imprimir.
+    // Nombre interno de la bandeja. Debe coincidir con las opciones del menú:
+    // recibidas   -> Trámites para atender: llegaron al usuario actual.
+    // enviadas    -> Mis trámites: fueron iniciados o gestionados por el solicitante.
+    // todos       -> Seguimiento de Trámites: consulta general interna.
+    // finalizados -> Trámites finalizados: ya cerraron su revisión.
     public string $bandeja = 'recibidas';
 
     public function configure(): void
@@ -35,6 +35,7 @@ class SeguimientoTable extends DataTableComponent
 
     public function builder(): Builder
     {
+        // La tabla lista un trámite una sola vez. Los movimientos hijos se ven en el historial.
         $query = Seguimiento::query()
             ->with($this->relacionesNecesarias())
             ->whereNull('id_seguimiento_padre');
@@ -43,15 +44,17 @@ class SeguimientoTable extends DataTableComponent
             return $query->whereRaw('1 = 0');
         }
 
+        // Cada opción del menú usa la misma tabla, pero con un filtro distinto.
         return match ($this->bandeja) {
             'enviadas' => $this->filtrarSolicitudesEnviadas($query),
+            'recibidas' => $this->filtrarSolicitudesRecibidas($query),
             'todos' => $this->filtrarTodosLosTramites($query),
             'finalizados' => $this->filtrarTramitesFinalizados($query),
-            default => $this->filtrarSolicitudesRecibidas($query),
+            default => $query->whereRaw('1 = 0'),
         };
     }
 
-    // Relaciones usadas por las columnas. Mantenerlas juntas evita consultas repetidas por fila.
+    // Relaciones que usan las columnas. Si agregas una columna con datos relacionados, cárgala aquí.
     private function relacionesNecesarias(): array
     {
         return [
@@ -70,10 +73,6 @@ class SeguimientoTable extends DataTableComponent
             'certificado.seguimientos.usuarioSiguiente.persona.empresa',
             'certificado.seguimientos.usuarioSiguiente.persona.natural',
             'certificado.seguimientos.usuarioSiguiente.roles',
-            // Producto/presentacion llegan por certificados_registros -> registros.
-            'certificado.registros.producto.tipoProducto',
-            'certificado.registros.producto.fabricante',
-            'certificado.registros.presentacion.catalogoUnidad',
         ];
     }
 
@@ -86,14 +85,15 @@ class SeguimientoTable extends DataTableComponent
     public function columns(): array
     {
         return match ($this->bandeja) {
-            'recibidas' => $this->columnasTramitesAtender(),
             'enviadas' => $this->columnasMisTramites(),
+            'recibidas' => $this->columnasTramitesAtender(),
+            'todos' => $this->columnasConsultaGeneral(),
             'finalizados' => $this->columnasTramitesFinalizados(),
-            default => $this->columnasConsultaGeneral(),
+            default => [],
         };
     }
 
-    // Tabla del solicitante: solo muestra los datos necesarios para consultar su tramite.
+    // Mis trámites: muestra lo necesario para que el solicitante revise su solicitud.
     private function columnasMisTramites(): array
     {
         return [
@@ -108,7 +108,7 @@ class SeguimientoTable extends DataTableComponent
         ];
     }
 
-    // Tabla usada por "Seguimiento de tramite".
+    // Seguimiento de Trámites: vista interna para ubicar cualquier trámite.
     private function columnasConsultaGeneral(): array
     {
         return [
@@ -124,7 +124,7 @@ class SeguimientoTable extends DataTableComponent
         ];
     }
 
-    // Tabla usada por "Tramites finalizados"; muestra primero los cierres mas recientes.
+    // Trámites finalizados: muestra cierres y opciones de impresión del certificado.
     private function columnasTramitesFinalizados(): array
     {
         return [
@@ -141,7 +141,7 @@ class SeguimientoTable extends DataTableComponent
         ];
     }
 
-    // Tabla usada por "Tramites a atender". Se mantiene compacta para abrir rapido el detalle.
+    // Trámites para atender: muestra lo que el usuario debe revisar o derivar.
     private function columnasTramitesAtender(): array
     {
         return [
@@ -160,7 +160,7 @@ class SeguimientoTable extends DataTableComponent
 
     /*
     |--------------------------------------------------------------------------
-    | Definicion de columnas reutilizables
+    | Columnas reutilizables
     |--------------------------------------------------------------------------
     */
 
@@ -204,7 +204,7 @@ class SeguimientoTable extends DataTableComponent
             });
     }
 
-    // fecha_inicio guarda el día; created_at conserva la hora en que se creó la atención.
+    // Para la bandeja de atención se muestra la fecha del seguimiento y la hora real de creación.
     private function columnaFechaHoraInicio(): Column
     {
         return Column::make('Fecha y hora', 'created_at')
@@ -241,46 +241,10 @@ class SeguimientoTable extends DataTableComponent
             ->sortable();
     }
 
-    private function columnaProductoRegistro(): Column
-    {
-        return Column::make('Producto / Registro')
-            ->label(fn ($fila) => $this->htmlProductoRegistro($fila))
-            ->html();
-    }
-
-    private function columnaPresentacion(): Column
-    {
-        return Column::make('Presentación')
-            ->label(fn ($fila) => $this->textoPresentacion($fila));
-    }
-
-    private function columnaRequisitos(): Column
-    {
-        return Column::make('Requisitos')
-            ->label(fn ($fila) => $this->textoResumenRequisitos($fila));
-    }
-
     private function columnaRequisitosCumplidos(): Column
     {
         return Column::make('Requisitos cumplidos')
             ->label(fn ($fila) => $this->htmlRequisitosCumplidos($fila))
-            ->html();
-    }
-
-    private function columnaUltimaEtapa(): Column
-    {
-        return Column::make('Última etapa')
-            ->label(function ($fila) {
-                $seguimiento = $this->ultimoMovimiento($fila);
-
-                return $seguimiento?->descripcion_final ?: 'Sin seguimiento';
-            });
-    }
-
-    private function columnaResponsableActual(): Column
-    {
-        return Column::make('Responsable actual')
-            ->label(fn ($fila) => $this->htmlResponsableActual($fila))
             ->html();
     }
 
@@ -341,18 +305,19 @@ class SeguimientoTable extends DataTableComponent
 
     /*
     |--------------------------------------------------------------------------
-    | Vistas Blade para botones de accion
+    | Botones de acción por pantalla
     |--------------------------------------------------------------------------
     */
 
-    // Cada carpeta del modulo tiene su propio archivo acciones.blade.php.
+    // Cada opción del menú tiene su propio archivo de botones.
     private function vistaAccionesBandeja(): string
     {
         return match ($this->bandeja) {
             'enviadas' => 'seguimientos_certificados.mis_tramites.acciones',
+            'recibidas' => 'seguimientos_certificados.tramites_atender.acciones',
             'todos' => 'seguimientos_certificados.seguimiento_tramite.acciones',
             'finalizados' => 'seguimientos_certificados.tramites_finalizados.acciones',
-            default => 'seguimientos_certificados.tramites_atender.acciones',
+            default => '',
         };
     }
 
@@ -363,11 +328,13 @@ class SeguimientoTable extends DataTableComponent
     */
 
     // Bandeja del solicitante: muestra tramites donde su usuario es beneficiario o tramitador.
+    // Mis trámites:
+    // El usuario ve trámites donde es beneficiario, o donde actúa como tramitador activo de la empresa.
     private function filtrarSolicitudesEnviadas(Builder $query): Builder
     {
         $idPersonaActual = auth()->user()?->loadMissing('persona')?->persona?->id;
 
-        return $query->where(function (Builder $consulta) {
+        return $query->where(function (Builder $consulta) use ($idPersonaActual) {
             $consulta
                 ->whereHas('certificado.beneficiario', function (Builder $persona) {
                     $persona->where('id_usuario', auth()->id());
@@ -381,7 +348,8 @@ class SeguimientoTable extends DataTableComponent
         });
     }
 
-    // Bandeja interna: cada funcionario ve solo tramites activos enviados a su usuario.
+    // Trámites para atender:
+    // Un trámite aparece aquí cuando el último movimiento activo apunta al usuario actual.
     private function filtrarSolicitudesRecibidas(Builder $query): Builder
     {
         return $query->whereHas('certificado.seguimientos', function (Builder $consulta) {
@@ -391,7 +359,8 @@ class SeguimientoTable extends DataTableComponent
         });
     }
 
-    // Consulta general: solo funcionarios autorizados pueden ver todos los tramites.
+    // Seguimiento de Trámites:
+    // Solo usuarios internos autorizados pueden consultar todo el flujo.
     private function filtrarTodosLosTramites(Builder $query): Builder
     {
         if (!$this->usuarioPuedeConsultarTodosLosTramites()) {
@@ -401,7 +370,8 @@ class SeguimientoTable extends DataTableComponent
         return $query->latest('id');
     }
 
-    // Finalizados: solo tramites cerrados, ordenados por la fecha final mas reciente.
+    // Trámites finalizados:
+    // Incluye certificados aprobados/emitidos o seguimientos marcados como finalizados.
     private function filtrarTramitesFinalizados(Builder $query): Builder
     {
         if (!$this->usuarioPuedeConsultarTodosLosTramites()) {
@@ -437,7 +407,7 @@ class SeguimientoTable extends DataTableComponent
 
     /*
     |--------------------------------------------------------------------------
-    | Helpers de presentacion
+    | Helpers de presentación
     |--------------------------------------------------------------------------
     */
 
@@ -449,53 +419,6 @@ class SeguimientoTable extends DataTableComponent
         return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black leading-none ' . $clase . '">'
             . e($texto)
             . '</span>';
-    }
-
-    private function htmlProductoRegistro(Seguimiento $seguimiento): string
-    {
-        $registro = $this->registroPrincipal($seguimiento);
-
-        if (!$registro) {
-            return '<span class="text-slate-500">Sin producto asociado</span>';
-        }
-
-        $producto = $registro->producto;
-        $nombreProducto = $producto?->nombre_comercial ?: 'Sin producto';
-        $codigoRegistro = $registro->codigo_autorizacion ?: 'Sin registro';
-        $tipoProducto = $producto?->tipoProducto?->descripcion ?: 'Sin tipo';
-
-        return '<div class="min-w-[220px]">'
-            . '<strong class="text-slate-800">' . e($nombreProducto) . '</strong>'
-            . '<div class="text-xs font-semibold text-slate-500">Reg. ' . e($codigoRegistro) . ' | ' . e($tipoProducto) . '</div>'
-            . '</div>';
-    }
-
-    private function textoPresentacion(Seguimiento $seguimiento): string
-    {
-        $presentacion = $this->registroPrincipal($seguimiento)?->presentacion;
-
-        if (!$presentacion) {
-            return 'Sin presentación';
-        }
-
-        $unidad = $presentacion->catalogoUnidad;
-        $textoUnidad = $unidad ? trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : '')) : '';
-        $cantidadUnidad = trim(($presentacion->cantidad ?? '') . ' ' . $textoUnidad);
-
-        return $cantidadUnidad . ($presentacion->descripcion ? ' - ' . $presentacion->descripcion : '');
-    }
-
-    private function textoResumenRequisitos(Seguimiento $seguimiento): string
-    {
-        $requisitos = $seguimiento->certificado?->certificadoRequisitos;
-
-        if (!$requisitos || $requisitos->isEmpty()) {
-            return 'Sin requisitos';
-        }
-
-        $revisados = $requisitos->where('estado', '!=', 'PENDIENTE_REVISION')->count();
-
-        return $revisados . '/' . $requisitos->count() . ' revisados';
     }
 
     private function htmlRequisitosCumplidos(Seguimiento $seguimiento): string
@@ -524,14 +447,6 @@ class SeguimientoTable extends DataTableComponent
             . '<div><span class="font-black text-slate-700">Inicio:</span> ' . e($this->formatearFechaHora($fechaInicio)) . '</div>'
             . '<div class="text-slate-500"><span class="font-black text-slate-600">Fin:</span> ' . e($this->formatearFechaHora($fechaFinal)) . '</div>'
             . '</div>';
-    }
-
-    private function htmlResponsableActual(Seguimiento $seguimiento): string
-    {
-        return $this->htmlUsuarioFuncionario(
-            $this->movimientoActualDelTramite($seguimiento)?->usuarioSiguiente,
-            'Sin asignar'
-        );
     }
 
     private function htmlUsuarioActualTramite(Seguimiento $seguimiento): string
@@ -649,11 +564,6 @@ class SeguimientoTable extends DataTableComponent
             ->first();
 
         return $movimientoActivo ?: $this->ultimoMovimiento($seguimiento);
-    }
-
-    private function registroPrincipal(Seguimiento $seguimiento)
-    {
-        return $seguimiento->certificado?->registros?->first();
     }
 
     private function formatearFechaHora($fecha): string

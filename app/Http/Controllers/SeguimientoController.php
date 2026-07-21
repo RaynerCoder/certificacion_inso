@@ -30,21 +30,22 @@ class SeguimientoController extends Controller
 {
     private const TOKENS_INICIO_TRAMITE = 'tokens_inicio_tramite';
 
+    // Este servicio concentra reglas de beneficiario/tramitador.
+    // Se usa para saber si un usuario puede ver, corregir o enviar tramites de una empresa.
     public function __construct(private GestionTramitadoresService $gestionTramitadores)
     {
     }
 
-    /**
-     * Muestra una sola bandeja de tramites segun la ruta actual:
-     * enviadas, recibidas o consulta general.
-     */
+
     public function index(Request $request)
     {
-        // Funcionarios disponibles para asignar solicitudes desde la bandeja.
-        // Salen de usuarios con ficha de funcionario y al menos un cargo activo.
+        // Se usa en el detalle cuando el tramite puede asignarse o derivarse.
         $tecnicos = $this->tecnicosDisponiblesParaAsignacion();
 
-        // La misma vista se usa para las bandejas del tramite, pero siempre con una sola tabla visible.
+        // seguimientos_mis_solicitudes -> Mis trámites.
+        // seguimientos_index           -> Trámites para atender.
+        // seguimientos_todos           -> Seguimiento de Trámites.
+        // seguimientos_finalizados     -> Trámites finalizados.
         $bandeja = match (true) {
             $request->routeIs('seguimientos_mis_solicitudes') => 'enviadas',
             $request->routeIs('seguimientos_todos') => 'todos',
@@ -52,6 +53,7 @@ class SeguimientoController extends Controller
             default => 'recibidas',
         };
 
+        // Las bandejas internas no deben abrirse para solicitantes externos.
         if (in_array($bandeja, ['recibidas', 'todos', 'finalizados'], true) && !$this->usuarioPuedeAtenderTramites()) {
             return redirect()
                 ->route('seguimientos_mis_solicitudes')
@@ -71,7 +73,7 @@ class SeguimientoController extends Controller
             default => 'Bandeja de trabajo para revisar, asignar o derivar tramites que llegaron a su usuario.',
         };
 
-        // Cada bandeja usa su propia carpeta de vista para ubicar rapido botones, estilos y textos.
+        // Cada seccion tiene su propia carpeta de vista para ubicar rapido sus botones y textos.
         $vistaBandeja = match ($bandeja) {
             'enviadas' => 'seguimientos_certificados.mis_tramites.index',
             'todos' => 'seguimientos_certificados.seguimiento_tramite.index',

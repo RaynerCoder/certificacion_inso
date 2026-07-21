@@ -21,7 +21,6 @@ class RoleUserSeeder extends Seeder
             ->delete();
 
         foreach ([
-            1 => [1, 1],
             2 => [2, 2],
             3 => [3, 3],
             4 => [1, 4],
@@ -44,5 +43,6 @@ class RoleUserSeeder extends Seeder
                 'id_user' => $user,
             ]);
         }
+
     }
 }

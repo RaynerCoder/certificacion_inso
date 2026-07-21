@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Database\Seeders\Concerns\GuardaSeeders;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class PermisoRoleSeeder extends Seeder
 {
@@ -14,9 +15,15 @@ class PermisoRoleSeeder extends Seeder
      */
     public function run(): void
     {
+        $permisosAdministrador = DB::table('permisos')
+            ->where('estado', 1)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
         $permisosPorRol = [
-            // Administrador: acceso completo a los modulos activos del sistema.
-            1 => range(1, 37),
+            // El administrador recibe todos los permisos activos, incluidos los que se agreguen más adelante.
+            1 => $permisosAdministrador,
 
             // Tecnico Evaluador: atiende tramites y consulta informacion tecnica necesaria.
             2 => [

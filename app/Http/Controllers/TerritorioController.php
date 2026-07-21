@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Territorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class TerritorioController extends Controller
 {
@@ -14,16 +13,10 @@ class TerritorioController extends Controller
      */
     public function index()
     {
-        return view('territorios.index');
-    }
+        // La lista se usa en los select de territorio superior de ambos modales.
+        $territorios = Territorio::query()->orderBy('nombre')->get();
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $territorios = Territorio::all();
-        return view('territorios.create', compact('territorios'));
+        return view('territorios.index', compact('territorios'));
     }
 
     /**
@@ -67,26 +60,6 @@ class TerritorioController extends Controller
                 ->with('error', 'No se pudo registrar el territorio.')
                 ->withInput();
         }
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Territorio $territorio)
-    {
-
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Territorio $territorio)
-    {
-        //dd($territorio->toArray());
-        $listaTerritorios = Territorio::all();       
-        return view('territorios.edit',
-            ['territorio' => $territorio, 'listaTerritorios' => $listaTerritorios]
-        ); 
     }
 
     /**

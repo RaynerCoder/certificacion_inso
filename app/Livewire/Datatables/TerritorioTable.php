@@ -25,14 +25,13 @@ class TerritorioTable extends DataTableComponent
             //    ->sortable(),
             Column::make("Nombre", "nombre")
                 ->sortable(),
-            Column::make("Codigo", "codigo")
+            Column::make("Código", "codigo")
                 ->sortable(),
             Column::make("Estado", "estado")
                 ->sortable(),
             Column::make('Acciones')
-                ->label(function($fila){
-                    return view('territorios.accion', ['territorio' => $fila]);
-                }),
+                ->label(fn ($fila) => view('territorios.accion', ['territorio' => $fila])->render())
+                ->html(),
         ];
     }
 }
