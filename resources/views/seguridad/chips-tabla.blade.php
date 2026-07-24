@@ -4,38 +4,47 @@
     $campo = $campo ?? 'nombre';
     $textoVacio = $vacio ?? 'Sin datos';
     $limite = isset($limite) ? (int) $limite : null;
+    $soloResumen = (bool) ($soloResumen ?? false);
     $tituloModal = $tituloModal ?? 'Detalle';
     $colores = ['is-blue', 'is-emerald', 'is-violet', 'is-amber', 'is-rose', 'is-cyan', 'is-slate'];
     $itemsVisibles = $limite ? $coleccion->take($limite) : $coleccion;
     $itemsOcultos = $limite ? max($coleccion->count() - $limite, 0) : 0;
     $modalId = 'seg_modal_chips_' . md5($tituloModal . '_' . $campo . '_' . $coleccion->pluck('id')->join('_'));
+    $textoResumen = $coleccion->count() === 1 ? '1 permiso' : $coleccion->count() . ' permisos';
 @endphp
 
 @if ($coleccion->isEmpty())
     <span class="seg-table-empty">{{ $textoVacio }}</span>
 @else
     <div class="seg-chip-list is-table seg-table-chip-wrap">
-        @foreach ($itemsVisibles as $item)
-            @php
-                $texto = is_scalar($item) ? $item : data_get($item, $campo);
-                $baseColor = data_get($item, 'id') ?: crc32((string) $texto);
-                $claseColor = $colores[abs((int) $baseColor) % count($colores)];
-            @endphp
-
-            @if ($texto)
-                <span class="seg-chip {{ $claseColor }}" title="{{ $texto }}">{{ $texto }}</span>
-            @endif
-        @endforeach
-
-        @if ($itemsOcultos > 0)
-            <button type="button" class="seg-chip is-slate"
+        @if ($soloResumen)
+            <button type="button" class="seg-chip seg-chip-button is-slate"
                 onclick="document.getElementById('{{ $modalId }}')?.classList.remove('hidden'); document.getElementById('{{ $modalId }}')?.classList.add('flex')">
-                + {{ $itemsOcultos }} permisos
+                {{ $textoResumen }}
             </button>
+        @else
+            @foreach ($itemsVisibles as $item)
+                @php
+                    $texto = is_scalar($item) ? $item : data_get($item, $campo);
+                    $baseColor = data_get($item, 'id') ?: crc32((string) $texto);
+                    $claseColor = $colores[abs((int) $baseColor) % count($colores)];
+                @endphp
+
+                @if ($texto)
+                    <span class="seg-chip {{ $claseColor }}" title="{{ $texto }}">{{ $texto }}</span>
+                @endif
+            @endforeach
+
+            @if ($itemsOcultos > 0)
+                <button type="button" class="seg-chip seg-chip-button is-slate"
+                    onclick="document.getElementById('{{ $modalId }}')?.classList.remove('hidden'); document.getElementById('{{ $modalId }}')?.classList.add('flex')">
+                    + {{ $itemsOcultos }} permisos
+                </button>
+            @endif
         @endif
     </div>
 
-    @if ($itemsOcultos > 0)
+    @if ($soloResumen || $itemsOcultos > 0)
         <div id="{{ $modalId }}" class="seg-modal hidden">
             <div class="seg-modal-box" style="width: min(100%, 720px);">
                 <div class="seg-modal-head">

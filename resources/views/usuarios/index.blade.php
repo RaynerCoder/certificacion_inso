@@ -28,7 +28,7 @@
 
     @push('js')
         <script>
-            // Confirma con SweetAlert antes de eliminar un usuario y sus relaciones.
+            // Confirma la baja sin borrar el historial ni las relaciones del usuario.
             document.addEventListener('submit', function(e) {
                 const formulario = e.target.closest('.delete-form');
 
@@ -39,13 +39,13 @@
                 e.preventDefault();
 
                 Swal.fire({
-                    title: 'Eliminar usuario',
-                    text: 'Se quitaran tambien sus roles y permisos directos.',
+                    title: 'Inactivar usuario',
+                    text: 'El usuario conservará su historial, pero ya no quedará activo.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',
                     cancelButtonColor: '#64748b',
-                    confirmButtonText: 'Si, eliminar',
+                    confirmButtonText: 'Sí, inactivar',
                     cancelButtonText: 'Cancelar'
                 }).then((result) => {
                     if (result.isConfirmed) {

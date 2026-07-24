@@ -301,6 +301,15 @@
         color: #334155;
     }
 
+    .seg-chip-button {
+        border: 0;
+        cursor: pointer;
+    }
+
+    .seg-chip-button:hover {
+        filter: brightness(0.97);
+    }
+
     .seg-chip-remove {
         display: inline-flex;
         width: 18px;

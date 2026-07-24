@@ -4,12 +4,14 @@
         Editar
     </x-wire-button>
 
-    <form action="{{ route('usuarios_destroy', $usuario) }}" method="POST" class="delete-form">
-        @csrf
-        @method('DELETE')
-        <x-wire-button type="submit" red xs>
-            Eliminar
-        </x-wire-button>
-    </form>
+    @unless ($usuario->esSuperAdministrador() || (string) $usuario->estado === '0')
+        <form action="{{ route('usuarios_destroy', $usuario) }}" method="POST" class="delete-form">
+            @csrf
+            @method('DELETE')
+            <x-wire-button type="submit" red xs>
+                Inactivar
+            </x-wire-button>
+        </form>
+    @endunless
     
 </div>

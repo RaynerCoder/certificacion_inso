@@ -122,9 +122,13 @@ class UsuarioController extends Controller
             $campos = [
                 'name' => $datos['form_name'],
                 'email' => $datos['form_email'],
-                'password' => $datos['form_password'],
                 'estado' => (int) $datos['form_estado'],
             ];
+
+            // Si no se escribe una contraseña, la cuenta conserva la que ya tenía.
+            if (!empty($datos['form_password'])) {
+                $campos['password'] = $datos['form_password'];
+            }
 
             $usuario->update($campos);
             $usuario->roles()->sync($datos['form_roles']);
@@ -166,15 +170,25 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Elimina logicamente un usuario para mantener su historial.
+     * Inactiva el usuario sin borrarlo para conservar su historial.
      */
     public function destroy(User $usuario)
     {
-        // Evita que el funcionario elimine su propia cuenta mientras esta conectado.
+        if ($usuario->esSuperAdministrador()) {
+            session()->flash('swal', [
+                'title' => 'No se puede inactivar',
+                'text' => 'La cuenta superadministrador es necesaria para administrar el sistema.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('usuarios_index');
+        }
+
+        // Evita que el funcionario inactive su propia cuenta mientras está conectado.
         if (auth()->id() === $usuario->id) {
             session()->flash('swal', [
-                'title' => 'No se puede eliminar',
-                'text' => 'No puedes eliminar tu propia cuenta mientras la estas usando.',
+                'title' => 'No se puede inactivar',
+                'text' => 'No puedes inactivar tu propia cuenta mientras la estás usando.',
                 'icon' => 'error',
             ]);
 
@@ -184,20 +198,13 @@ class UsuarioController extends Controller
         try {
             DB::beginTransaction();
 
-            if ($usuario->funcionario) {
-                $usuario->funcionario->cargos()->detach();
-                $usuario->funcionario->delete();
-            }
-
-            // No se separan roles/permisos porque el usuario queda con SoftDeletes.
-            // Asi se conserva el historial y se puede restaurar con sus accesos.
-            $usuario->delete();
+            $usuario->update(['estado' => 0]);
 
             DB::commit();
 
             session()->flash('swal', [
-                'title' => 'Eliminado',
-                'text' => 'El usuario se elimino correctamente.',
+                'title' => 'Usuario inactivo',
+                'text' => 'El usuario fue marcado como inactivo.',
                 'icon' => 'success',
             ]);
 
@@ -207,7 +214,7 @@ class UsuarioController extends Controller
 
             return redirect()
                 ->route('usuarios_index')
-                ->with('error', 'No se pudo eliminar el usuario.');
+                ->with('error', 'No se pudo inactivar el usuario.');
         }
     }
 
@@ -215,6 +222,12 @@ class UsuarioController extends Controller
     private function validarUsuario(Request $solicitud, ?User $usuario = null): array
     {
         $idUsuario = $usuario?->id;
+        $reglasPassword = $usuario
+            ? ['nullable', 'required_with:form_password_confirmation', 'string', 'min:8', 'confirmed']
+            : ['required', 'string', 'min:8', 'confirmed'];
+        $reglasConfirmacionPassword = $usuario
+            ? ['nullable', 'required_with:form_password', 'string', 'min:8']
+            : ['required', 'string', 'min:8'];
 
         return $solicitud->validate([
             'form_name' => ['required', 'string', 'max:255'],
@@ -224,8 +237,8 @@ class UsuarioController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($idUsuario),
             ],
-            'form_password' => ['required', 'string', 'min:8', 'confirmed'],
-            'form_password_confirmation' => ['required', 'string', 'min:8'],
+            'form_password' => $reglasPassword,
+            'form_password_confirmation' => $reglasConfirmacionPassword,
             'form_estado' => ['required', 'in:0,1'],
             'form_funcionario_nombres' => ['required', 'string', 'max:255'],
             'form_funcionario_apellido_paterno' => ['required', 'string', 'max:255'],
@@ -253,7 +266,8 @@ class UsuarioController extends Controller
             'unique' => 'El valor de :attribute ya esta registrado.',
             'min' => 'El campo :attribute debe tener al menos :min caracteres.',
             'max' => 'El campo :attribute no debe superar :max caracteres.',
-            'confirmed' => 'La confirmacion de :attribute no coincide.',
+            'confirmed' => 'La confirmación de :attribute no coincide.',
+            'required_with' => 'El campo :attribute es obligatorio cuando se cambia la contraseña.',
             'in' => 'El valor seleccionado en :attribute no es valido.',
             'exists' => 'El valor seleccionado en :attribute no existe.',
             'distinct' => 'El campo :attribute tiene datos repetidos.',
@@ -262,8 +276,8 @@ class UsuarioController extends Controller
         ], [
             'form_name' => 'nombre del usuario',
             'form_email' => 'correo de acceso',
-            'form_password' => 'contrasena',
-            'form_password_confirmation' => 'confirmacion de contrasena',
+            'form_password' => 'contraseña',
+            'form_password_confirmation' => 'confirmación de contraseña',
             'form_estado' => 'estado',
             'form_funcionario_nombres' => 'nombres del funcionario',
             'form_funcionario_apellido_paterno' => 'apellido paterno',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ambito;
 use App\Models\Territorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +16,9 @@ class TerritorioController extends Controller
     {
         // La lista se usa en los select de territorio superior de ambos modales.
         $territorios = Territorio::query()->orderBy('nombre')->get();
+        $ambitos = Ambito::query()->orderBy('nombre')->get();
 
-        return view('territorios.index', compact('territorios'));
+        return view('territorios.index', compact('territorios', 'ambitos'));
     }
 
     /**
@@ -25,6 +27,7 @@ class TerritorioController extends Controller
     public function store(Request $solicitud)
     {
         $datos = $solicitud->validate([
+            'form_id_ambito' => 'required|exists:ambitos,id',
             'form_id_padre_territorio' => 'nullable|exists:territorios,id',
             'form_nombre'              => 'required|string|max:255',
             'form_codigo'              => 'nullable|max:150|unique:territorios,codigo',
@@ -36,9 +39,10 @@ class TerritorioController extends Controller
             DB::beginTransaction();
 
             Territorio::create([
+                'id_ambito' => $datos['form_id_ambito'],
                 'id_padre_territorio' => $datos['form_id_padre_territorio'] ?? null,
                 'nombre'              => $datos['form_nombre'],
-                'codigo'              => $datos['form_codigo'],
+                'codigo'              => $datos['form_codigo'] ?? null,
                 'estado'              => $datos['form_id_estado'],
             ]);
 
@@ -68,6 +72,7 @@ class TerritorioController extends Controller
     public function update(Request $solicitud, Territorio $territorio)
     {
         $datos = $solicitud->validate([
+            'form_id_ambito' => 'required|exists:ambitos,id',
             // Puede venir vacio (sin territorio padre), el ID debe existir en la tabla territorios y evita que el territorio sea su propio padre
             'form_id_padre_territorio' => 'nullable|exists:territorios,id|not_in:' . $territorio->id,
             'form_nombre' => 'required|string|max:255|unique:territorios,nombre,' . $territorio->id,
@@ -81,9 +86,10 @@ class TerritorioController extends Controller
             DB::beginTransaction();
 
             $territorio->update([
+                'id_ambito' => $datos['form_id_ambito'],
                 'id_padre_territorio' => $datos['form_id_padre_territorio'] ?? null,
                 'nombre'              => $datos['form_nombre'],
-                'codigo'              => $datos['form_codigo'],
+                'codigo'              => $datos['form_codigo'] ?? null,
                 'estado'              => $datos['form_id_estado'],
             ]);
 

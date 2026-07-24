@@ -38,6 +38,15 @@
                 @csrf
                 <input type="hidden" name="form_modal" value="crear">
 
+                <x-wire-native-select label="Ámbito" name="form_id_ambito" required>
+                    <option value="">Seleccione un ámbito</option>
+                    @foreach ($ambitos as $ambito)
+                        <option value="{{ $ambito->id }}" @selected(old('form_modal') === 'crear' && (string) old('form_id_ambito') === (string) $ambito->id)>
+                            {{ $ambito->nombre }}
+                        </option>
+                    @endforeach
+                </x-wire-native-select>
+
                 <x-wire-native-select label="Territorio superior" name="form_id_padre_territorio">
                     <option value="">Sin territorio superior</option>
                     @foreach ($territorios as $territorioPadre)
@@ -91,6 +100,15 @@
                 @method('PUT')
                 <input type="hidden" name="form_modal" value="editar">
                 <input type="hidden" id="editar_id_territorio" name="form_id_territorio" value="{{ old('form_id_territorio') }}">
+
+                <x-wire-native-select label="Ámbito" id="editar_id_ambito" name="form_id_ambito" required>
+                    <option value="">Seleccione un ámbito</option>
+                    @foreach ($ambitos as $ambito)
+                        <option value="{{ $ambito->id }}" @selected(old('form_modal') === 'editar' && (string) old('form_id_ambito') === (string) $ambito->id)>
+                            {{ $ambito->nombre }}
+                        </option>
+                    @endforeach
+                </x-wire-native-select>
 
                 <x-wire-native-select label="Territorio superior" id="editar_id_padre_territorio" name="form_id_padre_territorio">
                     <option value="">Sin territorio superior</option>
@@ -149,8 +167,9 @@
             }
 
             // Completa el formulario con el registro seleccionado antes de mostrar el modal.
-            function abrirModalEditarTerritorio(id, idPadre, nombre, codigo, estado) {
+            function abrirModalEditarTerritorio(id, idAmbito, idPadre, nombre, codigo, estado) {
                 document.getElementById('editar_id_territorio').value = id;
+                document.getElementById('editar_id_ambito').value = idAmbito || '';
                 document.getElementById('editar_id_padre_territorio').value = idPadre || '';
                 document.getElementById('editar_nombre').value = nombre || '';
                 document.getElementById('editar_codigo').value = codigo || '';
@@ -202,6 +221,7 @@
             @if ($errors->any() && old('form_modal') === 'editar')
                 abrirModalEditarTerritorio(
                     @json(old('form_id_territorio')),
+                    @json(old('form_id_ambito')),
                     @json(old('form_id_padre_territorio')),
                     @json(old('form_nombre')),
                     @json(old('form_codigo')),

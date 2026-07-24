@@ -121,17 +121,28 @@ class User extends Authenticatable
     // Verifica si el usuario tiene un rol por su slug.
     public function tieneRol(string $slug): bool
     {
+        $rolesConsultados = $slug === 'administrador'
+            ? ['administrador', 'super-administrador']
+            : [$slug];
+
         return $this->roles()
-            ->where('slug', $slug)
+            ->whereIn('slug', $rolesConsultados)
             ->where('roles.estado', 1)
             ->exists();
+    }
+
+    // La cuenta inicial del sistema no puede eliminarse desde la administracion de usuarios.
+    public function esSuperAdministrador(): bool
+    {
+        return mb_strtolower((string) $this->email) === 'super.admin@gmail.com'
+            || $this->tieneRol('super-administrador');
     }
 
     // Punto central para validar permisos dinamicos del sistema.
     // Acepta un permiso o varios; si uno coincide, permite la accion.
     public function puede(string|array $permisos): bool
     {
-        if ($this->tieneRol('administrador')) {
+        if ($this->esSuperAdministrador() || $this->tieneRol('administrador')) {
             return true;
         }
 

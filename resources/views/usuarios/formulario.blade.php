@@ -78,13 +78,25 @@
             <div class="seg-col-3"></div>
 
             <div class="seg-col-6">
-                <x-wire-input label="Contrasena" id="form_password"
-                    name="form_password" type="password" placeholder="Minimo 8 caracteres" required />
+                <label for="form_password" class="seg-field-label">Contraseña</label>
+                <input id="form_password" name="form_password" type="password" class="seg-native-input"
+                    placeholder="{{ $esEdicion ? 'Deje vacío para mantener la actual' : 'Mínimo 8 caracteres' }}"
+                    autocomplete="new-password" @if (! $esEdicion) required @endif>
+
+                @error('form_password')
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="seg-col-6">
-                <x-wire-input label="Confirmar contrasena" id="form_password_confirmation"
-                    name="form_password_confirmation" type="password" placeholder="Repita la contrasena" required />
+                <label for="form_password_confirmation" class="seg-field-label">Confirmar contraseña</label>
+                <input id="form_password_confirmation" name="form_password_confirmation" type="password"
+                    class="seg-native-input" placeholder="Repita la contraseña" autocomplete="new-password"
+                    @if (! $esEdicion) required @endif>
+
+                @error('form_password_confirmation')
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ $message }}</p>
+                @enderror
             </div>
         </div>
     </div>
@@ -323,6 +335,7 @@
         window.permisosDirectosSeguridadSeleccionados = @json($permisosSeleccionados);
         window.cargosFuncionarioSeleccionados = @json($cargosSeleccionados);
         window.cargosFuncionarioNuevos = @json($cargosNuevosSeleccionados);
+        window.usuarioEstaEnEdicion = @json($esEdicion);
 
         inicializarCargosFuncionario();
         inicializarAsignacionesSeguridad();
@@ -341,13 +354,18 @@
         const camposObligatorios = [
             { id: 'form_name', mensaje: 'Ingrese el nombre de usuario.' },
             { id: 'form_email', mensaje: 'Ingrese el correo de acceso.' },
-            { id: 'form_password', mensaje: 'Ingrese la contrasena.' },
-            { id: 'form_password_confirmation', mensaje: 'Confirme la contrasena.' },
             { id: 'form_funcionario_nombres', mensaje: 'Ingrese los nombres del funcionario.' },
             { id: 'form_funcionario_apellido_paterno', mensaje: 'Ingrese el apellido paterno.' },
             { id: 'form_funcionario_carnet', mensaje: 'Ingrese el carnet.' },
             { id: 'form_funcionario_genero', mensaje: 'Seleccione el genero.' },
         ];
+
+        if (!window.usuarioEstaEnEdicion) {
+            camposObligatorios.splice(2, 0,
+                { id: 'form_password', mensaje: 'Ingrese la contraseña.' },
+                { id: 'form_password_confirmation', mensaje: 'Confirme la contraseña.' }
+            );
+        }
 
         for (const campo of camposObligatorios) {
             const input = document.getElementById(campo.id);
@@ -384,7 +402,7 @@
         setTimeout(() => input.setCustomValidity(''), 1200);
     }
 
-    // La contrasena se confirma en pantalla para evitar errores simples antes de guardar.
+    // La contraseña se confirma en pantalla para evitar errores simples antes de guardar.
     function validarPasswordUsuario(evento) {
         const password = document.getElementById('form_password');
         const confirmacion = document.getElementById('form_password_confirmation');
@@ -393,15 +411,33 @@
             return true;
         }
 
+        const seSolicitaCambio = password.value !== '' || confirmacion.value !== '';
+
+        if (!seSolicitaCambio && window.usuarioEstaEnEdicion) {
+            return true;
+        }
+
+        if (!password.value) {
+            evento.preventDefault();
+            mostrarMensajeCampoUsuario(password, 'Ingrese la contraseña para cambiarla.');
+            return false;
+        }
+
+        if (!confirmacion.value) {
+            evento.preventDefault();
+            mostrarMensajeCampoUsuario(confirmacion, 'Confirme la contraseña nueva.');
+            return false;
+        }
+
         if (password.value.length < 8) {
             evento.preventDefault();
-            mostrarMensajeCampoUsuario(password, 'La contrasena debe tener al menos 8 caracteres.');
+            mostrarMensajeCampoUsuario(password, 'La contraseña debe tener al menos 8 caracteres.');
             return false;
         }
 
         if (password.value !== confirmacion.value) {
             evento.preventDefault();
-            mostrarMensajeCampoUsuario(confirmacion, 'La confirmacion no coincide con la contrasena.');
+            mostrarMensajeCampoUsuario(confirmacion, 'La confirmación no coincide con la contraseña.');
             return false;
         }
 

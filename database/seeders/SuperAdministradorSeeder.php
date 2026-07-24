@@ -34,12 +34,15 @@ class SuperAdministradorSeeder extends Seeder
                 ->value('id');
 
             $idRol = DB::table('roles')
-                ->where('slug', 'administrador')
+                ->where('slug', 'super-administrador')
                 ->value('id');
 
             if (!$idUsuario || !$idRol) {
-                throw new \RuntimeException('No se pudo relacionar el superadministrador con el rol administrador.');
+                throw new \RuntimeException('No se pudo relacionar el superadministrador con su rol.');
             }
+
+            // La cuenta inicial usa un unico rol para que su configuracion sea clara.
+            DB::table('roles_users')->where('id_user', $idUsuario)->delete();
 
             DB::table('roles_users')->updateOrInsert(
                 [

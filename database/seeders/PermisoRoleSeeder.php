@@ -44,6 +44,8 @@ class PermisoRoleSeeder extends Seeder
 
             // Tramitador: puede iniciar y seguir tramites de empresas donde este autorizado.
             6 => [1, 8, 9, 12, 36],
+
+            8 => $permisosAdministrador,
         ];
 
         $id = 1;

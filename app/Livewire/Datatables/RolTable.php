@@ -55,7 +55,8 @@ class RolTable extends DataTableComponent
                     'items' => $fila->permisos,
                     'campo' => 'nombre',
                     'vacio' => 'Sin permisos',
-                    'limite' => 8,
+                    // En roles se muestra un solo resumen para que la fila no crezca demasiado.
+                    'soloResumen' => true,
                     'tituloModal' => 'Permisos del rol ' . $fila->name,
                 ])),
 

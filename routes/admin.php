@@ -36,31 +36,45 @@ Route::get('/', function () {
     $usuario = auth()->user()?->loadMissing('persona', 'funcionario.cargos', 'roles');
     $personaId = $usuario?->persona?->id;
 
-    $esUsuarioExterno = $usuario
-        && ! $usuario->tieneRol('administrador')
-        && ! $usuario->funcionario;
+    $puedeVerResumenInstitucional = $usuario?->tieneRol('administrador') ?? false;
 
     $consultaTramites = Certificado::query();
 
-    if ($esUsuarioExterno && $personaId) {
-        $consultaTramites->where(function ($consulta) use ($personaId) {
-            $consulta->where('id_persona_beneficiario', $personaId)
-                ->orWhere('id_persona_tramitador', $personaId);
+    if (! $puedeVerResumenInstitucional) {
+        $consultaTramites->where(function ($consulta) use ($usuario, $personaId) {
+            if (! $usuario) {
+                $consulta->whereRaw('1 = 0');
+                return;
+            }
+
+            // Solicitante o tramitador: cuenta solo los trámites vinculados a su persona.
+            if ($personaId) {
+                $consulta->where('id_persona_beneficiario', $personaId)
+                    ->orWhere('id_persona_tramitador', $personaId);
+            }
+
+            // Funcionario INSO: cuenta lo que registró o lo que pasó por su bandeja.
+            $consulta->orWhere('id_usuario_registro', $usuario->id)
+                ->orWhereHas('seguimientos', function ($seguimiento) use ($usuario) {
+                    $seguimiento->where('id_usuario_origen', $usuario->id)
+                        ->orWhere('id_usuario_siguiente', $usuario->id)
+                        ->orWhere('id_usuario_anterior', $usuario->id);
+                });
         });
     }
 
-    if ($esUsuarioExterno && ! $personaId) {
+    if (! $puedeVerResumenInstitucional && ! $personaId && ! $usuario?->funcionario) {
         $consultaTramites->whereRaw('1 = 0');
     }
 
     $estado = fn (array $estados) => (clone $consultaTramites)->whereIn('estado', $estados)->count();
 
     $resumenInicio = [
-        'es_usuario_externo' => $esUsuarioExterno,
-        'titulo' => $esUsuarioExterno ? 'Resumen de mis trámites' : 'Resumen institucional',
-        'detalle' => $esUsuarioExterno
-            ? 'Estos datos corresponden únicamente a los trámites donde usted participa.'
-            : 'Vista general de los trámites registrados en el sistema.',
+        'es_usuario_externo' => ! $puedeVerResumenInstitucional,
+        'titulo' => $puedeVerResumenInstitucional ? 'Resumen institucional' : 'Resumen de mis trámites',
+        'detalle' => $puedeVerResumenInstitucional
+            ? 'Vista general de los trámites registrados en el sistema.'
+            : 'Estos datos corresponden únicamente a los trámites donde usted participa.',
         'total' => (clone $consultaTramites)->count(),
         'en_revision' => $estado(['PENDIENTE', 'EN_REVISION', 'DERIVADO', 'BORRADOR']),
         'observados' => $estado(['OBSERVADO', 'CORRECCION_SOLICITADA']),

@@ -34,6 +34,7 @@ class RoleSeeder extends Seeder
             4 => ['Solicitante', 'solicitante', 'Persona natural o empresa que inicia y consulta tramites propios.', null],
             5 => ['Representante Legal', 'representante-legal', 'Persona que representa legalmente a una empresa ante el sistema.', null],
             6 => ['Tramitador', 'tramitador', 'Persona autorizada por una empresa para presentar y seguir tramites.', null],
+            8 => ['Super Administrador', 'super-administrador', 'Cuenta principal con acceso total al sistema.', 'ALL'],
         ] as $id => [$name, $slug, $descripcion, $especial]) {
             $this->guardar('roles', $id, [
                 'name' => $name,

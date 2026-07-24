@@ -73,9 +73,6 @@
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
-            display: grid;
-            gap: 14px;
-            grid-template-columns: minmax(0, 1fr) auto;
             padding: 18px;
         }
 
@@ -100,18 +97,6 @@
             line-height: 1.5;
             margin: 6px 0 0;
             max-width: 760px;
-        }
-
-        .inicio-user-box {
-            align-self: center;
-            background: #ecfdf5;
-            border: 1px solid #bbf7d0;
-            border-radius: 10px;
-            color: #065f46;
-            font-size: 13px;
-            font-weight: 800;
-            min-width: 210px;
-            padding: 12px 14px;
         }
 
         .inicio-grid {
@@ -255,7 +240,6 @@
         }
 
         @media (max-width: 720px) {
-            .inicio-hero { grid-template-columns: 1fr; }
             .inicio-grid,
             .inicio-link-grid { grid-template-columns: 1fr; }
             .inicio-stats { grid-template-columns: 1fr; }
@@ -271,9 +255,6 @@
                     Ingrese rápido a las tareas principales del sistema: iniciar trámites, revisar solicitudes,
                     consultar seguimiento y mantener los catálogos necesarios para la certificación.
                 </p>
-            </div>
-            <div class="inicio-user-box">
-                {{ auth()->user()?->name ?? 'Usuario del sistema' }}
             </div>
         </div>
 
