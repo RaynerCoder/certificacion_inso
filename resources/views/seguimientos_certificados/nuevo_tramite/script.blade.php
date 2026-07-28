@@ -604,7 +604,6 @@
                 const errorDocumento = errorLaravel(`documentos_requisitos.${index}`);
                 const codigoEvidencia = String(requisito.tipo_evidencia_codigo || 'PDF').toUpperCase();
                 const tipoEvidenciaNombre = requisito.tipo_evidencia_nombre || codigoEvidencia;
-                const tipoEvidenciaDescripcion = requisito.tipo_evidencia_descripcion || 'Sin descripcion registrada.';
                 const configArchivo = configuracionArchivoEvidencia(codigoEvidencia, requisito.tipo_evidencia_tamanio_maximo_mb);
                 const certificadosHtml = certificadosRequeridosHtml(requisito.certificados_requeridos);
 
@@ -622,9 +621,6 @@
                             <span class="tramite-evidencia-chip">${escaparHtml(tipoEvidenciaNombre)}</span>
                             ${certificadosHtml}
                         </div>
-                    </td>
-                    <td>
-                        <span class="tramite-evidencia-description">${escaparHtml(tipoEvidenciaDescripcion)}</span>
                     </td>
                     <td>
                         ${configArchivo.permiteArchivo ? `

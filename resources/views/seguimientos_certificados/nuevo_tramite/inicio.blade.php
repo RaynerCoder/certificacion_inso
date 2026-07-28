@@ -312,14 +312,13 @@
                         <tr>
                             <th style="width: 56px;">N&deg;</th>
                             <th>Requisito</th>
-                            <th style="width: 190px;">Tipo de evidencia</th>
-                            <th style="width: 280px;">Descripción evidencia</th>
-                            <th style="width: 420px;">Subir evidencia</th>
+                            <th style="width: 210px;">Tipo de evidencia</th>
+                            <th style="width: 480px;">Subir evidencia</th>
                         </tr>
                     </thead>
                     <tbody id="tablaDocumentosTramite">
                         <tr>
-                            <td colspan="5" class="text-center text-slate-500">
+                            <td colspan="4" class="text-center text-slate-500">
                                 Seleccione un tipo de certificado para cargar los requisitos.
                             </td>
                         </tr>

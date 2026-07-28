@@ -142,7 +142,7 @@ class User extends Authenticatable
     // Acepta un permiso o varios; si uno coincide, permite la accion.
     public function puede(string|array $permisos): bool
     {
-        if ($this->esSuperAdministrador() || $this->tieneRol('administrador')) {
+        if ($this->esSuperAdministrador()) {
             return true;
         }
 

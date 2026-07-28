@@ -1325,7 +1325,6 @@ class SeguimientoController extends Controller
                             'id_tipo_evidencia' => $asignacion->id_tipo_evidencia,
                             'tipo_evidencia_codigo' => $asignacion->tipoEvidencia?->codigo ?? 'PDF',
                             'tipo_evidencia_nombre' => $asignacion->tipoEvidencia?->nombre ?? 'PDF',
-                            'tipo_evidencia_descripcion' => $asignacion->tipoEvidencia?->descripcion ?? 'Sin descripcion registrada.',
                             'tipo_evidencia_tamanio_maximo_mb' => (int) ($asignacion->tipoEvidencia?->tamanio_maximo_mb ?? 0),
                             'certificados_requeridos' => $certificadosRequeridos,
                         ];

@@ -424,16 +424,6 @@
         text-transform: uppercase;
     }
 
-    .tramite-evidencia-description {
-        color: #475569;
-        display: block;
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 1.45;
-        max-width: 280px;
-        white-space: normal;
-    }
-
     .tramite-evidencia-certificados {
         display: flex;
         flex-wrap: wrap;

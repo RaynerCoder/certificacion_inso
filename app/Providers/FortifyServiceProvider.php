@@ -43,7 +43,7 @@ class FortifyServiceProvider extends ServiceProvider
                 ->orWhere('name', $acceso)
                 ->first();
 
-            if (! $usuario || ((string) $usuario->estado === '0')) {
+            if (! $usuario || (string) $usuario->estado !== '1') {
                 return null;
             }
 

@@ -73,11 +73,64 @@
 
     <div class="seg-card-body">
         <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-            <div>
-                <label for="seg_select_permiso_rol" class="seg-field-label">Seleccionar permiso</label>
-                <select id="seg_select_permiso_rol" class="seg-native-select">
-                    <option value="">Seleccione un permiso</option>
-                </select>
+            <div class="roles-permission-selector" id="seg_selector_permisos_rol">
+                <label for="seg_abrir_permisos_rol" class="seg-field-label">Seleccionar permisos</label>
+
+                <button id="seg_abrir_permisos_rol" type="button" class="roles-permission-select-control"
+                    aria-expanded="false" aria-controls="seg_menu_permisos_rol" onclick="alternarSelectorPermisosRol()">
+                    <span class="roles-permission-select-text">
+                        <span id="seg_resumen_permisos_rol" class="roles-permission-select-name">
+                            Seleccione uno o varios permisos
+                        </span>
+                        <span id="seg_ayuda_permisos_rol" class="roles-permission-select-help">
+                            Busque y marque varios permisos
+                        </span>
+                    </span>
+                    <i class="fa-solid fa-chevron-down roles-permission-select-chevron"></i>
+                </button>
+
+                <div id="seg_menu_permisos_rol" class="roles-permission-dropdown hidden">
+                    <div class="roles-permission-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <label for="seg_buscar_permiso_rol" class="sr-only">Buscar permiso</label>
+                        <input id="seg_buscar_permiso_rol" type="search" placeholder="Buscar permiso"
+                            autocomplete="off">
+                    </div>
+
+                    <div class="roles-permission-toolbar">
+                        <label class="roles-permission-check-all" for="seg_seleccionar_visibles_rol">
+                            <input id="seg_seleccionar_visibles_rol" type="checkbox">
+                            Seleccionar visibles
+                        </label>
+
+                        <div class="roles-permission-toolbar-actions">
+                            <button type="button" class="roles-permission-toolbar-button"
+                                onclick="seleccionarTodosPermisosRol()">
+                                Seleccionar todos
+                            </button>
+                            <button type="button" class="roles-permission-toolbar-button"
+                                onclick="limpiarPermisosPendientesRol()">
+                                Limpiar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="seg_opciones_permisos_rol" class="roles-permission-options"></div>
+
+                    <p id="seg_permisos_busqueda_vacia" class="roles-permission-empty hidden">
+                        No se encontraron permisos.
+                    </p>
+
+                    <div class="roles-permission-footer">
+                        <span id="seg_contador_permisos_rol" class="roles-permission-counter">
+                            0 permisos marcados
+                        </span>
+
+                        <x-wire-button type="button" blue onclick="aplicarPermisosSeleccionadosRol()">
+                            Agregar seleccionados
+                        </x-wire-button>
+                    </div>
+                </div>
             </div>
 
             <x-wire-button type="button" emerald onclick="mostrarPermisoNuevoRol()">
@@ -91,6 +144,10 @@
         <p id="seg_permisos_rol_vacio" class="seg-empty-state">
             Todavia no se agregaron permisos al rol.
         </p>
+
+        @error('form_permisos')
+            <p class="mt-2 text-sm font-semibold text-rose-700">{{ $message }}</p>
+        @enderror
     </div>
 </section>
 
@@ -142,10 +199,26 @@
         window.permisosRolCatalogo = @json($permisosParaSelector);
         window.permisosRolSeleccionados = @json($permisosSeleccionados);
         window.permisosRolNuevos = @json($permisosNuevosSeleccionados);
+        window.permisosRolPendientes = new Set();
 
         inicializarPermisosRol();
-        document.getElementById('seg_select_permiso_rol')?.addEventListener('change', agregarPermisoRol);
+        document.getElementById('seg_buscar_permiso_rol')?.addEventListener('input', renderOpcionesPermisosRol);
+        document.getElementById('seg_seleccionar_visibles_rol')?.addEventListener('change', cambiarPermisosVisiblesRol);
         document.getElementById('seg_permiso_rol_nuevo_nombre')?.addEventListener('keydown', eventoEnterPermisoNuevoRol);
+
+        document.addEventListener('click', (evento) => {
+            const selector = document.getElementById('seg_selector_permisos_rol');
+
+            if (selector && !selector.contains(evento.target)) {
+                cerrarSelectorPermisosRol();
+            }
+        });
+
+        document.addEventListener('keydown', (evento) => {
+            if (evento.key === 'Escape') {
+                cerrarSelectorPermisosRol();
+            }
+        });
     });
 
     // Prepara permisos existentes y nuevos antes de dibujar la interfaz.
@@ -154,7 +227,8 @@
         window.permisosRolNuevos = normalizarTextosPermisoRol(window.permisosRolNuevos || []);
 
         renderPermisosRol();
-        refrescarSelectPermisosRol();
+        prepararPermisosPendientesRol();
+        renderOpcionesPermisosRol();
     }
 
     // Convierte valores del formulario en ids numericos validos.
@@ -190,19 +264,165 @@
         });
     }
 
-    // Agrega al rol un permiso existente elegido desde el select.
-    function agregarPermisoRol() {
-        const select = document.getElementById('seg_select_permiso_rol');
-        const idPermiso = Number(select?.value || 0);
+    // Copia la seleccion guardada a la lista temporal que se edita dentro del desplegable.
+    function prepararPermisosPendientesRol() {
+        window.permisosRolPendientes = new Set(window.permisosRolSeleccionados || []);
+    }
 
-        if (!idPermiso || window.permisosRolSeleccionados.includes(idPermiso)) {
+    // Abre o cierra el selector multiple.
+    function alternarSelectorPermisosRol() {
+        const menu = document.getElementById('seg_menu_permisos_rol');
+
+        if (menu?.classList.contains('hidden')) {
+            abrirSelectorPermisosRol();
             return;
         }
 
-        window.permisosRolSeleccionados.push(idPermiso);
+        cerrarSelectorPermisosRol();
+    }
+
+    // Abre el selector con una copia actualizada de los permisos agregados.
+    function abrirSelectorPermisosRol() {
+        const menu = document.getElementById('seg_menu_permisos_rol');
+        const boton = document.getElementById('seg_abrir_permisos_rol');
+        const buscador = document.getElementById('seg_buscar_permiso_rol');
+
+        prepararPermisosPendientesRol();
+        if (buscador) {
+            buscador.value = '';
+        }
+        renderOpcionesPermisosRol();
+
+        menu?.classList.remove('hidden');
+        boton?.classList.add('is-open');
+        boton?.setAttribute('aria-expanded', 'true');
+        buscador?.focus();
+    }
+
+    // Cierra el selector sin aplicar cambios pendientes.
+    function cerrarSelectorPermisosRol() {
+        const menu = document.getElementById('seg_menu_permisos_rol');
+        const boton = document.getElementById('seg_abrir_permisos_rol');
+
+        menu?.classList.add('hidden');
+        boton?.classList.remove('is-open');
+        boton?.setAttribute('aria-expanded', 'false');
+    }
+
+    // Devuelve los permisos que coinciden con el texto escrito.
+    function permisosVisiblesRol() {
+        const busqueda = limpiarTextoPermisoRol(
+            document.getElementById('seg_buscar_permiso_rol')?.value
+        ).toLocaleLowerCase('es');
+
+        return (window.permisosRolCatalogo || []).filter(permiso => {
+            return limpiarTextoPermisoRol(permiso.nombre)
+                .toLocaleLowerCase('es')
+                .includes(busqueda);
+        });
+    }
+
+    // Dibuja las opciones con casillas y conserva la seleccion temporal.
+    function renderOpcionesPermisosRol() {
+        const contenedor = document.getElementById('seg_opciones_permisos_rol');
+        const mensajeVacio = document.getElementById('seg_permisos_busqueda_vacia');
+        const permisos = permisosVisiblesRol();
+
+        if (!contenedor || !mensajeVacio) return;
+
+        contenedor.innerHTML = '';
+
+        permisos.forEach(permiso => {
+            const idPermiso = Number(permiso.id);
+            const etiqueta = document.createElement('label');
+            const check = document.createElement('input');
+            const nombre = document.createElement('span');
+
+            etiqueta.className = 'roles-permission-option';
+            check.type = 'checkbox';
+            check.value = String(idPermiso);
+            check.checked = window.permisosRolPendientes.has(idPermiso);
+            nombre.textContent = permiso.nombre;
+
+            etiqueta.classList.toggle('is-selected', check.checked);
+            check.addEventListener('change', () => {
+                cambiarPermisoPendienteRol(idPermiso, check.checked);
+                etiqueta.classList.toggle('is-selected', check.checked);
+            });
+
+            etiqueta.append(check, nombre);
+            contenedor.appendChild(etiqueta);
+        });
+
+        contenedor.classList.toggle('hidden', permisos.length === 0);
+        mensajeVacio.classList.toggle('hidden', permisos.length > 0);
+        actualizarContadorPermisosRol();
+    }
+
+    // Agrega o quita un permiso de la seleccion temporal.
+    function cambiarPermisoPendienteRol(idPermiso, seleccionado) {
+        if (seleccionado) {
+            window.permisosRolPendientes.add(Number(idPermiso));
+        } else {
+            window.permisosRolPendientes.delete(Number(idPermiso));
+        }
+
+        actualizarContadorPermisosRol();
+    }
+
+    // Marca o desmarca solamente los resultados que muestra el buscador.
+    function cambiarPermisosVisiblesRol(evento) {
+        permisosVisiblesRol().forEach(permiso => {
+            const idPermiso = Number(permiso.id);
+
+            if (evento.target.checked) {
+                window.permisosRolPendientes.add(idPermiso);
+            } else {
+                window.permisosRolPendientes.delete(idPermiso);
+            }
+        });
+
+        renderOpcionesPermisosRol();
+    }
+
+    // Marca todos los permisos activos del catalogo.
+    function seleccionarTodosPermisosRol() {
+        window.permisosRolPendientes = new Set(
+            (window.permisosRolCatalogo || []).map(permiso => Number(permiso.id))
+        );
+        renderOpcionesPermisosRol();
+    }
+
+    // Limpia la seleccion temporal sin modificar los permisos ya agregados.
+    function limpiarPermisosPendientesRol() {
+        window.permisosRolPendientes.clear();
+        renderOpcionesPermisosRol();
+    }
+
+    // Confirma en una sola accion todos los permisos marcados.
+    function aplicarPermisosSeleccionadosRol() {
+        window.permisosRolSeleccionados = Array.from(window.permisosRolPendientes);
         renderPermisosRol();
-        refrescarSelectPermisosRol();
-        select.value = '';
+        cerrarSelectorPermisosRol();
+    }
+
+    // Actualiza el contador y el estado de la casilla para resultados visibles.
+    function actualizarContadorPermisosRol() {
+        const contador = document.getElementById('seg_contador_permisos_rol');
+        const checkVisibles = document.getElementById('seg_seleccionar_visibles_rol');
+        const visibles = permisosVisiblesRol().map(permiso => Number(permiso.id));
+        const totalMarcados = window.permisosRolPendientes?.size || 0;
+        const marcadosVisibles = visibles.filter(idPermiso => window.permisosRolPendientes.has(idPermiso)).length;
+
+        if (contador) {
+            contador.textContent = `${totalMarcados} ${totalMarcados === 1 ? 'permiso marcado' : 'permisos marcados'}`;
+        }
+
+        if (checkVisibles) {
+            checkVisibles.checked = visibles.length > 0 && marcadosVisibles === visibles.length;
+            checkVisibles.indeterminate = marcadosVisibles > 0 && marcadosVisibles < visibles.length;
+            checkVisibles.disabled = visibles.length === 0;
+        }
     }
 
     // Abre el modal para registrar un permiso nuevo desde el formulario de rol.
@@ -259,7 +479,8 @@
 
             input.value = '';
             renderPermisosRol();
-            refrescarSelectPermisosRol();
+            prepararPermisosPendientesRol();
+            renderOpcionesPermisosRol();
             cerrarModalPermisoNuevoRol();
             return;
         }
@@ -304,8 +525,9 @@
         window.permisosRolSeleccionados = (window.permisosRolSeleccionados || [])
             .filter(id => Number(id) !== Number(idPermiso));
 
+        window.permisosRolPendientes?.delete(Number(idPermiso));
         renderPermisosRol();
-        refrescarSelectPermisosRol();
+        renderOpcionesPermisosRol();
     }
 
     // Quita un permiso nuevo antes de guardar el rol.
@@ -316,22 +538,6 @@
             .filter(permiso => limpiarTextoPermisoRol(permiso).toLocaleLowerCase('es') !== nombreNormalizado);
 
         renderPermisosRol();
-    }
-
-    // Reconstruye el select ocultando permisos que ya estan agregados.
-    function refrescarSelectPermisosRol() {
-        const select = document.getElementById('seg_select_permiso_rol');
-        if (!select) return;
-
-        const seleccionados = new Set(window.permisosRolSeleccionados || []);
-
-        select.innerHTML = '<option value="">Seleccione un permiso</option>';
-
-        (window.permisosRolCatalogo || [])
-            .filter(permiso => !seleccionados.has(Number(permiso.id)))
-            .forEach(permiso => {
-                select.add(new Option(permiso.nombre, permiso.id));
-            });
     }
 
     // Dibuja los chips del rol y genera inputs hidden para el controlador.
@@ -386,6 +592,24 @@
 
         const totalPermisos = (window.permisosRolSeleccionados || []).length + (window.permisosRolNuevos || []).length;
         vacio.classList.toggle('hidden', totalPermisos > 0);
+        actualizarResumenPermisosRol(totalPermisos);
+    }
+
+    // Resume la cantidad agregada en el control principal del selector.
+    function actualizarResumenPermisosRol(totalPermisos) {
+        const resumen = document.getElementById('seg_resumen_permisos_rol');
+        const ayuda = document.getElementById('seg_ayuda_permisos_rol');
+
+        if (!resumen || !ayuda) return;
+
+        if (totalPermisos === 0) {
+            resumen.textContent = 'Seleccione uno o varios permisos';
+            ayuda.textContent = 'Busque y marque varios permisos';
+            return;
+        }
+
+        resumen.textContent = `${totalPermisos} ${totalPermisos === 1 ? 'permiso seleccionado' : 'permisos seleccionados'}`;
+        ayuda.textContent = 'Abra el selector para modificar la seleccion';
     }
 
     // Asigna un color estable para permisos existentes segun su id.
