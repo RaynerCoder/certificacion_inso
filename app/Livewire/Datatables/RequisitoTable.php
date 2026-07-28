@@ -5,6 +5,7 @@ namespace App\Livewire\Datatables;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use App\Models\Requisito;
+use Illuminate\Support\HtmlString;
 
 class RequisitoTable extends DataTableComponent
 {
@@ -121,6 +122,9 @@ class RequisitoTable extends DataTableComponent
                 ->searchable(),
 
             Column::make("Descripción", "descripcion")
+                // Convierte solo los saltos guardados por el usuario en nuevas líneas visibles.
+                // Una descripción normal permanece compacta y alineada con las demás columnas.
+                ->format(fn ($descripcion) => new HtmlString(nl2br(e($descripcion))))
                 ->sortable()
                 ->searchable(),
 

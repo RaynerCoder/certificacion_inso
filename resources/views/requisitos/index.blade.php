@@ -14,7 +14,7 @@
 ]">
     <style>
         .requisitos-datatable .requisitos-description-cell {
-            white-space: pre-line !important;
+            white-space: normal !important;
             overflow-wrap: anywhere;
             word-break: normal;
             line-height: 1.55;
@@ -140,14 +140,15 @@
                 </button>
             </div>
 
-            <form action="{{ route('requisitos_store') }}" method="POST" class="space-y-2 px-5 pb-4 pt-2">
+            <form action="{{ route('requisitos_store') }}" method="POST" autocomplete="off"
+                class="space-y-2 px-5 pb-4 pt-2">
                 @csrf
 
                 <input type="hidden" name="form_modal" value="crear">
 
                 <x-wire-textarea label="Descripción del requisito" id="crear_descripcion" name="form_descripcion"
                     placeholder="Ejemplo:&#10;- Fotocopia simple del NIT vigente.&#10;- Certificado original firmado."
-                    rows="6" :value="old('form_descripcion')" />
+                    rows="6" autocomplete="off" :value="old('form_descripcion')" />
                 <p class="text-xs leading-5 text-slate-500">
                     Para mostrar una lista, escriba cada elemento en una línea nueva y comience con un guion (-).
                 </p>
@@ -183,7 +184,8 @@
                 </button>
             </div>
 
-            <form id="formEditarRequisito" action="#" method="POST" class="space-y-2 px-5 pb-4 pt-2">
+            <form id="formEditarRequisito" action="#" method="POST" autocomplete="off"
+                class="space-y-2 px-5 pb-4 pt-2">
                 @csrf
                 @method('PUT')
                 {{-- Permite reabrir este modal si Laravel devuelve errores de validacion. --}}
@@ -192,7 +194,7 @@
 
                 <x-wire-textarea label="Descripción del requisito" id="editar_descripcion" name="form_descripcion"
                     placeholder="Ejemplo:&#10;- Fotocopia simple del NIT vigente.&#10;- Certificado original firmado."
-                    rows="6" :value="old('form_descripcion')" />
+                    rows="6" autocomplete="off" :value="old('form_descripcion')" />
                 <p class="text-xs leading-5 text-slate-500">
                     Los saltos de línea se conservarán. Para una lista, utilice un guion (-) al inicio de cada elemento.
                 </p>
