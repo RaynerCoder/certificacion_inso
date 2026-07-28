@@ -14,8 +14,7 @@ class RequisitoController extends Controller
      */
     public function index()
     {
-        $requisitos = Requisito::all();
-        return view('requisitos.index', compact('requisitos'));
+        return view('requisitos.index');
     }
 
     /**
@@ -31,10 +30,13 @@ class RequisitoController extends Controller
      */
     public function store(Request $solicitud)
     {
-         $datos = $solicitud->validate([
-            'form_descripcion' => ['required','string',
-                Rule::unique('requisitos', 'descripcion')->whereNull('deleted_at'),],
-            'form_estado' => 'string|max:50',
+        $datos = $solicitud->validate([
+            'form_descripcion' => [
+                'required',
+                'string',
+                Rule::unique('requisitos', 'descripcion')->whereNull('deleted_at'),
+            ],
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
         ]);
 
         try {
@@ -89,12 +91,15 @@ class RequisitoController extends Controller
      */
     public function update(Request $solicitud, Requisito $requisito)
     {
-        $datos = $solicitud->validate(['form_descripcion' => ['required','string',
+        $datos = $solicitud->validate([
+            'form_descripcion' => [
+                'required',
+                'string',
                 Rule::unique('requisitos', 'descripcion')
                     ->ignore($requisito->id)
                     ->whereNull('deleted_at'),
             ],
-            'form_estado' => 'string|max:50',
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
         ]);
 
         try {

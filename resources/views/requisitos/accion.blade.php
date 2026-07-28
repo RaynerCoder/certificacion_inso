@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="flex flex-wrap items-center justify-end gap-2">
 
     <!-- El boton esta en modo escucha en JavaScript -->
     <x-wire-button type="button" blue xs 
@@ -9,7 +9,7 @@
         Editar
     </x-wire-button>
 
-    <form action="{{ route('requisitos_destroy', $requisito) }}" method="POST" class="delete-form">
+    <form action="{{ route('requisitos_destroy', $requisito) }}" method="POST" class="delete-form m-0">
         @csrf
         @method('DELETE')
         <x-wire-button type="submit" red xs>
