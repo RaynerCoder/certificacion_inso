@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="tipos-certificados-acciones">
 
     {{-- Abre el mapa de requisitos del tipo de certificado sin modificar el registro. --}}
     <x-wire-button href="{{ route('tipos_certificados_show', $tipoCertificado) }}" green xs>

@@ -18,11 +18,14 @@ class TipoCertificadoTable extends DataTableComponent
     public function columns(): array
     {
         return [
-            Column::make("Id", "id")
+            Column::make("ID", "id")
                 ->sortable(),
             Column::make("Nombre", "nombre")
                 ->sortable(),
             Column::make("Estado", "estado")
+                ->format(fn ($estado) => view('tablas.chip_estado', [
+                    'estado' => $estado,
+                ]))
                 ->sortable(),
             Column::make('Acciones')
                 ->label(function($fila){

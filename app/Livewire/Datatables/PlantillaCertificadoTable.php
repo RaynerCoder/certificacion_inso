@@ -71,10 +71,7 @@ class PlantillaCertificadoTable extends DataTableComponent
 
             Column::make('Estado')
                 ->label(fn ($fila) => view('tablas.chip_estado', [
-                    'texto' => $this->textoEstado($fila->plantillaActiva?->estado ?? $fila->estado),
-                    'clase' => strtoupper((string) ($fila->plantillaActiva?->estado ?? $fila->estado)) === 'ACTIVO'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-slate-100 text-slate-600',
+                    'estado' => $fila->plantillaActiva?->estado ?? $fila->estado ?? 'Sin estado',
                 ])),
 
             Column::make('Acciones')
@@ -84,12 +81,4 @@ class PlantillaCertificadoTable extends DataTableComponent
         ];
     }
 
-    private function textoEstado(?string $estado): string
-    {
-        if (!$estado) {
-            return 'Sin estado';
-        }
-
-        return ucfirst(strtolower(str_replace('_', ' ', $estado)));
-    }
 }

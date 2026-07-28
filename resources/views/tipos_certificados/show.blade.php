@@ -17,24 +17,41 @@
 ]">
 
     @php
-        // Requisitos de primer nivel: son los requisitos directos del certificado base.
+        // Los requisitos raiz pertenecen directamente al certificado consultado.
         $requisitosRaiz = collect($arbolRequisitos['requisitos'] ?? []);
 
-        // Total del encabezado: solo cuenta los requisitos directos, no los requisitos internos.
+        // Cuenta todos los nodos, incluidos los requisitos de certificados previos.
+        $contarRequisitos = function ($nodos) use (&$contarRequisitos): int {
+            return collect($nodos)->sum(function (array $nodo) use (&$contarRequisitos): int {
+                return 1 + $contarRequisitos($nodo['hijos'] ?? []);
+            });
+        };
+
+        // Calcula la profundidad real para informar cuantos niveles tiene la estructura.
+        $calcularNiveles = function ($nodos, int $nivel = 1) use (&$calcularNiveles): int {
+            return collect($nodos)->reduce(function (int $maximo, array $nodo) use (&$calcularNiveles, $nivel): int {
+                $nivelNodo = empty($nodo['hijos'])
+                    ? $nivel
+                    : $calcularNiveles($nodo['hijos'], $nivel + 1);
+
+                return max($maximo, $nivelNodo);
+            }, 0);
+        };
+
+        $totalRequisitos = $contarRequisitos($requisitosRaiz);
+        $totalNiveles = $calcularNiveles($requisitosRaiz);
         $totalRequisitosNivelUno = $requisitosRaiz->count();
 
-        // FUNCION PARA DEFINIR EL COLOR DEL ESTADO
-        // Devuelve clases CSS para mostrar el estado como chip visual.
+        // Devuelve las clases del chip segun el estado del certificado.
         $claseEstado = function (?string $estado): string {
             return match ($estado) {
                 'ACTIVO' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                'INACTIVO' => 'border-slate-200 bg-slate-100 text-slate-600',
+                'INACTIVO' => 'border-rose-200 bg-rose-50 text-rose-700',
                 default => 'border-amber-200 bg-amber-50 text-amber-700',
             };
         };
 
-        // FUNCION PARA DEFINIR EL COLOR DEL TIPO DE EVIDENCIA
-        // Permite diferenciar certificado previo, PDF, pago, texto, imagen o presencial.
+        // Diferencia visualmente cada forma de cumplir un requisito.
         $claseEvidencia = function (?string $codigo): string {
             return match ($codigo) {
                 'CERTIFICADO' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -47,204 +64,428 @@
             };
         };
 
-        // FUNCION PARA PINTAR CADA NODO DEL ARBOL HORIZONTAL
-        // El padre queda a la izquierda y sus hijos se muestran hacia la derecha.
-        $renderizarNodoHorizontal = function (array $nodo, int $nivel = 1) use (
-            &$renderizarNodoHorizontal,
-            $claseEvidencia,
-        ): string {
-            // Identifica si este nodo representa un certificado previo.
-            $esCertificado = ($nodo['tipo'] ?? 'requisito') === 'certificado';
+        $secuenciaNodo = 0;
 
-            // Limpia textos antes de imprimirlos en HTML.
+        // Renderiza un requisito y agrega debajo sus dependencias sin perder la jerarquia.
+        $renderizarNodo = function (array $nodo, int $nivel = 1) use (
+            &$renderizarNodo,
+            $claseEvidencia,
+            &$secuenciaNodo,
+        ): string {
+            $secuenciaNodo++;
+            $esCertificado = ($nodo['tipo'] ?? 'requisito') === 'certificado';
             $nombre = e($nodo['nombre'] ?? 'Sin requisito');
             $codigoEvidencia = e($nodo['evidencia_codigo'] ?? 'SIN_EVIDENCIA');
             $nombreEvidencia = e($nodo['evidencia_nombre'] ?? 'Sin evidencia');
-
-            // Datos visuales del nodo.
             $hijos = $nodo['hijos'] ?? [];
             $tipoTexto = $esCertificado ? 'Certificado previo' : 'Requisito';
             $claseEvidenciaNodo = $claseEvidencia($nodo['evidencia_codigo'] ?? null);
-            $claseNodo = $esCertificado ? 'cert-horizontal-node-certificado' : 'cert-horizontal-node-requisito';
+            $claseNodo = $esCertificado ? 'is-certificate' : '';
+            $idDescripcion = 'cert-requisito-descripcion-' . $secuenciaNodo;
+            $descripcionLarga = mb_strlen($nodo['nombre'] ?? '') > 145;
+            $area = filled($nodo['area'] ?? null)
+                ? '<p class="cert-requirement-meta"><i class="fa-solid fa-building"></i>' . e($nodo['area']) . '</p>'
+                : '';
 
-            // Renderiza los hijos para formar el siguiente nivel hacia la derecha.
             $htmlHijos = collect($hijos)
-                ->map(fn($hijo) => $renderizarNodoHorizontal($hijo, $nivel + 1))
+                ->map(fn($hijo) => $renderizarNodo($hijo, $nivel + 1))
                 ->implode('');
 
-            // Si el nodo tiene hijos, se dibuja el grupo derecho.
-            $ramaHijos = '';
+            $botonDetalle = '';
+            if ($descripcionLarga) {
+                $botonDetalle = <<<HTML
+                    <button type="button" class="cert-detail-button" data-cert-detail="{$idDescripcion}"
+                        aria-controls="{$idDescripcion}" aria-expanded="false">
+                        <span>Ver detalle</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                HTML;
+            }
+
+            $bloqueHijos = '';
             if (filled($htmlHijos)) {
-                $ramaHijos = <<<HTML
-                    <div class="cert-horizontal-children">
-                        {$htmlHijos}
+                $cantidadHijos = count($hijos);
+                $textoCantidad = $cantidadHijos === 1 ? '1 requisito' : "{$cantidadHijos} requisitos";
+                $nivelHijo = $nivel + 1;
+
+                $bloqueHijos = <<<HTML
+                    <div class="cert-nested-group">
+                        <div class="cert-nested-header">
+                            <span>Nivel {$nivelHijo}</span>
+                            <span>{$textoCantidad}</span>
+                        </div>
+                        <div class="cert-nested-grid">
+                            {$htmlHijos}
+                        </div>
                     </div>
                 HTML;
             }
 
             return <<<HTML
-                <div class="cert-horizontal-branch">
-                    <div class="cert-horizontal-node {$claseNodo}">
-                        <div class="cert-horizontal-node-top">
-                            <span class="cert-horizontal-chip cert-horizontal-level">Nivel {$nivel}</span>
-                            <span class="cert-horizontal-chip cert-horizontal-type">{$tipoTexto}</span>
-                            <span class="cert-horizontal-chip {$claseEvidenciaNodo}">{$codigoEvidencia}</span>
+                <article class="cert-requirement-item">
+                    <div class="cert-requirement-card {$claseNodo}">
+                        <div class="cert-requirement-top">
+                            <div class="cert-chip-group">
+                                <span class="cert-chip cert-chip-level">Nivel {$nivel}</span>
+                                <span class="cert-chip cert-chip-type">{$tipoTexto}</span>
+                            </div>
+                            <span class="cert-chip {$claseEvidenciaNodo}" title="{$nombreEvidencia}">
+                                {$codigoEvidencia}
+                            </span>
                         </div>
 
-                        <p class="cert-horizontal-title">{$nombre}</p>
-                        <p class="cert-horizontal-subtitle">{$nombreEvidencia}</p>
+                        <p id="{$idDescripcion}" class="cert-requirement-title">{$nombre}</p>
+                        {$area}
+                        {$botonDetalle}
                     </div>
 
-                    {$ramaHijos}
-                </div>
+                    {$bloqueHijos}
+                </article>
             HTML;
         };
     @endphp
 
     <style>
-        /* Contenedor principal del organigrama horizontal. */
-        .cert-horizontal-tree {
-            overflow-x: auto;
-            padding: 1rem 0.5rem 1.25rem;
-        }
-
-        /* Raiz del arbol: certificado a la izquierda y requisitos hacia la derecha. */
-        .cert-horizontal-root {
-            align-items: flex-start;
-            display: flex;
-            gap: 2.75rem;
-            min-width: max-content;
+        /* Distribuye el certificado base, su conector y el panel de requisitos. */
+        .cert-tree-layout {
+            display: grid;
+            gap: 0;
+            grid-template-columns: minmax(280px, 340px) 70px minmax(0, 1fr);
+            padding: 2rem 1.5rem;
             position: relative;
         }
 
-        /* Nodo base del certificado donde se inicia el tramite. */
-        .cert-horizontal-base {
-            background: #f0fdfa;
+        /* Resume los datos del certificado desde donde comienza el tramite. */
+        .cert-root-card {
+            align-self: start;
+            background: linear-gradient(135deg, #f0fdfa 0%, #f8fffe 100%);
             border: 1px solid #99f6e4;
             border-radius: 0.875rem;
-            min-height: 108px;
-            padding: 0.875rem;
-            position: relative;
-            width: 340px;
+            padding: 1.1rem;
         }
 
-        /* Linea que conecta el certificado base con los requisitos de nivel 1. */
-        .cert-horizontal-base::after {
-            background: #99f6e4;
-            content: '';
+        .cert-root-title {
+            color: #0f172a;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1.35;
+            margin-top: 0.9rem;
+            overflow-wrap: anywhere;
+        }
+
+        .cert-root-area {
+            border-top: 1px solid #ccfbf1;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 0.9rem;
+            padding-top: 0.9rem;
+        }
+
+        /* Une visualmente el certificado base con su primer nivel. */
+        .cert-tree-connector {
+            align-self: start;
             height: 2px;
-            position: absolute;
-            right: -2.75rem;
-            top: 54px;
-            width: 2.75rem;
-        }
-
-        /* Grupo vertical de hijos de un nodo. */
-        .cert-horizontal-children {
-            border-left: 2px solid #cbd5e1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.875rem;
-            padding-left: 2.25rem;
+            margin-top: 6.45rem;
             position: relative;
+            background: #99f6e4;
         }
 
-        /* Cada rama contiene un nodo y, si corresponde, sus hijos a la derecha. */
-        .cert-horizontal-branch {
-            align-items: flex-start;
-            display: flex;
-            gap: 2.25rem;
-            position: relative;
-        }
-
-        /* Linea horizontal que conecta cada nodo con el grupo padre. */
-        .cert-horizontal-branch::before {
-            background: #cbd5e1;
-            content: '';
-            height: 1px;
-            left: -2.25rem;
-            position: absolute;
-            top: 46px;
-            width: 2.25rem;
-        }
-
-        /* Nodo general de requisito o certificado previo. */
-        .cert-horizontal-node {
-            border: 1px solid #e2e8f0;
-            border-radius: 0.75rem;
-            min-height: 92px;
-            padding: 0.75rem;
-            width: 256px;
-        }
-
-        /* Nodo normal de requisito. */
-        .cert-horizontal-node-requisito {
+        .cert-tree-connector::after {
             background: #ffffff;
+            border: 5px solid #0d9488;
+            border-radius: 999px;
+            content: '';
+            height: 22px;
+            position: absolute;
+            right: 50%;
+            top: 50%;
+            transform: translate(50%, -50%);
+            width: 22px;
         }
 
-        /* Nodo que representa un certificado previo. */
-        .cert-horizontal-node-certificado {
+        /* Agrupa los requisitos de primer nivel en un bloque independiente. */
+        .cert-level-panel {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.875rem;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .cert-level-header,
+        .cert-nested-header {
+            align-items: center;
+            background: #f8fafc;
+            color: #475569;
+            display: flex;
+            font-size: 12px;
+            font-weight: 700;
+            justify-content: space-between;
+        }
+
+        .cert-level-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.85rem 1.25rem;
+        }
+
+        .cert-level-header strong {
+            color: #0f766e;
+            font-size: 13px;
+        }
+
+        .cert-level-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(2, minmax(260px, 1fr));
+            padding: 1.25rem;
+        }
+
+        /* Cada requisito puede contener a su vez un grupo de dependencias. */
+        .cert-requirement-item {
+            min-width: 0;
+        }
+
+        .cert-requirement-card {
+            background: #ffffff;
+            border: 1px solid #dbe3ec;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            min-height: 148px;
+            padding: 1rem;
+        }
+
+        .cert-requirement-card.is-certificate {
             background: #ecfdf5;
             border-color: #a7f3d0;
         }
 
-        /* Fila superior de chips dentro de cada nodo. */
-        .cert-horizontal-node-top {
+        .cert-requirement-top {
+            align-items: flex-start;
+            display: flex;
+            gap: 0.75rem;
+            justify-content: space-between;
+            margin-bottom: 0.85rem;
+        }
+
+        .cert-chip-group {
             display: flex;
             flex-wrap: wrap;
             gap: 0.375rem;
-            margin-bottom: 0.5rem;
         }
 
-        /* Chip compacto reutilizado en los nodos. */
-        .cert-horizontal-chip {
+        .cert-chip {
             align-items: center;
-            border-radius: 0.375rem;
+            border-radius: 0.4rem;
             border-width: 1px;
             display: inline-flex;
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 800;
-            min-height: 19px;
-            padding: 0 0.35rem;
+            min-height: 22px;
+            padding: 0 0.5rem;
             white-space: nowrap;
         }
 
-        /* Chip de nivel. */
-        .cert-horizontal-level {
+        .cert-chip-level {
             background: #f0fdfa;
             border-color: #99f6e4;
             color: #0f766e;
         }
 
-        /* Chip de tipo de nodo. */
-        .cert-horizontal-type {
+        .cert-chip-type {
             background: #f8fafc;
             border-color: #e2e8f0;
             color: #475569;
         }
 
-        /* Titulo principal del nodo. */
-        .cert-horizontal-title {
+        /* Limita textos extensos hasta que el usuario solicite verlos completos. */
+        .cert-requirement-title {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 4;
             color: #0f172a;
-            font-size: 13px;
-            font-weight: 800;
-            line-height: 1.25rem;
+            display: -webkit-box;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.45;
+            overflow: hidden;
             overflow-wrap: anywhere;
         }
 
-        /* Texto secundario del nodo. */
-        .cert-horizontal-subtitle {
+        .cert-requirement-title.is-expanded {
+            -webkit-line-clamp: unset;
+            display: block;
+        }
+
+        .cert-requirement-meta {
+            align-items: flex-start;
             color: #64748b;
+            display: flex;
             font-size: 11px;
-            line-height: 1rem;
-            margin-top: 0.375rem;
-            overflow-wrap: anywhere;
+            gap: 0.4rem;
+            line-height: 1.4;
+            margin-top: 0.65rem;
         }
 
-        /* En pantallas pequenas se mantiene el organigrama con desplazamiento horizontal. */
-        @media (max-width: 900px) {
-            .cert-horizontal-tree {
-                overflow-x: auto;
+        .cert-requirement-meta i {
+            color: #0d9488;
+            margin-top: 0.15rem;
+        }
+
+        .cert-detail-button {
+            align-items: center;
+            color: #0f766e;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 0.55rem;
+            margin-top: 0.85rem;
+        }
+
+        .cert-detail-button:hover {
+            color: #115e59;
+        }
+
+        .cert-detail-button i {
+            font-size: 10px;
+            transition: transform 160ms ease;
+        }
+
+        .cert-detail-button.is-expanded i {
+            transform: rotate(90deg);
+        }
+
+        /* Presenta los requisitos internos del certificado previo junto a su padre. */
+        .cert-nested-group {
+            border-left: 2px solid #99f6e4;
+            margin: 0.85rem 0 0 1rem;
+            padding-left: 0.85rem;
+        }
+
+        .cert-nested-header {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.55rem 0.55rem 0 0;
+            padding: 0.55rem 0.75rem;
+        }
+
+        .cert-nested-grid {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0 0 0.55rem 0.55rem;
+            border-top: 0;
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: 1fr;
+            padding: 0.75rem;
+        }
+
+        .cert-nested-grid .cert-requirement-card {
+            min-height: 0;
+        }
+
+        /* Permite alternar a una lectura lineal sin duplicar los datos. */
+        .cert-tree-layout.is-list {
+            display: block;
+        }
+
+        .cert-tree-layout.is-list .cert-root-card,
+        .cert-tree-layout.is-list .cert-tree-connector {
+            display: none;
+        }
+
+        .cert-tree-layout.is-list .cert-level-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .cert-view-switch {
+            background: #ffffff;
+            border: 1px solid #dbe3ec;
+            border-radius: 0.6rem;
+            display: inline-flex;
+            overflow: hidden;
+        }
+
+        .cert-view-button {
+            align-items: center;
+            color: #64748b;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 0.45rem;
+            min-height: 36px;
+            padding: 0 0.85rem;
+        }
+
+        .cert-view-button.is-active {
+            box-shadow: inset 0 -2px 0 #0d9488;
+            color: #0f766e;
+        }
+
+        @media (max-width: 1180px) {
+            .cert-tree-layout {
+                grid-template-columns: minmax(250px, 300px) 48px minmax(0, 1fr);
+                padding: 1.25rem;
+            }
+
+            .cert-level-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cert-tree-connector {
+                margin-top: 6rem;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .cert-tree-layout {
+                display: block;
+                padding: 1rem;
+            }
+
+            .cert-root-card {
+                width: 100%;
+            }
+
+            .cert-tree-connector {
+                height: 32px;
+                margin: 0 auto;
+                width: 2px;
+            }
+
+            .cert-tree-connector::after {
+                right: 50%;
+                top: 50%;
+            }
+
+            .cert-level-grid {
+                grid-template-columns: minmax(0, 1fr);
+                padding: 0.85rem;
+            }
+
+            .cert-level-header {
+                padding: 0.75rem 0.85rem;
+            }
+
+            .cert-requirement-card {
+                min-height: 0;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .cert-tree-toolbar {
+                align-items: stretch;
+            }
+
+            .cert-view-switch {
+                width: 100%;
+            }
+
+            .cert-view-button {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .cert-nested-group {
+                margin-left: 0.35rem;
+                padding-left: 0.55rem;
             }
         }
     </style>
@@ -278,63 +519,140 @@
             </div>
         </div>
 
-        {{-- Arbol horizontal de requisitos. --}}
+        {{-- Vista de consulta de la estructura completa del certificado. --}}
         <section class="overflow-hidden rounded-2xl border border-teal-100 bg-white shadow-sm">
             <div
-                class="flex flex-col gap-2 border-b border-teal-100 bg-gradient-to-r from-teal-50 to-white px-5 py-3 md:flex-row md:items-center md:justify-between">
+                class="flex flex-col gap-4 border-b border-teal-100 bg-gradient-to-r from-teal-50 to-white px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
                 <div class="flex items-center gap-3">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm text-white">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-sm text-white">
                         <i class="fa-solid fa-sitemap"></i>
                     </span>
                     <div>
-                        <h2 class="text-base font-bold text-teal-800">Arbol de requisitos</h2>
+                        <h2 class="text-base font-bold text-teal-800">Árbol de requisitos</h2>
                         <p class="text-xs text-teal-700">
-                            El certificado inicia en su area responsable y sus requisitos se despliegan hacia la derecha.
+                            El certificado inicia en su área responsable y sus requisitos se organizan por niveles.
                         </p>
                     </div>
                 </div>
 
-                <span
-                    class="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                    {{ $totalRequisitosNivelUno }} requisitos nivel 1
-                </span>
+                <div class="cert-tree-toolbar flex flex-wrap items-center gap-2">
+                    <span
+                        class="inline-flex min-h-9 items-center rounded-lg border border-teal-200 bg-white px-3 text-xs font-bold text-teal-700">
+                        {{ $totalRequisitos }} {{ $totalRequisitos === 1 ? 'requisito' : 'requisitos' }}
+                    </span>
+                    <span
+                        class="inline-flex min-h-9 items-center rounded-lg border border-teal-200 bg-white px-3 text-xs font-bold text-teal-700">
+                        {{ $totalNiveles }} {{ $totalNiveles === 1 ? 'nivel' : 'niveles' }}
+                    </span>
+
+                    {{-- Cambia la presentación sin volver a consultar los datos. --}}
+                    <div class="cert-view-switch" role="group" aria-label="Vista de requisitos">
+                        <button type="button" class="cert-view-button is-active" data-cert-view="tree"
+                            aria-pressed="true">
+                            <i class="fa-solid fa-sitemap"></i>
+                            <span>Árbol</span>
+                        </button>
+                        <button type="button" class="cert-view-button" data-cert-view="list"
+                            aria-pressed="false">
+                            <i class="fa-solid fa-list"></i>
+                            <span>Lista</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            @if ($totalRequisitosNivelUno === 0)
+            @if ($totalRequisitos === 0)
                 <div class="px-5 py-8 text-center text-sm text-slate-500">
                     Sin requisitos registrados.
                 </div>
             @else
-                <div class="px-5 py-5">
-                    <div class="cert-horizontal-tree">
-                        <div class="cert-horizontal-root">
-                            {{-- Nodo base: aqui inicia el tramite del certificado. --}}
-                            <div class="cert-horizontal-base">
-                                <div class="cert-horizontal-node-top">
-                                    <span class="cert-horizontal-chip cert-horizontal-level">Nivel 0</span>
-                                    <span
-                                        class="cert-horizontal-chip border-emerald-200 bg-emerald-50 text-emerald-700">Certificado</span>
-                                    <span class="cert-horizontal-chip {{ $claseEstado($tipoCertificado->estado) }}">
-                                        {{ $tipoCertificado->estado ?? 'Sin estado' }}
-                                    </span>
-                                </div>
+                <div id="cert-tree-layout" class="cert-tree-layout">
+                    {{-- El certificado base permanece visible como punto de inicio del árbol. --}}
+                    <div class="cert-root-card">
+                        <div class="cert-chip-group">
+                            <span class="cert-chip cert-chip-level">Nivel 0</span>
+                            <span
+                                class="cert-chip border-emerald-200 bg-emerald-50 text-emerald-700">Certificado</span>
+                            <span class="cert-chip {{ $claseEstado($tipoCertificado->estado) }}">
+                                {{ $tipoCertificado->estado ?? 'Sin estado' }}
+                            </span>
+                        </div>
 
-                                <p class="cert-horizontal-title">{{ $tipoCertificado->nombre }}</p>
-                                <p class="cert-horizontal-subtitle">
-                                    Area donde se inicia el tramite: {{ $tipoCertificado->area?->nombre ?? 'Sin area' }}
-                                </p>
-                            </div>
+                        <p class="cert-root-title">{{ $tipoCertificado->nombre }}</p>
+                        <p class="cert-root-area">
+                            Área responsable:
+                            <strong class="font-semibold text-slate-600">
+                                {{ $tipoCertificado->area?->nombre ?? 'Sin área' }}
+                            </strong>
+                        </p>
+                    </div>
 
-                            {{-- Requisitos de primer nivel y sus dependencias. --}}
-                            <div class="cert-horizontal-children">
-                                @foreach ($requisitosRaiz as $requisito)
-                                    {!! $renderizarNodoHorizontal($requisito, 1) !!}
-                                @endforeach
-                            </div>
+                    <div class="cert-tree-connector" aria-hidden="true"></div>
+
+                    {{-- El primer nivel usa dos columnas; los niveles internos se agrupan con su padre. --}}
+                    <div class="cert-level-panel">
+                        <div class="cert-level-header">
+                            <strong>Nivel 1</strong>
+                            <span>
+                                {{ $totalRequisitosNivelUno }}
+                                {{ $totalRequisitosNivelUno === 1 ? 'requisito' : 'requisitos' }}
+                            </span>
+                        </div>
+
+                        <div class="cert-level-grid">
+                            @foreach ($requisitosRaiz as $requisito)
+                                {!! $renderizarNodo($requisito, 1) !!}
+                            @endforeach
                         </div>
                     </div>
                 </div>
             @endif
         </section>
     </div>
+
+    @push('js')
+        <script>
+            // Alterna entre la jerarquía visual y una lectura lineal de los mismos requisitos.
+            document.addEventListener('click', function (evento) {
+                const botonVista = evento.target.closest('[data-cert-view]');
+
+                if (botonVista) {
+                    const contenedor = document.getElementById('cert-tree-layout');
+                    const vista = botonVista.dataset.certView;
+
+                    if (!contenedor) {
+                        return;
+                    }
+
+                    contenedor.classList.toggle('is-list', vista === 'list');
+
+                    document.querySelectorAll('[data-cert-view]').forEach((boton) => {
+                        const seleccionado = boton === botonVista;
+                        boton.classList.toggle('is-active', seleccionado);
+                        boton.setAttribute('aria-pressed', seleccionado ? 'true' : 'false');
+                    });
+
+                    return;
+                }
+
+                // Expande solo la descripción solicitada y conserva compactas las demás tarjetas.
+                const botonDetalle = evento.target.closest('[data-cert-detail]');
+
+                if (!botonDetalle) {
+                    return;
+                }
+
+                const descripcion = document.getElementById(botonDetalle.dataset.certDetail);
+
+                if (!descripcion) {
+                    return;
+                }
+
+                const expandido = descripcion.classList.toggle('is-expanded');
+                botonDetalle.classList.toggle('is-expanded', expandido);
+                botonDetalle.setAttribute('aria-expanded', expandido ? 'true' : 'false');
+                botonDetalle.querySelector('span').textContent = expandido ? 'Ocultar detalle' : 'Ver detalle';
+            });
+        </script>
+    @endpush
 </x-admin-layout>

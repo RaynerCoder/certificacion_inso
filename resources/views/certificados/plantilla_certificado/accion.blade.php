@@ -1,4 +1,4 @@
-<div class="flex flex-wrap items-center gap-2">
+<div class="plantillas-certificado-acciones">
     <x-wire-button href="{{ route('certificados_plantillas_show', $tipoCertificado) }}" emerald xs>
         Ver
     </x-wire-button>
