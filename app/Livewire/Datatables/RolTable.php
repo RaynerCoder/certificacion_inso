@@ -61,7 +61,10 @@ class RolTable extends DataTableComponent
                 ])),
 
             Column::make("Especial", "especial")
-                ->format(fn ($valor) => $valor ?: 'Sin dato')
+                ->format(fn ($valor) => view('tablas.chip_estado', [
+                    'texto' => $valor ?: 'Sin dato',
+                    'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
+                ]))
                 ->sortable(),
 
             Column::make("Estado", "estado")

@@ -361,6 +361,7 @@
         $puedeRegistrarPago = $requierePagoTramite
             && !$tienePagoRegistrado
             && !$esSolicitante
+            && (auth()->user()?->puede('pagos.validar') ?? false)
             && ($puedeAsignarTecnico || $puedeRevisarRequisitos);
         $abrirModalPago = $puedeRegistrarPago
             && collect([

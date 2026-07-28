@@ -14,8 +14,8 @@
 
     .roles-table-scroll table {
         width: 100%;
-        min-width: 980px;
-        table-layout: auto;
+        min-width: 1180px;
+        table-layout: fixed;
     }
 
     .roles-table-scroll th,
@@ -30,7 +30,7 @@
 
     .roles-table-scroll th:first-child,
     .roles-table-scroll td:first-child {
-        width: 60px;
+        width: 4%;
         min-width: 60px;
         text-align: center;
         white-space: nowrap;
@@ -38,36 +38,46 @@
 
     .roles-table-scroll th:nth-child(2),
     .roles-table-scroll td:nth-child(2) {
+        width: 15%;
         min-width: 130px;
     }
 
     .roles-table-scroll th:nth-child(3),
     .roles-table-scroll td:nth-child(3) {
+        width: 15%;
         min-width: 145px;
     }
 
     .roles-table-scroll th:nth-child(4),
     .roles-table-scroll td:nth-child(4) {
+        width: 28%;
         min-width: 220px;
     }
 
     .roles-table-scroll th:nth-child(5),
     .roles-table-scroll td:nth-child(5) {
+        width: 9%;
         min-width: 105px;
         text-align: center;
     }
 
     .roles-table-scroll th:nth-child(6),
-    .roles-table-scroll td:nth-child(6),
+    .roles-table-scroll td:nth-child(6) {
+        width: 8%;
+        min-width: 90px;
+        text-align: center;
+    }
+
     .roles-table-scroll th:nth-child(7),
     .roles-table-scroll td:nth-child(7) {
+        width: 8%;
         min-width: 90px;
         text-align: center;
     }
 
     .roles-table-scroll th:last-child,
     .roles-table-scroll td:last-child {
-        width: 160px;
+        width: 13%;
         min-width: 160px;
         text-align: center;
         white-space: nowrap;

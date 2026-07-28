@@ -359,11 +359,19 @@ class CertificadoController extends Controller
                     && (int) $seguimiento->id_usuario_siguiente === (int) auth()->id();
             });
 
-        // Permisos de pantalla: el solicitante solo consulta/corrige; el jefe puede asignar y revisar.
-        $puedeAsignarTecnico = !$consultaGeneral && $esJefeUnidad && $seguimientoAtencionActual;
-        $puedeRevisarRequisitos = !$consultaGeneral && !$esSolicitante && $seguimientoTecnicoActual;
+        // Los permisos de consulta no habilitan por si solos acciones que cambian el tramite.
+        $puedeGestionarTramite = $usuarioActual?->puede('seguimientos_tramite.gestionar') ?? false;
+        $puedeAsignarTecnico = $puedeGestionarTramite
+            && !$consultaGeneral
+            && $esJefeUnidad
+            && $seguimientoAtencionActual;
+        $puedeRevisarRequisitos = $puedeGestionarTramite
+            && !$consultaGeneral
+            && !$esSolicitante
+            && $seguimientoTecnicoActual;
         // Permite registrar correccion presencial cuando el tramite esta observado y la etapa activa esta en el solicitante.
-        $puedeRegistrarCorreccionRecibida = !$consultaGeneral
+        $puedeRegistrarCorreccionRecibida = $puedeGestionarTramite
+            && !$consultaGeneral
             && !$esSolicitante
             && $esUsuarioInterno
             && $certificado->estado === 'OBSERVADO'
@@ -380,7 +388,8 @@ class CertificadoController extends Controller
             : null;
         $destinatarioCorreccionBloqueado = ! $certificado->beneficiario?->empresa;
         $todosRequisitosCumplen = $certificado->cumpleTodosLosRequisitos();
-        $puedeFinalizarTramite = !$consultaGeneral
+        $puedeFinalizarTramite = $puedeGestionarTramite
+            && !$consultaGeneral
             && !$esSolicitante
             && $seguimientoTecnicoActual
             && $todosRequisitosCumplen
@@ -393,6 +402,7 @@ class CertificadoController extends Controller
         // Boton de emision: aparece despues de finalizar el tramite.
         $puedeEmitirCertificado = !$consultaGeneral
             && $esUsuarioInterno
+            && ($usuarioActual?->puede('certificados.emitir') ?? false)
             && $certificado->puedeEmitirse();
 
         // Funcionarios disponibles para asignar/derivar desde el detalle del tramite.

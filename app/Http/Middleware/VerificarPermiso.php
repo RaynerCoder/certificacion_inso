@@ -45,7 +45,12 @@ class VerificarPermiso
             'certificados_show' => [
                 'certificados.ver',
                 'seguimientos_tramite.ver',
+                'seguimientos_tramite.enviados',
                 'seguimientos_tramite.registrados',
+                'seguimientos_tramite.atender',
+                'seguimientos_tramite.gestionar',
+                'seguimientos_tramite.consulta_general',
+                'seguimientos_tramite.historial',
             ],
             // La vista de impresión se abre desde "Mis trámites"; el controlador valida que sea propio.
             'certificados_emitir' => ['certificados.emitir', 'seguimientos_tramite.enviados'],

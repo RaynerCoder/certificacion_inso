@@ -237,7 +237,9 @@ Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController:
 Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
-Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])->name('certificados_enviar_solicitante');
+Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
+    ->name('certificados_enviar_solicitante')
+    ->middleware('permiso:certificados.emitir');
 Route::get('/certificados/{certificado}/edit', [CertificadoController::class, 'edit'])->name('certificados_edit');
 Route::put('/certificados/{certificado}', [CertificadoController::class, 'update'])->name('certificados_update');
 Route::delete('/certificados/{certificado}', [CertificadoController::class, 'destroy'])->name('certificados_destroy');
@@ -398,12 +400,12 @@ Route::post('/seguimientos', [SeguimientoController::class, 'store'])
     ->name('seguimientos_store')
     ->middleware(['permiso:seguimientos_tramite.iniciar', 'throttle:10,1']);
 Route::get('/seguimientos/{seguimiento}/historial', [SeguimientoController::class, 'historial'])->name('seguimientos_tramite_historial')->middleware('permiso:seguimientos_tramite.historial');
-Route::post('/seguimientos/{seguimiento}/asignar-tecnico', [SeguimientoController::class, 'asignarTecnico'])->name('seguimientos_asignar_tecnico')->middleware('permiso:seguimientos_tramite.atender');
-Route::post('/seguimientos/{seguimiento}/derivar-tecnico', [SeguimientoController::class, 'derivarTecnico'])->name('seguimientos_derivar_tecnico')->middleware('permiso:seguimientos_tramite.atender');
-Route::post('/seguimientos/{seguimiento}/revision-tecnica', [SeguimientoController::class, 'revisarTecnico'])->name('seguimientos_revision_tecnica')->middleware('permiso:seguimientos_tramite.atender');
-Route::post('/seguimientos/{seguimiento}/finalizar-tramite', [SeguimientoController::class, 'finalizarTramite'])->name('seguimientos_finalizar_tramite')->middleware('permiso:seguimientos_tramite.atender');
-Route::post('/seguimientos/{seguimiento}/notificar-correccion', [SeguimientoController::class, 'notificarCorreccionSolicitante'])->name('seguimientos_notificar_correccion')->middleware('permiso:seguimientos_tramite.atender');
-Route::post('/seguimientos/{seguimiento}/registrar-correccion-recibida', [SeguimientoController::class, 'registrarCorreccionRecibida'])->name('seguimientos_registrar_correccion_recibida')->middleware('permiso:seguimientos_tramite.atender');
+Route::post('/seguimientos/{seguimiento}/asignar-tecnico', [SeguimientoController::class, 'asignarTecnico'])->name('seguimientos_asignar_tecnico')->middleware('permiso:seguimientos_tramite.gestionar');
+Route::post('/seguimientos/{seguimiento}/derivar-tecnico', [SeguimientoController::class, 'derivarTecnico'])->name('seguimientos_derivar_tecnico')->middleware('permiso:seguimientos_tramite.gestionar');
+Route::post('/seguimientos/{seguimiento}/revision-tecnica', [SeguimientoController::class, 'revisarTecnico'])->name('seguimientos_revision_tecnica')->middleware('permiso:seguimientos_tramite.gestionar');
+Route::post('/seguimientos/{seguimiento}/finalizar-tramite', [SeguimientoController::class, 'finalizarTramite'])->name('seguimientos_finalizar_tramite')->middleware('permiso:seguimientos_tramite.gestionar');
+Route::post('/seguimientos/{seguimiento}/notificar-correccion', [SeguimientoController::class, 'notificarCorreccionSolicitante'])->name('seguimientos_notificar_correccion')->middleware('permiso:seguimientos_tramite.gestionar');
+Route::post('/seguimientos/{seguimiento}/registrar-correccion-recibida', [SeguimientoController::class, 'registrarCorreccionRecibida'])->name('seguimientos_registrar_correccion_recibida')->middleware('permiso:seguimientos_tramite.gestionar');
 Route::post('/seguimientos/{seguimiento}/reenviar-correccion', [SeguimientoController::class, 'reenviarCorreccion'])->name('seguimientos_reenviar_correccion')->middleware('permiso:seguimientos_tramite.enviados');
 Route::get('/seguimientos/{seguimiento}/edit', [SeguimientoController::class, 'edit'])->name('seguimientos_edit');
 Route::put('/seguimientos/{seguimiento}', [SeguimientoController::class, 'update'])->name('seguimientos_update');
@@ -432,7 +434,7 @@ Route::get('/procedencias/{procedencia}',[ProcedenciaController::class, 'show'])
 ========================= */
 Route::get('/pagos', [PagoController::class, 'index'])->name('pagos_index');
 Route::get('/pagos/create', [PagoController::class, 'create'])->name('pagos_create');
-Route::post('/pagos', [PagoController::class, 'store'])->name('pagos_store');
+Route::post('/pagos', [PagoController::class, 'store'])->name('pagos_store')->middleware('permiso:pagos.validar');
 Route::get('/pagos/{pago}/edit', [PagoController::class, 'edit'])->name('pagos_edit');
 Route::put('/pagos/{pago}', [PagoController::class, 'update'])->name('pagos_update');
 Route::delete('/pagos/{pago}', [PagoController::class, 'destroy'])->name('pagos_destroy');
