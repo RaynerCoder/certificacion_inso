@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 
-class ProduccionSeeder extends Seeder
+class DatosProduccionSeeder extends Seeder
 {
     /**
      * Carga solamente la configuración necesaria para iniciar el sistema.

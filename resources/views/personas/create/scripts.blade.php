@@ -3689,6 +3689,11 @@
              rehidratarResponsablePersonaWizard(responsable);
          });
      }
+
+     // Se conecta dentro del bloque principal para que el selector territorial
+     // no dependa de que TomSelect o cualquier otro complemento externo cargue.
+     document.getElementById('nuevo_id_pais_responsable')
+         ?.addEventListener('change', seleccionarPaisTerritorioResponsable);
  </script>
 
 
@@ -3697,16 +3702,25 @@
 
  <!-- TomSelect PARA BUSCAR PERSONAS DENTRO DEL MODAL -->
  <script>
-     new TomSelect("#modal_id_persona_responsable", {
-         create: false,
-         placeholder: "Buscar por CI o nombre completo",
-         allowEmptyOption: true,
-         maxOptions: 500,
+     const selectorPersonaResponsableModal = document.getElementById('modal_id_persona_responsable');
 
-         onChange: function() {
-             cargarPersonaResponsable();
+     if (selectorPersonaResponsableModal && typeof TomSelect !== 'undefined') {
+         if (!selectorPersonaResponsableModal.tomselect) {
+             new TomSelect(selectorPersonaResponsableModal, {
+                 create: false,
+                 placeholder: "Buscar por CI o nombre completo",
+                 allowEmptyOption: true,
+                 maxOptions: 500,
+
+                 onChange: function() {
+                     cargarPersonaResponsable();
+                 }
+             });
          }
-     });
+     } else {
+         // Mantiene operativo el select nativo si el CDN de TomSelect no responde.
+         selectorPersonaResponsableModal?.addEventListener('change', cargarPersonaResponsable);
+     }
 
      document.querySelector('[data-rubro-search]')?.addEventListener('focus', function() {
          const contenedor = document.querySelector('[data-rubro-combobox]');
@@ -3867,9 +3881,6 @@
          seleccionarOcupacionResponsableModal('');
          document.querySelector('[data-ocupacion-responsable-buscar]')?.focus();
      });
-
-     document.getElementById('nuevo_id_pais_responsable')
-         ?.addEventListener('change', seleccionarPaisTerritorioResponsable);
 
      document.addEventListener('click', function(event) {
          if (!event.target.closest('[data-rubro-combobox]')) {
