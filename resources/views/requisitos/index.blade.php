@@ -70,7 +70,9 @@
                 display: grid;
                 grid-template-columns: 5.5rem minmax(0, 1fr);
                 gap: 0.75rem;
-                width: 100%;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: none !important;
                 padding: 0.7rem 0.9rem;
                 text-align: left;
                 white-space: normal;
@@ -119,7 +121,7 @@
     </style>
 
     <x-slot name="action">
-        <x-wire-button type="button" blue data-crear-requisito>
+        <x-wire-button type="button" blue data-crear-requisito onclick="abrirModalCrearRequisito()">
             Nuevo
         </x-wire-button>
     </x-slot>
@@ -128,9 +130,9 @@
     @livewire('datatables.requisito-table')
 
     {{-- MODAL PARA CREAR UN NUEVO REQUISITO --}}
-    <div id="modalCrearRequisito" class="hidden fixed inset-0 z-[9999] items-center justify-center bg-black/45 p-3 sm:p-4">
-        <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-            <div class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-5">
+    <div id="modalCrearRequisito" class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-2">
                 <h2 class="text-lg font-bold text-slate-800">Nuevo Requisito</h2>
                 <button type="button" onclick="cerrarModalCrearRequisito()"
                     class="rounded-lg px-3 py-1 text-xl font-bold text-slate-500 hover:bg-slate-100">
@@ -138,7 +140,7 @@
                 </button>
             </div>
 
-            <form action="{{ route('requisitos_store') }}" method="POST" class="space-y-3 px-4 pb-4 pt-3 sm:px-5">
+            <form action="{{ route('requisitos_store') }}" method="POST" class="space-y-2 px-5 pb-4 pt-2">
                 @csrf
 
                 <input type="hidden" name="form_modal" value="crear">
@@ -151,7 +153,7 @@
                     <option value="INACTIVO" @selected(old('form_modal') === 'crear' && old('form_estado') === 'INACTIVO')>Inactivo</option>
                 </x-wire-native-select>
 
-                <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                <div class="flex justify-end gap-3 border-t border-slate-100 pt-2">
                     <x-wire-button type="button" onclick="cerrarModalCrearRequisito()" secondary>
                         Cancelar
                     </x-wire-button>
@@ -165,9 +167,9 @@
 
     {{-- MODAL PARA EDITAR REQUISITO --}}
     <div id="modalEditarRequisito"
-        class="hidden fixed inset-0 z-[9999] items-center justify-center bg-black/45 p-3 sm:p-4">
-        <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
-            <div class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-5">
+        class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-2">
                 <div>
                     <h2 class="text-lg font-bold text-slate-800">Editar requisito</h2>
                 </div>
@@ -177,7 +179,7 @@
                 </button>
             </div>
 
-            <form id="formEditarRequisito" action="#" method="POST" class="space-y-3 px-4 pb-4 pt-3 sm:px-5">
+            <form id="formEditarRequisito" action="#" method="POST" class="space-y-2 px-5 pb-4 pt-2">
                 @csrf
                 @method('PUT')
                 {{-- Permite reabrir este modal si Laravel devuelve errores de validacion. --}}
@@ -192,7 +194,7 @@
                     <option value="INACTIVO" @selected(old('form_modal') === 'editar' && old('form_estado') === 'INACTIVO')>Inactivo</option>
                 </x-wire-native-select>
 
-                <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                <div class="flex justify-end gap-3 border-t border-slate-100 pt-2">
                     <x-wire-button type="button" onclick="cerrarModalEditarRequisito()" secondary>
                         Cancelar
                     </x-wire-button>
@@ -214,8 +216,6 @@
                 const modal = document.getElementById('modalCrearRequisito');
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
-                document.body.classList.add('overflow-hidden');
-                window.setTimeout(() => document.getElementById('crear_descripcion')?.focus(), 50);
             }
 
             // Oculta el modal de creacion.
@@ -224,7 +224,6 @@
                 limpiarErroresModalRequisito(modal);
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-                restaurarDesplazamientoPaginaRequisito();
             }
 
             // Carga datos de la fila y prepara la ruta PUT para editar el registro correcto.
@@ -237,8 +236,6 @@
                 const modal = document.getElementById('modalEditarRequisito');
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
-                document.body.classList.add('overflow-hidden');
-                window.setTimeout(() => document.getElementById('editar_descripcion')?.focus(), 50);
             }
 
             // Oculta el modal de edicion.
@@ -247,16 +244,6 @@
                 limpiarErroresModalRequisito(modal);
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
-                restaurarDesplazamientoPaginaRequisito();
-            }
-
-            function restaurarDesplazamientoPaginaRequisito() {
-                const hayModalAbierto = ['modalCrearRequisito', 'modalEditarRequisito']
-                    .some((idModal) => !document.getElementById(idModal)?.classList.contains('hidden'));
-
-                if (!hayModalAbierto) {
-                    document.body.classList.remove('overflow-hidden');
-                }
             }
 
             // Limpia mensajes required de WireUI al cerrar el modal para que no reaparezcan al volver a abrir.
@@ -277,18 +264,6 @@
             document.addEventListener('click', function(e) {
                 const botonCrear = e.target.closest('[data-crear-requisito]');
                 const botonEditar = e.target.closest('[data-editar-requisito]');
-                const modalCrear = document.getElementById('modalCrearRequisito');
-                const modalEditar = document.getElementById('modalEditarRequisito');
-
-                if (e.target === modalCrear) {
-                    cerrarModalCrearRequisito();
-                    return;
-                }
-
-                if (e.target === modalEditar) {
-                    cerrarModalEditarRequisito();
-                    return;
-                }
 
                 if (botonCrear) {
                     abrirModalCrearRequisito();
@@ -304,21 +279,6 @@
                     botonEditar.dataset.descripcion,
                     botonEditar.dataset.estado
                 );
-            });
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key !== 'Escape') {
-                    return;
-                }
-
-                if (!document.getElementById('modalEditarRequisito').classList.contains('hidden')) {
-                    cerrarModalEditarRequisito();
-                    return;
-                }
-
-                if (!document.getElementById('modalCrearRequisito').classList.contains('hidden')) {
-                    cerrarModalCrearRequisito();
-                }
             });
 
             // Confirma eliminacion incluso cuando Livewire vuelve a renderizar la tabla.

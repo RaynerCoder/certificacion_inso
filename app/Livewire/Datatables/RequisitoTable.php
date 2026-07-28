@@ -40,15 +40,34 @@ class RequisitoTable extends DataTableComponent
         ]);
 
         $this->setThAttributes(function (Column $column): array {
-            $claseAncho = match ($column->getTitle()) {
-                'ID' => 'w-20 text-center',
-                'Estado' => 'w-32 text-center',
-                'Acciones' => 'w-44 text-right',
-                default => 'text-left',
+            [$columna, $alineacion, $ancho] = match ($column->getTitle()) {
+                'ID' => ['id', 'text-left', 'width: 4.5rem; min-width: 4.5rem; max-width: 4.5rem; text-align: left;'],
+                'Estado' => ['estado', 'text-center', 'width: 7rem; min-width: 7rem; max-width: 7rem; text-align: center;'],
+                'Acciones' => ['acciones', 'text-right', 'width: 10.5rem; min-width: 10.5rem; max-width: 10.5rem; text-align: right;'],
+                default => ['descripcion', 'text-left', 'text-align: left;'],
             };
 
             return [
-                'class' => "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300 {$claseAncho}",
+                'class' => "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300 {$alineacion}",
+                'data-column' => $columna,
+                'style' => $ancho,
+                'default' => false,
+                'default-colors' => false,
+                'default-styling' => false,
+            ];
+        });
+
+        $this->setThSortButtonAttributes(function (Column $column): array {
+            $alineacion = match ($column->getTitle()) {
+                'Estado' => 'justify-center',
+                default => 'justify-start',
+            };
+
+            return [
+                'class' => "flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300 {$alineacion}",
+                'default' => false,
+                'default-colors' => false,
+                'default-styling' => false,
             ];
         });
 
@@ -62,16 +81,33 @@ class RequisitoTable extends DataTableComponent
         $this->setTdAttributes(function (Column $column): array {
             $titulo = $column->getTitle();
             $configuracion = match ($titulo) {
-                'ID' => ['id', 'w-20 text-center font-semibold text-slate-500'],
-                'Estado' => ['estado', 'w-32 text-center'],
-                'Acciones' => ['acciones', 'w-44 text-right'],
-                default => ['descripcion', 'requisitos-description-cell text-slate-700 dark:text-slate-200'],
+                'ID' => [
+                    'id',
+                    'text-left font-semibold text-slate-500',
+                    'width: 4.5rem; min-width: 4.5rem; max-width: 4.5rem; text-align: left; vertical-align: top;',
+                ],
+                'Estado' => [
+                    'estado',
+                    'text-center',
+                    'width: 7rem; min-width: 7rem; max-width: 7rem; text-align: center; vertical-align: top;',
+                ],
+                'Acciones' => [
+                    'acciones',
+                    'text-right',
+                    'width: 10.5rem; min-width: 10.5rem; max-width: 10.5rem; text-align: right; vertical-align: top;',
+                ],
+                default => [
+                    'descripcion',
+                    'requisitos-description-cell text-slate-700 dark:text-slate-200',
+                    'text-align: left; vertical-align: top;',
+                ],
             };
 
             return [
                 'class' => "requisitos-cell px-4 py-3 align-top text-sm {$configuracion[1]}",
                 'data-column' => $configuracion[0],
                 'data-label' => $titulo,
+                'style' => $configuracion[2],
                 'default' => false,
             ];
         });
