@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="tipos-evidencias-acciones">
 
     <!-- El boton esta en modo escucha en JavaScript -->
     <x-wire-button type="button" blue xs

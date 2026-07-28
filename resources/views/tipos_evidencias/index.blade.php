@@ -12,6 +12,108 @@
         'href' => route('tipos_evidencias_index'),
     ],
 ]">
+    <style>
+        .tipos-evidencias-tabla {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overscroll-behavior-inline: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tipos-evidencias-tabla table {
+            width: 100%;
+            min-width: 1120px;
+            table-layout: fixed;
+        }
+
+        .tipos-evidencias-tabla th,
+        .tipos-evidencias-tabla td {
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            vertical-align: middle;
+            white-space: normal !important;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .tipos-evidencias-tabla th:first-child,
+        .tipos-evidencias-tabla td:first-child {
+            width: 5%;
+            min-width: 60px;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tipos-evidencias-tabla th:nth-child(2),
+        .tipos-evidencias-tabla td:nth-child(2) {
+            width: 10%;
+            min-width: 120px;
+        }
+
+        .tipos-evidencias-tabla th:nth-child(3),
+        .tipos-evidencias-tabla td:nth-child(3) {
+            width: 13%;
+            min-width: 150px;
+        }
+
+        .tipos-evidencias-tabla th:nth-child(4),
+        .tipos-evidencias-tabla td:nth-child(4) {
+            width: 36%;
+            min-width: 320px;
+        }
+
+        .tipos-evidencias-tabla th:nth-child(5),
+        .tipos-evidencias-tabla td:nth-child(5) {
+            width: 12%;
+            min-width: 150px;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tipos-evidencias-tabla th:nth-child(6),
+        .tipos-evidencias-tabla td:nth-child(6) {
+            width: 9%;
+            min-width: 100px;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tipos-evidencias-tabla th:last-child,
+        .tipos-evidencias-tabla td:last-child {
+            width: 15%;
+            min-width: 170px;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tipos-evidencias-tabla th:first-child button,
+        .tipos-evidencias-tabla th:nth-child(5) button,
+        .tipos-evidencias-tabla th:nth-child(6) button,
+        .tipos-evidencias-tabla th:last-child > div {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .tipos-evidencias-tabla td:nth-child(6) .tabla-chip {
+            margin-right: auto;
+            margin-left: auto;
+        }
+
+        .tipos-evidencias-acciones {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .tipos-evidencias-acciones form {
+            display: inline-flex;
+            margin: 0;
+        }
+    </style>
 
     <x-slot name="action">
         <x-wire-button type="button" blue data-crear-tipo-evidencia onclick="abrirModalCrearTipoEvidencia()">
@@ -20,7 +122,9 @@
     </x-slot>
 
     {{-- Tabla principal del CRUD. La logica esta en app/Livewire/Datatables/TipoEvidenciaTable.php --}}
-    @livewire('datatables.tipo-evidencia-table')
+    <div class="tipos-evidencias-tabla">
+        @livewire('datatables.tipo-evidencia-table')
+    </div>
 
     {{-- MODAL PARA CREAR UN NUEVO TIPO DE EVIDENCIA --}}
     <div id="modalCrearTipoEvidencia" class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4">
