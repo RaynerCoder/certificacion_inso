@@ -191,14 +191,6 @@
             'visible' => $esCuentaEmpresa,
         ],
         [
-            'name' => 'Productos',
-            'description' => 'Productos registrados',
-            'icon' => 'fa-solid fa-box',
-            'href' => $href('productos_index'),
-            'active' => $activo(['productos_']),
-            'permission' => 'productos.ver',
-        ],
-        [
             'name' => 'Reportes',
             'description' => 'Indicadores de gestion',
             'icon' => 'fa-solid fa-chart-column',

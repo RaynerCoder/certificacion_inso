@@ -2347,7 +2347,11 @@
                  pais.add(new Option(paisRuta.nombre, paisRuta.id));
              }
 
-             pais.value = String(paisRuta.id);
+             if (pais.tomselect) {
+                 pais.tomselect.setValue(String(paisRuta.id), true);
+             } else {
+                 pais.value = String(paisRuta.id);
+             }
              guardarTerritorioFinalResponsable(paisRuta.id, paisRuta.nombre);
 
              if (ruta.length > 1) {
@@ -2375,7 +2379,11 @@
          const niveles = document.querySelector('[data-territorio-responsable-niveles]');
 
          versionCargaTerritorioResponsable++;
-         if (pais) pais.value = '';
+         if (pais?.tomselect) {
+             pais.tomselect.clear(true);
+         } else if (pais) {
+             pais.value = '';
+         }
          if (niveles) niveles.innerHTML = '';
          guardarTerritorioFinalResponsable('', '');
      }
@@ -2387,7 +2395,13 @@
 
          contenedor.dataset.bloqueado = bloqueado ? '1' : '0';
          document.querySelectorAll('.territorio-responsable-select')
-             .forEach(select => select.disabled = bloqueado);
+             .forEach(select => {
+                 select.disabled = bloqueado;
+
+                 if (select.tomselect) {
+                     bloqueado ? select.tomselect.disable() : select.tomselect.enable();
+                 }
+             });
      }
 
      function abrirModalResponsable() {
@@ -3703,6 +3717,7 @@
  <!-- TomSelect PARA BUSCAR PERSONAS DENTRO DEL MODAL -->
  <script>
      const selectorPersonaResponsableModal = document.getElementById('modal_id_persona_responsable');
+     const selectorPaisResponsableModal = document.getElementById('nuevo_id_pais_responsable');
 
      if (selectorPersonaResponsableModal && typeof TomSelect !== 'undefined') {
          if (!selectorPersonaResponsableModal.tomselect) {
@@ -3720,6 +3735,23 @@
      } else {
          // Mantiene operativo el select nativo si el CDN de TomSelect no responde.
          selectorPersonaResponsableModal?.addEventListener('change', cargarPersonaResponsable);
+     }
+
+     if (selectorPaisResponsableModal && typeof TomSelect !== 'undefined' && !selectorPaisResponsableModal.tomselect) {
+         try {
+             new TomSelect(selectorPaisResponsableModal, {
+                 create: false,
+                 allowEmptyOption: true,
+                 placeholder: 'Seleccione país',
+                 controlInput: null,
+                 onChange: seleccionarPaisTerritorioResponsable,
+             });
+
+             // TomSelect controla el cambio; se evita ejecutar dos veces la carga territorial.
+             selectorPaisResponsableModal.removeEventListener('change', seleccionarPaisTerritorioResponsable);
+         } catch (error) {
+             console.warn('No se pudo inicializar el selector de país.', error);
+         }
      }
 
      document.querySelector('[data-rubro-search]')?.addEventListener('focus', function() {

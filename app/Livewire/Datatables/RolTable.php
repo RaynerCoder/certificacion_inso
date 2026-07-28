@@ -61,7 +61,7 @@ class RolTable extends DataTableComponent
                 ])),
 
             Column::make("Especial", "especial")
-                ->format(fn ($valor) => $valor ?: 'Normal')
+                ->format(fn ($valor) => $valor ?: 'Sin dato')
                 ->sortable(),
 
             Column::make("Estado", "estado")

@@ -24,8 +24,19 @@
     ])->values();
 
     $cargosNuevosSeleccionados = collect(old('form_cargos_nuevos', []))
-        ->filter(fn ($cargo) => trim((string) $cargo) !== '')
+        ->filter(fn ($cargo) => is_array($cargo) && trim((string) ($cargo['nombre'] ?? '')) !== '')
+        ->map(fn ($cargo) => [
+            'nombre' => trim((string) $cargo['nombre']),
+            'id_area' => (string) ($cargo['id_area'] ?? ''),
+            'descripcion' => trim((string) ($cargo['descripcion'] ?? '')),
+            'estado' => (string) ($cargo['estado'] ?? '1'),
+        ])
         ->values();
+
+    $areasParaSelector = $areas->map(fn ($area) => [
+        'id' => $area->id,
+        'nombre' => $area->nombre,
+    ])->values();
 @endphp
 
 <style>
@@ -264,9 +275,33 @@
                 <label for="seg_cargo_funcionario_nuevo_nombre" class="seg-field-label">Nombre del cargo</label>
                 <input id="seg_cargo_funcionario_nuevo_nombre" type="text" class="seg-native-input"
                     placeholder="Ej: Responsable tecnico">
-
-                <p id="seg_cargo_funcionario_nuevo_error" class="mt-2 hidden text-xs font-bold text-rose-700"></p>
             </div>
+
+            <div>
+                <label for="seg_cargo_funcionario_nuevo_area" class="seg-field-label">Area</label>
+                <select id="seg_cargo_funcionario_nuevo_area" class="seg-native-select">
+                    <option value="">Seleccione el area</option>
+                    @foreach ($areas as $area)
+                        <option value="{{ $area->id }}">{{ $area->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="seg_cargo_funcionario_nuevo_descripcion" class="seg-field-label">Descripcion</label>
+                <textarea id="seg_cargo_funcionario_nuevo_descripcion" class="seg-native-input" rows="3"
+                    placeholder="Describa la responsabilidad del cargo"></textarea>
+            </div>
+
+            <div>
+                <label for="seg_cargo_funcionario_nuevo_estado" class="seg-field-label">Estado</label>
+                <select id="seg_cargo_funcionario_nuevo_estado" class="seg-native-select">
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+            </div>
+
+            <p id="seg_cargo_funcionario_nuevo_error" class="hidden text-xs font-bold text-rose-700"></p>
 
             <div class="seg-actions !px-0 !pb-0">
                 <x-wire-button type="button" onclick="cerrarModalCargoNuevoFuncionario()" secondary>
@@ -379,6 +414,7 @@
         window.rolesSeguridadCatalogo = @json($rolesParaSelector);
         window.permisosSeguridadCatalogo = @json($permisosParaSelector);
         window.cargosFuncionarioCatalogo = @json($cargosParaSelector);
+        window.areasCargoCatalogo = @json($areasParaSelector);
         window.rolesSeguridadSeleccionados = @json($rolesSeleccionados);
         window.permisosDirectosSeguridadSeleccionados = @json($permisosSeleccionados);
         window.cargosFuncionarioSeleccionados = @json($cargosSeleccionados);
@@ -501,17 +537,34 @@
     // Prepara cargos existentes y nuevos antes de dibujar la interfaz.
     function inicializarCargosFuncionario() {
         window.cargosFuncionarioSeleccionados = normalizarIds(window.cargosFuncionarioSeleccionados || []);
-        window.cargosFuncionarioNuevos = normalizarTextosCargoFuncionario(window.cargosFuncionarioNuevos || []);
+        window.cargosFuncionarioNuevos = normalizarCargosNuevosFuncionario(window.cargosFuncionarioNuevos || []);
 
         renderCargosFuncionario();
         refrescarSelectCargosFuncionario();
     }
 
-    // Limpia nombres de cargos nuevos y evita duplicados en memoria.
-    function normalizarTextosCargoFuncionario(valores) {
+    // Normaliza los cargos nuevos recuperados tras una validacion fallida.
+    function normalizarCargosNuevosFuncionario(valores) {
+        const nombres = new Set();
+
         return valores
-            .map(valor => limpiarTextoCargoFuncionario(valor))
-            .filter((valor, indice, lista) => valor && lista.indexOf(valor) === indice);
+            .filter(cargo => cargo && typeof cargo === 'object')
+            .map(cargo => ({
+                nombre: limpiarTextoCargoFuncionario(cargo.nombre),
+                id_area: String(cargo.id_area ?? ''),
+                descripcion: String(cargo.descripcion ?? '').trim(),
+                estado: String(cargo.estado ?? '1'),
+            }))
+            .filter(cargo => {
+                const nombre = cargo.nombre.toLocaleLowerCase('es');
+
+                if (!nombre || nombres.has(nombre)) {
+                    return false;
+                }
+
+                nombres.add(nombre);
+                return true;
+            });
     }
 
     // Normaliza espacios para comparar nombres de cargos correctamente.
@@ -531,6 +584,11 @@
         return (window.cargosFuncionarioCatalogo || []).find(cargo => {
             return limpiarTextoCargoFuncionario(cargo.nombre).toLocaleLowerCase('es') === nombreNormalizado;
         });
+    }
+
+    // Obtiene el nombre visible del area seleccionada para un cargo nuevo.
+    function buscarAreaCargoFuncionario(idArea) {
+        return (window.areasCargoCatalogo || []).find(area => Number(area.id) === Number(idArea));
     }
 
     // Agrega un cargo existente elegido desde el select.
@@ -562,11 +620,15 @@
     // Cierra el modal y limpia el nombre temporal.
     function cerrarModalCargoNuevoFuncionario() {
         const modal = document.getElementById('seg_cargo_funcionario_nuevo_modal');
-        const input = document.getElementById('seg_cargo_funcionario_nuevo_nombre');
+        const nombre = document.getElementById('seg_cargo_funcionario_nuevo_nombre');
+        const area = document.getElementById('seg_cargo_funcionario_nuevo_area');
+        const descripcion = document.getElementById('seg_cargo_funcionario_nuevo_descripcion');
+        const estado = document.getElementById('seg_cargo_funcionario_nuevo_estado');
 
-        if (input) {
-            input.value = '';
-        }
+        if (nombre) nombre.value = '';
+        if (area) area.value = '';
+        if (descripcion) descripcion.value = '';
+        if (estado) estado.value = '1';
 
         limpiarErrorCargoNuevoFuncionario();
         modal?.classList.add('hidden');
@@ -586,7 +648,13 @@
     // Agrega un cargo nuevo temporal o reutiliza uno existente si coincide por nombre.
     function agregarCargoNuevoFuncionario() {
         const input = document.getElementById('seg_cargo_funcionario_nuevo_nombre');
+        const selectArea = document.getElementById('seg_cargo_funcionario_nuevo_area');
+        const textareaDescripcion = document.getElementById('seg_cargo_funcionario_nuevo_descripcion');
+        const selectEstado = document.getElementById('seg_cargo_funcionario_nuevo_estado');
         const nombreCargo = limpiarTextoCargoFuncionario(input?.value);
+        const idArea = String(selectArea?.value || '');
+        const descripcion = String(textareaDescripcion?.value || '').trim();
+        const estado = String(selectEstado?.value || '');
         const cargoExistente = buscarCargoFuncionarioPorNombre(nombreCargo);
 
         limpiarErrorCargoNuevoFuncionario();
@@ -601,15 +669,24 @@
                 window.cargosFuncionarioSeleccionados.push(Number(cargoExistente.id));
             }
 
-            input.value = '';
             renderCargosFuncionario();
             refrescarSelectCargosFuncionario();
             cerrarModalCargoNuevoFuncionario();
             return;
         }
 
+        if (!idArea) {
+            mostrarErrorCargoNuevoFuncionario('Seleccione el area del cargo.');
+            return;
+        }
+
+        if (!['0', '1'].includes(estado)) {
+            mostrarErrorCargoNuevoFuncionario('Seleccione el estado del cargo.');
+            return;
+        }
+
         const yaExisteNuevo = (window.cargosFuncionarioNuevos || []).some(cargo => {
-            return limpiarTextoCargoFuncionario(cargo).toLocaleLowerCase('es') === nombreCargo.toLocaleLowerCase('es');
+            return limpiarTextoCargoFuncionario(cargo.nombre).toLocaleLowerCase('es') === nombreCargo.toLocaleLowerCase('es');
         });
 
         if (yaExisteNuevo) {
@@ -617,8 +694,12 @@
             return;
         }
 
-        window.cargosFuncionarioNuevos.push(nombreCargo);
-        input.value = '';
+        window.cargosFuncionarioNuevos.push({
+            nombre: nombreCargo,
+            id_area: idArea,
+            descripcion,
+            estado,
+        });
         renderCargosFuncionario();
         cerrarModalCargoNuevoFuncionario();
     }
@@ -657,7 +738,7 @@
         const nombreNormalizado = limpiarTextoCargoFuncionario(nombreCargo).toLocaleLowerCase('es');
 
         window.cargosFuncionarioNuevos = (window.cargosFuncionarioNuevos || [])
-            .filter(cargo => limpiarTextoCargoFuncionario(cargo).toLocaleLowerCase('es') !== nombreNormalizado);
+            .filter(cargo => limpiarTextoCargoFuncionario(cargo.nombre).toLocaleLowerCase('es') !== nombreNormalizado);
 
         renderCargosFuncionario();
     }
@@ -709,22 +790,32 @@
             hidden.appendChild(input);
         });
 
-        (window.cargosFuncionarioNuevos || []).forEach(nombreCargo => {
+        (window.cargosFuncionarioNuevos || []).forEach((cargoNuevo, indice) => {
+            const area = buscarAreaCargoFuncionario(cargoNuevo.id_area);
             const chip = document.createElement('span');
-            chip.className = `seg-chip ${claseColorTextoCargoFuncionario(nombreCargo)}`;
+            chip.className = `seg-chip ${claseColorTextoCargoFuncionario(cargoNuevo.nombre)}`;
             chip.innerHTML = `
-                ${escapeHtml(nombreCargo)}
+                ${escapeHtml(cargoNuevo.nombre)}${area ? ' - ' + escapeHtml(area.nombre) : ''}
                 <span class="seg-chip-tag">nuevo</span>
-                <button type="button" class="seg-chip-remove" onclick="quitarCargoNuevoFuncionario('${escapeJsCargoFuncionario(nombreCargo)}')">x</button>
+                <button type="button" class="seg-chip-remove" onclick="quitarCargoNuevoFuncionario('${escapeJsCargoFuncionario(cargoNuevo.nombre)}')">x</button>
             `;
 
             lista.appendChild(chip);
 
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'form_cargos_nuevos[]';
-            input.value = nombreCargo;
-            hidden.appendChild(input);
+            const campos = {
+                nombre: cargoNuevo.nombre,
+                id_area: cargoNuevo.id_area,
+                descripcion: cargoNuevo.descripcion,
+                estado: cargoNuevo.estado,
+            };
+
+            Object.entries(campos).forEach(([campo, valor]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = `form_cargos_nuevos[${indice}][${campo}]`;
+                input.value = valor;
+                hidden.appendChild(input);
+            });
         });
 
         const totalCargos = (window.cargosFuncionarioSeleccionados || []).length + (window.cargosFuncionarioNuevos || []).length;

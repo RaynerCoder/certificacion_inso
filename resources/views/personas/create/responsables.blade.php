@@ -159,7 +159,7 @@
             </div>
 
             {{-- SECCIÓN 2 --}}
-            <div class="rounded-xl border border-blue-200 overflow-hidden">
+            <div class="relative z-30 rounded-xl border border-blue-200 overflow-visible">
 
                 <div class="bg-blue-50 px-4 py-2 border-b border-blue-100">
                     <h3 class="text-sm font-bold text-blue-700">

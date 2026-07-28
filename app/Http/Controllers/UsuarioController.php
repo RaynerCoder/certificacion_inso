@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Permiso;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Area;
 use App\Models\Cargo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class UsuarioController extends Controller
             'roles' => Role::with('permisos')->where('estado', 1)->orderBy('name')->get(),
             'permisos' => Permiso::where('estado', 1)->orderBy('nombre')->get(),
             'cargos' => $this->cargosDisponiblesParaUsuario(),
+            'areas' => $this->areasDisponiblesParaCargo(),
         ]);
     }
 
@@ -110,6 +112,7 @@ class UsuarioController extends Controller
             'roles' => Role::with('permisos')->where('estado', 1)->orderBy('name')->get(),
             'permisos' => Permiso::where('estado', 1)->orderBy('nombre')->get(),
             'cargos' => $this->cargosDisponiblesParaUsuario($usuario),
+            'areas' => $this->areasDisponiblesParaCargo(),
         ]);
     }
 
@@ -273,7 +276,23 @@ class UsuarioController extends Controller
             'form_cargos' => ['nullable', 'array'],
             'form_cargos.*' => ['integer', 'exists:cargos,id'],
             'form_cargos_nuevos' => ['nullable', 'array'],
-            'form_cargos_nuevos.*' => ['nullable', 'string', 'max:255', 'distinct:ignore_case'],
+            'form_cargos_nuevos.*' => ['array:nombre,id_area,descripcion,estado'],
+            'form_cargos_nuevos.*.nombre' => [
+                'required',
+                'string',
+                'max:255',
+                'distinct:ignore_case',
+                Rule::unique('cargos', 'nombre'),
+            ],
+            'form_cargos_nuevos.*.id_area' => [
+                'required',
+                'integer',
+                Rule::exists('areas', 'id')->where(
+                    fn ($consulta) => $consulta->where('estado', 1)->whereNull('deleted_at')
+                ),
+            ],
+            'form_cargos_nuevos.*.descripcion' => ['nullable', 'string'],
+            'form_cargos_nuevos.*.estado' => ['required', 'in:0,1'],
             'form_roles' => ['required', 'array', 'min:1'],
             'form_roles.*' => ['integer', 'distinct', 'exists:roles,id'],
             'form_permisos' => ['nullable', 'array'],
@@ -306,6 +325,10 @@ class UsuarioController extends Controller
             'form_cargos' => 'cargos',
             'form_cargos_nuevos' => 'cargos nuevos',
             'form_cargos_nuevos.*' => 'cargo nuevo',
+            'form_cargos_nuevos.*.nombre' => 'nombre del cargo nuevo',
+            'form_cargos_nuevos.*.id_area' => 'area del cargo nuevo',
+            'form_cargos_nuevos.*.descripcion' => 'descripcion del cargo nuevo',
+            'form_cargos_nuevos.*.estado' => 'estado del cargo nuevo',
             'form_roles' => 'rol',
             'form_roles.*' => 'rol',
             'form_permisos' => 'permisos directos',
@@ -320,17 +343,19 @@ class UsuarioController extends Controller
             ->map(fn ($idCargo) => (int) $idCargo)
             ->filter();
 
-        // Normaliza nombres para evitar duplicados como "Jefe   Tecnico" y "Jefe Tecnico".
+        // Normaliza los datos antes de crear cada cargo dentro de la misma transaccion del usuario.
         collect($datos['form_cargos_nuevos'] ?? [])
-            ->map(fn ($nombreCargo) => trim(preg_replace('/\s+/', ' ', (string) $nombreCargo)))
-            ->filter()
-            ->unique(fn ($nombreCargo) => mb_strtolower($nombreCargo))
-            ->each(function (string $nombreCargo) use ($cargos) {
-                // Si el cargo ya existe, se reutiliza; si no, se crea activo.
-                $cargo = Cargo::firstOrCreate(
-                    ['nombre' => $nombreCargo],
-                    ['estado' => 1]
-                );
+            ->map(fn (array $cargo) => [
+                'nombre' => trim(preg_replace('/\s+/', ' ', $cargo['nombre'])),
+                'id_area' => (int) $cargo['id_area'],
+                'descripcion' => filled($cargo['descripcion'] ?? null)
+                    ? trim($cargo['descripcion'])
+                    : null,
+                'estado' => (int) $cargo['estado'],
+            ])
+            ->unique(fn (array $cargo) => mb_strtolower($cargo['nombre']))
+            ->each(function (array $datosCargo) use ($cargos) {
+                $cargo = Cargo::create($datosCargo);
 
                 $cargos->push($cargo->id);
             });
@@ -353,6 +378,14 @@ class UsuarioController extends Controller
                     $query->where('funcionarios.id', '<>', $idFuncionarioActual);
                 }
             })
+            ->orderBy('nombre')
+            ->get();
+    }
+
+    // Usa el mismo catalogo activo que el formulario principal de cargos.
+    private function areasDisponiblesParaCargo()
+    {
+        return Area::where('estado', 1)
             ->orderBy('nombre')
             ->get();
     }
