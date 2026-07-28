@@ -193,7 +193,7 @@
                                                 value="{{ $requisito->id }}"
                                                 data-requisito-descripcion="{{ $requisito->descripcion }}">
                                             <span
-                                                class="break-words font-medium text-slate-700">{{ $requisito->descripcion }}</span>
+                                                class="whitespace-pre-line break-words font-medium text-slate-700">{{ $requisito->descripcion }}</span>
                                         </span>
                                         <span
                                             class="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
@@ -372,9 +372,12 @@
                         class="mb-1.5 block text-sm font-semibold text-slate-700">
                         Descripcion del requisito
                     </label>
-                    <textarea id="nuevo_requisito_descripcion" rows="3"
+                    <textarea id="nuevo_requisito_descripcion" rows="6"
                         class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-teal-600 focus:ring-teal-600"
-                        placeholder="Ejemplo: Hoja de seguridad actualizada."></textarea>
+                        placeholder="Ejemplo:&#10;- Hoja de seguridad actualizada.&#10;- Certificado original firmado."></textarea>
+                    <p class="mt-1 text-xs leading-5 text-slate-500">
+                        Para mostrar una lista, escriba cada elemento en una línea nueva y comience con un guion (-).
+                    </p>
                     <p id="errorNuevoRequisito" class="mt-1 hidden text-sm text-red-600">Ingrese la descripcion del
                         requisito.</p>
                 </div>
@@ -418,7 +421,8 @@
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
+                    .replace(/'/g, '&#039;')
+                    .replace(/\r?\n/g, '&#10;');
             }
 
             // Abre el modal para crear un requisito nuevo.
@@ -625,7 +629,7 @@
                 fila.innerHTML = `
                     <td class="px-3 py-3 font-semibold text-slate-600">${index + 1}</td>
                     <td class="px-3 py-3">
-                        <p class="break-words font-semibold text-slate-800">${descripcionSegura}</p>
+                        <p class="whitespace-pre-line break-words font-semibold text-slate-800">${descripcionSegura}</p>
                         ${requisito.nuevo && !esCertificadoPrevio ? '<p class="text-xs font-medium text-teal-600">Nuevo requisito</p>' : ''}
                     </td>
                     <td class="px-3 py-3">

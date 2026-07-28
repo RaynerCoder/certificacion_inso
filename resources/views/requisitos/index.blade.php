@@ -14,7 +14,7 @@
 ]">
     <style>
         .requisitos-datatable .requisitos-description-cell {
-            white-space: normal !important;
+            white-space: pre-line !important;
             overflow-wrap: anywhere;
             word-break: normal;
             line-height: 1.55;
@@ -131,7 +131,7 @@
 
     {{-- MODAL PARA CREAR UN NUEVO REQUISITO --}}
     <div id="modalCrearRequisito" class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4">
-        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-200 px-5 py-2">
                 <h2 class="text-lg font-bold text-slate-800">Nuevo Requisito</h2>
                 <button type="button" onclick="cerrarModalCrearRequisito()"
@@ -146,7 +146,11 @@
                 <input type="hidden" name="form_modal" value="crear">
 
                 <x-wire-textarea label="Descripción del requisito" id="crear_descripcion" name="form_descripcion"
-                    placeholder="Ejemplo: Fotocopia simple del NIT vigente." rows="3" :value="old('form_descripcion')" />
+                    placeholder="Ejemplo:&#10;- Fotocopia simple del NIT vigente.&#10;- Certificado original firmado."
+                    rows="6" :value="old('form_descripcion')" />
+                <p class="text-xs leading-5 text-slate-500">
+                    Para mostrar una lista, escriba cada elemento en una línea nueva y comience con un guion (-).
+                </p>
 
                 <x-wire-native-select label="Estado" id="crear_estado" name="form_estado">
                     <option value="ACTIVO" @selected(old('form_modal') !== 'crear' || old('form_estado') === 'ACTIVO')>Activo</option>
@@ -168,7 +172,7 @@
     {{-- MODAL PARA EDITAR REQUISITO --}}
     <div id="modalEditarRequisito"
         class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4">
-        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-200 px-5 py-2">
                 <div>
                     <h2 class="text-lg font-bold text-slate-800">Editar requisito</h2>
@@ -187,7 +191,11 @@
                 <input type="hidden" id="editar_id_requisito" name="form_id_requisito" value="{{ old('form_id_requisito') }}">
 
                 <x-wire-textarea label="Descripción del requisito" id="editar_descripcion" name="form_descripcion"
-                    placeholder="Ejemplo: Fotocopia simple del NIT vigente." rows="3" :value="old('form_descripcion')" />
+                    placeholder="Ejemplo:&#10;- Fotocopia simple del NIT vigente.&#10;- Certificado original firmado."
+                    rows="6" :value="old('form_descripcion')" />
+                <p class="text-xs leading-5 text-slate-500">
+                    Los saltos de línea se conservarán. Para una lista, utilice un guion (-) al inicio de cada elemento.
+                </p>
 
                 <x-wire-native-select label="Estado" id="editar_estado" name="form_estado">
                     <option value="ACTIVO" @selected(old('form_modal') !== 'editar' || old('form_estado') === 'ACTIVO')>Activo</option>

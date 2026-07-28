@@ -101,7 +101,7 @@
 
         /* Cada nivel ocupa una columna y deja un canal exclusivo para los conectores. */
         .cert-tree-canvas {
-            --cert-column-width: 360px;
+            --cert-column-width: 430px;
             --cert-column-gap: 120px;
             display: grid;
             gap: var(--cert-column-gap);
@@ -172,6 +172,7 @@
             line-height: 1.5;
             margin-top: 0.85rem;
             overflow-wrap: anywhere;
+            white-space: pre-line;
         }
 
         .cert-root-area {
@@ -245,7 +246,7 @@
 
         @media (max-width: 1400px) {
             .cert-tree-canvas {
-                --cert-column-width: 330px;
+                --cert-column-width: 400px;
                 --cert-column-gap: 105px;
             }
         }
@@ -256,7 +257,7 @@
             }
 
             .cert-tree-canvas {
-                --cert-column-width: 285px;
+                --cert-column-width: 320px;
                 --cert-column-gap: 88px;
             }
 
