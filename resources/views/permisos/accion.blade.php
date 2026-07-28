@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="permisos-table-actions">
 
     <x-wire-button type="button" blue xs
         data-editar-permiso

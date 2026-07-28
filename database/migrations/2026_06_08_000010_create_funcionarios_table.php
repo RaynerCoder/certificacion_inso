@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('carnet', 50)->unique();
             $table->string('telefono', 50)->nullable();
             $table->tinyInteger('genero')->comment('1 masculino, 0 femenino');
-            $table->tinyInteger('estado')->comment('1 activo, 0 inactivo')->default(1);
 
             // Auditoria de usuario sobre altas, cambios y bajas.
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');
@@ -32,7 +31,7 @@ return new class extends Migration
     }
 
     /**
-     * Elimina la ficha de funcionarios.
+     * Elimina la tabla de funcionarios.
      */
     public function down(): void
     {

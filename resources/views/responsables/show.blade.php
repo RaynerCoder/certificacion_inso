@@ -91,6 +91,28 @@
             font-weight: 950;
         }
 
+        .resp-detail-rubros {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 15px;
+        }
+
+        .resp-detail-rubro-chip {
+            display: inline-flex;
+            max-width: 100%;
+            align-items: center;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            background: #ecfdf5;
+            padding: 5px 10px;
+            color: #047857;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
         .resp-detail-action {
             display: inline-flex;
             min-height: 40px;
@@ -226,6 +248,21 @@
                 </div>
             </div>
         </section>
+
+        @if ($persona?->rubros?->isNotEmpty())
+            <section class="resp-detail-section">
+                <h2 class="resp-detail-title">
+                    <i class="fa-solid fa-briefcase"></i>
+                    Rubros o actividad económica
+                </h2>
+
+                <div class="resp-detail-rubros">
+                    @foreach ($persona->rubros as $rubro)
+                        <span class="resp-detail-rubro-chip">{{ $rubro->nombre }}</span>
+                    @endforeach
+                </div>
+            </section>
+        @endif
 
         <section class="resp-detail-section">
             <h2 class="resp-detail-title">

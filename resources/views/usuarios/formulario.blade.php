@@ -28,6 +28,61 @@
         ->values();
 @endphp
 
+<style>
+    .usuario-formulario,
+    .usuario-formulario .seg-card,
+    .usuario-formulario .seg-card-body,
+    .usuario-formulario .seg-grid > * {
+        min-width: 0;
+    }
+
+    .usuario-formulario .seg-selected-table-wrap {
+        max-width: 100%;
+    }
+
+    .usuario-formulario .seg-modal-box {
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+    }
+
+    @media (max-width: 1180px) and (min-width: 701px) {
+        .usuario-formulario .seg-col-3,
+        .usuario-formulario .seg-col-4 {
+            grid-column: span 6 / span 6;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .usuario-formulario .seg-card-head,
+        .usuario-formulario .seg-card-body {
+            padding-right: 14px;
+            padding-left: 14px;
+        }
+
+        .usuario-formulario .seg-col-3,
+        .usuario-formulario .seg-col-4,
+        .usuario-formulario .seg-col-6 {
+            grid-column: span 12 / span 12;
+        }
+
+        .usuario-formulario .seg-grid {
+            gap: 14px;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .usuario-formulario .seg-actions {
+            align-items: stretch;
+            flex-direction: column-reverse;
+        }
+
+        .usuario-formulario .seg-actions > * {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
 @if (session('error'))
     <div class="seg-alert">{{ session('error') }}</div>
 @endif
@@ -80,7 +135,7 @@
             <div class="seg-col-6">
                 <label for="form_password" class="seg-field-label">Contraseña</label>
                 <input id="form_password" name="form_password" type="password" class="seg-native-input"
-                    placeholder="{{ $esEdicion ? 'Deje vacío para mantener la actual' : 'Mínimo 8 caracteres' }}"
+                    placeholder="{{ $esEdicion ? 'Deje vacío para mantener la actual' : 'Ingrese una contraseña' }}"
                     autocomplete="new-password" @if (! $esEdicion) required @endif>
 
                 @error('form_password')
@@ -109,8 +164,8 @@
                 <i class="fa-solid fa-id-card-clip"></i>
             </span>
             <div>
-                <h2 class="seg-card-title">Datos del funcionario</h2>
-                <p class="seg-card-subtitle">Ficha laboral vinculada uno a uno con la cuenta de usuario.</p>
+                <h2 class="seg-card-title">Datos personales</h2>
+                <p class="seg-card-subtitle">Información personal de quien utilizará esta cuenta.</p>
             </div>
         </div>
     </div>
@@ -154,13 +209,6 @@
                     <option value="0" @selected((string) old('form_funcionario_genero', $usuario->funcionario->genero ?? '') === '0')>Femenino</option>
                 </x-wire-native-select>
             </div>
-
-            <div class="seg-col-3">
-                <x-wire-native-select label="Estado funcionario" id="form_funcionario_estado" name="form_funcionario_estado" required>
-                    <option value="1" @selected((string) old('form_funcionario_estado', $usuario->funcionario->estado ?? '1') === '1')>Activo</option>
-                    <option value="0" @selected((string) old('form_funcionario_estado', $usuario->funcionario->estado ?? '') === '0')>Inactivo</option>
-                </x-wire-native-select>
-            </div>
         </div>
     </div>
 </section>
@@ -172,8 +220,8 @@
                 <i class="fa-solid fa-id-badge"></i>
             </span>
             <div>
-                <h2 class="seg-card-title">Cargos del funcionario</h2>
-                <p class="seg-card-subtitle">Opcional. Puede guardar el usuario sin cargos y asignarlos despues.</p>
+                <h2 class="seg-card-title">Cargos en los que trabaja</h2>
+                <p class="seg-card-subtitle">Opcional. Seleccione los cargos que desempeña dentro del INSO.</p>
             </div>
         </div>
     </div>
@@ -426,12 +474,6 @@
         if (!confirmacion.value) {
             evento.preventDefault();
             mostrarMensajeCampoUsuario(confirmacion, 'Confirme la contraseña nueva.');
-            return false;
-        }
-
-        if (password.value.length < 8) {
-            evento.preventDefault();
-            mostrarMensajeCampoUsuario(password, 'La contraseña debe tener al menos 8 caracteres.');
             return false;
         }
 

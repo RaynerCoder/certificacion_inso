@@ -65,7 +65,9 @@ class RolTable extends DataTableComponent
                 ->sortable(),
 
             Column::make("Estado", "estado")
-                ->format(fn ($valor) => $this->estadoLiteral($valor))
+                ->format(fn ($estado) => view('tablas.chip_estado', [
+                    'estado' => $estado,
+                ]))
                 ->sortable(),
 
             Column::make('Acciones')
@@ -75,11 +77,4 @@ class RolTable extends DataTableComponent
         ];
     }
 
-    /**
-     * Convierte el estado numerico de la base de datos a texto legible.
-     */
-    private function estadoLiteral($estado): string
-    {
-        return (string) $estado === '1' ? 'Activo' : 'Inactivo';
-    }
 }

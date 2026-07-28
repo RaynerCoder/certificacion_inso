@@ -96,6 +96,7 @@ Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes_ind
 ========================= */
 Route::get('/territorios', [TerritorioController::class, 'index'])->name('territorios_index');
 Route::post('/territorios', [TerritorioController::class, 'store'])->name('territorios_store');
+Route::get('/territorios/{territorio}/edit', [TerritorioController::class, 'edit'])->name('territorios_edit');
 Route::put('/territorios/{territorio}', [TerritorioController::class, 'update'])->name('territorios_update');
 Route::delete('/territorios/{territorio}', [TerritorioController::class, 'destroy'])->name('territorios_destroy');
 
@@ -107,6 +108,10 @@ Route::delete('/territorios/{territorio}', [TerritorioController::class, 'destro
 Route::get('/personas', [PersonaController::class, 'index'])->name('personas_index');
 Route::get('/personas/create', [PersonaController::class, 'create'])->name('personas_create');
 Route::post('/personas', [PersonaController::class, 'store'])->name('personas_store');
+Route::get('/personas/territorios/{territorio}/hijos', [PersonaController::class, 'territoriosHijos'])
+    ->name('personas_territorios_hijos');
+Route::get('/personas/territorios/{territorio}/ruta', [PersonaController::class, 'rutaTerritorio'])
+    ->name('personas_territorio_ruta');
 Route::get('/personas/{persona}/edit', [PersonaController::class, 'edit'])->name('personas_edit');
 Route::put('/personas/{persona}', [PersonaController::class, 'update'])->name('personas_update');
 Route::delete('/personas/{persona}', [PersonaController::class, 'destroy'])->name('personas_destroy');

@@ -1,6 +1,11 @@
 <div class="tabla-acciones">
     <x-wire-button type="button" blue xs
-        onclick='abrirModalEditarCargo(@js($cargo->id), @js($cargo->nombre), @js($cargo->descripcion), @js($cargo->id_area), @js($cargo->estado))'>
+        data-editar-cargo
+        data-id="{{ $cargo->id }}"
+        data-nombre="{{ $cargo->nombre }}"
+        data-descripcion="{{ $cargo->descripcion }}"
+        data-id-area="{{ $cargo->id_area }}"
+        data-estado="{{ $cargo->estado }}">
         Editar
     </x-wire-button>
 

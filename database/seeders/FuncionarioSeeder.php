@@ -10,7 +10,7 @@ class FuncionarioSeeder extends Seeder
     use GuardaSeeders;
 
     /**
-     * Fichas laborales de los usuarios internos iniciales.
+     * Datos personales de los usuarios internos iniciales.
      */
     public function run(): void
     {
@@ -36,7 +36,6 @@ class FuncionarioSeeder extends Seeder
                 'carnet' => $carnet,
                 'telefono' => $telefono,
                 'genero' => $genero,
-                'estado' => $this->estado('funcionarios'),
             ]);
         }
     }

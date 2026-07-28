@@ -13,8 +13,9 @@
 ]">
 
     @include('seguridad.estilos')
+    @include('roles.estilo')
 
-    <form action="{{ route('roles_store') }}" method="POST" class="seg-page" autocomplete="off">
+    <form action="{{ route('roles_store') }}" method="POST" class="seg-page roles-module" autocomplete="off">
         @csrf
 
         @include('roles.formulario', [

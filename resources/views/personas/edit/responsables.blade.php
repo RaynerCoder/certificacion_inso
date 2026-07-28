@@ -164,7 +164,7 @@
 
                 <div class="bg-blue-50 px-4 py-2 border-b border-blue-100">
                     <h3 class="text-sm font-bold text-blue-700">
-                        2. Información general
+                        2. Información general del responsable
                     </h3>
                 </div>
 
@@ -177,19 +177,28 @@
                     <x-wire-input label="Correo electrónico" id="nuevo_correo" type="email"
                         placeholder="correo@ejemplo.com" />
 
-                    <x-wire-native-select label="Territorio / Ciudad" id="nuevo_id_territorio">
+                    <div class="territorio-responsable-cascada"
+                        data-territorio-responsable
+                        data-url-hijos="{{ route('personas_territorios_hijos', ['territorio' => '__ID__']) }}"
+                        data-url-ruta="{{ route('personas_territorio_ruta', ['territorio' => '__ID__']) }}"
+                        data-error-wrapper="nuevo_id_territorio">
+                        <select id="nuevo_id_territorio" name="nuevo_id_territorio" class="hidden">
+                            <option value="">Seleccione territorio</option>
+                        </select>
 
-                        <option value="">
-                            Seleccione territorio
-                        </option>
+                        <label for="nuevo_id_pais_responsable"
+                            class="mb-1 block text-sm font-medium text-slate-700">
+                            País
+                        </label>
+                        <select id="nuevo_id_pais_responsable" class="territorio-responsable-select">
+                            <option value="">Seleccione país</option>
+                            @foreach ($paises as $pais)
+                                <option value="{{ $pais->id }}">{{ $pais->nombre }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                        @foreach ($territorios as $elemento)
-                            <option value="{{ $elemento->id }}">
-                                {{ $elemento->nombre }}
-                            </option>
-                        @endforeach
-
-                    </x-wire-native-select>
+                    <div class="contents" data-territorio-responsable-niveles></div>
 
                 </div>
 
@@ -301,44 +310,54 @@
                     </p>
                 </div>
 
-                <div class="p-4 space-y-4">
+                <div id="formRubrosResponsable" class="p-4 space-y-4">
+                    <div>
+                        <label for="rubroResponsableSelectorCatalogo"
+                            class="mb-2 block text-sm font-semibold text-slate-700">
+                            Buscar y agregar rubro
+                        </label>
 
-                    <div id="formRubrosResponsable" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <select id="rubroResponsableSelectorCatalogo" class="hidden">
+                            <option value="">Seleccione un rubro</option>
+                            @foreach (($rubrosCatalogo ?? collect()) as $rubro)
+                                <option value="{{ $rubro->id }}" data-nombre="{{ $rubro->nombre }}">
+                                    {{ $rubro->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
 
-                        <div class="md:col-span-8">
-                            <x-wire-input label="Nombre del rubro" id="nuevo_rubro"
-                                placeholder="Ej: Control de plagas" />
-                        </div>
-
-                        <div class="md:col-span-2">
-                            <x-wire-native-select label="Estado" id="nuevo_estado_rubro">
-                                {{-- Estado textual para guardar rubros del responsable como ACTIVO / INACTIVO. --}}
-                                <option value="ACTIVO">Activo</option>
-                                <option value="INACTIVO">Inactivo</option>
-                            </x-wire-native-select>
-                        </div>
-
-                        <div class="md:col-span-2 flex items-end">
-                            <button type="button" onclick="agregarRubroResponsableModal()"
-                                class="w-full px-4 py-2 rounded-lg bg-sky-600 text-white text-sm hover:bg-sky-700">
-                                Agregar
+                        <div class="persona-rubro-select" data-rubro-responsable-combobox>
+                            <button type="button" class="persona-rubro-trigger"
+                                data-rubro-responsable-trigger aria-expanded="false"
+                                aria-controls="rubroResponsableOpciones">
+                                <span>Seleccione uno o más rubros</span>
+                                <i class="fa-solid fa-chevron-down"></i>
                             </button>
-                        </div>
 
+                            <div class="persona-rubro-options" id="rubroResponsableOpciones">
+                                <div class="persona-rubro-search-wrap">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="search" class="persona-rubro-search"
+                                        data-rubro-responsable-search placeholder="Buscar rubro"
+                                        autocomplete="off">
+                                </div>
+
+                                <div data-rubro-responsable-options-list></div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
-                        <h4 class="text-sm font-semibold text-gray-700">
-                            Rubros registrados
-                        </h4>
+                    <div class="persona-rubros-selected-card">
+                        <p id="resumenRubrosResponsableModal" class="persona-rubro-summary">
+                            Rubros seleccionados (0)
+                        </p>
 
-                        <div id="listaRubrosResponsableModal" class="flex flex-wrap gap-2 mt-3">
+                        <div id="listaRubrosResponsableModal" class="flex flex-wrap gap-2">
                             <span id="mensajeSinRubrosResponsableModal" class="text-sm text-gray-500">
                                 Todavía no se agregaron rubros.
                             </span>
                         </div>
                     </div>
-
                 </div>
             </div>
 

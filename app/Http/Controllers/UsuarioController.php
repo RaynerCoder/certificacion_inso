@@ -53,7 +53,7 @@ class UsuarioController extends Controller
             $usuario->roles()->sync($datos['form_roles']);
             $usuario->permisosDirectos()->sync($datos['form_permisos'] ?? []);
 
-            // Crea la ficha laboral del funcionario vinculada uno a uno con la cuenta.
+            // Guarda los datos personales vinculados a la cuenta.
             $funcionario = $usuario->funcionario()->create([
                 'nombres' => $datos['form_funcionario_nombres'],
                 'apellido_paterno' => $datos['form_funcionario_apellido_paterno'],
@@ -61,7 +61,6 @@ class UsuarioController extends Controller
                 'carnet' => $datos['form_funcionario_carnet'],
                 'telefono' => $datos['form_funcionario_telefono'] ?? null,
                 'genero' => (int) $datos['form_funcionario_genero'],
-                'estado' => (int) $datos['form_funcionario_estado'],
             ]);
 
             $funcionario->cargos()->sync($this->obtenerCargosFuncionario($datos));
@@ -86,11 +85,17 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Reservado para una vista de detalle del usuario si el modulo la necesita.
+     * Muestra la cuenta y sus relaciones administrativas en una sola vista.
      */
     public function show(User $usuario)
     {
-        //
+        $usuario->load([
+            'funcionario.cargos.area',
+            'roles.permisos',
+            'permisosDirectos',
+        ]);
+
+        return view('usuarios.show', compact('usuario'));
     }
 
     /**
@@ -116,6 +121,20 @@ class UsuarioController extends Controller
         $datos = $this->validarUsuario($solicitud, $usuario);
         $this->validarCargosDisponibles($datos, $usuario);
 
+        if ($this->quiereInactivarUsuario($usuario, $datos)) {
+            $motivo = $this->motivoQueImpideInactivarUsuario($usuario);
+
+            if ($motivo) {
+                session()->flash('swal', [
+                    'title' => 'No se puede cambiar a Inactivo',
+                    'text' => $motivo,
+                    'icon' => 'error',
+                ]);
+
+                return redirect()->route('usuarios_index');
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -134,7 +153,7 @@ class UsuarioController extends Controller
             $usuario->roles()->sync($datos['form_roles']);
             $usuario->permisosDirectos()->sync($datos['form_permisos'] ?? []);
 
-            // Actualiza o crea la ficha de funcionario en caso de editar un usuario antiguo.
+            // Actualiza los datos personales o los crea si la cuenta todavía no los tiene.
             $funcionario = $usuario->funcionario()->updateOrCreate(
                 ['id_usuario' => $usuario->id],
                 [
@@ -144,7 +163,6 @@ class UsuarioController extends Controller
                     'carnet' => $datos['form_funcionario_carnet'],
                     'telefono' => $datos['form_funcionario_telefono'] ?? null,
                     'genero' => (int) $datos['form_funcionario_genero'],
-                    'estado' => (int) $datos['form_funcionario_estado'],
                 ]
             );
 
@@ -174,22 +192,23 @@ class UsuarioController extends Controller
      */
     public function destroy(User $usuario)
     {
-        if ($usuario->esSuperAdministrador()) {
+        $motivo = $this->motivoQueImpideInactivarUsuario($usuario);
+
+        if ($motivo) {
             session()->flash('swal', [
-                'title' => 'No se puede inactivar',
-                'text' => 'La cuenta superadministrador es necesaria para administrar el sistema.',
+                'title' => 'No se puede eliminar',
+                'text' => $motivo,
                 'icon' => 'error',
             ]);
 
             return redirect()->route('usuarios_index');
         }
 
-        // Evita que el funcionario inactive su propia cuenta mientras está conectado.
-        if (auth()->id() === $usuario->id) {
+        if ((string) $usuario->estado === '0') {
             session()->flash('swal', [
-                'title' => 'No se puede inactivar',
-                'text' => 'No puedes inactivar tu propia cuenta mientras la estás usando.',
-                'icon' => 'error',
+                'title' => 'Sin cambios',
+                'text' => 'El usuario ya tiene estado Inactivo.',
+                'icon' => 'info',
             ]);
 
             return redirect()->route('usuarios_index');
@@ -203,8 +222,8 @@ class UsuarioController extends Controller
             DB::commit();
 
             session()->flash('swal', [
-                'title' => 'Usuario inactivo',
-                'text' => 'El usuario fue marcado como inactivo.',
+                'title' => 'Eliminado',
+                'text' => 'El estado del usuario cambió a Inactivo correctamente.',
                 'icon' => 'success',
             ]);
 
@@ -214,7 +233,7 @@ class UsuarioController extends Controller
 
             return redirect()
                 ->route('usuarios_index')
-                ->with('error', 'No se pudo inactivar el usuario.');
+                ->with('error', 'No se pudo eliminar el usuario.');
         }
     }
 
@@ -223,11 +242,11 @@ class UsuarioController extends Controller
     {
         $idUsuario = $usuario?->id;
         $reglasPassword = $usuario
-            ? ['nullable', 'required_with:form_password_confirmation', 'string', 'min:8', 'confirmed']
-            : ['required', 'string', 'min:8', 'confirmed'];
+            ? ['nullable', 'required_with:form_password_confirmation', 'string', 'confirmed']
+            : ['required', 'string', 'confirmed'];
         $reglasConfirmacionPassword = $usuario
-            ? ['nullable', 'required_with:form_password', 'string', 'min:8']
-            : ['required', 'string', 'min:8'];
+            ? ['nullable', 'required_with:form_password', 'string']
+            : ['required', 'string'];
 
         return $solicitud->validate([
             'form_name' => ['required', 'string', 'max:255'],
@@ -251,7 +270,6 @@ class UsuarioController extends Controller
             ],
             'form_funcionario_telefono' => ['nullable', 'string', 'max:50'],
             'form_funcionario_genero' => ['required', 'in:0,1'],
-            'form_funcionario_estado' => ['required', 'in:0,1'],
             'form_cargos' => ['nullable', 'array'],
             'form_cargos.*' => ['integer', 'exists:cargos,id'],
             'form_cargos_nuevos' => ['nullable', 'array'],
@@ -279,13 +297,12 @@ class UsuarioController extends Controller
             'form_password' => 'contraseña',
             'form_password_confirmation' => 'confirmación de contraseña',
             'form_estado' => 'estado',
-            'form_funcionario_nombres' => 'nombres del funcionario',
+            'form_funcionario_nombres' => 'nombres',
             'form_funcionario_apellido_paterno' => 'apellido paterno',
             'form_funcionario_apellido_materno' => 'apellido materno',
             'form_funcionario_carnet' => 'carnet',
             'form_funcionario_telefono' => 'telefono',
             'form_funcionario_genero' => 'genero',
-            'form_funcionario_estado' => 'estado del funcionario',
             'form_cargos' => 'cargos',
             'form_cargos_nuevos' => 'cargos nuevos',
             'form_cargos_nuevos.*' => 'cargo nuevo',
@@ -330,7 +347,7 @@ class UsuarioController extends Controller
             ->with('area')
             ->where('estado', 1)
             ->whereDoesntHave('funcionarios', function ($query) use ($idFuncionarioActual) {
-                $query->where('funcionarios.estado', 1);
+                $query->whereHas('usuario', fn ($consultaUsuario) => $consultaUsuario->where('estado', 1));
 
                 if ($idFuncionarioActual) {
                     $query->where('funcionarios.id', '<>', $idFuncionarioActual);
@@ -361,8 +378,29 @@ class UsuarioController extends Controller
 
         if ($idsNoDisponibles->isNotEmpty()) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'form_cargos' => 'Uno de los cargos seleccionados ya esta asignado a otro funcionario activo.',
+                'form_cargos' => 'Uno de los cargos seleccionados ya está asignado a otro usuario activo.',
             ]);
         }
+    }
+
+    // Solo aplica la protección cuando una cuenta activa pasa a Inactivo.
+    private function quiereInactivarUsuario(User $usuario, array $datos): bool
+    {
+        return (string) $usuario->estado === '1'
+            && (string) $datos['form_estado'] === '0';
+    }
+
+    // La cuenta principal y la sesión actual deben permanecer activas.
+    private function motivoQueImpideInactivarUsuario(User $usuario): ?string
+    {
+        if ($usuario->esSuperAdministrador()) {
+            return 'La cuenta superadministrador es necesaria para administrar el sistema.';
+        }
+
+        if (auth()->id() === $usuario->id) {
+            return 'No puedes cambiar a Inactivo tu propia cuenta mientras la estás usando.';
+        }
+
+        return null;
     }
 }

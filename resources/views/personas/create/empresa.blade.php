@@ -32,12 +32,12 @@
                 @endforeach
             </x-wire-native-select>
 
-            <x-wire-input label="Razón social" id="form_razon_social" name="form_razon_social"
-                placeholder="Razón social de la empresa"
+            <x-wire-input label="Nombre legal o razón social de la empresa" id="form_razon_social" name="form_razon_social"
+                placeholder="Ej.: INDUSTRIAS BOLIVIA S.R.L."
                 value="{{ old('form_razon_social', $persona->empresa->razon_social ?? '') }}" />
 
-            <x-wire-input label="Matrícula" id="form_matricula" name="form_matricula"
-                placeholder="Número de matrícula de la empresa"
+            <x-wire-input label="Matrícula de comercio" id="form_matricula" name="form_matricula"
+                placeholder="Número de matrícula de comercio"
                 value="{{ old('form_matricula', $persona->empresa->matricula ?? '') }}" />
 
             <x-wire-input label="Latitud" id="form_latitud" name="form_latitud" placeholder="Ej: -16.500000"
@@ -46,9 +46,14 @@
             <x-wire-input label="Longitud" id="form_longitud" name="form_longitud" placeholder="Ej: -68.150000"
                 value="{{ old('form_longitud', $persona->empresa->longitud ?? '') }}" />
 
-            <x-wire-input label="Estado" id="form_estado_empresa" name="form_estado_empresa"
-                placeholder="Estado de la empresa"
-                value="{{ old('form_estado_empresa', $persona->empresa->estado ?? 'ACTIVO') }}" />
+            <x-wire-native-select label="Estado" id="form_estado_empresa" name="form_estado_empresa">
+                <option value="ACTIVO" @selected(old('form_estado_empresa', $persona->empresa->estado ?? 'ACTIVO') === 'ACTIVO')>
+                    Activo
+                </option>
+                <option value="INACTIVO" @selected(old('form_estado_empresa', $persona->empresa->estado ?? 'ACTIVO') === 'INACTIVO')>
+                    Inactivo
+                </option>
+            </x-wire-native-select>
 
             <div class="md:col-span-2">
                 <label class="mb-2 block text-sm font-medium text-gray-700">

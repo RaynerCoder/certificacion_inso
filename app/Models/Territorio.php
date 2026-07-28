@@ -28,7 +28,13 @@ class Territorio extends Model
     public function productos()
     {
         return $this->hasMany(Producto::class, 'id_territorio_pais');
-    }     
+    }
+
+    // Relacion uno a muchos (un territorio puede estar registrado en varias personas o empresas)
+    public function personas()
+    {
+        return $this->hasMany(Persona::class, 'id_territorio');
+    }
     
     // Relacion de muchos a uno (muchos territorios pertenecen a un territorio padre)
     public function territorioPadre()
@@ -40,6 +46,6 @@ class Territorio extends Model
     public function territoriosHijos()
     {
         return $this->hasMany(Territorio::class, 'id_padre_territorio');
-    }    
+    }
 
 }

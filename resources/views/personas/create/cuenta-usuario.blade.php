@@ -24,14 +24,38 @@
             <x-wire-input label="Correo de acceso" id="form_usuario_email" name="form_usuario_email" type="email"
                 placeholder="correo@ejemplo.com" value="{{ old('form_usuario_email', $usuarioCuenta->email ?? '') }}" />
 
-            <x-wire-native-select label="Rol de acceso" id="form_id_role" name="form_id_role">
-                <option value="">Seleccione el rol</option>
-                @foreach ($rolesCuentaCatalogo as $rolCuenta)
-                    <option value="{{ $rolCuenta->id }}" @selected((string) $rolSeleccionadoCuenta === (string) $rolCuenta->id)>
-                        {{ $rolCuenta->name }}{{ $rolCuenta->slug ? ' - ' . $rolCuenta->slug : '' }}
-                    </option>
-                @endforeach
-            </x-wire-native-select>
+            <div class="ocupacion-persona-autocomplete" data-rol-cuenta>
+                <label for="buscadorRolCuenta" class="mb-1 block text-sm font-medium text-slate-700">
+                    Rol de acceso
+                </label>
+
+                <select id="form_id_role" name="form_id_role" class="hidden">
+                    <option value="">Seleccione el rol</option>
+                    @foreach ($rolesCuentaCatalogo as $rolCuenta)
+                        <option value="{{ $rolCuenta->id }}" @selected((string) $rolSeleccionadoCuenta === (string) $rolCuenta->id)>
+                            {{ $rolCuenta->name }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <div class="ocupacion-persona-control">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+
+                    <input type="search" id="buscadorRolCuenta" data-rol-cuenta-buscar
+                        placeholder="Escriba el nombre del rol" autocomplete="off">
+
+                    <button type="button" class="ocupacion-persona-limpiar" data-rol-cuenta-limpiar
+                        aria-label="Quitar rol seleccionado">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="ocupacion-persona-resultados" data-rol-cuenta-resultados></div>
+
+                @error('form_id_role')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
 
             <div>
                 <x-wire-input label="{{ $esEdicionCuenta && $cuentaExistente ? 'Nueva contrasena opcional' : 'Contrasena opcional' }}"

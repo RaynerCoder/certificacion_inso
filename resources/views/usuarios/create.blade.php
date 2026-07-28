@@ -14,7 +14,7 @@
 
     @include('seguridad.estilos')
 
-    <form action="{{ route('usuarios_store') }}" method="POST" class="seg-page" autocomplete="off">
+    <form action="{{ route('usuarios_store') }}" method="POST" class="seg-page usuario-formulario" autocomplete="off">
         @csrf
 
         @include('usuarios.formulario', [

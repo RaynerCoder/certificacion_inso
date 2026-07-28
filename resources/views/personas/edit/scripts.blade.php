@@ -757,8 +757,8 @@
          if (tipo === 'EMPRESA') {
              items = items.concat([
                  itemResumenPersonaWizard('Tipo de empresa', textoSelectPersonaWizard('[name="form_id_tipo_empresa"]')),
-                 itemResumenPersonaWizard('Razon social', valorPersonaWizard('[name="form_razon_social"]')),
-                 itemResumenPersonaWizard('Matricula', valorPersonaWizard('[name="form_matricula"]')),
+                 itemResumenPersonaWizard('Nombre legal o razón social', valorPersonaWizard('[name="form_razon_social"]')),
+                 itemResumenPersonaWizard('Matrícula de comercio', valorPersonaWizard('[name="form_matricula"]')),
                  itemResumenPersonaWizard('Latitud', valorPersonaWizard('[name="form_latitud"]')),
                  itemResumenPersonaWizard('Longitud', valorPersonaWizard('[name="form_longitud"]')),
                  itemResumenPersonaWizard('Responsables agregados', cantidadResponsables)
@@ -890,7 +890,7 @@
          if (pasoPersonaActual === 2) {
              titulo = tipo === 'EMPRESA' ? 'Datos especificos - Empresa' : 'Datos especificos - Persona Natural';
              subtitulo = tipo === 'EMPRESA' ?
-                 'Complete tipo de empresa, razon social, matricula y ubicacion.' :
+                 'Complete tipo de empresa, nombre legal o razón social, matrícula de comercio y ubicación.' :
                  'Complete CI, nombres, apellidos, nacimiento, genero y ocupacion.';
          }
 

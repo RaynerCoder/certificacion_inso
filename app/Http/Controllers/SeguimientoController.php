@@ -2376,8 +2376,8 @@ class SeguimientoController extends Controller
     {
         $usuario?->loadMissing('funcionario.cargos');
 
-        return (bool) $usuario?->funcionario
-            && (string) $usuario->funcionario->estado === '1'
+        return (string) $usuario?->estado === '1'
+            && (bool) $usuario?->funcionario
             && $usuario->funcionario->cargos->contains(fn ($cargo) => (string) $cargo->estado === '1');
     }
 

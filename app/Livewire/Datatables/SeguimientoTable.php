@@ -630,8 +630,8 @@ class SeguimientoTable extends DataTableComponent
     // Reglas para identificar funcionarios internos que pueden consultar la bandeja general.
     private function usuarioInternoActivo($usuario): bool
     {
-        return (bool) $usuario?->funcionario
-            && $this->estadoActivo($usuario->funcionario->estado)
+        return $this->estadoActivo($usuario?->estado)
+            && (bool) $usuario?->funcionario
             && $usuario->funcionario->cargos->contains(fn ($cargo) => $this->estadoActivo($cargo->estado));
     }
 }

@@ -45,14 +45,11 @@ class AreaTable extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make("Area superior")
+            Column::make("Area dependiente")
                 ->label(fn ($fila) => view('tablas.texto_ajustado', [
                     'texto' => $fila->areaPadre?->nombre ?: 'Sin area superior',
                     'clase' => $fila->areaPadre ? 'text-slate-700' : 'text-slate-400',
                 ])),
-
-            Column::make("Descripcion", "descripcion")
-                ->format(fn ($valor) => view('tablas.texto_ajustado', ['texto' => $valor ?: 'Sin descripcion'])),
 
             Column::make("Cargos asignados")
                 ->label(fn ($fila) => view('tablas.chip_estado', [
@@ -70,7 +67,8 @@ class AreaTable extends DataTableComponent
                 ->sortable(),
 
             Column::make('Acciones')
-                ->label(fn ($fila) => view('areas.accion', ['area' => $fila])),
+                ->label(fn ($fila) => view('areas.accion', ['area' => $fila]))
+                ->html(),
         ];
     }
 

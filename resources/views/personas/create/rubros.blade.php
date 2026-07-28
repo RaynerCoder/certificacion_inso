@@ -6,7 +6,7 @@
 @endphp
 
 <div id="seccion_rubros">
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div class="border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-3">
             <h2 class="text-base font-bold text-amber-700">
                 Rubros o actividad económica
@@ -28,21 +28,27 @@
                     @endforeach
                 </select>
 
-                <div class="persona-rubro-select" data-rubro-combobox>
-                    <button type="button" class="persona-rubro-trigger" data-rubro-trigger
-                        aria-expanded="false" aria-controls="rubroPersonaOpciones">
-                        <span data-rubro-label>Seleccione un rubro</span>
-                        <i class="fa-solid fa-chevron-down"></i>
-                    </button>
-
-                    <div class="persona-rubro-options" id="rubroPersonaOpciones">
-                        <div class="persona-rubro-search-wrap">
-                            <input type="search" class="persona-rubro-search" data-rubro-search
-                                placeholder="Buscar rubro">
-                        </div>
-
-                        <div data-rubro-options-list></div>
+                <div class="ocupacion-persona-autocomplete" data-rubro-combobox>
+                    <div class="ocupacion-persona-control">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" data-rubro-search
+                            placeholder="Escriba el nombre del rubro" autocomplete="off">
                     </div>
+
+                    <div class="ocupacion-persona-resultados" id="rubroPersonaOpciones"
+                        data-rubro-options-list></div>
+                </div>
+            </div>
+
+            <div class="persona-rubros-selected-card">
+                <p id="rubrosPersonaResumen" class="persona-rubro-summary">
+                    Rubros seleccionados ({{ $rubrosSeleccionados->count() }})
+                </p>
+
+                <div id="rubrosPersonaLista" class="flex flex-wrap gap-2">
+                    <span id="rubrosPersonaVacio" class="text-sm text-slate-500">
+                        Todavía no se agregaron rubros.
+                    </span>
                 </div>
             </div>
 
@@ -54,18 +60,6 @@
                     </option>
                 @endforeach
             </select>
-
-            <div>
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Rubros seleccionados
-                </p>
-
-                <div id="rubrosPersonaLista" class="flex flex-wrap gap-2">
-                    <span id="rubrosPersonaVacio" class="text-sm text-slate-500">
-                        Todavía no se agregaron rubros.
-                    </span>
-                </div>
-            </div>
         </div>
     </div>
 </div>

@@ -94,6 +94,16 @@ class RolController extends Controller
     {
         $datos = $this->validarRol($solicitud, $rol);
 
+        if ($this->quiereInactivarRol($rol, $datos) && $this->rolEstaRelacionado($rol)) {
+            session()->flash('swal', [
+                'title' => 'No se puede cambiar a Inactivo',
+                'text' => 'El rol está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('roles_index');
+        }
+
         try {
             DB::beginTransaction();
 
@@ -126,22 +136,40 @@ class RolController extends Controller
     }
 
     /**
-     * Elimina el rol y limpia sus relaciones con usuarios y permisos.
+     * Cambia el estado del rol a Inactivo sin eliminarlo de la base de datos.
      */
     public function destroy(Role $rol)
     {
+        if ($this->rolEstaRelacionado($rol)) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'El rol está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('roles_index');
+        }
+
+        if ((string) $rol->estado === '0') {
+            session()->flash('swal', [
+                'title' => 'Sin cambios',
+                'text' => 'El rol ya tiene estado Inactivo.',
+                'icon' => 'info',
+            ]);
+
+            return redirect()->route('roles_index');
+        }
+
         try {
             DB::beginTransaction();
 
-            $rol->users()->detach();
-            $rol->permisos()->detach();
-            $rol->delete();
+            $rol->update(['estado' => 0]);
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El rol se elimino correctamente.',
+                'text' => 'El estado del rol cambió a Inactivo correctamente.',
                 'icon' => 'success',
             ]);
 
@@ -214,5 +242,30 @@ class RolController extends Controller
             });
 
         return $permisos->unique()->values()->all();
+    }
+
+    /**
+     * Indica si la edición intenta pasar un rol activo a Inactivo.
+     */
+    private function quiereInactivarRol(Role $rol, array $datos): bool
+    {
+        return (string) $rol->estado === '1'
+            && (string) $datos['form_estado'] === '0';
+    }
+
+    /**
+     * Revisa las asignaciones que impiden inactivar o eliminar el rol.
+     */
+    private function rolEstaRelacionado(Role $rol): bool
+    {
+        $tieneUsuarios = DB::table('roles_users')
+            ->where('id_role', $rol->id)
+            ->exists();
+
+        $tieneResponsables = $rol->responsables()
+            ->withTrashed()
+            ->exists();
+
+        return $tieneUsuarios || $tieneResponsables;
     }
 }

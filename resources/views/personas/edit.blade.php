@@ -34,8 +34,8 @@
                 'form_expedido' => 'Seleccione el lugar de expedición.',
                 'form_id_ocupacion' => 'Seleccione la ocupación.',
                     'form_id_tipo_empresa' => 'Seleccione el tipo de empresa.',
-                    'form_razon_social' => 'Ingrese la razon social.',
-                    'form_matricula' => 'Ingrese la matricula.',
+                    'form_razon_social' => 'Ingrese el nombre legal o razón social de la empresa.',
+                    'form_matricula' => 'Ingrese la matrícula de comercio.',
                     'form_usuario_name' => 'Ingrese el nombre de usuario.',
                     'form_usuario_email' => 'Ingrese un correo de acceso valido.',
                     'form_usuario_password' => 'Ingrese una contrasena de al menos 8 caracteres.',
@@ -200,7 +200,7 @@
 
                         <button type="button" data-tipo-rapido="EMPRESA" class="tipo-rapido">
                             Empresa
-                            <span>Tipo, matricula y responsables</span>
+                            <span>Tipo, matrícula de comercio y responsables</span>
                         </button>
                     </div>
                 </div>
@@ -262,21 +262,16 @@
                         <div id="bloque_responsables_wizard" class="wizard-section-block is-soft hidden">
                             <div class="wizard-section-heading">
                                 <span class="wizard-section-number">2</span>
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <h3>Responsables de la empresa</h3>
                                     <p>Agregue responsables existentes o registre uno nuevo desde el modal.</p>
                                 </div>
-                            </div>
 
-                            <div id="accion_responsables_wizard" class="responsables-wizard-action">
-                                <div>
-                                    <h3>Agregar responsable</h3>
-                                    <p>Puede seleccionar una persona existente o registrar una nueva.</p>
+                                <div id="accion_responsables_wizard" class="responsables-wizard-action">
+                                    <button type="button" onclick="abrirModalResponsable()">
+                                        Agregar Responsable
+                                    </button>
                                 </div>
-
-                                <button type="button" onclick="abrirModalResponsable()">
-                                    Agregar Responsable
-                                </button>
                             </div>
 
                             @include('personas.create.responsables')
@@ -453,8 +448,8 @@
         if (!tieneErroresEdicion) {
             telefonosRegistrados.forEach((telefono) => {
                 document.getElementById('numeroTelefono').value = telefono.numero || '';
-                document.getElementById('tipoTelefono').value = telefono.estado || 'CELULAR';
-                agregarTelefonoPersona();
+                document.getElementById('estadoTelefono').value = normalizarEstadoTelefono(telefono.estado);
+                agregarTelefonoPersona(telefono.id || '');
             });
 
 

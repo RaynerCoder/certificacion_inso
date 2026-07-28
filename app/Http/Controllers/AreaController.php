@@ -86,6 +86,16 @@ class AreaController extends Controller
     {
         $datos = $this->validarArea($solicitud, $area);
 
+        if ($this->quiereInactivarArea($area, $datos) && $this->areaEstaRelacionada($area)) {
+            session()->flash('swal', [
+                'title' => 'No se puede cambiar a Inactivo',
+                'text' => 'El área está relacionada con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('areas_index');
+        }
+
         try {
             DB::beginTransaction();
 
@@ -132,25 +142,25 @@ class AreaController extends Controller
     }
 
     /**
-     * Elimina un area solo si no tiene subareas ni cargos relacionados.
+     * Cambia el estado del área a Inactivo sin eliminarla de la base de datos.
      */
     public function destroy(Area $area)
     {
-        if ($area->subareas()->exists()) {
+        if ($this->areaEstaRelacionada($area)) {
             session()->flash('swal', [
                 'title' => 'No se puede eliminar',
-                'text' => 'El area tiene subareas relacionadas.',
+                'text' => 'El área está relacionada con otros datos.',
                 'icon' => 'error',
             ]);
 
             return redirect()->route('areas_index');
         }
 
-        if ($area->cargos()->exists()) {
+        if ((string) $area->estado === '0') {
             session()->flash('swal', [
-                'title' => 'No se puede eliminar',
-                'text' => 'El area tiene cargos relacionados.',
-                'icon' => 'error',
+                'title' => 'Sin cambios',
+                'text' => 'El área ya tiene estado Inactivo.',
+                'icon' => 'info',
             ]);
 
             return redirect()->route('areas_index');
@@ -159,13 +169,13 @@ class AreaController extends Controller
         try {
             DB::beginTransaction();
 
-            $area->delete();
+            $area->update(['estado' => 0]);
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El area se elimino correctamente.',
+                'text' => 'El estado del área cambió a Inactivo correctamente.',
                 'icon' => 'success',
             ]);
 
@@ -207,6 +217,21 @@ class AreaController extends Controller
             'form_descripcion' => 'descripcion',
             'form_estado' => 'estado',
         ]);
+    }
+
+    // Solo aplica esta validación cuando un área activa pasa a Inactivo.
+    private function quiereInactivarArea(Area $area, array $datos): bool
+    {
+        return (string) $area->estado === '1'
+            && (string) $datos['form_estado'] === '0';
+    }
+
+    // Estas relaciones impiden inactivar o eliminar un área.
+    private function areaEstaRelacionada(Area $area): bool
+    {
+        return $area->subareas()->withTrashed()->exists()
+            || $area->cargos()->withTrashed()->exists()
+            || $area->tiposCertificados()->withTrashed()->exists();
     }
 
     // Devuelve las subareas descendientes para impedir ciclos al editar.

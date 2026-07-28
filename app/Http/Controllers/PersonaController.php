@@ -67,8 +67,8 @@ class PersonaController extends Controller
         $paises = Territorio::where('id_ambito', 1)->orderBy('nombre')->get();
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
-        $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
-        $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
+        $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
+        $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
         $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -100,6 +100,43 @@ class PersonaController extends Controller
         ]);
     }
 
+    // El modal solicita únicamente los territorios del nivel que el usuario está revisando.
+    public function territoriosHijos(Territorio $territorio)
+    {
+        $territorios = $territorio->territoriosHijos()
+            ->with('ambito:id,nombre')
+            ->whereIn('estado', ['ACTIVO', 'Activo', 'activo', '1', 1])
+            ->orderBy('nombre')
+            ->get(['id', 'id_ambito', 'id_padre_territorio', 'nombre']);
+
+        return response()->json($territorios->map(fn ($hijo) => [
+            'id' => $hijo->id,
+            'nombre' => $hijo->nombre,
+            'nivel' => $hijo->ambito?->nombre ?: 'Territorio',
+        ])->values());
+    }
+
+    // Devuelve la ruta completa para reconstruir el selector cuando se edita un responsable.
+    public function rutaTerritorio(Territorio $territorio)
+    {
+        $ruta = [];
+        $actual = $territorio;
+        $idsRecorridos = [];
+
+        while ($actual && ! in_array($actual->id, $idsRecorridos, true)) {
+            $idsRecorridos[] = $actual->id;
+            array_unshift($ruta, [
+                'id' => $actual->id,
+                'nombre' => $actual->nombre,
+            ]);
+
+            $actual = $actual->territorioPadre()
+                ->first(['id', 'id_padre_territorio', 'nombre']);
+        }
+
+        return response()->json($ruta);
+    }
+
     /**
      * Store a newly created resource in storage.
     */
@@ -120,7 +157,7 @@ class PersonaController extends Controller
                 Rule::exists('territorios', 'id')->where(fn ($query) => $query->where('id_ambito', 1)),
             ],
             'form_id_territorio' => 'required|exists:territorios,id',
-            'form_estado'        => 'nullable|string|max:50',
+            'form_estado'        => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
 
             // NATURAL
             'form_ci'               => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:50|unique:naturals,ci',
@@ -144,8 +181,9 @@ class PersonaController extends Controller
 
             // TELÉFONOS PERSONA PRINCIPAL
             'telefonos'          => 'nullable|array',
+            'telefonos.*.id'     => 'nullable|integer|exists:telefonos,id',
             'telefonos.*.numero' => 'required|string|max:50',
-            'telefonos.*.tipo'   => 'nullable|max:50',
+            'telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
 
             // RUBROS PERSONA / EMPRESA
             'rubros'   => 'nullable|array',
@@ -156,7 +194,7 @@ class PersonaController extends Controller
             'responsables.*.tipo'              => 'required|in:NUEVO,EXISTENTE',
             'responsables.*.id_persona'        => 'nullable|exists:personas,id',
             'responsables.*.domicilio'         => 'nullable|string|max:255',
-            'responsables.*.nit'               => 'nullable|string|max:50|unique:personas,nit',
+            'responsables.*.nit'               => 'nullable|string|max:50',
             'responsables.*.correo'            => 'nullable|email|max:50',
             'responsables.*.id_territorio'     => 'nullable|exists:territorios,id',
             'responsables.*.nombres'           => 'nullable|string|max:100',
@@ -168,19 +206,24 @@ class PersonaController extends Controller
             'responsables.*.expedido'          => 'nullable|string|max:10',
             'responsables.*.fecha_nacimiento'  => 'nullable|date',
             'responsables.*.genero'            => 'nullable',
+            'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
             'responsables.*.ocupacion'         => 'nullable|string|max:255',
             'responsables.*.telefonos'         => 'nullable|array',
+            'responsables.*.telefonos.*.id'    => 'nullable|integer|exists:telefonos,id',
             'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
-            'responsables.*.telefonos.*.tipo'  => 'nullable|max:50',
+            'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
             'responsables.*.rubros'            => 'nullable|array',
+            'responsables.*.rubros.*.id'       => 'nullable|integer|exists:rubros,id',
             'responsables.*.rubros.*.nombre'   => 'required|string|max:255',
             'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
             // Datos del responsable
-            'responsables.*.id_rol'            => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:roles,id',
+            'responsables.*.id_rol'            => [
+                'required_if:form_tipo_registro,EMPRESA',
+                'nullable',
+                $this->reglaRolDisponibleParaRegistroExterno(),
+            ],
             'responsables.*.url_respaldo'      => 'nullable|string|max:255',
             'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.fecha_registro'    => 'nullable|date',
-            'responsables.*.fecha_baja'        => 'nullable|date',
             'responsables.*.estado'            => 'nullable|string|max:50',
 
             // CUENTA DE USUARIO PARA QUE LA PERSONA/EMPRESA PUEDA INICIAR SESION
@@ -189,7 +232,7 @@ class PersonaController extends Controller
             'form_usuario_password' => 'nullable|string|min:8',
             'form_id_role' => [
                 'required',
-                Rule::exists('roles', 'id')->where(fn ($query) => $query->where('estado', 1)),
+                $this->reglaRolDisponibleParaRegistroExterno(),
             ],
             ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: evitan mostrar campos tecnicos como form_id_territorio al usuario.
@@ -214,6 +257,7 @@ class PersonaController extends Controller
 
             // Evita errores SQL cuando se registra un responsable nuevo sin datos obligatorios de persona.
             $this->validarResponsablesAntesDeGuardar($datos['responsables'] ?? []);
+            $this->validarTerritoriosResponsables($datos['responsables'] ?? []);
             $this->validarTerritorioPrincipal($datos['form_id_pais'], $datos['form_id_territorio']);
         } catch (ValidationException $e) {
             // Si falla un campo externo al modal, guardamos los PDF validos ya seleccionados.
@@ -253,15 +297,7 @@ class PersonaController extends Controller
                 'estado'              => $datos['form_estado'] ?? 'ACTIVO',
             ]);
 
-            if (!empty($datos['telefonos'])) {
-                foreach ($datos['telefonos'] as $telefono) {
-                    Telefono::create([
-                        'id_persona' => $persona->id,
-                        'numero'     => $telefono['numero'],
-                        'estado'     => $telefono['tipo'] ?? 'CELULAR',
-                    ]);
-                }
-            }
+            $this->registrarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
 
             $this->registrarRubrosPersona($persona->id, $datos['rubros'] ?? []);
 
@@ -318,15 +354,39 @@ class PersonaController extends Controller
     }   
 
 
-    // FUNCION PARA REGISTRAR TELEFONOS DE PERSONAS (NATURAL O JURIDICA-EMPRESA)
+    // Registra los teléfonos enviados al crear una persona o empresa.
     private function registrarTelefonosPersona($idPersona, array $telefonos): void
     {
         foreach ($telefonos as $telefono) {
             Telefono::create([
                 'id_persona' => $idPersona,
                 'numero'     => $telefono['numero'],
-                'estado'     => $telefono['tipo'] ?? 'CELULAR',
+                'estado'     => $telefono['estado'] ?? 'ACTIVO',
             ]);
+        }
+    }
+
+    // Conserva los teléfonos registrados y deja inactivos los que se retiraron del formulario.
+    private function sincronizarTelefonosPersona(int $idPersona, array $telefonos): void
+    {
+        Telefono::where('id_persona', $idPersona)->update(['estado' => 'INACTIVO']);
+
+        foreach ($telefonos as $telefono) {
+            $datosTelefono = [
+                'numero' => $telefono['numero'],
+                'estado' => $telefono['estado'] ?? 'ACTIVO',
+            ];
+
+            $telefonoRegistrado = !empty($telefono['id'])
+                ? Telefono::where('id_persona', $idPersona)->find($telefono['id'])
+                : null;
+
+            if ($telefonoRegistrado) {
+                $telefonoRegistrado->update($datosTelefono);
+                continue;
+            }
+
+            Telefono::create(['id_persona' => $idPersona] + $datosTelefono);
         }
     }
 
@@ -407,22 +467,26 @@ class PersonaController extends Controller
         ]);
     }
 
-    // VALIDA RESPONSABLES NUEVOS ANTES DE CREAR PERSONAS PARA EVITAR ERRORES SQL
+    // Revisa los datos propios del responsable antes de crear o actualizar sus relaciones.
     private function validarResponsablesAntesDeGuardar(array $responsables): void
     {
         $errores = [];
         $personasExistentesAgregadas = [];
         $cisAgregados = [];
+        $correosAgregados = [];
+        $nitsAgregados = [];
 
         foreach ($responsables as $indice => $responsable) {
             $tipo = $responsable['tipo'] ?? null;
             $idPersonaResponsable = trim((string) ($responsable['id_persona'] ?? ''));
             $ciResponsable = strtolower(trim((string) ($responsable['ci'] ?? '')));
+            $correoResponsable = strtolower(trim((string) ($responsable['correo'] ?? '')));
+            $nitResponsable = strtolower(trim((string) ($responsable['nit'] ?? '')));
+            $esPersonaExistente = $tipo === 'EXISTENTE' && $idPersonaResponsable !== '';
 
             if ($tipo === 'EXISTENTE' && empty($idPersonaResponsable)) {
                 $errores["responsables.$indice.id_persona"] = 'Seleccione la persona responsable.';
             } elseif ($tipo === 'EXISTENTE') {
-                // No permite repetir a la misma persona existente como responsable de la empresa.
                 if (in_array($idPersonaResponsable, $personasExistentesAgregadas, true)) {
                     $errores["responsables.$indice.id_persona"] = 'Esta persona ya fue agregada como responsable.';
                 }
@@ -431,7 +495,6 @@ class PersonaController extends Controller
             }
 
             if ($ciResponsable !== '') {
-                // Tambien se controla el CI para responsables nuevos o datos editados desde el modal.
                 if (in_array($ciResponsable, $cisAgregados, true)) {
                     $errores["responsables.$indice.ci"] = 'Este CI ya fue agregado como responsable.';
                 }
@@ -439,14 +502,49 @@ class PersonaController extends Controller
                 $cisAgregados[] = $ciResponsable;
             }
 
-            if ($tipo !== 'NUEVO') {
-                continue;
+            if ($correoResponsable !== '') {
+                if (in_array($correoResponsable, $correosAgregados, true)) {
+                    $errores["responsables.$indice.correo"] = 'Este correo ya fue agregado como responsable.';
+                }
+
+                $correosAgregados[] = $correoResponsable;
             }
 
-            if (empty($responsable['correo'])) {
+            if ($nitResponsable !== '') {
+                if (in_array($nitResponsable, $nitsAgregados, true)) {
+                    $errores["responsables.$indice.nit"] = 'Este NIT ya fue agregado como responsable.';
+                }
+
+                $nitsAgregados[] = $nitResponsable;
+            }
+
+            if ($tipo === 'NUEVO' && $correoResponsable === '') {
                 $errores["responsables.$indice.correo"] = 'Ingrese el correo del responsable.';
-            } elseif (Persona::where('correo', $responsable['correo'])->exists()) {
+            }
+
+            if ($correoResponsable !== '' && Persona::query()
+                ->where('correo', $responsable['correo'])
+                ->when($esPersonaExistente, fn ($consulta) => $consulta->where('id', '<>', $idPersonaResponsable))
+                ->exists()) {
                 $errores["responsables.$indice.correo"] = 'El correo del responsable ya esta registrado.';
+            }
+
+            if ($nitResponsable !== '' && Persona::query()
+                ->where('nit', $responsable['nit'])
+                ->when($esPersonaExistente, fn ($consulta) => $consulta->where('id', '<>', $idPersonaResponsable))
+                ->exists()) {
+                $errores["responsables.$indice.nit"] = 'El NIT del responsable ya esta registrado.';
+            }
+
+            if ($ciResponsable !== '' && Natural::query()
+                ->where('ci', $responsable['ci'])
+                ->when($esPersonaExistente, fn ($consulta) => $consulta->where('id_persona', '<>', $idPersonaResponsable))
+                ->exists()) {
+                $errores["responsables.$indice.ci"] = 'El CI del responsable ya esta registrado.';
+            }
+
+            if ($tipo !== 'NUEVO') {
+                continue;
             }
 
             if (empty($responsable['id_territorio'])) {
@@ -461,14 +559,73 @@ class PersonaController extends Controller
                 $errores["responsables.$indice.apellido_paterno"] = 'Ingrese el apellido paterno del responsable.';
             }
 
-            if (empty($responsable['ci'])) {
+            if ($ciResponsable === '') {
                 $errores["responsables.$indice.ci"] = 'Ingrese el CI del responsable.';
-            } elseif (Natural::where('ci', $responsable['ci'])->exists()) {
-                $errores["responsables.$indice.ci"] = 'El CI del responsable ya esta registrado.';
             }
         }
 
         if (! empty($errores)) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    // Los formularios externos no deben ofrecer roles reservados para el personal del sistema.
+    private function rolesDisponiblesParaRegistroExterno()
+    {
+        return Role::query()
+            ->where('estado', 1)
+            ->where(function ($consulta) {
+                $consulta
+                    ->whereNull('especial')
+                    ->orWhere('especial', '');
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function reglaRolDisponibleParaRegistroExterno()
+    {
+        return Rule::exists('roles', 'id')->where(
+            fn ($consulta) => $consulta
+                ->where('estado', 1)
+                ->whereNull('deleted_at')
+                ->where(function ($rolesPermitidos) {
+                    $rolesPermitidos
+                        ->whereNull('especial')
+                        ->orWhere('especial', '');
+                })
+        );
+    }
+
+    private function validarTerritoriosResponsables(array $responsables): void
+    {
+        $errores = [];
+
+        foreach ($responsables as $indice => $responsable) {
+            $idTerritorio = $responsable['id_territorio'] ?? null;
+
+            if (! $idTerritorio) {
+                continue;
+            }
+
+            $territorio = Territorio::query()
+                ->with('territorioPadre:id,id_ambito')
+                ->find($idTerritorio);
+
+            if (! $territorio) {
+                continue;
+            }
+
+            $esPais = $territorio->id_ambito == 1;
+            $esSegundoNivel = $territorio->territorioPadre?->id_ambito == 1;
+
+            if (! $esPais && ! $esSegundoNivel) {
+                $errores["responsables.$indice.id_territorio"] =
+                    'Seleccione el territorio correspondiente al país.';
+            }
+        }
+
+        if ($errores !== []) {
             throw ValidationException::withMessages($errores);
         }
     }
@@ -502,7 +659,7 @@ class PersonaController extends Controller
 
 
     // FUNCION PARA REGISTRAR RESPONSABLES DE EMPRESAS
-    private function registrarResponsablesEmpresa($idEmpresa, array $responsables)
+    private function registrarResponsablesEmpresa($idEmpresa, array $responsables, array $fechasRegistroExistentes = [])
     {
         if (empty($responsables)) {
             return;
@@ -538,12 +695,15 @@ class PersonaController extends Controller
                             'apellido_casado'  => $this->mayuscula($responsable['apellido_casado'] ?? null),
                             'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
                             'genero'           => $responsable['genero'] ?? null,
-                            'ocupacion'        => $this->mayuscula($responsable['ocupacion'] ?? null),
+                            'id_ocupacion'      => $responsable['id_ocupacion'] ?? null,
+                            'ocupacion'         => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                         ]
                     );
 
-                    Telefono::where('id_persona', $personaResponsable->id)->delete();
-                    $this->registrarTelefonosPersona($personaResponsable->id, $responsable['telefonos'] ?? []);
+                    $this->sincronizarTelefonosPersona(
+                        $personaResponsable->id,
+                        $responsable['telefonos'] ?? []
+                    );
 
                     $this->registrarRubrosPersona($personaResponsable->id, $responsable['rubros'] ?? []);
                 }
@@ -571,20 +731,14 @@ class PersonaController extends Controller
                     'apellido_casado'  => $this->mayuscula($responsable['apellido_casado'] ?? null),
                     'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
                     'genero'           => $responsable['genero'] ?? null,
-                    'ocupacion'        => $this->mayuscula($responsable['ocupacion'] ?? null),
+                    'id_ocupacion'      => $responsable['id_ocupacion'] ?? null,
+                    'ocupacion'         => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                 ]);
 
-                // TELÉFONOS
-                if (!empty($responsable['telefonos'])) {
-                    foreach ($responsable['telefonos'] as $telefono) {
-                        Telefono::create([
-                            'id_persona' => $personaResponsable->id,
-                            'numero'     => $telefono['numero'],
-                            'estado'     => $telefono['tipo'] ?? 'CELULAR',
-                        ]);
-                    }
-
-                }
+                $this->registrarTelefonosPersona(
+                    $personaResponsable->id,
+                    $responsable['telefonos'] ?? []
+                );
 
                 $this->registrarRubrosPersona($personaResponsable->id, $responsable['rubros'] ?? []);
                 $idPersonaResponsable = $personaResponsable->id;
@@ -598,13 +752,16 @@ class PersonaController extends Controller
             }
 
             // RESPONSABLE
+            $claveResponsable = $idPersonaResponsable . ':' . $responsable['id_rol'];
+
             Responsable::create([
                 'id_empresa'      => $idEmpresa,
                 'id_persona'      => $idPersonaResponsable,
                 'id_rol'          => $responsable['id_rol'],
                 'url_respaldo'    => $urlRespaldo,
-                'fecha_registro'  => $responsable['fecha_registro'] ?? null,
-                'fecha_baja'      => $responsable['fecha_baja'] ?? null,
+                // La fecha se define en el servidor y no depende de un valor enviado desde el modal.
+                'fecha_registro'  => $fechasRegistroExistentes[$claveResponsable] ?? now()->toDateString(),
+                'fecha_baja'      => null,
                 'estado'          => $responsable['estado'] ?? 'ACTIVO',
             ]);
         }
@@ -712,8 +869,8 @@ class PersonaController extends Controller
         $paises = Territorio::where('id_ambito', 1)->orderBy('nombre')->get();
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
-        $rolesCuentaCatalogo = Role::where('estado', 1)->orderBy('name')->get();
-        $rolesResponsablesCatalogo = Role::where('estado', 1)->orderBy('name')->get();
+        $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
+        $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
         $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -728,6 +885,7 @@ class PersonaController extends Controller
 
         $telefonosRegistrados = $persona->telefonos
             ->map(fn ($telefono) => [
+                'id' => $telefono->id,
                 'numero' => $telefono->numero,
                 'estado' => $telefono->estado,
             ])
@@ -755,6 +913,7 @@ class PersonaController extends Controller
                     'expedido' => $responsable->persona?->natural?->expedido,
                     'fecha_nacimiento' => $responsable->persona?->natural?->fecha_nacimiento,
                     'genero' => $responsable->persona?->natural?->genero,
+                    'id_ocupacion' => $responsable->persona?->natural?->id_ocupacion,
                     'ocupacion' => $responsable->persona?->natural?->ocupacion,
                     'nombre_completo' => trim(implode(' ', array_filter([
                         $responsable->persona?->natural?->nombres,
@@ -764,17 +923,17 @@ class PersonaController extends Controller
                     'id_rol' => $responsable->id_rol,
                     'rol_nombre' => $responsable->rol?->name,
                     'url_respaldo' => $responsable->url_respaldo,
-                    'fecha_registro' => $responsable->fecha_registro,
-                    'fecha_baja' => $responsable->fecha_baja,
                     'estado' => $responsable->estado,
                     'telefonos' => $responsable->persona?->telefonos
                         ? $responsable->persona->telefonos->map(fn ($telefono) => [
+                            'id' => $telefono->id,
                             'numero' => $telefono->numero,
-                            'tipo' => $telefono->estado,
+                            'estado' => $telefono->estado,
                         ])->values()
                         : [],
                     'rubros' => $responsable->persona?->rubros
                         ? $responsable->persona->rubros->map(fn ($rubro) => [
+                            'id' => $rubro->id,
                             'nombre' => $rubro->nombre,
                             'estado' => $rubro->estado,
                         ])->values()
@@ -836,7 +995,7 @@ class PersonaController extends Controller
                 Rule::exists('territorios', 'id')->where(fn ($query) => $query->where('id_ambito', 1)),
             ],
             'form_id_territorio' => 'required|exists:territorios,id',
-            'form_estado'        => 'nullable|string|max:50',
+            'form_estado'        => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
 
             // NATURAL
             'form_ci'               => [
@@ -866,8 +1025,9 @@ class PersonaController extends Controller
 
             // TELEFONOS PERSONA PRINCIPAL
             'telefonos'          => 'nullable|array',
+            'telefonos.*.id'     => 'nullable|integer|exists:telefonos,id',
             'telefonos.*.numero' => 'required|string|max:50',
-            'telefonos.*.tipo'   => 'nullable|max:50',
+            'telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
 
             // RUBROS PERSONA / EMPRESA
             'rubros'   => 'nullable|array',
@@ -890,18 +1050,23 @@ class PersonaController extends Controller
             'responsables.*.expedido'          => 'nullable|string|max:10',
             'responsables.*.fecha_nacimiento'  => 'nullable|date',
             'responsables.*.genero'            => 'nullable',
+            'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
             'responsables.*.ocupacion'         => 'nullable|string|max:255',
             'responsables.*.telefonos'         => 'nullable|array',
+            'responsables.*.telefonos.*.id'    => 'nullable|integer|exists:telefonos,id',
             'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
-            'responsables.*.telefonos.*.tipo'  => 'nullable|max:50',
+            'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
             'responsables.*.rubros'            => 'nullable|array',
+            'responsables.*.rubros.*.id'       => 'nullable|integer|exists:rubros,id',
             'responsables.*.rubros.*.nombre'   => 'required|string|max:255',
             'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
-            'responsables.*.id_rol'            => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:roles,id',
+            'responsables.*.id_rol'            => [
+                'required_if:form_tipo_registro,EMPRESA',
+                'nullable',
+                $this->reglaRolDisponibleParaRegistroExterno(),
+            ],
             'responsables.*.url_respaldo'      => 'nullable|string|max:255',
             'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.fecha_registro'    => 'nullable|date',
-            'responsables.*.fecha_baja'        => 'nullable|date',
             'responsables.*.estado'            => 'nullable|string|max:50',
 
             // CUENTA DE ACCESO RELACIONADA A LA PERSONA/EMPRESA
@@ -920,7 +1085,7 @@ class PersonaController extends Controller
             'form_usuario_password' => $reglaPasswordCuenta,
             'form_id_role' => [
                 'required',
-                Rule::exists('roles', 'id')->where(fn ($query) => $query->where('estado', 1)),
+                $this->reglaRolDisponibleParaRegistroExterno(),
             ],
             ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: mantienen create y edit con mensajes entendibles.
@@ -945,7 +1110,21 @@ class PersonaController extends Controller
 
             // Evita errores SQL tambien al editar responsables nuevos de empresa.
             $this->validarResponsablesAntesDeGuardar($datos['responsables'] ?? []);
+            $this->validarTerritoriosResponsables($datos['responsables'] ?? []);
             $this->validarTerritorioPrincipal($datos['form_id_pais'], $datos['form_id_territorio']);
+
+            $estadoPersona = strtoupper($datos['form_estado'] ?? $persona->estado ?? 'ACTIVO');
+
+            // Antes de inactivar se comprueban las mismas relaciones usadas por el boton Eliminar.
+            if ($estadoPersona === 'INACTIVO' && strtoupper((string) $persona->estado) !== 'INACTIVO') {
+                $bloqueosInactivacion = $this->obtenerBloqueosEliminacionPersona($persona);
+
+                if (!empty($bloqueosInactivacion)) {
+                    throw ValidationException::withMessages([
+                        'form_estado' => 'No se puede cambiar el estado porque el registro está relacionado con otros datos.',
+                    ]);
+                }
+            }
         } catch (ValidationException $e) {
             // Mantiene los PDF agregados desde el modal si la edicion vuelve por errores.
             // Sin esto, el navegador vacia el input file y el usuario tendria que adjuntarlo otra vez.
@@ -961,7 +1140,7 @@ class PersonaController extends Controller
             $usuarioAcceso = $persona->usuario ?: new User();
             $usuarioAcceso->name = $datos['form_usuario_name'];
             $usuarioAcceso->email = $datos['form_usuario_email'];
-            $usuarioAcceso->estado = 1;
+            $usuarioAcceso->estado = $estadoPersona === 'ACTIVO' ? 1 : 0;
             $passwordGeneradaCuenta = null;
 
             if (!empty($datos['form_usuario_password']) || ! $usuarioCuentaId) {
@@ -982,12 +1161,10 @@ class PersonaController extends Controller
                 'nit'           => $datos['form_nit'] ?? null,
                 'correo'        => $datos['form_correo'],
                 'id_territorio' => $datos['form_id_territorio'],
-                'estado'        => $datos['form_estado'] ?? 'ACTIVO',
+                'estado'        => $estadoPersona,
             ]);
 
-            // Reemplaza telefonos por la lista actual enviada desde el wizard.
-            Telefono::where('id_persona', $persona->id)->delete();
-            $this->registrarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
+            $this->sincronizarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
             $this->registrarRubrosPersona($persona->id, $datos['rubros'] ?? []);
 
             if ($datos['form_tipo_registro'] === 'NATURAL') {
@@ -1029,12 +1206,25 @@ class PersonaController extends Controller
                         'matricula'       => $datos['form_matricula'],
                         'latitud'         => $datos['form_latitud'] ?? null,
                         'longitud'        => $datos['form_longitud'] ?? null,
-                        'estado'          => !empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO',
+                        'estado'          => $estadoPersona === 'INACTIVO'
+                            ? 'INACTIVO'
+                            : (!empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO'),
                     ]
                 );
 
+                $fechasRegistroResponsables = Responsable::where('id_empresa', $empresa->id)
+                    ->get()
+                    ->mapWithKeys(fn ($responsable) => [
+                        $responsable->id_persona . ':' . $responsable->id_rol => $responsable->fecha_registro,
+                    ])
+                    ->all();
+
                 Responsable::where('id_empresa', $empresa->id)->delete();
-                $this->registrarResponsablesEmpresa($empresa->id, $datos['responsables'] ?? []);
+                $this->registrarResponsablesEmpresa(
+                    $empresa->id,
+                    $datos['responsables'] ?? [],
+                    $fechasRegistroResponsables
+                );
             }
 
             DB::commit();
@@ -1074,6 +1264,18 @@ class PersonaController extends Controller
         try {
             DB::beginTransaction();
 
+            if (strtoupper((string) $persona->estado) === 'INACTIVO') {
+                DB::rollBack();
+
+                session()->flash('swal', [
+                    'title' => 'Sin cambios',
+                    'text'  => 'El registro ya se encuentra inactivo.',
+                    'icon'  => 'info',
+                ]);
+
+                return redirect()->route('personas_index');
+            }
+
             $persona->load([
                 'natural',
                 'empresa.responsables',
@@ -1096,31 +1298,25 @@ class PersonaController extends Controller
                 return redirect()->route('personas_index');
             }
 
-            // Elimina asignaciones donde esta persona figura como responsable.
-            Responsable::where('id_persona', $persona->id)->delete();
+            // La ficha y sus datos relacionados se conservan para mantener el historial.
+            $persona->estado = 'INACTIVO';
+            $persona->save();
 
             if ($persona->empresa) {
-                Responsable::where('id_empresa', $persona->empresa->id)->delete();
-                $persona->empresa->delete();
+                $persona->empresa->estado = 'INACTIVO';
+                $persona->empresa->save();
             }
 
-            $persona->telefonos()->delete();
-            $persona->rubros()->detach();
-            $persona->natural?->delete();
-
-            $usuarioAcceso = $persona->usuario;
-            $persona->delete();
-
-            if ($usuarioAcceso) {
-                // El usuario usa SoftDeletes: se conservan roles/permisos para historial o restauracion.
-                $usuarioAcceso->delete();
+            if ($persona->usuario) {
+                $persona->usuario->estado = 0;
+                $persona->usuario->save();
             }
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text'  => 'El registro se elimino correctamente.',
+                'text'  => 'El registro se eliminó correctamente.',
                 'icon'  => 'success'
             ]);
 

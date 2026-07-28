@@ -82,12 +82,14 @@ class ResponsableTable extends DataTableComponent
                 ->sortable(),
 
             Column::make("Estado", "estado")
+                ->format(fn ($valor) => view('tablas.chip_estado', [
+                    'estado' => $valor,
+                ]))
                 ->sortable(),
 
             Column::make('Acciones')
-                ->label(function ($fila) {
-                    return view('responsables.accion', ['responsable' => $fila]);
-                }),                
+                ->label(fn ($fila) => view('responsables.accion', ['responsable' => $fila]))
+                ->html(),
         ];
     }
 }

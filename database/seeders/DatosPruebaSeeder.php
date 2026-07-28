@@ -17,7 +17,10 @@ class DatosPruebaSeeder extends Seeder
         }
 
         $this->call([
-            ProduccionSeeder::class,
+            PermisoSeeder::class,
+            RoleSeeder::class,
+            PermisoRoleSeeder::class,
+            SuperAdministradorSeeder::class,
             UserSeeder::class,
             AmbitoSeeder::class,
             TerritorioSeeder::class,

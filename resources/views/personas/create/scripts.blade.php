@@ -76,6 +76,10 @@
  <script>
      let indiceTelefono = 0;
 
+     function normalizarEstadoTelefono(estado) {
+         return ['ACTIVO', 'INACTIVO'].includes(estado) ? estado : 'ACTIVO';
+     }
+
      function buscarCampoPersonaWizard(idCampo) {
          return document.getElementById(idCampo) || document.querySelector(`[name="${idCampo}"]`);
      }
@@ -180,13 +184,13 @@
          return document.getElementById('tipo_registro');
      }
 
-     function agregarTelefonoPersona() {
+     function agregarTelefonoPersona(idTelefono = '') {
          const numeroInput = document.getElementById('numeroTelefono');
-         const tipoInput = document.getElementById('tipoTelefono');
+         const estadoInput = document.getElementById('estadoTelefono');
          const lista = document.getElementById('listaTelefonosPersona');
 
          const numero = numeroInput.value.trim();
-         const tipo = tipoInput.value;
+         const estado = normalizarEstadoTelefono(estadoInput.value);
 
          if (numero === '') {
              mostrarErrorCampoPersonaWizard('numeroTelefono', 'Ingrese el número de teléfono.');
@@ -208,7 +212,7 @@
             </span>
 
             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                ${tipo}
+                ${estado}
             </span>
 
             <button type="button"
@@ -222,14 +226,20 @@
                 value="${numero}">
 
             <input type="hidden"
-                name="telefonos[${indiceTelefono}][tipo]"
-                value="${tipo}">
+                name="telefonos[${indiceTelefono}][estado]"
+                value="${estado}">
+
+            ${idTelefono ? `
+                <input type="hidden"
+                    name="telefonos[${indiceTelefono}][id]"
+                    value="${idTelefono}">
+            ` : ''}
         `;
 
          lista.appendChild(item);
 
          numeroInput.value = '';
-         tipoInput.value = 'CELULAR';
+         estadoInput.value = 'ACTIVO';
 
          indiceTelefono++;
          refrescarResumenSiEstaEnRevisionPersonaWizard();
@@ -373,9 +383,9 @@
      function limpiarTelefonosPersonaWizard() {
          limpiarCampoPersonaWizard('numeroTelefono');
 
-         const tipoTelefono = document.getElementById('tipoTelefono');
-         if (tipoTelefono) {
-             tipoTelefono.value = 'CELULAR';
+         const estadoTelefono = document.getElementById('estadoTelefono');
+         if (estadoTelefono) {
+             estadoTelefono.value = 'ACTIVO';
          }
 
          limpiarListaDinamicaPersonaWizard(
@@ -649,6 +659,166 @@
          return campo.options[campo.selectedIndex]?.text?.trim() || '';
      }
 
+     function textoOcupacionPersonaWizard() {
+         const campo = document.querySelector('[name="form_id_ocupacion"]');
+         const seleccionada = opcionesOcupacionPersonaWizard
+             .find(opcion => String(opcion.id) === String(campo?.value || ''));
+
+         return seleccionada?.nombre || '';
+     }
+
+     function cargarOcupacionesPersonaWizard() {
+         const catalogo = document.getElementById('catalogoOcupacionesPersona');
+
+         if (!catalogo) return [];
+
+         try {
+             return JSON.parse(catalogo.textContent || '[]');
+         } catch (error) {
+             console.error('No se pudo cargar el catálogo de ocupaciones.', error);
+             return [];
+         }
+     }
+
+     function normalizarBusquedaOcupacionPersonaWizard(valor) {
+         return String(valor ?? '')
+             .normalize('NFD')
+             .replace(/[\u0300-\u036f]/g, '')
+             .toLowerCase()
+             .trim();
+     }
+
+     const opcionesOcupacionPersonaWizard = cargarOcupacionesPersonaWizard();
+
+     function renderizarOpcionesOcupacionPersonaWizard(filtro = '') {
+         const lista = document.querySelector('[data-ocupacion-persona-resultados]');
+         const idSeleccionado = document.getElementById('form_id_ocupacion')?.value || '';
+         const textoFiltro = normalizarBusquedaOcupacionPersonaWizard(filtro);
+
+         if (!lista) return;
+
+         const resultados = opcionesOcupacionPersonaWizard
+             .filter(opcion => {
+                 const codigo = normalizarBusquedaOcupacionPersonaWizard(opcion.codigo);
+                 const descripcion = normalizarBusquedaOcupacionPersonaWizard(opcion.descripcion);
+
+                 return codigo.includes(textoFiltro) || descripcion.includes(textoFiltro);
+             })
+             .slice(0, 50);
+
+         if (resultados.length === 0) {
+             lista.innerHTML = '<div class="ocupacion-persona-vacio">No se encontraron ocupaciones.</div>';
+             return;
+         }
+
+         lista.innerHTML = resultados.map(opcion => `
+             <button type="button"
+                 class="ocupacion-persona-opcion ${String(opcion.id) === String(idSeleccionado) ? 'is-selected' : ''}"
+                 data-ocupacion-persona-id="${escaparHtmlPersonaWizard(opcion.id)}">
+                 <span class="ocupacion-persona-codigo">${escaparHtmlPersonaWizard(opcion.codigo || '')}</span>
+                 <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(opcion.descripcion || '')}</span>
+                 <span class="ocupacion-persona-check">
+                     ${String(opcion.id) === String(idSeleccionado) ? '<i class="fa-solid fa-check"></i>' : ''}
+                 </span>
+             </button>
+         `).join('');
+     }
+
+     function actualizarOcupacionPersonaWizard() {
+         const campo = document.getElementById('form_id_ocupacion');
+         const buscador = document.querySelector('[data-ocupacion-persona-buscar]');
+         const botonLimpiar = document.querySelector('[data-ocupacion-persona-limpiar]');
+         const seleccionada = opcionesOcupacionPersonaWizard
+             .find(opcion => String(opcion.id) === String(campo?.value || ''));
+
+         if (buscador) {
+             buscador.value = seleccionada?.nombre || '';
+         }
+
+         botonLimpiar?.classList.toggle('is-visible', Boolean(seleccionada));
+     }
+
+     function seleccionarOcupacionPersonaWizard(idOcupacion) {
+         const campo = document.getElementById('form_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-persona]');
+
+         if (!campo) return;
+
+         campo.value = idOcupacion;
+         campo.dispatchEvent(new Event('change', { bubbles: true }));
+         contenedor?.classList.remove('is-open');
+         actualizarOcupacionPersonaWizard();
+     }
+
+     function cargarRolesCuentaPersonaWizard() {
+         const selector = document.getElementById('form_id_role');
+
+         if (!selector) return [];
+
+         return Array.from(selector.options)
+             .filter(opcion => opcion.value)
+             .map(opcion => ({
+                 id: opcion.value,
+                 nombre: opcion.textContent.trim(),
+             }));
+     }
+
+     const rolesCuentaPersonaWizard = cargarRolesCuentaPersonaWizard();
+
+     function renderizarRolesCuentaPersonaWizard(filtro = '') {
+         const lista = document.querySelector('[data-rol-cuenta-resultados]');
+         const idSeleccionado = document.getElementById('form_id_role')?.value || '';
+         const textoFiltro = normalizarBusquedaOcupacionPersonaWizard(filtro);
+
+         if (!lista) return;
+
+         const resultados = rolesCuentaPersonaWizard.filter(rol =>
+             normalizarBusquedaOcupacionPersonaWizard(rol.nombre).includes(textoFiltro)
+         );
+
+         if (resultados.length === 0) {
+             lista.innerHTML = '<div class="ocupacion-persona-vacio">No se encontraron roles.</div>';
+             return;
+         }
+
+         lista.innerHTML = resultados.map(rol => `
+             <button type="button"
+                 class="ocupacion-persona-opcion rol-cuenta-opcion ${String(rol.id) === String(idSeleccionado) ? 'is-selected' : ''}"
+                 data-rol-cuenta-id="${escaparHtmlPersonaWizard(rol.id)}">
+                 <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(rol.nombre)}</span>
+                 <span class="ocupacion-persona-check">
+                     ${String(rol.id) === String(idSeleccionado) ? '<i class="fa-solid fa-check"></i>' : ''}
+                 </span>
+             </button>
+         `).join('');
+     }
+
+     function actualizarRolCuentaPersonaWizard() {
+         const selector = document.getElementById('form_id_role');
+         const buscador = document.querySelector('[data-rol-cuenta-buscar]');
+         const botonLimpiar = document.querySelector('[data-rol-cuenta-limpiar]');
+         const rolSeleccionado = rolesCuentaPersonaWizard
+             .find(rol => String(rol.id) === String(selector?.value || ''));
+
+         if (buscador) {
+             buscador.value = rolSeleccionado?.nombre || '';
+         }
+
+         botonLimpiar?.classList.toggle('is-visible', Boolean(rolSeleccionado));
+     }
+
+     function seleccionarRolCuentaPersonaWizard(idRol) {
+         const selector = document.getElementById('form_id_role');
+         const contenedor = document.querySelector('[data-rol-cuenta]');
+
+         if (!selector) return;
+
+         selector.value = idRol;
+         selector.dispatchEvent(new Event('change', { bubbles: true }));
+         contenedor?.classList.remove('is-open');
+         actualizarRolCuentaPersonaWizard();
+     }
+
      // Escapa valores antes de ponerlos dentro del resumen HTML.
      function escaparHtmlPersonaWizard(valor) {
          return String(valor ?? '')
@@ -753,10 +923,15 @@
      function renderRubrosPersonaWizard() {
          const lista = document.getElementById('rubrosPersonaLista');
          const seleccionados = rubrosSeleccionadosPersonaWizard();
+         const resumen = document.getElementById('rubrosPersonaResumen');
 
          if (!lista) return;
 
          lista.innerHTML = '';
+
+         if (resumen) {
+             resumen.textContent = `Rubros seleccionados (${seleccionados.length})`;
+         }
 
          if (seleccionados.length === 0) {
              lista.innerHTML = '<span id="rubrosPersonaVacio" class="text-sm text-slate-500">Todavía no se agregaron rubros.</span>';
@@ -776,17 +951,15 @@
 
      function cerrarSelectorRubroPersonaWizard() {
          const contenedor = document.querySelector('[data-rubro-combobox]');
-         const disparador = document.querySelector('[data-rubro-trigger]');
 
          contenedor?.classList.remove('is-open');
-         disparador?.setAttribute('aria-expanded', 'false');
      }
 
      function renderOpcionesRubroPersonaWizard(filtro = '') {
          const select = document.getElementById('rubroPersonaSelector');
          const lista = document.querySelector('[data-rubro-options-list]');
          const seleccionados = rubrosSeleccionadosPersonaWizard().map(option => String(option.value));
-         const textoFiltro = filtro.trim().toLowerCase();
+         const textoFiltro = normalizarBusquedaOcupacionPersonaWizard(filtro);
 
          if (!select || !lista) return;
 
@@ -795,7 +968,7 @@
              .filter(option => !seleccionados.includes(String(option.value)))
              .filter(option => {
                  const nombre = option.dataset.nombre || option.text.trim();
-                 return nombre.toLowerCase().includes(textoFiltro);
+                 return normalizarBusquedaOcupacionPersonaWizard(nombre).includes(textoFiltro);
              });
 
          if (opciones.length === 0) {
@@ -805,26 +978,19 @@
 
          lista.innerHTML = opciones.map(option => {
              const nombre = option.dataset.nombre || option.text.trim();
+
              return `
-                <button type="button"
-                    class="persona-rubro-option"
+                 <button type="button"
+                    class="ocupacion-persona-opcion rubro-principal-opcion"
                     data-rubro-option="${escaparHtmlPersonaWizard(option.value)}">
-                    ${escaparHtmlPersonaWizard(nombre)}
-                </button>
-            `;
+                    <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(nombre)}</span>
+                 </button>
+             `;
          }).join('');
      }
 
      function actualizarSelectorRubroPersonaWizard() {
-         const etiqueta = document.querySelector('[data-rubro-label]');
-         const cantidad = rubrosSeleccionadosPersonaWizard().length;
          const busqueda = document.querySelector('[data-rubro-search]');
-
-         if (etiqueta) {
-             etiqueta.textContent = cantidad > 0
-                 ? `${cantidad} rubro${cantidad > 1 ? 's' : ''} seleccionado${cantidad > 1 ? 's' : ''}`
-                 : 'Seleccione un rubro';
-         }
 
          renderOpcionesRubroPersonaWizard(busqueda?.value || '');
      }
@@ -874,14 +1040,14 @@
          const filas = Array.from(document.querySelectorAll('.telefono-agregado'))
              .map((item, indice) => {
                  const numero = valorOcultoResumenPersonaWizard(item, 'numero');
-                 const tipo = valorOcultoResumenPersonaWizard(item, 'tipo');
+                 const estado = valorOcultoResumenPersonaWizard(item, 'estado');
 
-                 return [indice + 1, numero || 'Sin numero', tipo || 'Sin tipo'];
+                 return [indice + 1, numero || 'Sin número', estado || 'Sin estado'];
              });
 
          return tablaResumenPersonaWizard(
              'Telefonos que se guardaran',
-             ['#', 'Numero', 'Tipo'],
+             ['#', 'Número', 'Estado'],
              filas,
              'No se agregaron telefonos.'
          );
@@ -902,7 +1068,7 @@
 
      // Lee telefonos o rubros internos de un responsable agregado desde el modal.
      function resumenSublistaResponsablePersonaWizard(item, tipoLista) {
-         const patron = tipoLista === 'telefonos' ? /\[telefonos\]\[(\d+)\]\[(numero|tipo)\]$/ : /\[rubros\]\[(\d+)\]\[(nombre|estado)\]$/;
+         const patron = tipoLista === 'telefonos' ? /\[telefonos\]\[(\d+)\]\[(numero|estado)\]$/ : /\[rubros\]\[(\d+)\]\[(nombre|estado)\]$/;
          const agrupados = {};
 
          item.querySelectorAll('input[name]').forEach(input => {
@@ -918,7 +1084,7 @@
 
          const lineas = Object.values(agrupados).map((dato, indice) => {
              if (tipoLista === 'telefonos') {
-                 return `${indice + 1}) ${dato.numero || 'Sin numero'} - ${dato.tipo || 'Sin tipo'}`;
+                 return `${indice + 1}) ${dato.numero || 'Sin número'} - ${dato.estado || 'Sin estado'}`;
              }
 
              return `${indice + 1}) ${dato.nombre || 'Sin rubro'} - ${dato.estado || 'Sin estado'}`;
@@ -993,7 +1159,7 @@
      // Convierte telefonos o rubros ocultos del responsable en una lista visual compacta.
      function listaResponsableRevisionPersonaWizard(item, tipoLista) {
          const patron = tipoLista === 'telefonos' ?
-             /\[telefonos\]\[(\d+)\]\[(numero|tipo)\]$/ :
+             /\[telefonos\]\[(\d+)\]\[(numero|estado)\]$/ :
              /\[rubros\]\[(\d+)\]\[(nombre|estado)\]$/;
          const agrupados = {};
 
@@ -1013,7 +1179,7 @@
 
          return registros.map((dato, index) => {
              const principal = tipoLista === 'telefonos' ? dato.numero : dato.nombre;
-             const secundario = tipoLista === 'telefonos' ? dato.tipo : dato.estado;
+             const secundario = dato.estado;
 
              return `
                 <span class="persona-review-responsable-chip">
@@ -1090,8 +1256,6 @@
                         <section>
                             <h6>Rol del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Rol', textoSelectPorValorPersonaWizard('#nuevo_id_rol', valorOcultoResumenPersonaWizard(item, 'id_rol')) || 'Sin rol')}
-                            ${datoResponsableRevisionPersonaWizard('Fecha registro', fechaCortaPersonaWizard(valorOcultoResumenPersonaWizard(item, 'fecha_registro')))}
-                            ${datoResponsableRevisionPersonaWizard('Fecha baja', fechaCortaPersonaWizard(valorOcultoResumenPersonaWizard(item, 'fecha_baja')))}
                             ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, Boolean(archivoRespaldo?.files?.length))}
                         </section>
 
@@ -1303,7 +1467,7 @@
              ? camposVaciosPersonaWizard([
                  ['form_nit', 'NIT'],
                  ['form_id_tipo_empresa', 'tipo de empresa'],
-                 ['form_razon_social', 'razon social'],
+                 ['form_razon_social', 'nombre legal o razón social'],
                  ['form_matricula', 'matricula'],
              ])
              : [];
@@ -1407,7 +1571,7 @@
                  itemResumenPersonaWizard('Expedido', textoSelectPersonaWizard('[name="form_expedido"]')),
                  itemResumenPersonaWizard('Fecha de nacimiento', valorPersonaWizard('[name="form_fecha_nacimiento"]')),
                  itemResumenPersonaWizard('Genero', textoSelectPersonaWizard('[name="form_genero"]')),
-                 itemResumenPersonaWizard('Ocupacion', textoSelectPersonaWizard('[name="form_id_ocupacion"]'))
+                 itemResumenPersonaWizard('Ocupacion', textoOcupacionPersonaWizard())
              ];
 
              paso4Complementos.push(itemResumenPersonaWizard('Rubros agregados', cantidadRubros));
@@ -1417,8 +1581,8 @@
          if (tipo === 'EMPRESA') {
              paso3DatosEspecificos = [
                  itemResumenPersonaWizard('Tipo de empresa', textoSelectPersonaWizard('[name="form_id_tipo_empresa"]')),
-                 itemResumenPersonaWizard('Razon social', valorPersonaWizard('[name="form_razon_social"]')),
-                 itemResumenPersonaWizard('Matricula', valorPersonaWizard('[name="form_matricula"]')),
+                 itemResumenPersonaWizard('Nombre legal o razón social', valorPersonaWizard('[name="form_razon_social"]')),
+                 itemResumenPersonaWizard('Matrícula de comercio', valorPersonaWizard('[name="form_matricula"]')),
                  itemResumenPersonaWizard('Latitud', valorPersonaWizard('[name="form_latitud"]')),
                  itemResumenPersonaWizard('Longitud', valorPersonaWizard('[name="form_longitud"]')),
                  itemResumenPersonaWizard('Estado empresa', valorPersonaWizard('[name="form_estado_empresa"]'))
@@ -1514,13 +1678,13 @@
 
          telefonosOldPersonaWizard.forEach(telefono => {
              const numeroInput = document.getElementById('numeroTelefono');
-             const tipoInput = document.getElementById('tipoTelefono');
+             const estadoInput = document.getElementById('estadoTelefono');
 
-             if (!numeroInput || !tipoInput || !telefono?.numero) return;
+             if (!numeroInput || !estadoInput || !telefono?.numero) return;
 
              numeroInput.value = telefono.numero;
-             tipoInput.value = telefono.tipo || telefono.estado || 'CELULAR';
-             agregarTelefonoPersona();
+             estadoInput.value = normalizarEstadoTelefono(telefono.estado);
+             agregarTelefonoPersona(telefono.id || '');
          });     }
 
      // Guarda los campos normales del formulario en localStorage.
@@ -1685,8 +1849,8 @@
              reglas.push(
                  ['form_nit', 'Ingrese el NIT de la empresa.'],
                  ['form_id_tipo_empresa', 'Seleccione el tipo de empresa.'],
-                 ['form_razon_social', 'Ingrese la razón social.'],
-                 ['form_matricula', 'Ingrese la matrícula.'],
+                 ['form_razon_social', 'Ingrese el nombre legal o razón social de la empresa.'],
+                 ['form_matricula', 'Ingrese la matrícula de comercio.'],
              );
          }
 
@@ -1802,7 +1966,7 @@
          if (pasoPersonaActual === 2) {
              titulo = tipo === 'EMPRESA' ? 'Datos especificos - Empresa' : 'Datos especificos - Persona Natural';
              subtitulo = tipo === 'EMPRESA' ?
-                 'Complete tipo de empresa, razon social, matricula y ubicacion.' :
+                 'Complete tipo de empresa, nombre legal o razón social, matrícula de comercio y ubicación.' :
                  'Complete CI, nombres, apellidos, nacimiento, genero y ocupacion.';
          }
 
@@ -2036,6 +2200,195 @@
      let responsableEditandoElemento = null;
      let responsableEditandoIndice = null;
      let pdfTemporalResponsableModal = null;
+     let versionCargaTerritorioResponsable = 0;
+
+     function urlTerritorioResponsable(tipo, idTerritorio) {
+         const contenedor = document.querySelector('[data-territorio-responsable]');
+         const plantilla = contenedor?.dataset[tipo === 'ruta' ? 'urlRuta' : 'urlHijos'] || '';
+
+         return plantilla.replace('__ID__', encodeURIComponent(idTerritorio));
+     }
+
+     function guardarTerritorioFinalResponsable(idTerritorio, nombre = '') {
+         const campo = document.getElementById('nuevo_id_territorio');
+
+         if (!campo) return;
+
+         campo.innerHTML = '<option value="">Seleccione territorio</option>';
+
+         if (idTerritorio) {
+             const opcion = document.createElement('option');
+             opcion.value = idTerritorio;
+             opcion.textContent = nombre || 'Territorio seleccionado';
+             opcion.selected = true;
+             campo.appendChild(opcion);
+         }
+
+         campo.value = idTerritorio || '';
+         limpiarErrorCampoResponsable('nuevo_id_territorio');
+     }
+
+     async function consultarTerritorioResponsable(tipo, idTerritorio) {
+         if (!idTerritorio) return [];
+
+         const respuesta = await fetch(urlTerritorioResponsable(tipo, idTerritorio), {
+             headers: {
+                 Accept: 'application/json',
+             },
+         });
+
+         if (!respuesta.ok) {
+             throw new Error('No se pudo cargar la información territorial.');
+         }
+
+         return respuesta.json();
+     }
+
+     async function agregarNivelTerritorioResponsable(idPadre, idSeleccionado = '', version = versionCargaTerritorioResponsable) {
+         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
+         const hijos = await consultarTerritorioResponsable('hijos', idPadre);
+
+         if (!niveles || version !== versionCargaTerritorioResponsable || hijos.length === 0) {
+             return false;
+         }
+
+         const indiceNivel = niveles.children.length;
+         const bloque = document.createElement('div');
+         const etiqueta = hijos[0]?.nivel || 'Territorio';
+         const select = document.createElement('select');
+         const territorioActual = document.getElementById('nuevo_id_territorio');
+         const nombrePadre = territorioActual?.options[territorioActual.selectedIndex]?.textContent?.trim() || '';
+
+         bloque.dataset.territorioResponsableNivel = String(indiceNivel);
+         bloque.innerHTML = `
+             <label class="mb-1 block text-sm font-medium text-slate-700">
+                 ${escaparHtmlPersonaWizard(etiqueta)}
+             </label>
+         `;
+
+         select.className = 'territorio-responsable-select';
+         select.innerHTML = `
+             <option value="">Seleccione ${escaparHtmlPersonaWizard(etiqueta.toLowerCase())}</option>
+             ${hijos.map(hijo => `
+                 <option value="${escaparHtmlPersonaWizard(hijo.id)}">
+                     ${escaparHtmlPersonaWizard(hijo.nombre)}
+                 </option>
+             `).join('')}
+         `;
+         select.value = String(idSeleccionado || '');
+         select.disabled = document.querySelector('[data-territorio-responsable]')?.dataset.bloqueado === '1';
+         select.dataset.idPadre = String(idPadre || '');
+         select.dataset.nombrePadre = nombrePadre;
+
+         select.addEventListener('change', function() {
+             const opcion = this.options[this.selectedIndex];
+
+             if (!this.value) {
+                 guardarTerritorioFinalResponsable(this.dataset.idPadre, this.dataset.nombrePadre);
+                 return;
+             }
+
+             guardarTerritorioFinalResponsable(this.value, opcion?.textContent.trim());
+         });
+
+         bloque.appendChild(select);
+         niveles.appendChild(bloque);
+
+         return true;
+     }
+
+     async function seleccionarPaisTerritorioResponsable() {
+         const pais = document.getElementById('nuevo_id_pais_responsable');
+         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
+         const opcion = pais?.options[pais.selectedIndex];
+
+         versionCargaTerritorioResponsable++;
+         const versionActual = versionCargaTerritorioResponsable;
+
+         if (niveles) niveles.innerHTML = '';
+
+         if (!pais?.value) {
+             guardarTerritorioFinalResponsable('', '');
+             return;
+         }
+
+         guardarTerritorioFinalResponsable(pais.value, opcion?.textContent.trim());
+
+         try {
+             await agregarNivelTerritorioResponsable(pais.value, '', versionActual);
+         } catch (error) {
+             console.warn('No se pudieron cargar territorios dependientes.', error);
+         }
+     }
+
+     async function cargarRutaTerritorioResponsable(idTerritorio) {
+         const pais = document.getElementById('nuevo_id_pais_responsable');
+         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
+
+         versionCargaTerritorioResponsable++;
+         const versionActual = versionCargaTerritorioResponsable;
+
+         if (niveles) niveles.innerHTML = '';
+
+         if (!idTerritorio || !pais) {
+             if (pais) pais.value = '';
+             guardarTerritorioFinalResponsable('', '');
+             return;
+         }
+
+         try {
+             const ruta = await consultarTerritorioResponsable('ruta', idTerritorio);
+
+             if (versionActual !== versionCargaTerritorioResponsable || ruta.length === 0) return;
+
+             const paisRuta = ruta[0];
+
+             if (!Array.from(pais.options).some(opcion => String(opcion.value) === String(paisRuta.id))) {
+                 pais.add(new Option(paisRuta.nombre, paisRuta.id));
+             }
+
+             pais.value = String(paisRuta.id);
+             guardarTerritorioFinalResponsable(paisRuta.id, paisRuta.nombre);
+
+             if (ruta.length > 1) {
+                 const territorioSegundoNivel = ruta[1];
+                 const agregado = await agregarNivelTerritorioResponsable(
+                     paisRuta.id,
+                     territorioSegundoNivel.id,
+                     versionActual
+                 );
+
+                 if (!agregado || versionActual !== versionCargaTerritorioResponsable) return;
+
+                 guardarTerritorioFinalResponsable(
+                     territorioSegundoNivel.id,
+                     territorioSegundoNivel.nombre
+                 );
+             }
+         } catch (error) {
+             guardarTerritorioFinalResponsable('', '');
+         }
+     }
+
+     function reiniciarTerritorioResponsable() {
+         const pais = document.getElementById('nuevo_id_pais_responsable');
+         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
+
+         versionCargaTerritorioResponsable++;
+         if (pais) pais.value = '';
+         if (niveles) niveles.innerHTML = '';
+         guardarTerritorioFinalResponsable('', '');
+     }
+
+     function bloquearTerritorioResponsable(bloqueado) {
+         const contenedor = document.querySelector('[data-territorio-responsable]');
+
+         if (!contenedor) return;
+
+         contenedor.dataset.bloqueado = bloqueado ? '1' : '0';
+         document.querySelectorAll('.territorio-responsable-select')
+             .forEach(select => select.disabled = bloqueado);
+     }
 
      function abrirModalResponsable() {
          responsableEditandoElemento = null;
@@ -2104,7 +2457,6 @@
              'nuevo_domicilio',
              'nuevo_nit',
              'nuevo_correo',
-             'nuevo_id_territorio',
              'nuevo_nombres',
              'nuevo_apellido_paterno',
              'nuevo_apellido_materno',
@@ -2113,16 +2465,22 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {
              const campo = document.getElementById(id);
-             if (campo) campo.disabled = true;
+             if (!campo) return;
+
+             campo.disabled = true;
+             campo.tomselect?.disable();
          });
 
          const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = true;
+
+         const buscadorOcupacion = document.querySelector('[data-ocupacion-responsable-buscar]');
+         if (buscadorOcupacion) buscadorOcupacion.disabled = true;
      }
 
      function desbloquearDatosPersonaResponsable() {
@@ -2130,7 +2488,6 @@
              'nuevo_domicilio',
              'nuevo_nit',
              'nuevo_correo',
-             'nuevo_id_territorio',
              'nuevo_nombres',
              'nuevo_apellido_paterno',
              'nuevo_apellido_materno',
@@ -2139,16 +2496,23 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {
              const campo = document.getElementById(id);
-             if (campo) campo.disabled = false;
+             if (!campo) return;
+
+             campo.disabled = false;
+             campo.tomselect?.enable();
          });
 
          const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = false;
+
+         const buscadorOcupacion = document.querySelector('[data-ocupacion-responsable-buscar]');
+         if (buscadorOcupacion) buscadorOcupacion.disabled = false;
+         bloquearTerritorioResponsable(false);
      }
 
      function cargarPersonaResponsable() {
@@ -2171,7 +2535,7 @@
          document.getElementById('nuevo_domicilio').value = opcion.dataset.domicilio || '';
          document.getElementById('nuevo_nit').value = opcion.dataset.nit || '';
          document.getElementById('nuevo_correo').value = opcion.dataset.correo || '';
-         document.getElementById('nuevo_id_territorio').value = opcion.dataset.territorio || '';
+         cargarRutaTerritorioResponsable(opcion.dataset.territorio || '');
 
          document.getElementById('nuevo_nombres').value = opcion.dataset.nombres || '';
          document.getElementById('nuevo_apellido_paterno').value = opcion.dataset.paterno || '';
@@ -2181,7 +2545,7 @@
          document.getElementById('nuevo_complemento').value = opcion.dataset.complemento || '';
          document.getElementById('nuevo_expedido').value = opcion.dataset.expedido || '';
          document.getElementById('nuevo_genero').value = String(opcion.dataset.genero ?? '');
-         document.getElementById('nuevo_ocupacion').value = opcion.dataset.ocupacion || '';
+         seleccionarOcupacionResponsableModal(opcion.dataset.idOcupacion || '');
 
          const fecha = opcion.dataset.fecha ?
              opcion.dataset.fecha.substring(0, 10) :
@@ -2214,10 +2578,10 @@
 
      function agregarTelefonoResponsableModal() {
          const numeroInput = document.getElementById('nuevo_telefono');
-         const tipoInput = document.getElementById('nuevo_tipo_telefono');
+         const estadoInput = document.getElementById('nuevo_estado_telefono');
 
          const numero = numeroInput.value.trim();
-         const tipo = tipoInput.value;
+         const estado = estadoInput.value;
 
          if (numero === '') {
              mostrarErrorCampoResponsable('nuevo_telefono', 'Ingrese el número de teléfono.');
@@ -2228,13 +2592,13 @@
 
          telefonosResponsableTemporal.push({
              numero: numero,
-             tipo: tipo
+             estado: estado
          });
 
          renderTelefonosResponsable(false);
 
          numeroInput.value = '';
-         tipoInput.value = 'CELULAR';
+         estadoInput.value = 'ACTIVO';
      }
 
      function renderTelefonosResponsable(soloLectura = false) {
@@ -2260,7 +2624,7 @@
                 <span class="font-medium text-gray-700">${telefono.numero}</span>
 
                 <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                    ${telefono.tipo}
+                    ${telefono.estado}
                 </span>
 
                 ${soloLectura ? '' : `
@@ -2291,41 +2655,90 @@
          }
 
          telefonosResponsableTemporal = telefonos.map(telefono => ({
+             id: telefono.id ?? '',
              numero: telefono.numero ?? '',
-             tipo: telefono.estado ?? telefono.tipo ?? 'CELULAR',
+             estado: normalizarEstadoTelefono(telefono.estado),
          }));
 
          renderTelefonosResponsable(soloLectura);
      }
 
-     function agregarRubroResponsableModal() {
-         const nombreInput = document.getElementById('nuevo_rubro');
-         const estadoInput = document.getElementById('nuevo_estado_rubro');
+     function cerrarSelectorRubroResponsableModal() {
+         const contenedor = document.querySelector('[data-rubro-responsable-combobox]');
 
-         const nombre = nombreInput.value.trim();
-         const estado = estadoInput.value;
+         contenedor?.classList.remove('is-open');
+     }
 
-         if (nombre === '') {
-             mostrarErrorCampoResponsable('nuevo_rubro', 'Ingrese el nombre del rubro.');
+     function renderOpcionesRubroResponsableModal(filtro = '') {
+         const catalogo = document.getElementById('rubroResponsableSelectorCatalogo');
+         const lista = document.querySelector('[data-rubro-responsable-options-list]');
+         const idsSeleccionados = rubrosResponsableTemporal
+             .map(rubro => String(rubro.id || ''))
+             .filter(Boolean);
+         const textoFiltro = filtro.trim().toLowerCase();
+
+         if (!catalogo || !lista) return;
+
+         const opciones = Array.from(catalogo.options)
+             .filter(option => option.value)
+             .filter(option => !idsSeleccionados.includes(String(option.value)))
+             .filter(option => {
+                 const nombre = option.dataset.nombre || option.text.trim();
+                 return nombre.toLowerCase().includes(textoFiltro);
+             });
+
+         if (opciones.length === 0) {
+             lista.innerHTML = '<div class="ocupacion-persona-vacio">No se encontraron rubros disponibles.</div>';
              return;
          }
 
-         limpiarErrorCampoResponsable('nuevo_rubro');
+         lista.innerHTML = opciones.map(option => `
+             <button type="button"
+                 class="ocupacion-persona-opcion rubro-responsable-opcion"
+                 data-rubro-responsable-option="${escaparHtmlPersonaWizard(option.value)}">
+                 <span class="ocupacion-persona-descripcion">
+                     ${escaparHtmlPersonaWizard(option.dataset.nombre || option.text.trim())}
+                 </span>
+             </button>
+         `).join('');
+     }
+
+     function agregarRubroResponsableModal(idRubro) {
+         const opcion = Array.from(
+             document.getElementById('rubroResponsableSelectorCatalogo')?.options || []
+         ).find(item => String(item.value) === String(idRubro));
+
+         if (!opcion) return;
+
+         const yaSeleccionado = rubrosResponsableTemporal.some(
+             rubro => String(rubro.id || '') === String(idRubro)
+         );
+
+         if (yaSeleccionado) return;
 
          rubrosResponsableTemporal.push({
-             nombre: nombre,
-             estado: estado
+             id: opcion.value,
+             nombre: opcion.dataset.nombre || opcion.text.trim(),
+             estado: 'ACTIVO',
          });
 
          renderRubrosResponsable(false);
-
-         nombreInput.value = '';
-         estadoInput.value = 'ACTIVO';
+         const buscador = document.querySelector('[data-rubro-responsable-search]');
+         if (buscador) buscador.value = '';
+         cerrarSelectorRubroResponsableModal();
      }
 
      function renderRubrosResponsable(soloLectura = false) {
          const lista = document.getElementById('listaRubrosResponsableModal');
+         const resumen = document.getElementById('resumenRubrosResponsableModal');
+
+         if (!lista) return;
+
          lista.innerHTML = '';
+
+         if (resumen) {
+             resumen.textContent = `Rubros seleccionados (${rubrosResponsableTemporal.length})`;
+         }
 
          if (rubrosResponsableTemporal.length === 0) {
              lista.innerHTML = `
@@ -2333,41 +2746,32 @@
                     No tiene rubros registrados.
                 </span>
             `;
+             renderOpcionesRubroResponsableModal(
+                 document.querySelector('[data-rubro-responsable-search]')?.value || ''
+             );
              return;
          }
 
          rubrosResponsableTemporal.forEach((rubro, index) => {
-             const textoEstado = rubro.estado === 'ACTIVO' ? 'Activo' : 'Inactivo';
-
-             const item = document.createElement('div');
-
-             // El chip del rubro del responsable tambien permite varias lineas.
-             item.className =
-                 'inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm';
+             const item = document.createElement('span');
+             item.className = 'persona-rubro-chip';
 
              item.innerHTML = `
-                <span class="min-w-0 max-w-full whitespace-normal break-words font-medium leading-snug text-gray-700">
-                    ${rubro.nombre}
-                </span>
-
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                    ${rubro.estado === 'ACTIVO'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'}">
-                    ${textoEstado}
-                </span>
+                <span>${escaparHtmlPersonaWizard(rubro.nombre)}</span>
 
                 ${soloLectura ? '' : `
-                                          <button type="button"
-                                              onclick="quitarRubroResponsableModal(${index})"
-                                              class="text-red-500 hover:text-red-700 text-base font-bold leading-none">
-                                              ×
-                                          </button>
-                                      `}
+                    <button type="button"
+                        onclick="quitarRubroResponsableModal(${index})"
+                        class="persona-rubro-chip-remove">x</button>
+                `}
             `;
 
              lista.appendChild(item);
          });
+
+         renderOpcionesRubroResponsableModal(
+             document.querySelector('[data-rubro-responsable-search]')?.value || ''
+         );
      }
 
      function quitarRubroResponsableModal(index) {
@@ -2385,6 +2789,7 @@
          }
 
          rubrosResponsableTemporal = rubros.map(rubro => ({
+             id: rubro.id ?? rubro.id_rubro ?? '',
              nombre: rubro.nombre ?? '',
              // Mantiene compatibilidad con rubros viejos que pudieron llegar como 0/1.
              estado: rubro.estado === '0' || rubro.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
@@ -2423,7 +2828,7 @@
          const etiquetaTipo = tipoResponsable === 'EXISTENTE' ? 'Existente' : 'Nuevo';
          const territorioTexto = textoSelectPorValorPersonaWizard('#nuevo_id_territorio', datos.idTerritorio) || 'Sin territorio';
          const estado = datos.estadoResponsable || 'ACTIVO';
-         const telefonosVisibles = chipsResponsableEmpresa(datos.telefonos || [], 'numero', 'tipo');
+         const telefonosVisibles = chipsResponsableEmpresa(datos.telefonos || [], 'numero', 'estado');
          const rubrosVisibles = chipsResponsableEmpresa(datos.rubros || [], 'nombre', 'estado');
 
          return `
@@ -2473,8 +2878,6 @@
                 <section>
                     <h6>Rol del responsable</h6>
                     ${datoResponsableRevisionPersonaWizard('Rol', datos.rolNombre || 'Sin rol')}
-                    ${datoResponsableRevisionPersonaWizard('Fecha registro', fechaCortaPersonaWizard(datos.fechaRegistro))}
-                    ${datoResponsableRevisionPersonaWizard('Fecha baja', fechaCortaPersonaWizard(datos.fechaBaja))}
                     ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, tieneRespaldo)}
                 </section>
 
@@ -2506,12 +2909,11 @@
             <input type="hidden" name="responsables[${indiceFormulario}][expedido]" value="${datos.expedido || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][fecha_nacimiento]" value="${datos.fechaNacimiento || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][genero]" value="${datos.genero || ''}">
+            <input type="hidden" name="responsables[${indiceFormulario}][id_ocupacion]" value="${datos.idOcupacion || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][ocupacion]" value="${datos.ocupacion || ''}">
 
             <input type="hidden" name="responsables[${indiceFormulario}][id_rol]" value="${datos.idRol || ''}">
             ${datos.urlRespaldo ? `<input type="hidden" name="responsables[${indiceFormulario}][url_respaldo]" value="${datos.urlRespaldo}">` : ''}
-            <input type="hidden" name="responsables[${indiceFormulario}][fecha_registro]" value="${datos.fechaRegistro || ''}">
-            <input type="hidden" name="responsables[${indiceFormulario}][fecha_baja]" value="${datos.fechaBaja || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][estado]" value="${estado}">
 
             ${hiddenTelefonos}
@@ -2528,8 +2930,8 @@
 
      function sublistaResponsableDesdeItem(item, tipoLista) {
          const patron = tipoLista === 'telefonos'
-             ? /\[telefonos\]\[(\d+)\]\[(numero|tipo)\]$/
-             : /\[rubros\]\[(\d+)\]\[(nombre|estado)\]$/;
+             ? /\[telefonos\]\[(\d+)\]\[(id|numero|estado)\]$/
+             : /\[rubros\]\[(\d+)\]\[(id|nombre|estado)\]$/;
          const agrupados = {};
 
          item.querySelectorAll('input[name]').forEach(input => {
@@ -2551,6 +2953,74 @@
          } else if (select) {
              select.value = valor || '';
          }
+     }
+
+     function seleccionarOcupacionResponsableModal(valor) {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-responsable]');
+
+         if (!select) return;
+
+         select.value = valor || '';
+         select.dispatchEvent(new Event('change', { bubbles: true }));
+         contenedor?.classList.remove('is-open');
+         actualizarOcupacionResponsableModal();
+     }
+
+     function actualizarOcupacionResponsableModal() {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const buscador = document.querySelector('[data-ocupacion-responsable-buscar]');
+         const botonLimpiar = document.querySelector('[data-ocupacion-responsable-limpiar]');
+         const opcion = select?.options?.[select.selectedIndex];
+         const seleccionValida = Boolean(opcion?.value);
+
+         if (buscador) {
+             buscador.value = seleccionValida ? opcion.text.trim() : '';
+         }
+
+         botonLimpiar?.classList.toggle('is-visible', seleccionValida);
+     }
+
+     function renderizarOcupacionesResponsableModal(filtro = '') {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const lista = document.querySelector('[data-ocupacion-responsable-resultados]');
+         const textoFiltro = normalizarBusquedaOcupacionPersonaWizard(filtro);
+
+         if (!select || !lista) return;
+
+         const opciones = Array.from(select.options)
+             .filter(opcion => opcion.value)
+             .filter(opcion => {
+                 const codigo = normalizarBusquedaOcupacionPersonaWizard(opcion.dataset.codigo);
+                 const descripcion = normalizarBusquedaOcupacionPersonaWizard(opcion.dataset.descripcion);
+
+                 return codigo.includes(textoFiltro) || descripcion.includes(textoFiltro);
+             })
+             .slice(0, 50);
+
+         if (opciones.length === 0) {
+             lista.innerHTML = '<div class="ocupacion-persona-vacio">No se encontraron ocupaciones.</div>';
+             return;
+         }
+
+         lista.innerHTML = opciones.map(opcion => `
+             <button type="button"
+                 class="ocupacion-persona-opcion ${String(opcion.value) === String(select.value) ? 'is-selected' : ''}"
+                 data-ocupacion-responsable-id="${escaparHtmlPersonaWizard(opcion.value)}">
+                 <span class="ocupacion-persona-codigo">${escaparHtmlPersonaWizard(opcion.dataset.codigo || '')}</span>
+                 <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(opcion.dataset.descripcion || '')}</span>
+                 <span class="ocupacion-persona-check">
+                     ${String(opcion.value) === String(select.value) ? '<i class="fa-solid fa-check"></i>' : ''}
+                 </span>
+             </button>
+         `).join('');
+     }
+
+     function descripcionOcupacionResponsableModal() {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const opcion = select?.options?.[select.selectedIndex];
+
+         return opcion?.dataset?.descripcion || '';
      }
 
      function asignarFechaResponsableModal(nombre, valor) {
@@ -2628,7 +3098,7 @@
          document.getElementById('nuevo_domicilio').value = valorOcultoResumenPersonaWizard(item, 'domicilio');
          document.getElementById('nuevo_nit').value = valorOcultoResumenPersonaWizard(item, 'nit');
          document.getElementById('nuevo_correo').value = valorOcultoResumenPersonaWizard(item, 'correo');
-         document.getElementById('nuevo_id_territorio').value = valorOcultoResumenPersonaWizard(item, 'id_territorio');
+         cargarRutaTerritorioResponsable(valorOcultoResumenPersonaWizard(item, 'id_territorio'));
          document.getElementById('nuevo_nombres').value = valorOcultoResumenPersonaWizard(item, 'nombres');
          document.getElementById('nuevo_apellido_paterno').value = valorOcultoResumenPersonaWizard(item, 'apellido_paterno');
          document.getElementById('nuevo_apellido_materno').value = valorOcultoResumenPersonaWizard(item, 'apellido_materno');
@@ -2637,14 +3107,11 @@
          document.getElementById('nuevo_complemento').value = valorOcultoResumenPersonaWizard(item, 'complemento');
          document.getElementById('nuevo_expedido').value = valorOcultoResumenPersonaWizard(item, 'expedido');
          document.getElementById('nuevo_genero').value = valorOcultoResumenPersonaWizard(item, 'genero');
-         document.getElementById('nuevo_ocupacion').value = valorOcultoResumenPersonaWizard(item, 'ocupacion');
+         seleccionarOcupacionResponsableModal(valorOcultoResumenPersonaWizard(item, 'id_ocupacion'));
          document.getElementById('nuevo_id_rol').value = valorOcultoResumenPersonaWizard(item, 'id_rol');
          document.getElementById('nuevo_estado_responsable').value = valorOcultoResumenPersonaWizard(item, 'estado') || 'ACTIVO';
 
          asignarFechaResponsableModal('nuevo_fecha_nacimiento', valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento'));
-         asignarFechaResponsableModal('nuevo_fecha_registro', valorOcultoResumenPersonaWizard(item, 'fecha_registro'));
-         asignarFechaResponsableModal('nuevo_fecha_baja', valorOcultoResumenPersonaWizard(item, 'fecha_baja'));
-
          telefonosResponsableTemporal = sublistaResponsableDesdeItem(item, 'telefonos');
          rubrosResponsableTemporal = sublistaResponsableDesdeItem(item, 'rubros');
 
@@ -2680,14 +3147,13 @@
          const expedido = document.getElementById('nuevo_expedido').value.trim();
          const fechaNacimiento = document.querySelector('[name="nuevo_fecha_nacimiento"]')?.value ?? '';
          const genero = document.getElementById('nuevo_genero').value;
-         const ocupacion = document.getElementById('nuevo_ocupacion').value.trim();
+         const idOcupacion = document.getElementById('nuevo_id_ocupacion').value;
+         const ocupacion = descripcionOcupacionResponsableModal();
 
          const idRol = document.getElementById('nuevo_id_rol').value;
          const rolNombre = textoSelectPorValorPersonaWizard('#nuevo_id_rol', idRol);
          const respaldoInput = document.getElementById('nuevo_url_respaldo');
          const archivoRespaldo = respaldoInput?.files?.[0] ?? null;
-         const fechaRegistro = document.querySelector('[name="nuevo_fecha_registro"]')?.value ?? '';
-         const fechaBaja = document.querySelector('[name="nuevo_fecha_baja"]')?.value ?? '';
          const estadoResponsable = document.getElementById('nuevo_estado_responsable').value;
 
          let primerCampoError = null;
@@ -2793,71 +3259,19 @@
 
          telefonosResponsableTemporal.forEach((telefono, index) => {
              hiddenTelefonos += `
+                ${telefono.id ? `<input type="hidden" name="responsables[${indiceDestino}][telefonos][${index}][id]" value="${telefono.id}">` : ''}
                 <input type="hidden" name="responsables[${indiceDestino}][telefonos][${index}][numero]" value="${telefono.numero}">
-                <input type="hidden" name="responsables[${indiceDestino}][telefonos][${index}][tipo]" value="${telefono.tipo}">
+                <input type="hidden" name="responsables[${indiceDestino}][telefonos][${index}][estado]" value="${telefono.estado}">
             `;
          });
 
          rubrosResponsableTemporal.forEach((rubro, index) => {
              hiddenRubros += `
+                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][id]" value="${rubro.id || ''}">
                 <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][nombre]" value="${rubro.nombre}">
                 <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][estado]" value="${rubro.estado}">
             `;
          });
-
-         item.innerHTML = `
-            <span class="font-medium text-gray-700">${nombreCompleto}</span>
-
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                ${tipoResponsable === 'EXISTENTE'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-green-100 text-green-700'}">
-                ${tipoResponsable}
-            </span>
-
-             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-700">
-                 ${rolNombre}
-             </span>
-
-            ${archivoRespaldo ? `
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                    PDF
-                </span>
-            ` : ''}
-
-            <button type="button"
-                onclick="quitarResponsableEmpresa(this)"
-                class="text-red-500 hover:text-red-700 text-base font-bold leading-none">
-                ×
-            </button>
-
-            <input type="hidden" name="responsables[${indiceResponsable}][tipo]" value="${tipoResponsable}">
-            <input type="hidden" name="responsables[${indiceResponsable}][id_persona]" value="${idPersonaExistente}">
-
-            <input type="hidden" name="responsables[${indiceResponsable}][domicilio]" value="${domicilio}">
-            <input type="hidden" name="responsables[${indiceResponsable}][nit]" value="${nit}">
-            <input type="hidden" name="responsables[${indiceResponsable}][correo]" value="${correo}">
-            <input type="hidden" name="responsables[${indiceResponsable}][id_territorio]" value="${idTerritorio}">
-
-            <input type="hidden" name="responsables[${indiceResponsable}][nombres]" value="${nombres}">
-            <input type="hidden" name="responsables[${indiceResponsable}][apellido_paterno]" value="${paterno}">
-            <input type="hidden" name="responsables[${indiceResponsable}][apellido_materno]" value="${materno}">
-            <input type="hidden" name="responsables[${indiceResponsable}][apellido_casado]" value="${casado}">
-            <input type="hidden" name="responsables[${indiceResponsable}][ci]" value="${ci}">
-            <input type="hidden" name="responsables[${indiceResponsable}][complemento]" value="${complemento}">
-            <input type="hidden" name="responsables[${indiceResponsable}][expedido]" value="${expedido}">
-            <input type="hidden" name="responsables[${indiceResponsable}][fecha_nacimiento]" value="${fechaNacimiento}">
-            <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${genero}">
-            <input type="hidden" name="responsables[${indiceResponsable}][ocupacion]" value="${ocupacion}">
-
-            <input type="hidden" name="responsables[${indiceResponsable}][id_rol]" value="${idRol}">
-            <input type="hidden" name="responsables[${indiceResponsable}][fecha_registro]" value="${fechaRegistro}">
-            <input type="hidden" name="responsables[${indiceResponsable}][fecha_baja]" value="${fechaBaja}">
-            <input type="hidden" name="responsables[${indiceResponsable}][estado]" value="${estadoResponsable}">
-
-            ${hiddenTelefonos}
-            ${hiddenRubros}
-        `;
 
          item.innerHTML = plantillaResponsableEmpresa({
              tipoResponsable,
@@ -2875,11 +3289,10 @@
              expedido,
              fechaNacimiento,
              genero,
+             idOcupacion,
              ocupacion,
              idRol,
              rolNombre,
-             fechaRegistro,
-             fechaBaja,
              estadoResponsable,
              nombreCompleto,
              urlRespaldo: urlRespaldoActual,
@@ -2948,13 +3361,15 @@
 
          (responsable.telefonos || []).forEach((telefono, index) => {
              hiddenTelefonos += `
+                ${telefono.id ? `<input type="hidden" name="responsables[${indiceResponsable}][telefonos][${index}][id]" value="${telefono.id}">` : ''}
                 <input type="hidden" name="responsables[${indiceResponsable}][telefonos][${index}][numero]" value="${telefono.numero || ''}">
-                <input type="hidden" name="responsables[${indiceResponsable}][telefonos][${index}][tipo]" value="${telefono.tipo || telefono.estado || 'CELULAR'}">
+                <input type="hidden" name="responsables[${indiceResponsable}][telefonos][${index}][estado]" value="${normalizarEstadoTelefono(telefono.estado)}">
             `;
          });
 
          (responsable.rubros || []).forEach((rubro, index) => {
              hiddenRubros += `
+                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][id]" value="${rubro.id || rubro.id_rubro || ''}">
                 <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][nombre]" value="${rubro.nombre || ''}">
                 <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][estado]" value="${rubro.estado || 'ACTIVO'}">
             `;
@@ -3007,12 +3422,11 @@
             <input type="hidden" name="responsables[${indiceResponsable}][expedido]" value="${responsable.expedido || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][fecha_nacimiento]" value="${responsable.fecha_nacimiento || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${responsable.genero || ''}">
+            <input type="hidden" name="responsables[${indiceResponsable}][id_ocupacion]" value="${responsable.id_ocupacion || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][ocupacion]" value="${responsable.ocupacion || ''}">
 
             <input type="hidden" name="responsables[${indiceResponsable}][id_rol]" value="${responsable.id_rol || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][url_respaldo]" value="${responsable.url_respaldo || ''}">
-            <input type="hidden" name="responsables[${indiceResponsable}][fecha_registro]" value="${responsable.fecha_registro || ''}">
-            <input type="hidden" name="responsables[${indiceResponsable}][fecha_baja]" value="${responsable.fecha_baja || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][estado]" value="${responsable.estado || 'ACTIVO'}">
 
             ${hiddenTelefonos}
@@ -3035,11 +3449,10 @@
              expedido: responsable.expedido || '',
              fechaNacimiento: responsable.fecha_nacimiento || '',
              genero: responsable.genero || '',
+             idOcupacion: responsable.id_ocupacion || '',
              ocupacion: responsable.ocupacion || '',
              idRol: responsable.id_rol || '',
              rolNombre: responsable.rol_nombre || responsable.rol || '',
-             fechaRegistro: responsable.fecha_registro || '',
-             fechaBaja: responsable.fecha_baja || '',
              estadoResponsable: responsable.estado || 'ACTIVO',
              nombreCompleto,
              urlRespaldo: responsable.url_respaldo || '',
@@ -3104,13 +3517,16 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {
              const campo = document.getElementById(id);
              if (campo) campo.value = '';
          });
+
+         reiniciarTerritorioResponsable();
+         seleccionarOcupacionResponsableModal('');
 
          const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
          if (fecha) fecha.value = '';
@@ -3206,9 +3622,7 @@
 
          const ids = [
              'nuevo_telefono',
-             'nuevo_tipo_telefono',
-             'nuevo_rubro',
-             'nuevo_estado_rubro',
+             'nuevo_estado_telefono',
              'nuevo_id_rol',
              'nuevo_url_respaldo',
              'nuevo_estado_responsable',
@@ -3219,14 +3633,11 @@
              if (campo) campo.value = '';
          });
 
-         limpiarFechaWire('nuevo_fecha_registro');
-         limpiarFechaWire('nuevo_fecha_baja');
+         const estadoTelefono = document.getElementById('nuevo_estado_telefono');
+         if (estadoTelefono) estadoTelefono.value = 'ACTIVO';
 
-         const tipoTelefono = document.getElementById('nuevo_tipo_telefono');
-         if (tipoTelefono) tipoTelefono.value = 'CELULAR';
-
-         const estadoRubro = document.getElementById('nuevo_estado_rubro');
-         if (estadoRubro) estadoRubro.value = 'ACTIVO';
+         const buscarRubro = document.querySelector('[data-rubro-responsable-search]');
+         if (buscarRubro) buscarRubro.value = '';
 
          const estadoResponsable = document.getElementById('nuevo_estado_responsable');
          if (estadoResponsable) estadoResponsable.value = 'ACTIVO';
@@ -3256,7 +3667,6 @@
          'nuevo_id_territorio',
          'nuevo_id_rol',
          'nuevo_telefono',
-         'nuevo_rubro',
          'nuevo_url_respaldo',
      ].forEach(idCampo => {
          const campo = document.getElementById(idCampo);
@@ -3298,18 +3708,14 @@
          }
      });
 
-     document.querySelector('[data-rubro-trigger]')?.addEventListener('click', function() {
+     document.querySelector('[data-rubro-search]')?.addEventListener('focus', function() {
          const contenedor = document.querySelector('[data-rubro-combobox]');
-         const abierto = contenedor?.classList.toggle('is-open');
-
-         this.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-
-         if (abierto) {
-             document.querySelector('[data-rubro-search]')?.focus();
-         }
+         renderOpcionesRubroPersonaWizard(this.value);
+         contenedor?.classList.add('is-open');
      });
 
      document.querySelector('[data-rubro-search]')?.addEventListener('input', function() {
+         document.querySelector('[data-rubro-combobox]')?.classList.add('is-open');
          renderOpcionesRubroPersonaWizard(this.value);
      });
 
@@ -3319,6 +3725,8 @@
          if (!boton || boton.disabled) return;
 
          agregarRubroPersonaWizard(boton.dataset.rubroOption);
+         const busqueda = document.querySelector('[data-rubro-search]');
+         if (busqueda) busqueda.value = '';
          cerrarSelectorRubroPersonaWizard();
      });
 
@@ -3330,14 +3738,167 @@
          quitarRubroPersonaWizard(boton.dataset.quitarRubro);
      });
 
+     document.querySelector('[data-ocupacion-persona-buscar]')?.addEventListener('focus', function() {
+         const campo = document.getElementById('form_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-persona]');
+         const filtro = campo?.value ? '' : this.value;
+
+         renderizarOpcionesOcupacionPersonaWizard(filtro);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-ocupacion-persona-buscar]')?.addEventListener('input', function() {
+         const campo = document.getElementById('form_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-persona]');
+
+         if (campo) {
+             campo.value = '';
+             campo.dispatchEvent(new Event('change', { bubbles: true }));
+         }
+
+         document.querySelector('[data-ocupacion-persona-limpiar]')?.classList.remove('is-visible');
+         renderizarOpcionesOcupacionPersonaWizard(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-ocupacion-persona-resultados]')?.addEventListener('click', function(event) {
+         const opcion = event.target.closest('[data-ocupacion-persona-id]');
+
+         if (!opcion) return;
+
+         seleccionarOcupacionPersonaWizard(opcion.dataset.ocupacionPersonaId);
+     });
+
+     document.querySelector('[data-ocupacion-persona-limpiar]')?.addEventListener('click', function() {
+         seleccionarOcupacionPersonaWizard('');
+         document.querySelector('[data-ocupacion-persona-buscar]')?.focus();
+     });
+
+     document.querySelector('[data-rol-cuenta-buscar]')?.addEventListener('focus', function() {
+         const selector = document.getElementById('form_id_role');
+         const contenedor = document.querySelector('[data-rol-cuenta]');
+         const filtro = selector?.value ? '' : this.value;
+
+         renderizarRolesCuentaPersonaWizard(filtro);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-rol-cuenta-buscar]')?.addEventListener('input', function() {
+         const selector = document.getElementById('form_id_role');
+         const contenedor = document.querySelector('[data-rol-cuenta]');
+
+         if (selector) {
+             selector.value = '';
+             selector.dispatchEvent(new Event('change', { bubbles: true }));
+         }
+
+         document.querySelector('[data-rol-cuenta-limpiar]')?.classList.remove('is-visible');
+         renderizarRolesCuentaPersonaWizard(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-rol-cuenta-resultados]')?.addEventListener('click', function(event) {
+         const opcion = event.target.closest('[data-rol-cuenta-id]');
+
+         if (!opcion) return;
+
+         seleccionarRolCuentaPersonaWizard(opcion.dataset.rolCuentaId);
+     });
+
+     document.querySelector('[data-rol-cuenta-limpiar]')?.addEventListener('click', function() {
+         seleccionarRolCuentaPersonaWizard('');
+         document.querySelector('[data-rol-cuenta-buscar]')?.focus();
+     });
+
+     document.querySelector('[data-rubro-responsable-search]')?.addEventListener('focus', function() {
+         const contenedor = document.querySelector('[data-rubro-responsable-combobox]');
+         renderOpcionesRubroResponsableModal(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-rubro-responsable-search]')?.addEventListener('input', function() {
+         const contenedor = document.querySelector('[data-rubro-responsable-combobox]');
+         renderOpcionesRubroResponsableModal(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-rubro-responsable-options-list]')?.addEventListener('click', function(event) {
+         const boton = event.target.closest('[data-rubro-responsable-option]');
+
+         if (!boton) return;
+
+         agregarRubroResponsableModal(boton.dataset.rubroResponsableOption);
+     });
+
+     document.querySelector('[data-ocupacion-responsable-buscar]')?.addEventListener('focus', function() {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-responsable]');
+         const filtro = select?.value ? '' : this.value;
+
+         if (this.disabled) return;
+
+         renderizarOcupacionesResponsableModal(filtro);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-ocupacion-responsable-buscar]')?.addEventListener('input', function() {
+         const select = document.getElementById('nuevo_id_ocupacion');
+         const contenedor = document.querySelector('[data-ocupacion-responsable]');
+
+         if (select) {
+             select.value = '';
+             select.dispatchEvent(new Event('change', { bubbles: true }));
+         }
+
+         document.querySelector('[data-ocupacion-responsable-limpiar]')?.classList.remove('is-visible');
+         renderizarOcupacionesResponsableModal(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-ocupacion-responsable-resultados]')?.addEventListener('click', function(event) {
+         const opcion = event.target.closest('[data-ocupacion-responsable-id]');
+
+         if (!opcion) return;
+
+         seleccionarOcupacionResponsableModal(opcion.dataset.ocupacionResponsableId);
+     });
+
+     document.querySelector('[data-ocupacion-responsable-limpiar]')?.addEventListener('click', function() {
+         seleccionarOcupacionResponsableModal('');
+         document.querySelector('[data-ocupacion-responsable-buscar]')?.focus();
+     });
+
+     document.getElementById('nuevo_id_pais_responsable')
+         ?.addEventListener('change', seleccionarPaisTerritorioResponsable);
+
      document.addEventListener('click', function(event) {
          if (!event.target.closest('[data-rubro-combobox]')) {
              cerrarSelectorRubroPersonaWizard();
+         }
+
+         if (!event.target.closest('[data-rubro-responsable-combobox]')) {
+             cerrarSelectorRubroResponsableModal();
+         }
+
+         if (!event.target.closest('[data-ocupacion-persona]')) {
+             document.querySelector('[data-ocupacion-persona]')?.classList.remove('is-open');
+         }
+
+         if (!event.target.closest('[data-ocupacion-responsable]')) {
+             document.querySelector('[data-ocupacion-responsable]')?.classList.remove('is-open');
+         }
+
+         if (!event.target.closest('[data-rol-cuenta]')) {
+             document.querySelector('[data-rol-cuenta]')?.classList.remove('is-open');
          }
      });
 
      renderRubrosPersonaWizard();
      actualizarSelectorRubroPersonaWizard();
+     actualizarOcupacionPersonaWizard();
+     actualizarOcupacionResponsableModal();
+     actualizarRolCuentaPersonaWizard();
+     renderRubrosResponsable(false);
  </script>
 
 

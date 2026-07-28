@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="roles-table-actions">
 
     <x-wire-button href="{{ route('roles_edit', $rol) }}" blue xs>
         Editar

@@ -11,6 +11,92 @@
 
     @include('seguridad.estilos')
 
+    <style>
+        .tabla-cargos-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .tabla-cargos-wrap table {
+            width: 100%;
+            min-width: 980px;
+            table-layout: fixed;
+        }
+
+        .tabla-cargos-wrap th,
+        .tabla-cargos-wrap td {
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            vertical-align: middle;
+            line-height: 1.35;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .tabla-cargos-wrap th:first-child,
+        .tabla-cargos-wrap td:first-child {
+            width: 5%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-cargos-wrap th:nth-child(2),
+        .tabla-cargos-wrap td:nth-child(2) {
+            width: 21%;
+        }
+
+        .tabla-cargos-wrap th:nth-child(3),
+        .tabla-cargos-wrap td:nth-child(3) {
+            width: 23%;
+        }
+
+        .tabla-cargos-wrap th:nth-child(4),
+        .tabla-cargos-wrap td:nth-child(4) {
+            width: 28%;
+        }
+
+        .tabla-cargos-wrap th:nth-child(5),
+        .tabla-cargos-wrap td:nth-child(5) {
+            width: 9%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-cargos-wrap th:last-child,
+        .tabla-cargos-wrap td:last-child {
+            width: 14%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-cargos-wrap th:nth-child(5) > div,
+        .tabla-cargos-wrap th:nth-child(5) button,
+        .tabla-cargos-wrap th:last-child > div {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .tabla-cargos-wrap td:nth-child(5) .tabla-chip {
+            margin-right: auto;
+            margin-left: auto;
+        }
+
+        .tabla-cargos-wrap td:nth-child(2) .tabla-texto-ajustado,
+        .tabla-cargos-wrap td:nth-child(3) .tabla-texto-ajustado,
+        .tabla-cargos-wrap td:nth-child(4) .tabla-texto-ajustado {
+            display: block;
+            max-width: none;
+            overflow: visible;
+            -webkit-line-clamp: unset;
+        }
+
+        .tabla-cargos-wrap .tabla-acciones {
+            justify-content: center;
+            flex-wrap: nowrap;
+        }
+    </style>
+
     <x-slot name="action">
         <x-wire-button type="button" blue data-crear-cargo>
             Nuevo cargo
@@ -24,7 +110,7 @@
     @endif
 
     {{-- Tabla principal del CRUD. La logica esta en app/Livewire/Datatables/CargoTable.php --}}
-    <div class="tabla-compacta tabla-cargos">
+    <div class="tabla-compacta tabla-cargos tabla-cargos-wrap">
         @livewire('datatables.cargo-table')
     </div>
 
@@ -93,11 +179,6 @@
                 <input type="hidden" name="form_modal" value="editar">
                 <input type="hidden" id="editar_id_cargo" name="form_id_cargo" value="{{ old('form_id_cargo') }}">
 
-                <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                    <span class="font-black text-slate-800">Registro seleccionado:</span>
-                    <span id="editar_resumen_cargo">Seleccione un cargo de la tabla.</span>
-                </div>
-
                 <x-wire-input label="Nombre del cargo" id="editar_nombre" name="form_nombre" type="text"
                     placeholder="Ej: Tecnico evaluador" value="{{ old('form_modal') === 'editar' ? old('form_nombre') : '' }}" />
 
@@ -158,9 +239,6 @@
                 document.getElementById('editar_id_area').value = idArea || '';
                 document.getElementById('editar_estado').value = String(estado ?? '1');
                 document.getElementById('formEditarCargo').action = rutaActualizarCargo.replace('__ID__', id);
-                document.getElementById('editar_resumen_cargo').textContent = id
-                    ? `ID ${id} - ${nombre || 'Sin nombre'}`
-                    : 'Seleccione un cargo de la tabla.';
 
                 const modal = document.getElementById('modalEditarCargo');
                 modal.classList.remove('hidden');
@@ -219,7 +297,7 @@
 
                 Swal.fire({
                     title: 'Eliminar cargo',
-                    text: 'Solo se eliminara si no esta asignado a funcionarios.',
+                    text: 'El cargo cambiará a Inactivo si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

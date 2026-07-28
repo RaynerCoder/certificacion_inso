@@ -1380,8 +1380,8 @@ class CertificadoController extends Controller
     // Permite derivar/revisar a cualquier usuario interno con ficha de funcionario y cargo activo.
     private function usuarioTieneCargoActivo(?User $usuario): bool
     {
-        return (bool) $usuario?->funcionario
-            && (string) $usuario->funcionario->estado === '1'
+        return (string) $usuario?->estado === '1'
+            && (bool) $usuario?->funcionario
             && $usuario->funcionario->cargos->contains(fn ($cargo) => (string) $cargo->estado === '1');
     }
 

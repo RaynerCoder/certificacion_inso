@@ -1,5 +1,5 @@
 <div id="seccion_natural">
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div class="border-b border-violet-100 bg-gradient-to-r from-violet-50 to-purple-50 px-5 py-3">
             <div class="flex items-center gap-3">
                 <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white shadow">
@@ -62,14 +62,49 @@
                 <option value="0" @selected(old('form_genero', $persona->natural->genero ?? '') == '0')>Femenino</option>
             </x-wire-native-select>
 
-            <x-wire-native-select label="Ocupación" name="form_id_ocupacion" id="form_id_ocupacion">
-                <option value="">Seleccione ocupación</option>
-                @foreach (($ocupacionesCob ?? collect()) as $ocupacionCob)
-                    <option value="{{ $ocupacionCob->id }}" @selected((string) old('form_id_ocupacion', $persona->natural->id_ocupacion ?? '') === (string) $ocupacionCob->id)>
-                        {{ $ocupacionCob->codigo_ocupacion }} - {{ $ocupacionCob->descripcion_ocupacion }}
-                    </option>
-                @endforeach
-            </x-wire-native-select>
+            @php
+                $opcionesOcupacion = ($ocupacionesCob ?? collect())
+                    ->map(fn ($ocupacion) => [
+                        'id' => $ocupacion->id,
+                        'codigo' => $ocupacion->codigo_ocupacion,
+                        'descripcion' => $ocupacion->descripcion_ocupacion,
+                        'nombre' => trim($ocupacion->codigo_ocupacion . ' - ' . $ocupacion->descripcion_ocupacion),
+                    ])
+                    ->values()
+                    ->all();
+                $idOcupacionSeleccionada = (string) old(
+                    'form_id_ocupacion',
+                    $persona->natural->id_ocupacion ?? '',
+                );
+            @endphp
+
+            <div class="ocupacion-persona-autocomplete" data-ocupacion-persona>
+                <label for="buscadorOcupacionPersona" class="mb-1 block text-sm font-medium text-slate-700">
+                    Ocupación
+                </label>
+
+                <input type="hidden" name="form_id_ocupacion" id="form_id_ocupacion"
+                    value="{{ $idOcupacionSeleccionada }}">
+
+                <div class="ocupacion-persona-control">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+
+                    <input type="search" id="buscadorOcupacionPersona" data-ocupacion-persona-buscar
+                        placeholder="Escriba código o descripción" autocomplete="off">
+
+                    <button type="button" class="ocupacion-persona-limpiar" data-ocupacion-persona-limpiar
+                        aria-label="Quitar ocupación seleccionada">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="ocupacion-persona-resultados" data-ocupacion-persona-resultados></div>
+                <script type="application/json" id="catalogoOcupacionesPersona">@json($opcionesOcupacion)</script>
+
+                @error('form_id_ocupacion')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
         </div>
     </div>
 </div>

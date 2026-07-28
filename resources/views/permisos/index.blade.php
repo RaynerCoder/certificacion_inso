@@ -10,6 +10,7 @@
 ]">
 
     @include('seguridad.estilos')
+    @include('permisos.estilo')
 
     <x-slot name="action">
         <x-wire-button type="button" blue data-crear-permiso>
@@ -17,17 +18,20 @@
         </x-wire-button>
     </x-slot>
 
-    @if (session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {{ session('error') }}
+    <div class="permisos-module">
+        @if (session('error'))
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        {{-- Mantiene las columnas legibles y habilita desplazamiento solo en pantallas pequeñas. --}}
+        <div class="permisos-table-scroll">
+            @livewire('datatables.permiso-table')
         </div>
-    @endif
 
-    {{-- Tabla principal del CRUD. La logica esta en app/Livewire/Datatables/PermisoTable.php --}}
-    @livewire('datatables.permiso-table')
-
-    {{-- Modal crear permiso --}}
-    <div id="modalCrearPermiso" class="seg-modal hidden">
+        {{-- Modal crear permiso --}}
+        <div id="modalCrearPermiso" class="seg-modal hidden">
         <div class="seg-modal-box">
             <div class="seg-modal-head">
                 <h2 class="seg-modal-title">Nuevo permiso</h2>
@@ -56,10 +60,10 @@
                 </div>
             </form>
         </div>
-    </div>
+        </div>
 
-    {{-- Modal editar permiso --}}
-    <div id="modalEditarPermiso" class="seg-modal hidden">
+        {{-- Modal editar permiso --}}
+        <div id="modalEditarPermiso" class="seg-modal hidden">
         <div class="seg-modal-box">
             <div class="seg-modal-head">
                 <h2 class="seg-modal-title">Editar permiso</h2>
@@ -89,6 +93,7 @@
                     </x-wire-button>
                 </div>
             </form>
+        </div>
         </div>
     </div>
 
@@ -168,7 +173,7 @@
                 );
             });
 
-            // Confirma con SweetAlert antes de eliminar un permiso.
+            // Confirma el cambio antes de enviar la solicitud.
             document.addEventListener('submit', function(e) {
                 const formulario = e.target.closest('.delete-form');
 
@@ -180,7 +185,7 @@
 
                 Swal.fire({
                     title: 'Eliminar permiso',
-                    text: 'Se quitara de roles y usuarios directos.',
+                    text: 'El estado del permiso cambiará a Inactivo si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

@@ -14,7 +14,7 @@
 
     @include('seguridad.estilos')
 
-    <form action="{{ route('usuarios_update', $usuario) }}" method="POST" class="seg-page" autocomplete="off">
+    <form action="{{ route('usuarios_update', $usuario) }}" method="POST" class="seg-page usuario-formulario" autocomplete="off">
         @csrf
         @method('PUT')
 

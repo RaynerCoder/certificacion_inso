@@ -11,6 +11,313 @@
 
     @include('seguridad.estilos')
 
+    <style>
+        .tabla-areas-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .tabla-areas-wrap table {
+            width: 100%;
+            min-width: 960px;
+            table-layout: fixed;
+        }
+
+        .tabla-areas-wrap th,
+        .tabla-areas-wrap td {
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            vertical-align: middle;
+            word-break: normal;
+            overflow-wrap: break-word;
+            line-height: 1.35;
+        }
+
+        .tabla-areas-wrap th:first-child,
+        .tabla-areas-wrap td:first-child {
+            width: 5%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-areas-wrap th:nth-child(2),
+        .tabla-areas-wrap td:nth-child(2) {
+            width: 27%;
+        }
+
+        .tabla-areas-wrap th:nth-child(3),
+        .tabla-areas-wrap td:nth-child(3) {
+            width: 30%;
+        }
+
+        .tabla-areas-wrap th:nth-child(4),
+        .tabla-areas-wrap td:nth-child(4) {
+            width: 12%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-areas-wrap th:nth-child(5),
+        .tabla-areas-wrap td:nth-child(5) {
+            width: 9%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-areas-wrap th:last-child,
+        .tabla-areas-wrap td:last-child {
+            width: 17%;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .tabla-areas-wrap th:nth-child(4) > div,
+        .tabla-areas-wrap th:nth-child(4) button,
+        .tabla-areas-wrap th:nth-child(5) > div,
+        .tabla-areas-wrap th:nth-child(5) button,
+        .tabla-areas-wrap th:last-child > div {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .tabla-areas-wrap td:nth-child(4) .tabla-chip,
+        .tabla-areas-wrap td:nth-child(5) .tabla-chip {
+            margin-right: auto;
+            margin-left: auto;
+        }
+
+        .tabla-areas-wrap td:nth-child(2) .tabla-texto-ajustado,
+        .tabla-areas-wrap td:nth-child(3) .tabla-texto-ajustado {
+            display: block;
+            max-width: none;
+            overflow: visible;
+            -webkit-line-clamp: unset;
+        }
+
+        .tabla-areas-wrap .tabla-acciones {
+            justify-content: center;
+            flex-wrap: nowrap;
+        }
+
+        .area-detail-modal {
+            width: min(500px, calc(100vw - 2rem));
+            max-height: calc(100vh - 2rem);
+            overflow: hidden;
+        }
+
+        .area-detail-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+            min-height: 76px;
+            padding: 16px 56px 16px 24px;
+            border-bottom: 1px solid #cfe7df;
+            background: #edf8f4;
+        }
+
+        .area-detail-heading {
+            display: flex;
+            min-width: 0;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .area-detail-heading-icon {
+            display: inline-flex;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            align-items: center;
+            justify-content: center;
+            color: #15803d;
+            font-size: 24px;
+        }
+
+        .area-detail-title {
+            color: #172033;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .area-detail-subtitle {
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .area-detail-close {
+            position: absolute;
+            top: 50%;
+            right: 18px;
+            display: inline-flex;
+            width: 32px;
+            height: 32px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: #475569;
+            font-size: 24px;
+            line-height: 1;
+            transform: translateY(-50%);
+            transition: background-color 150ms ease, color 150ms ease;
+        }
+
+        .area-detail-close:hover {
+            background: #dff1eb;
+            color: #0f766e;
+        }
+
+        .area-detail-content {
+            padding: 0 28px 20px;
+            color: #334155;
+            overflow-y: auto;
+        }
+
+        .area-detail-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            padding: 18px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .area-detail-row {
+            padding: 14px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .area-detail-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .area-detail-value {
+            min-width: 0;
+            color: #172033;
+            font-size: 14px;
+            font-weight: 400;
+            overflow-wrap: anywhere;
+        }
+
+        .area-detail-status {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            min-height: 24px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .area-detail-status.is-active {
+            border: 1px solid #a7e1bf;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .area-detail-status.is-inactive {
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .area-detail-section {
+            padding: 16px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .area-detail-section-title {
+            margin-bottom: 8px;
+            color: #334155;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .area-detail-description {
+            color: #172033;
+            font-size: 14px;
+            font-weight: 400;
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+
+        .area-detail-positions {
+            display: grid;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .area-detail-positions li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-top: 1px solid #f1f5f9;
+            color: #172033;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .area-detail-positions li:first-child {
+            border-top: 0;
+        }
+
+        .area-detail-positions li i {
+            width: 20px;
+            flex: 0 0 20px;
+            color: #15803d;
+            text-align: center;
+        }
+
+        .area-detail-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 20px;
+        }
+
+        @media (max-width: 540px) {
+            .area-detail-header {
+                padding-left: 18px;
+            }
+
+            .area-detail-heading {
+                gap: 10px;
+            }
+
+            .area-detail-heading-icon {
+                width: 32px;
+                height: 32px;
+                flex-basis: 32px;
+                font-size: 20px;
+            }
+
+            .area-detail-subtitle {
+                font-size: 12px;
+            }
+
+            .area-detail-content {
+                padding-right: 20px;
+                padding-left: 20px;
+            }
+
+            .area-detail-summary {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+        }
+    </style>
+
     <x-slot name="action">
         <x-wire-button type="button" blue data-crear-area>
             Nueva area
@@ -24,7 +331,7 @@
     @endif
 
     {{-- Tabla principal del CRUD. La logica esta en app/Livewire/Datatables/AreaTable.php --}}
-    <div class="tabla-compacta tabla-areas">
+    <div class="tabla-compacta tabla-areas tabla-areas-wrap">
         @livewire('datatables.area-table')
     </div>
 
@@ -130,6 +437,70 @@
         </div>
     </div>
 
+    {{-- Muestra la información completa del área sin cargarla en la tabla. --}}
+    <div id="modalVerArea" class="seg-modal hidden">
+        <div class="seg-modal-box area-detail-modal">
+            <div class="area-detail-header">
+                <div class="area-detail-heading">
+                    <span class="area-detail-heading-icon" aria-hidden="true">
+                        <i class="fa-solid fa-building"></i>
+                    </span>
+                    <div>
+                        <h2 class="area-detail-title">Detalle del área</h2>
+                        <p class="area-detail-subtitle">Información institucional y cargos relacionados</p>
+                    </div>
+                </div>
+                <button type="button" class="area-detail-close" onclick="cerrarModalVerArea()"
+                    aria-label="Cerrar detalle del área" title="Cerrar">
+                    &times;
+                </button>
+            </div>
+
+            <div class="area-detail-content">
+                <div class="area-detail-summary">
+                    <div>
+                        <span class="area-detail-label">ID</span>
+                        <div id="ver_area_id" class="area-detail-value">-</div>
+                    </div>
+                    <div>
+                        <span class="area-detail-label">Estado</span>
+                        <div>
+                            <span id="ver_area_estado" class="area-detail-status">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="area-detail-row">
+                    <span class="area-detail-label">Área</span>
+                    <div id="ver_area_nombre" class="area-detail-value">-</div>
+                </div>
+
+                <div class="area-detail-row">
+                    <span class="area-detail-label">Área superior</span>
+                    <div id="ver_area_padre" class="area-detail-value">-</div>
+                </div>
+
+                <div class="area-detail-section">
+                    <div class="area-detail-section-title">Descripción</div>
+                    <div id="ver_area_descripcion" class="area-detail-description">-</div>
+                </div>
+
+                <div class="area-detail-section">
+                    <div class="area-detail-section-title">
+                        Cargos asignados (<span id="ver_area_cargos_total">0</span>)
+                    </div>
+                    <ul id="ver_area_cargos" class="area-detail-positions"></ul>
+                </div>
+
+                <div class="area-detail-actions">
+                    <x-wire-button type="button" secondary onclick="cerrarModalVerArea()">
+                        Cerrar
+                    </x-wire-button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @push('js')
         <script>
             // Ruta base usada para construir la accion del formulario de edicion.
@@ -175,6 +546,50 @@
                 modal.classList.remove('flex');
             }
 
+            // Muestra todos los datos del area seleccionada en una ventana aparte.
+            function abrirModalVerArea(boton) {
+                document.getElementById('ver_area_id').textContent = boton.dataset.id || '-';
+                document.getElementById('ver_area_nombre').textContent = boton.dataset.nombre || '-';
+                document.getElementById('ver_area_padre').textContent = boton.dataset.areaPadre || '-';
+                document.getElementById('ver_area_descripcion').textContent = boton.dataset.descripcion || 'Sin descripcion';
+
+                const estado = boton.dataset.estado || '-';
+                const chipEstado = document.getElementById('ver_area_estado');
+                chipEstado.textContent = estado;
+                chipEstado.classList.toggle('is-active', estado === 'Activo');
+                chipEstado.classList.toggle('is-inactive', estado === 'Inactivo');
+
+                const cargos = (boton.dataset.cargos || '').split('|').filter(Boolean);
+                const listaCargos = document.getElementById('ver_area_cargos');
+                document.getElementById('ver_area_cargos_total').textContent = cargos.length;
+                listaCargos.replaceChildren();
+
+                const cargosParaMostrar = cargos.length ? cargos : ['Sin cargos asignados'];
+                cargosParaMostrar.forEach((cargo) => {
+                    const item = document.createElement('li');
+                    const icono = document.createElement('i');
+                    const texto = document.createElement('span');
+
+                    icono.className = 'fa-solid fa-briefcase';
+                    icono.setAttribute('aria-hidden', 'true');
+                    texto.textContent = cargo;
+
+                    item.append(icono, texto);
+                    listaCargos.appendChild(item);
+                });
+
+                const modal = document.getElementById('modalVerArea');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            // Cierra el detalle sin salir del listado de areas.
+            function cerrarModalVerArea() {
+                const modal = document.getElementById('modalVerArea');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
             // Limpia marcas de validacion generadas por los componentes del formulario.
             function limpiarErroresModalArea(modal) {
                 if (!modal) return;
@@ -192,9 +607,15 @@
             document.addEventListener('click', function(e) {
                 const botonCrear = e.target.closest('[data-crear-area]');
                 const botonEditar = e.target.closest('[data-editar-area]');
+                const botonVer = e.target.closest('[data-ver-area]');
 
                 if (botonCrear) {
                     abrirModalCrearArea();
+                    return;
+                }
+
+                if (botonVer) {
+                    abrirModalVerArea(botonVer);
                     return;
                 }
 
@@ -209,7 +630,7 @@
                 );
             });
 
-            // Confirma con SweetAlert antes de eliminar un area.
+            // Confirma el cambio antes de enviar la solicitud.
             document.addEventListener('submit', function(e) {
                 const formulario = e.target.closest('.delete-form-area');
 
@@ -219,7 +640,7 @@
 
                 Swal.fire({
                     title: 'Eliminar area',
-                    text: 'Solo se eliminara si no tiene subareas ni cargos relacionados.',
+                    text: 'El estado del área cambiará a Inactivo si no está relacionada con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

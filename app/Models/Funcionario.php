@@ -21,10 +21,9 @@ class Funcionario extends Model
         'carnet',
         'telefono',
         'genero',
-        'estado',
     ];
 
-    // Relacion uno a uno: la ficha laboral pertenece a una cuenta de usuario.
+    // Relación uno a uno: estos datos personales pertenecen a una cuenta de usuario.
     public function usuario()
     {
         return $this->belongsTo(User::class, 'id_usuario');

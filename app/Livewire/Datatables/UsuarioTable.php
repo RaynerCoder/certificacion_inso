@@ -72,7 +72,9 @@ class UsuarioTable extends DataTableComponent
                 ])),
 
             Column::make("Estado", "estado")
-                ->format(fn ($valor) => $this->estadoLiteral($valor))
+                ->format(fn ($estado) => view('tablas.chip_estado', [
+                    'estado' => $estado,
+                ]))
                 ->sortable(),
 
             Column::make('Acciones')
@@ -80,14 +82,6 @@ class UsuarioTable extends DataTableComponent
                     return view('usuarios.accion', ['usuario' => $fila]);
                 }),
         ];
-    }
-
-    /**
-     * Convierte el estado numerico de la base de datos a texto legible.
-     */
-    private function estadoLiteral($estado): string
-    {
-        return (string) $estado === '1' ? 'Activo' : 'Inactivo';
     }
 
     /**

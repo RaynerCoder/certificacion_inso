@@ -87,6 +87,16 @@ class CargoController extends Controller
     {
         $datos = $this->validarCargo($solicitud, $cargo);
 
+        if ($this->quiereInactivarCargo($cargo, $datos) && $this->cargoEstaRelacionado($cargo)) {
+            session()->flash('swal', [
+                'title' => 'No se puede cambiar a Inactivo',
+                'text' => 'El cargo está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('cargos_index');
+        }
+
         try {
             DB::beginTransaction();
 
@@ -133,15 +143,25 @@ class CargoController extends Controller
     }
 
     /**
-     * Elimina un cargo si no esta asignado a funcionarios.
+     * Cambia el cargo a Inactivo sin eliminarlo de la base de datos.
      */
     public function destroy(Cargo $cargo)
     {
-        if ($cargo->funcionarios()->exists()) {
+        if ($this->cargoEstaRelacionado($cargo)) {
             session()->flash('swal', [
                 'title' => 'No se puede eliminar',
-                'text' => 'El cargo esta asignado a uno o mas funcionarios.',
+                'text' => 'El cargo está relacionado con otros datos.',
                 'icon' => 'error',
+            ]);
+
+            return redirect()->route('cargos_index');
+        }
+
+        if ((string) $cargo->estado === '0') {
+            session()->flash('swal', [
+                'title' => 'Sin cambios',
+                'text' => 'El cargo ya se encuentra Inactivo.',
+                'icon' => 'info',
             ]);
 
             return redirect()->route('cargos_index');
@@ -150,13 +170,13 @@ class CargoController extends Controller
         try {
             DB::beginTransaction();
 
-            $cargo->delete();
+            $cargo->update(['estado' => 0]);
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El cargo se elimino correctamente.',
+                'text' => 'El cargo cambió a Inactivo correctamente.',
                 'icon' => 'success',
             ]);
 
@@ -189,5 +209,18 @@ class CargoController extends Controller
             'form_id_area' => 'area',
             'form_estado' => 'estado',
         ]);
+    }
+
+    // Solo revisa relaciones cuando un cargo activo pasa a Inactivo.
+    private function quiereInactivarCargo(Cargo $cargo, array $datos): bool
+    {
+        return (string) $cargo->estado === '1'
+            && (string) $datos['form_estado'] === '0';
+    }
+
+    // Una asignación existente impide inactivar el cargo.
+    private function cargoEstaRelacionado(Cargo $cargo): bool
+    {
+        return $cargo->funcionariosCargos()->withTrashed()->exists();
     }
 }

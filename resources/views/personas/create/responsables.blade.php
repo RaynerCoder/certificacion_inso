@@ -133,6 +133,7 @@
                                 data-expedido="{{ $persona->natural?->expedido ?? '' }}"
                                 data-fecha="{{ $persona->natural?->fecha_nacimiento ?? '' }}"
                                 data-genero="{{ $persona->natural?->genero ?? '' }}"
+                                data-id-ocupacion="{{ $persona->natural?->id_ocupacion ?? '' }}"
                                 data-ocupacion="{{ $persona->natural?->ocupacion ?? '' }}"
                                 data-telefonos='@json($persona->telefonos)'
                                 data-rubros='@json($persona->rubros)'>
@@ -168,33 +169,42 @@
 
                 <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                    <x-wire-input label="Domicilio del responsable" id="nuevo_domicilio" placeholder="Dirección o domicilio" />
+                    <x-wire-input label="Domicilio" id="nuevo_domicilio" placeholder="Dirección o domicilio" />
 
-                    <x-wire-input label="NIT del responsable" id="nuevo_nit" placeholder="NIT si corresponde" />
+                    <x-wire-input label="NIT" id="nuevo_nit" placeholder="NIT si corresponde" />
 
-                    <x-wire-input label="Correo del responsable" id="nuevo_correo" type="email"
+                    <x-wire-input label="Correo electrónico" id="nuevo_correo" type="email"
                         placeholder="correo@ejemplo.com" />
 
-                    <x-wire-native-select label="Territorio del responsable" id="nuevo_id_territorio">
+                    <div class="territorio-responsable-cascada"
+                        data-territorio-responsable
+                        data-url-hijos="{{ route('personas_territorios_hijos', ['territorio' => '__ID__']) }}"
+                        data-url-ruta="{{ route('personas_territorio_ruta', ['territorio' => '__ID__']) }}"
+                        data-error-wrapper="nuevo_id_territorio">
+                        <select id="nuevo_id_territorio" name="nuevo_id_territorio" class="hidden">
+                            <option value="">Seleccione territorio</option>
+                        </select>
 
-                        <option value="">
-                            Seleccione territorio
-                        </option>
+                        <label for="nuevo_id_pais_responsable"
+                            class="mb-1 block text-sm font-medium text-slate-700">
+                            País
+                        </label>
+                        <select id="nuevo_id_pais_responsable" class="territorio-responsable-select">
+                            <option value="">Seleccione país</option>
+                            @foreach ($paises as $pais)
+                                <option value="{{ $pais->id }}">{{ $pais->nombre }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                        @foreach ($territorios as $elemento)
-                            <option value="{{ $elemento->id }}">
-                                {{ $elemento->nombre }}
-                            </option>
-                        @endforeach
-
-                    </x-wire-native-select>
+                    <div class="contents" data-territorio-responsable-niveles></div>
 
                 </div>
 
             </div>
 
             {{-- SECCIÓN 3 --}}
-            <div class="rounded-xl border border-violet-200 overflow-hidden">
+            <div class="relative z-20 rounded-xl border border-violet-200 overflow-visible">
 
                 <div class="bg-violet-50 px-4 py-2 border-b border-violet-100">
                     <h3 class="text-sm font-bold text-violet-700">
@@ -228,7 +238,40 @@
                         <option value="0">Femenino</option>
                     </x-wire-native-select>
 
-                    <x-wire-input label="Ocupación" id="nuevo_ocupacion" placeholder="Ocupación" />
+                    <div class="ocupacion-persona-autocomplete" data-ocupacion-responsable>
+                        <label for="buscadorOcupacionResponsable"
+                            class="mb-1 block text-sm font-medium text-slate-700">
+                            Ocupación
+                        </label>
+
+                        <select id="nuevo_id_ocupacion" class="hidden" aria-hidden="true">
+                            <option value="">Seleccione ocupación</option>
+                            @foreach (($ocupacionesCob ?? collect()) as $ocupacionCob)
+                                <option value="{{ $ocupacionCob->id }}"
+                                    data-codigo="{{ $ocupacionCob->codigo_ocupacion }}"
+                                    data-descripcion="{{ $ocupacionCob->descripcion_ocupacion }}">
+                                    {{ $ocupacionCob->codigo_ocupacion }} - {{ $ocupacionCob->descripcion_ocupacion }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        <div class="ocupacion-persona-control">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+
+                            <input type="search" id="buscadorOcupacionResponsable"
+                                data-ocupacion-responsable-buscar
+                                placeholder="Escriba código o descripción" autocomplete="off">
+
+                            <button type="button" class="ocupacion-persona-limpiar"
+                                data-ocupacion-responsable-limpiar
+                                aria-label="Quitar ocupación seleccionada">
+                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <div class="ocupacion-persona-resultados"
+                            data-ocupacion-responsable-resultados></div>
+                    </div>
 
                 </div>
 
@@ -255,10 +298,9 @@
                         </div>
 
                         <div class="md:col-span-4">
-                            <x-wire-native-select label="Tipo" id="nuevo_tipo_telefono">
-                                <option value="CELULAR">Celular</option>
-                                <option value="FIJO">Fijo</option>
-                                <option value="REFERENCIA">Referencia</option>
+                            <x-wire-native-select label="Estado" id="nuevo_estado_telefono">
+                                <option value="ACTIVO">Activo</option>
+                                <option value="INACTIVO">Inactivo</option>
                             </x-wire-native-select>
                         </div>
 
@@ -288,7 +330,7 @@
 
 
             {{-- SECCIÓN 5 --}}
-            <div class="rounded-xl border border-sky-200 overflow-hidden">
+            <div class="relative z-30 rounded-xl border border-sky-200 overflow-visible">
 
                 <div class="bg-sky-50 px-4 py-2 border-b border-sky-100">
                     <h3 class="text-sm font-bold text-sky-700">
@@ -299,44 +341,46 @@
                     </p>
                 </div>
 
-                <div class="p-4 space-y-4">
+                <div id="formRubrosResponsable" class="p-4 space-y-4">
+                    <div>
+                        <label for="rubroResponsableSelectorCatalogo"
+                            class="mb-2 block text-sm font-semibold text-slate-700">
+                            Buscar y agregar rubro
+                        </label>
 
-                    <div id="formRubrosResponsable" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <select id="rubroResponsableSelectorCatalogo" class="hidden">
+                            <option value="">Seleccione un rubro</option>
+                            @foreach (($rubrosCatalogo ?? collect()) as $rubro)
+                                <option value="{{ $rubro->id }}" data-nombre="{{ $rubro->nombre }}">
+                                    {{ $rubro->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
 
-                        <div class="md:col-span-8">
-                            <x-wire-input label="Nombre del rubro" id="nuevo_rubro"
-                                placeholder="Ej: Control de plagas" />
+                        <div class="ocupacion-persona-autocomplete" data-rubro-responsable-combobox>
+                            <div class="ocupacion-persona-control">
+                                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+
+                                <input type="search" data-rubro-responsable-search
+                                    placeholder="Escriba el nombre del rubro" autocomplete="off">
+                            </div>
+
+                            <div class="ocupacion-persona-resultados"
+                                data-rubro-responsable-options-list></div>
                         </div>
-
-                        <div class="md:col-span-2">
-                            <x-wire-native-select label="Estado" id="nuevo_estado_rubro">
-                                {{-- Estado textual para guardar rubros del responsable como ACTIVO / INACTIVO. --}}
-                                <option value="ACTIVO">Activo</option>
-                                <option value="INACTIVO">Inactivo</option>
-                            </x-wire-native-select>
-                        </div>
-
-                        <div class="md:col-span-2 flex items-end">
-                            <button type="button" onclick="agregarRubroResponsableModal()"
-                                class="w-full px-4 py-2 rounded-lg bg-sky-600 text-white text-sm hover:bg-sky-700">
-                                Agregar
-                            </button>
-                        </div>
-
                     </div>
 
-                    <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
-                        <h4 class="text-sm font-semibold text-gray-700">
-                            Rubros registrados
-                        </h4>
+                    <div class="persona-rubros-selected-card">
+                        <p id="resumenRubrosResponsableModal" class="persona-rubro-summary">
+                            Rubros seleccionados (0)
+                        </p>
 
-                        <div id="listaRubrosResponsableModal" class="flex flex-wrap gap-2 mt-3">
+                        <div id="listaRubrosResponsableModal" class="flex flex-wrap gap-2">
                             <span id="mensajeSinRubrosResponsableModal" class="text-sm text-gray-500">
                                 Todavía no se agregaron rubros.
                             </span>
                         </div>
                     </div>
-
                 </div>
             </div>
 
@@ -398,12 +442,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <x-wire-datetime-picker label="Fecha de registro" id="nuevo_fecha_registro"
-                        name="nuevo_fecha_registro" without-time />
-
-                    <x-wire-datetime-picker label="Fecha de baja" id="nuevo_fecha_baja" name="nuevo_fecha_baja"
-                        without-time />
 
                     <x-wire-native-select label="Estado" id="nuevo_estado_responsable">
 

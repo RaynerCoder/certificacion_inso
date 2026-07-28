@@ -1,6 +1,7 @@
-<div class="flex items-center space-x-2">
+<div class="flex items-center justify-center space-x-2">
     <x-wire-button type="button" blue xs
-        onclick='abrirModalEditarTerritorio(@js($territorio->id), @js($territorio->id_ambito), @js($territorio->id_padre_territorio), @js($territorio->nombre), @js($territorio->codigo), @js($territorio->estado))'>
+        data-editar-territorio
+        data-id="{{ $territorio->id }}">
         Editar
     </x-wire-button>
 

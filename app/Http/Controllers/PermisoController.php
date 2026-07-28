@@ -82,6 +82,16 @@ class PermisoController extends Controller
     {
         $datos = $this->validarPermiso($solicitud, $permiso);
 
+        if ($this->quiereInactivarPermiso($permiso, $datos) && $this->permisoEstaRelacionado($permiso)) {
+            session()->flash('swal', [
+                'title' => 'No se puede cambiar a Inactivo',
+                'text' => 'El permiso está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('permisos_index');
+        }
+
         try {
             DB::beginTransaction();
 
@@ -111,22 +121,40 @@ class PermisoController extends Controller
     }
 
     /**
-     * Elimina el permiso y lo desasocia antes de roles y usuarios directos.
+     * Cambia el estado del permiso a Inactivo sin eliminarlo de la base de datos.
      */
     public function destroy(Permiso $permiso)
     {
+        if ($this->permisoEstaRelacionado($permiso)) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'El permiso está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('permisos_index');
+        }
+
+        if ((string) $permiso->estado === '0') {
+            session()->flash('swal', [
+                'title' => 'Sin cambios',
+                'text' => 'El permiso ya tiene estado Inactivo.',
+                'icon' => 'info',
+            ]);
+
+            return redirect()->route('permisos_index');
+        }
+
         try {
             DB::beginTransaction();
 
-            $permiso->roles()->detach();
-            $permiso->users()->detach();
-            $permiso->delete();
+            $permiso->update(['estado' => 0]);
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El permiso se elimino correctamente.',
+                'text' => 'El estado del permiso cambió a Inactivo correctamente.',
                 'icon' => 'success',
             ]);
 
@@ -155,5 +183,30 @@ class PermisoController extends Controller
             'form_nombre' => 'nombre del permiso',
             'form_estado' => 'estado',
         ]);
+    }
+
+    /**
+     * Indica si la edición intenta pasar un permiso activo a Inactivo.
+     */
+    private function quiereInactivarPermiso(Permiso $permiso, array $datos): bool
+    {
+        return (string) $permiso->estado === '1'
+            && (string) $datos['form_estado'] === '0';
+    }
+
+    /**
+     * Revisa las asignaciones que impiden inactivar o eliminar el permiso.
+     */
+    private function permisoEstaRelacionado(Permiso $permiso): bool
+    {
+        $tieneRoles = DB::table('permisos_roles')
+            ->where('id_permiso', $permiso->id)
+            ->exists();
+
+        $tieneUsuarios = DB::table('permisos_users')
+            ->where('id_permiso', $permiso->id)
+            ->exists();
+
+        return $tieneRoles || $tieneUsuarios;
     }
 }

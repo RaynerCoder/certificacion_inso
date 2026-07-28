@@ -44,19 +44,9 @@
                     </div>
 
                     <div class="md:col-span-4">
-                        <x-wire-native-select label="Estado" id="tipoTelefono">
-
-                            <option value="CELULAR">
-                                Celular
-                            </option>
-
-                            <option value="FIJO">
-                                Fijo
-                            </option>
-
-                            <option value="REFERENCIA">
-                                Referencia
-                            </option>
+                        <x-wire-native-select label="Estado" id="estadoTelefono">
+                            <option value="ACTIVO">Activo</option>
+                            <option value="INACTIVO">Inactivo</option>
 
                         </x-wire-native-select>
                     </div>
@@ -66,7 +56,7 @@
                         <button type="button" onclick="agregarTelefonoPersona()"
                             class="w-full px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700">
 
-                            Agregar Teléfono
+                            Agregar teléfono
 
                         </button>
 

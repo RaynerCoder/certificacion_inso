@@ -10,6 +10,7 @@
 ]">
 
     @include('seguridad.estilos')
+    @include('roles.estilo')
 
     <x-slot name="action">
         <x-wire-button href="{{ route('roles_create') }}" blue>
@@ -17,18 +18,22 @@
         </x-wire-button>
     </x-slot>
 
-    @if (session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {{ session('error') }}
-        </div>
-    @endif
+    <div class="roles-module">
+        @if (session('error'))
+            <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {{ session('error') }}
+            </div>
+        @endif
 
-    {{-- Tabla principal del CRUD. La logica esta en app/Livewire/Datatables/RolTable.php --}}
-    @livewire('datatables.rol-table')
+        {{-- Mantiene las columnas legibles y habilita desplazamiento solo en pantallas pequeñas. --}}
+        <div class="roles-table-scroll">
+            @livewire('datatables.rol-table')
+        </div>
+    </div>
 
     @push('js')
         <script>
-            // Confirma con SweetAlert antes de eliminar un rol y sus relaciones.
+            // Confirma el cambio antes de enviar la solicitud.
             document.addEventListener('submit', function(e) {
                 const formulario = e.target.closest('.delete-form');
 
@@ -40,7 +45,7 @@
 
                 Swal.fire({
                     title: 'Eliminar rol',
-                    text: 'Se quitaran tambien sus permisos y asignaciones a usuarios.',
+                    text: 'El estado del rol cambiará a Inactivo si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',
