@@ -24,6 +24,12 @@
             overflow-x: hidden;
         }
 
+        /* Conserva el ancho del modal aunque producción todavía tenga un CSS de Vite anterior. */
+        .requisitos-uso-modal-card {
+            width: 100%;
+            max-width: 42rem;
+        }
+
         @media (max-width: 767px) {
             .requisitos-datatable .requisitos-table-shell {
                 overflow: visible;
@@ -220,7 +226,7 @@
     <div id="modalUsoRequisito"
         class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4"
         role="dialog" aria-modal="true" aria-labelledby="tituloModalUsoRequisito">
-        <div class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="requisitos-uso-modal-card flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div class="min-w-0">
                     <h2 id="tituloModalUsoRequisito" class="text-lg font-bold text-slate-800">
