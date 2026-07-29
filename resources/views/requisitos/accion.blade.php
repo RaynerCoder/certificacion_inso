@@ -1,4 +1,6 @@
-<div class="flex flex-wrap items-center justify-end gap-2">
+<div class="flex flex-wrap items-center justify-center gap-1.5 sm:flex-nowrap">
+
+    @include('requisitos.uso', ['requisito' => $requisito])
 
     <!-- El boton esta en modo escucha en JavaScript -->
     <x-wire-button type="button" blue xs 

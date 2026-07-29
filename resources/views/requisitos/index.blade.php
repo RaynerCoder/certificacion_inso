@@ -216,6 +216,46 @@
         </div>
     </div>
 
+    {{-- MODAL PARA CONSULTAR EN QUÉ TIPOS DE CERTIFICADO SE UTILIZA EL REQUISITO --}}
+    <div id="modalUsoRequisito"
+        class="hidden fixed inset-0 z-[9999] bg-black/45 items-center justify-center p-4"
+        role="dialog" aria-modal="true" aria-labelledby="tituloModalUsoRequisito">
+        <div class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div class="min-w-0">
+                    <h2 id="tituloModalUsoRequisito" class="text-lg font-bold text-slate-800">
+                        Certificados que utilizan el requisito
+                    </h2>
+                    <p id="cantidadUsoRequisito" class="mt-1 text-sm text-slate-500"></p>
+                </div>
+                <button type="button" onclick="cerrarModalUsoRequisito()"
+                    class="shrink-0 rounded-lg px-3 py-1 text-xl font-bold text-slate-500 hover:bg-slate-100"
+                    aria-label="Cerrar">
+                    x
+                </button>
+            </div>
+
+            <div class="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Requisito</p>
+                <p id="descripcionUsoRequisito"
+                    class="mt-1 max-h-24 overflow-y-auto whitespace-pre-line break-words text-sm leading-6 text-slate-700">
+                </p>
+            </div>
+
+            <div class="min-h-0 overflow-y-auto p-4 sm:p-5">
+                <div id="listadoUsoRequisito"
+                    class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                </div>
+            </div>
+
+            <div class="flex justify-end border-t border-slate-100 px-5 py-3">
+                <x-wire-button type="button" onclick="cerrarModalUsoRequisito()" secondary>
+                    Cerrar
+                </x-wire-button>
+            </div>
+        </div>
+    </div>
+
     @push('js')
         <script>
             // Ruta para editar el requisito
@@ -256,6 +296,36 @@
                 modal.classList.remove('flex');
             }
 
+            // Muestra los certificados incluidos en la plantilla de la fila seleccionada.
+            function abrirModalUsoRequisito(boton) {
+                const contenedor = boton.closest('[data-uso-requisito]');
+                const plantilla = contenedor?.querySelector('[data-contenido-uso-requisito]');
+                const modal = document.getElementById('modalUsoRequisito');
+
+                if (!modal || !plantilla) {
+                    return;
+                }
+
+                const cantidad = Number(boton.dataset.cantidad || 0);
+                document.getElementById('descripcionUsoRequisito').textContent =
+                    boton.dataset.requisito || 'Requisito sin descripción';
+                document.getElementById('cantidadUsoRequisito').textContent =
+                    cantidad === 1 ? 'Incluido en 1 certificado.' : `Incluido en ${cantidad} certificados.`;
+                document.getElementById('listadoUsoRequisito').replaceChildren(
+                    plantilla.content.cloneNode(true)
+                );
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function cerrarModalUsoRequisito() {
+                const modal = document.getElementById('modalUsoRequisito');
+
+                modal?.classList.add('hidden');
+                modal?.classList.remove('flex');
+            }
+
             // Limpia mensajes required de WireUI al cerrar el modal para que no reaparezcan al volver a abrir.
             function limpiarErroresModalRequisito(modal) {
                 if (!modal) {
@@ -274,9 +344,15 @@
             document.addEventListener('click', function(e) {
                 const botonCrear = e.target.closest('[data-crear-requisito]');
                 const botonEditar = e.target.closest('[data-editar-requisito]');
+                const botonVerUso = e.target.closest('[data-ver-uso-requisito]');
 
                 if (botonCrear) {
                     abrirModalCrearRequisito();
+                    return;
+                }
+
+                if (botonVerUso) {
+                    abrirModalUsoRequisito(botonVerUso);
                     return;
                 }
 

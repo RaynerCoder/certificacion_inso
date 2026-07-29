@@ -5,6 +5,7 @@ namespace App\Livewire\Datatables;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 use App\Models\Requisito;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 
 class RequisitoTable extends DataTableComponent
@@ -44,7 +45,7 @@ class RequisitoTable extends DataTableComponent
             [$columna, $alineacion, $ancho] = match ($column->getTitle()) {
                 'ID' => ['id', 'text-left', 'width: 4.5rem; min-width: 4.5rem; max-width: 4.5rem; text-align: left;'],
                 'Estado' => ['estado', 'text-center', 'width: 7rem; min-width: 7rem; max-width: 7rem; text-align: center;'],
-                'Acciones' => ['acciones', 'text-right', 'width: 10.5rem; min-width: 10.5rem; max-width: 10.5rem; text-align: right;'],
+                'Acciones' => ['acciones', 'text-center', 'width: 14rem; min-width: 14rem; max-width: 14rem; text-align: center;'],
                 default => ['descripcion', 'text-left', 'text-align: left;'],
             };
 
@@ -94,8 +95,8 @@ class RequisitoTable extends DataTableComponent
                 ],
                 'Acciones' => [
                     'acciones',
-                    'text-right',
-                    'width: 10.5rem; min-width: 10.5rem; max-width: 10.5rem; text-align: right; vertical-align: top;',
+                    'text-center',
+                    'width: 14rem; min-width: 14rem; max-width: 14rem; text-align: center; vertical-align: top;',
                 ],
                 default => [
                     'descripcion',
@@ -112,6 +113,20 @@ class RequisitoTable extends DataTableComponent
                 'default' => false,
             ];
         });
+    }
+
+    /**
+     * Carga los tipos de certificado usados por cada requisito sin repetir consultas por fila.
+     */
+    public function builder(): Builder
+    {
+        return Requisito::query()
+            ->with([
+                'tiposCertificados' => fn ($consulta) => $consulta
+                    ->select('tipos_certificados.id', 'tipos_certificados.nombre', 'tipos_certificados.estado')
+                    ->orderBy('tipos_certificados.nombre'),
+            ])
+            ->withCount('tiposCertificados');
     }
 
     public function columns(): array

@@ -176,8 +176,9 @@
                     <x-wire-input label="Correo electrónico" id="nuevo_correo" type="email"
                         placeholder="correo@ejemplo.com" />
 
-                    <div class="territorio-responsable-cascada"
+                    <div class="territorio-responsable-cascada ocupacion-persona-autocomplete"
                         data-territorio-responsable
+                        data-pais-responsable
                         data-url-hijos="{{ route('personas_territorios_hijos', ['territorio' => '__ID__']) }}"
                         data-url-ruta="{{ route('personas_territorio_ruta', ['territorio' => '__ID__']) }}"
                         data-error-wrapper="nuevo_id_territorio">
@@ -185,16 +186,37 @@
                             <option value="">Seleccione territorio</option>
                         </select>
 
-                        <label for="nuevo_id_pais_responsable"
+                        <label for="buscadorPaisResponsable"
                             class="mb-1 block text-sm font-medium text-slate-700">
                             País
                         </label>
-                        <select id="nuevo_id_pais_responsable" class="territorio-responsable-select">
+                        <select id="nuevo_id_pais_responsable" class="hidden" aria-hidden="true" tabindex="-1">
                             <option value="">Seleccione país</option>
                             @foreach ($paises as $pais)
-                                <option value="{{ $pais->id }}">{{ $pais->nombre }}</option>
+                                <option value="{{ $pais->id }}"
+                                    data-codigo="{{ $pais->codigo }}"
+                                    data-nombre="{{ $pais->nombre }}">
+                                    {{ $pais->nombre }}
+                                </option>
                             @endforeach
                         </select>
+
+                        <div class="ocupacion-persona-control">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+
+                            <input type="search" id="buscadorPaisResponsable"
+                                data-pais-responsable-buscar
+                                placeholder="Escriba código o país" autocomplete="off">
+
+                            <button type="button" class="ocupacion-persona-limpiar"
+                                data-pais-responsable-limpiar
+                                aria-label="Quitar país seleccionado">
+                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <div class="ocupacion-persona-resultados"
+                            data-pais-responsable-resultados></div>
                     </div>
 
                     <div class="contents" data-territorio-responsable-niveles></div>

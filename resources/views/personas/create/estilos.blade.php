@@ -1948,7 +1948,7 @@
         font-size: 14px;
     }
 
-    .territorio-responsable-select {
+    select.territorio-responsable-select {
         width: 100%;
         min-height: 42px;
         border: 1px solid #d1d5db;
@@ -1959,13 +1959,13 @@
         font-size: 14px;
     }
 
-    .territorio-responsable-select:focus {
+    select.territorio-responsable-select:focus {
         border-color: #0d9488;
         outline: none;
         box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
     }
 
-    .territorio-responsable-select:disabled {
+    select.territorio-responsable-select:disabled {
         cursor: not-allowed;
         background: #f1f5f9;
         color: #64748b;

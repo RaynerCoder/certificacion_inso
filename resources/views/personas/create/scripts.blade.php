@@ -68,6 +68,10 @@
          background: #f3f4f6 !important;
          color: #111827 !important;
      }
+
+     [data-territorio-responsable-niveles] .ts-wrapper {
+         width: 100%;
+     }
  </style>
 
 
@@ -2202,6 +2206,96 @@
      let pdfTemporalResponsableModal = null;
      let versionCargaTerritorioResponsable = 0;
 
+     // Aplica el selector buscable a los niveles territoriales que se cargan dinámicamente.
+     function inicializarSelectorTerritorioResponsable(select, etiqueta) {
+         if (!select || typeof TomSelect === 'undefined' || select.tomselect) {
+             return;
+         }
+
+         new TomSelect(select, {
+             create: false,
+             allowEmptyOption: true,
+             maxOptions: 500,
+             searchField: ['text'],
+             placeholder: `Buscar ${String(etiqueta || 'territorio').toLowerCase()}`,
+         });
+     }
+
+     function limpiarNivelesTerritorioResponsable() {
+         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
+
+         niveles?.querySelectorAll('.territorio-responsable-select').forEach(select => {
+             select.tomselect?.destroy();
+         });
+
+         if (niveles) {
+             niveles.innerHTML = '';
+         }
+     }
+
+     function seleccionarPaisResponsableModal(valor) {
+         const select = document.getElementById('nuevo_id_pais_responsable');
+         const contenedor = document.querySelector('[data-pais-responsable]');
+
+         if (!select) return;
+
+         select.value = valor || '';
+         select.dispatchEvent(new Event('change', { bubbles: true }));
+         contenedor?.classList.remove('is-open');
+         actualizarPaisResponsableModal();
+     }
+
+     function actualizarPaisResponsableModal() {
+         const select = document.getElementById('nuevo_id_pais_responsable');
+         const buscador = document.querySelector('[data-pais-responsable-buscar]');
+         const botonLimpiar = document.querySelector('[data-pais-responsable-limpiar]');
+         const opcion = select?.options?.[select.selectedIndex];
+         const seleccionValida = Boolean(opcion?.value);
+
+         if (buscador) {
+             buscador.value = seleccionValida
+                 ? (opcion.dataset.nombre || opcion.textContent.trim())
+                 : '';
+         }
+
+         botonLimpiar?.classList.toggle('is-visible', seleccionValida);
+     }
+
+     function renderizarPaisesResponsableModal(filtro = '') {
+         const select = document.getElementById('nuevo_id_pais_responsable');
+         const lista = document.querySelector('[data-pais-responsable-resultados]');
+         const textoFiltro = normalizarBusquedaOcupacionPersonaWizard(filtro);
+
+         if (!select || !lista) return;
+
+         const opciones = Array.from(select.options)
+             .filter(opcion => opcion.value)
+             .filter(opcion => {
+                 const codigo = normalizarBusquedaOcupacionPersonaWizard(opcion.dataset.codigo);
+                 const nombre = normalizarBusquedaOcupacionPersonaWizard(opcion.dataset.nombre);
+
+                 return codigo.includes(textoFiltro) || nombre.includes(textoFiltro);
+             })
+             .slice(0, 50);
+
+         if (opciones.length === 0) {
+             lista.innerHTML = '<div class="ocupacion-persona-vacio">No se encontraron países.</div>';
+             return;
+         }
+
+         lista.innerHTML = opciones.map(opcion => `
+             <button type="button"
+                 class="ocupacion-persona-opcion ${String(opcion.value) === String(select.value) ? 'is-selected' : ''}"
+                 data-pais-responsable-id="${escaparHtmlPersonaWizard(opcion.value)}">
+                 <span class="ocupacion-persona-codigo">${escaparHtmlPersonaWizard(opcion.dataset.codigo || '')}</span>
+                 <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(opcion.dataset.nombre || '')}</span>
+                 <span class="ocupacion-persona-check">
+                     ${String(opcion.value) === String(select.value) ? '<i class="fa-solid fa-check"></i>' : ''}
+                 </span>
+             </button>
+         `).join('');
+     }
+
      function urlTerritorioResponsable(tipo, idTerritorio) {
          const contenedor = document.querySelector('[data-territorio-responsable]');
          const plantilla = contenedor?.dataset[tipo === 'ruta' ? 'urlRuta' : 'urlHijos'] || '';
@@ -2293,19 +2387,19 @@
 
          bloque.appendChild(select);
          niveles.appendChild(bloque);
+         inicializarSelectorTerritorioResponsable(select, etiqueta);
 
          return true;
      }
 
      async function seleccionarPaisTerritorioResponsable() {
          const pais = document.getElementById('nuevo_id_pais_responsable');
-         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
          const opcion = pais?.options[pais.selectedIndex];
 
          versionCargaTerritorioResponsable++;
          const versionActual = versionCargaTerritorioResponsable;
 
-         if (niveles) niveles.innerHTML = '';
+         limpiarNivelesTerritorioResponsable();
 
          if (!pais?.value) {
              guardarTerritorioFinalResponsable('', '');
@@ -2323,12 +2417,11 @@
 
      async function cargarRutaTerritorioResponsable(idTerritorio) {
          const pais = document.getElementById('nuevo_id_pais_responsable');
-         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
 
          versionCargaTerritorioResponsable++;
          const versionActual = versionCargaTerritorioResponsable;
 
-         if (niveles) niveles.innerHTML = '';
+         limpiarNivelesTerritorioResponsable();
 
          if (!idTerritorio || !pais) {
              if (pais) pais.value = '';
@@ -2347,11 +2440,8 @@
                  pais.add(new Option(paisRuta.nombre, paisRuta.id));
              }
 
-             if (pais.tomselect) {
-                 pais.tomselect.setValue(String(paisRuta.id), true);
-             } else {
-                 pais.value = String(paisRuta.id);
-             }
+             pais.value = String(paisRuta.id);
+             actualizarPaisResponsableModal();
              guardarTerritorioFinalResponsable(paisRuta.id, paisRuta.nombre);
 
              if (ruta.length > 1) {
@@ -2376,15 +2466,13 @@
 
      function reiniciarTerritorioResponsable() {
          const pais = document.getElementById('nuevo_id_pais_responsable');
-         const niveles = document.querySelector('[data-territorio-responsable-niveles]');
 
          versionCargaTerritorioResponsable++;
-         if (pais?.tomselect) {
-             pais.tomselect.clear(true);
-         } else if (pais) {
+         if (pais) {
              pais.value = '';
          }
-         if (niveles) niveles.innerHTML = '';
+         actualizarPaisResponsableModal();
+         limpiarNivelesTerritorioResponsable();
          guardarTerritorioFinalResponsable('', '');
      }
 
@@ -2394,6 +2482,12 @@
          if (!contenedor) return;
 
          contenedor.dataset.bloqueado = bloqueado ? '1' : '0';
+         const pais = document.getElementById('nuevo_id_pais_responsable');
+         const buscadorPais = document.querySelector('[data-pais-responsable-buscar]');
+
+         if (pais) pais.disabled = bloqueado;
+         if (buscadorPais) buscadorPais.disabled = bloqueado;
+
          document.querySelectorAll('.territorio-responsable-select')
              .forEach(select => {
                  select.disabled = bloqueado;
@@ -3704,8 +3798,7 @@
          });
      }
 
-     // Se conecta dentro del bloque principal para que el selector territorial
-     // no dependa de que TomSelect o cualquier otro complemento externo cargue.
+     // El buscador visible actualiza este select oculto y conserva la carga país-departamento.
      document.getElementById('nuevo_id_pais_responsable')
          ?.addEventListener('change', seleccionarPaisTerritorioResponsable);
  </script>
@@ -3717,7 +3810,6 @@
  <!-- TomSelect PARA BUSCAR PERSONAS DENTRO DEL MODAL -->
  <script>
      const selectorPersonaResponsableModal = document.getElementById('modal_id_persona_responsable');
-     const selectorPaisResponsableModal = document.getElementById('nuevo_id_pais_responsable');
 
      if (selectorPersonaResponsableModal && typeof TomSelect !== 'undefined') {
          if (!selectorPersonaResponsableModal.tomselect) {
@@ -3735,23 +3827,6 @@
      } else {
          // Mantiene operativo el select nativo si el CDN de TomSelect no responde.
          selectorPersonaResponsableModal?.addEventListener('change', cargarPersonaResponsable);
-     }
-
-     if (selectorPaisResponsableModal && typeof TomSelect !== 'undefined' && !selectorPaisResponsableModal.tomselect) {
-         try {
-             new TomSelect(selectorPaisResponsableModal, {
-                 create: false,
-                 allowEmptyOption: true,
-                 placeholder: 'Seleccione país',
-                 controlInput: null,
-                 onChange: seleccionarPaisTerritorioResponsable,
-             });
-
-             // TomSelect controla el cambio; se evita ejecutar dos veces la carga territorial.
-             selectorPaisResponsableModal.removeEventListener('change', seleccionarPaisTerritorioResponsable);
-         } catch (error) {
-             console.warn('No se pudo inicializar el selector de país.', error);
-         }
      }
 
      document.querySelector('[data-rubro-search]')?.addEventListener('focus', function() {
@@ -3914,6 +3989,44 @@
          document.querySelector('[data-ocupacion-responsable-buscar]')?.focus();
      });
 
+     document.querySelector('[data-pais-responsable-buscar]')?.addEventListener('focus', function() {
+         const select = document.getElementById('nuevo_id_pais_responsable');
+         const contenedor = document.querySelector('[data-pais-responsable]');
+         const filtro = select?.value ? '' : this.value;
+
+         if (this.disabled) return;
+
+         renderizarPaisesResponsableModal(filtro);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-pais-responsable-buscar]')?.addEventListener('input', function() {
+         const select = document.getElementById('nuevo_id_pais_responsable');
+         const contenedor = document.querySelector('[data-pais-responsable]');
+
+         if (select) {
+             select.value = '';
+             select.dispatchEvent(new Event('change', { bubbles: true }));
+         }
+
+         document.querySelector('[data-pais-responsable-limpiar]')?.classList.remove('is-visible');
+         renderizarPaisesResponsableModal(this.value);
+         contenedor?.classList.add('is-open');
+     });
+
+     document.querySelector('[data-pais-responsable-resultados]')?.addEventListener('click', function(event) {
+         const opcion = event.target.closest('[data-pais-responsable-id]');
+
+         if (!opcion) return;
+
+         seleccionarPaisResponsableModal(opcion.dataset.paisResponsableId);
+     });
+
+     document.querySelector('[data-pais-responsable-limpiar]')?.addEventListener('click', function() {
+         seleccionarPaisResponsableModal('');
+         document.querySelector('[data-pais-responsable-buscar]')?.focus();
+     });
+
      document.addEventListener('click', function(event) {
          if (!event.target.closest('[data-rubro-combobox]')) {
              cerrarSelectorRubroPersonaWizard();
@@ -3931,6 +4044,10 @@
              document.querySelector('[data-ocupacion-responsable]')?.classList.remove('is-open');
          }
 
+         if (!event.target.closest('[data-pais-responsable]')) {
+             document.querySelector('[data-pais-responsable]')?.classList.remove('is-open');
+         }
+
          if (!event.target.closest('[data-rol-cuenta]')) {
              document.querySelector('[data-rol-cuenta]')?.classList.remove('is-open');
          }
@@ -3940,6 +4057,7 @@
      actualizarSelectorRubroPersonaWizard();
      actualizarOcupacionPersonaWizard();
      actualizarOcupacionResponsableModal();
+     actualizarPaisResponsableModal();
      actualizarRolCuentaPersonaWizard();
      renderRubrosResponsable(false);
  </script>
