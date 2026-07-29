@@ -363,7 +363,7 @@
 
                 Swal.fire({
                     title: 'Eliminar territorio',
-                    text: 'El estado del territorio cambiará a Inactivo si no está relacionado con otros datos.',
+                    text: 'El territorio se marcará como Inactivo y dejará de aparecer en el listado si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

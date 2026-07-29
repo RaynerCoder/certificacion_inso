@@ -191,7 +191,7 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Inactiva el usuario sin borrarlo para conservar su historial.
+     * Elimina lógicamente el usuario después de dejarlo Inactivo.
      */
     public function destroy(User $usuario)
     {
@@ -207,26 +207,17 @@ class UsuarioController extends Controller
             return redirect()->route('usuarios_index');
         }
 
-        if ((string) $usuario->estado === '0') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El usuario ya tiene estado Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('usuarios_index');
-        }
-
         try {
             DB::beginTransaction();
 
             $usuario->update(['estado' => 0]);
+            $usuario->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El estado del usuario cambió a Inactivo correctamente.',
+                'text' => 'El usuario se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

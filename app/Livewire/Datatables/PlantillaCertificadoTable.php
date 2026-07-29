@@ -27,7 +27,7 @@ class PlantillaCertificadoTable extends DataTableComponent
     {
         return TipoCertificado::query()
             ->select('tipos_certificados.*')
-            ->with(['area', 'plantillaActiva.elementos'])
+            ->with(['area', 'plantillaActiva.elementos', 'ultimaPlantilla.elementos'])
             ->withCount(['tipoCertificadoRequisitos as requisitos_activos_count' => function ($consulta) {
                 $consulta->where('estado', 'ACTIVO');
             }]);
@@ -64,20 +64,31 @@ class PlantillaCertificadoTable extends DataTableComponent
                 ])),
 
             Column::make('Campos')
-                ->label(fn ($fila) => view('tablas.chip_estado', [
-                    'texto' => ($fila->plantillaActiva?->elementos?->count() ?? 0) . ' campos',
-                    'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
-                ])),
+                ->label(function ($fila) {
+                    $plantilla = $fila->plantillaActiva ?? $fila->ultimaPlantilla;
+
+                    return view('tablas.chip_estado', [
+                        'texto' => ($plantilla?->elementos?->count() ?? 0) . ' campos',
+                        'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
+                    ]);
+                }),
 
             Column::make('Estado')
-                ->label(fn ($fila) => view('tablas.chip_estado', [
-                    'estado' => $fila->plantillaActiva?->estado ?? $fila->estado ?? 'Sin estado',
-                ])),
+                ->label(function ($fila) {
+                    $plantilla = $fila->plantillaActiva ?? $fila->ultimaPlantilla;
+
+                    return view('tablas.chip_estado', [
+                        'estado' => $plantilla?->estado ?? 'Sin plantilla',
+                    ]);
+                }),
 
             Column::make('Acciones')
-                ->label(fn ($fila) => view('certificados.plantilla_certificado.accion', [
-                    'tipoCertificado' => $fila,
-                ])),
+                ->label(function ($fila) {
+                    return view('certificados.plantilla_certificado.accion', [
+                        'tipoCertificado' => $fila,
+                        'plantillaCertificado' => $fila->plantillaActiva ?? $fila->ultimaPlantilla,
+                    ]);
+                }),
         ];
     }
 

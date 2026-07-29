@@ -143,7 +143,7 @@ class CargoController extends Controller
     }
 
     /**
-     * Cambia el cargo a Inactivo sin eliminarlo de la base de datos.
+     * Elimina lógicamente el cargo después de dejarlo Inactivo.
      */
     public function destroy(Cargo $cargo)
     {
@@ -157,26 +157,17 @@ class CargoController extends Controller
             return redirect()->route('cargos_index');
         }
 
-        if ((string) $cargo->estado === '0') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El cargo ya se encuentra Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('cargos_index');
-        }
-
         try {
             DB::beginTransaction();
 
             $cargo->update(['estado' => 0]);
+            $cargo->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El cargo cambió a Inactivo correctamente.',
+                'text' => 'El cargo se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

@@ -106,4 +106,34 @@
     <div class="plantillas-certificado-tabla">
         @livewire('datatables.plantilla-certificado-table')
     </div>
+
+    @push('js')
+        <script>
+            // Confirma la eliminación lógica incluso cuando Livewire vuelve a renderizar la tabla.
+            document.addEventListener('submit', function(evento) {
+                const formulario = evento.target.closest('.delete-form-plantilla');
+
+                if (!formulario) {
+                    return;
+                }
+
+                evento.preventDefault();
+
+                Swal.fire({
+                    title: 'Eliminar plantilla',
+                    text: 'La plantilla se marcará como Inactiva y dejará de aparecer en el listado si no está relacionada con certificados.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((resultado) => {
+                    if (resultado.isConfirmed) {
+                        formulario.submit();
+                    }
+                });
+            });
+        </script>
+    @endpush
 </x-admin-layout>

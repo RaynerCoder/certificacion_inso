@@ -43,6 +43,13 @@ class TipoCertificado extends Model
             ->where('estado', 'ACTIVO');
     }
 
+    // Conserva acceso a la plantilla más reciente aunque haya sido inactivada.
+    public function ultimaPlantilla()
+    {
+        return $this->hasOne(PlantillaCertificado::class, 'id_tipo_certificado')
+            ->latestOfMany();
+    }
+
     // Relación uno a muchos (un tipo de certificado tiene muchos requisitos tipos certificados)
     public function tipoCertificadoRequisitos()
     {

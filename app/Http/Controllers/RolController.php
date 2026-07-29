@@ -136,7 +136,7 @@ class RolController extends Controller
     }
 
     /**
-     * Cambia el estado del rol a Inactivo sin eliminarlo de la base de datos.
+     * Elimina lógicamente el rol después de dejarlo Inactivo.
      */
     public function destroy(Role $rol)
     {
@@ -150,26 +150,17 @@ class RolController extends Controller
             return redirect()->route('roles_index');
         }
 
-        if ((string) $rol->estado === '0') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El rol ya tiene estado Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('roles_index');
-        }
-
         try {
             DB::beginTransaction();
 
             $rol->update(['estado' => 0]);
+            $rol->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El estado del rol cambió a Inactivo correctamente.',
+                'text' => 'El rol se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

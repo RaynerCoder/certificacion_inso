@@ -185,7 +185,7 @@
 
                 Swal.fire({
                     title: 'Eliminar permiso',
-                    text: 'El estado del permiso cambiará a Inactivo si no está relacionado con otros datos.',
+                    text: 'El permiso se marcará como Inactivo y dejará de aparecer en el listado si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

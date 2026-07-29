@@ -75,7 +75,7 @@ class TipoCertificadoController extends Controller
             'form_nombre' => ['required','string','max:255',
                 Rule::unique('tipos_certificados', 'nombre'),],
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
-            'form_estado' => 'string|max:50',
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
             'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
@@ -456,7 +456,7 @@ class TipoCertificadoController extends Controller
                     ->ignore($tipoCertificado->id),
             ],
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
-            'form_estado' => 'string|max:50',
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
             'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
@@ -471,6 +471,20 @@ class TipoCertificadoController extends Controller
             'form_id_area' => 'area responsable',
             'form_estado' => 'estado',
         ]);
+
+        if ($tipoCertificado->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
+            $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoCertificado);
+
+            if ($relacionesEncontradas !== []) {
+                session()->flash('swal', [
+                    'title' => 'No se puede cambiar a Inactivo',
+                    'text' => 'El tipo de certificado está relacionado con otros datos.',
+                    'icon' => 'error',
+                ]);
+
+                return redirect()->route('tipos_certificados_index');
+            }
+        }
 
         $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
 
@@ -509,41 +523,34 @@ class TipoCertificadoController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina lógicamente el tipo de certificado después de dejarlo Inactivo.
      */
     public function destroy(TipoCertificado $tipoCertificado)
     {
+        $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoCertificado);
+
+        if ($relacionesEncontradas !== []) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'El tipo de certificado está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('tipos_certificados_index');
+        }
+
         try {
             DB::beginTransaction();
 
-            // No se elimina el tipo de certificado si ya fue usado en certificados
-            if ($tipoCertificado->certificados()->exists()) {
-                DB::rollBack();
-
-                session()->flash('swal', [
-                    'title' => 'No se puede eliminar',
-                    'text'  => 'Este tipo de certificado ya tiene certificados relacionados.',
-                    'icon'  => 'error',
-                ]);
-
-                return redirect()->route('tipos_certificados_index');
-            }
-
-            // Primero se elimina cada pivote como modelo para registrar el usuario que elimino.
-            $this->eliminarRequisitosDelTipoCertificado($tipoCertificado);
-
-            // Antes de eliminar el tipo de certificado se marca inactivo para que el registro no quede como ACTIVO.
             $tipoCertificado->update(['estado' => 'INACTIVO']);
-
-            // Luego se elimina el tipo de certificado usando SoftDeletes.
             $tipoCertificado->delete();
 
             DB::commit();
 
             session()->flash('swal', [
-                'title' => 'Bien hecho',
-                'text'  => 'El tipo de certificado se elimino correctamente.',
-                'icon'  => 'success',
+                'title' => 'Eliminado',
+                'text' => 'El tipo de certificado se eliminó correctamente.',
+                'icon' => 'success',
             ]);
 
             return redirect()->route('tipos_certificados_index');
@@ -555,5 +562,31 @@ class TipoCertificadoController extends Controller
                 ->route('tipos_certificados_index')
                 ->with('error', 'No se pudo eliminar el tipo de certificado.');
         }
+    }
+
+    /**
+     * Revisa las relaciones que todavía utilizan el tipo de certificado.
+     */
+    private function relacionesQueImpidenInactivar(TipoCertificado $tipoCertificado): array
+    {
+        $relacionesEncontradas = [];
+
+        if ($tipoCertificado->certificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'certificados';
+        }
+
+        if ($tipoCertificado->tipoCertificadoRequisitos()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'requisitos configurados';
+        }
+
+        if ($tipoCertificado->dependenciasDondeEsRequerido()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'dependencias de certificados';
+        }
+
+        if ($tipoCertificado->plantillasCertificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'plantillas';
+        }
+
+        return $relacionesEncontradas;
     }
 }

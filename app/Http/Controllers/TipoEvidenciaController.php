@@ -41,7 +41,7 @@ class TipoEvidenciaController extends Controller
             'form_nombre' => 'required|string|max:255',
             'form_descripcion' => 'nullable|string',
             'form_tamanio_maximo_mb' => 'required|integer|min:0|max:100',
-            'form_estado' => 'string|max:50',
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
         ]);
 
         try {
@@ -108,8 +108,22 @@ class TipoEvidenciaController extends Controller
             'form_nombre' => 'required|string|max:255',
             'form_descripcion' => 'nullable|string',
             'form_tamanio_maximo_mb' => 'required|integer|min:0|max:100',
-            'form_estado' => 'string|max:50',
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
         ]);
+
+        if ($tipoEvidencia->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
+            $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoEvidencia);
+
+            if ($relacionesEncontradas !== []) {
+                session()->flash('swal', [
+                    'title' => 'No se puede cambiar a Inactivo',
+                    'text' => 'El tipo de evidencia está relacionado con otros datos.',
+                    'icon' => 'error',
+                ]);
+
+                return redirect()->route('tipos_evidencias_index');
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -144,34 +158,34 @@ class TipoEvidenciaController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina lógicamente el tipo de evidencia después de dejarlo Inactivo.
      */
     public function destroy(TipoEvidencia $tipoEvidencia)
     {
+        $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoEvidencia);
+
+        if ($relacionesEncontradas !== []) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'El tipo de evidencia está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('tipos_evidencias_index');
+        }
+
         try {
             DB::beginTransaction();
 
-            // Evita eliminar tipos de evidencias que ya se usan en requisitos o tramites.
-            if ($tipoEvidencia->requisitoTiposCertificados()->exists() || $tipoEvidencia->evidenciasRequisitos()->exists()) {
-                DB::rollBack();
-
-                session()->flash('swal', [
-                    'title' => 'No se puede eliminar',
-                    'text'  => 'Este tipo de evidencia tiene registros relacionados.',
-                    'icon'  => 'error',
-                ]);
-
-                return redirect()->route('tipos_evidencias_index');
-            }
-
+            $tipoEvidencia->update(['estado' => 'INACTIVO']);
             $tipoEvidencia->delete();
 
             DB::commit();
 
             session()->flash('swal', [
-                'title' => 'Bien hecho',
-                'text'  => 'El tipo de evidencia se elimino correctamente.',
-                'icon'  => 'success',
+                'title' => 'Eliminado',
+                'text' => 'El tipo de evidencia se eliminó correctamente.',
+                'icon' => 'success',
             ]);
 
             return redirect()->route('tipos_evidencias_index');
@@ -183,5 +197,23 @@ class TipoEvidenciaController extends Controller
                 ->route('tipos_evidencias_index')
                 ->with('error', 'No se pudo eliminar el tipo de evidencia.');
         }
+    }
+
+    /**
+     * Revisa las relaciones que todavía utilizan el tipo de evidencia.
+     */
+    private function relacionesQueImpidenInactivar(TipoEvidencia $tipoEvidencia): array
+    {
+        $relacionesEncontradas = [];
+
+        if ($tipoEvidencia->requisitoTiposCertificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'requisitos de tipos de certificados';
+        }
+
+        if ($tipoEvidencia->evidenciasRequisitos()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'evidencias de trámites';
+        }
+
+        return $relacionesEncontradas;
     }
 }

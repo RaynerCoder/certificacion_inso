@@ -297,7 +297,7 @@
 
                 Swal.fire({
                     title: 'Eliminar cargo',
-                    text: 'El cargo cambiará a Inactivo si no está relacionado con otros datos.',
+                    text: 'El cargo se marcará como Inactivo y dejará de aparecer en el listado si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

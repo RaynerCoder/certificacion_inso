@@ -118,7 +118,7 @@
 
                 Swal.fire({
                     title: 'Eliminar usuario',
-                    text: 'El usuario dejará de estar activo, pero conservará su historial.',
+                    text: 'El usuario se marcará como Inactivo y dejará de aparecer en el listado, pero conservará su historial.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

@@ -149,20 +149,10 @@ class TerritorioController extends Controller
     }
 
     /**
-     * Inactiva el territorio sin eliminarlo de la base de datos.
+     * Elimina lógicamente el territorio después de dejarlo Inactivo.
      */
     public function destroy(Territorio $territorio)
     {
-        if ($territorio->estado === 'INACTIVO') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El territorio ya tiene estado Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('territorios_index');
-        }
-
         $relacionesEncontradas = $this->relacionesQueImpidenInactivar($territorio);
 
         if ($relacionesEncontradas !== []) {
@@ -179,12 +169,13 @@ class TerritorioController extends Controller
             DB::beginTransaction();
 
             $territorio->update(['estado' => 'INACTIVO']);
+            $territorio->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El estado del territorio cambió a Inactivo correctamente.',
+                'text' => 'El territorio se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

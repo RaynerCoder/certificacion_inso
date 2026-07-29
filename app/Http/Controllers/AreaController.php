@@ -142,7 +142,7 @@ class AreaController extends Controller
     }
 
     /**
-     * Cambia el estado del área a Inactivo sin eliminarla de la base de datos.
+     * Elimina lógicamente el área después de dejarla Inactiva.
      */
     public function destroy(Area $area)
     {
@@ -156,26 +156,17 @@ class AreaController extends Controller
             return redirect()->route('areas_index');
         }
 
-        if ((string) $area->estado === '0') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El área ya tiene estado Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('areas_index');
-        }
-
         try {
             DB::beginTransaction();
 
             $area->update(['estado' => 0]);
+            $area->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El estado del área cambió a Inactivo correctamente.',
+                'text' => 'El área se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

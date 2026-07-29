@@ -121,7 +121,7 @@ class PermisoController extends Controller
     }
 
     /**
-     * Cambia el estado del permiso a Inactivo sin eliminarlo de la base de datos.
+     * Elimina lógicamente el permiso después de dejarlo Inactivo.
      */
     public function destroy(Permiso $permiso)
     {
@@ -135,26 +135,17 @@ class PermisoController extends Controller
             return redirect()->route('permisos_index');
         }
 
-        if ((string) $permiso->estado === '0') {
-            session()->flash('swal', [
-                'title' => 'Sin cambios',
-                'text' => 'El permiso ya tiene estado Inactivo.',
-                'icon' => 'info',
-            ]);
-
-            return redirect()->route('permisos_index');
-        }
-
         try {
             DB::beginTransaction();
 
             $permiso->update(['estado' => 0]);
+            $permiso->delete();
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text' => 'El estado del permiso cambió a Inactivo correctamente.',
+                'text' => 'El permiso se eliminó correctamente.',
                 'icon' => 'success',
             ]);
 

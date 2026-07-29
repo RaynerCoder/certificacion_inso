@@ -308,7 +308,7 @@
                 );
             });
 
-            // Confirma eliminacion incluso cuando Livewire vuelve a renderizar la tabla.
+            // Confirma la eliminación lógica incluso cuando Livewire vuelve a renderizar la tabla.
             document.addEventListener('submit', function(e) {
                 const formulario = e.target.closest('.delete-form');
 
@@ -319,13 +319,13 @@
                 e.preventDefault();
 
                 Swal.fire({
-                    title: 'Estas seguro?',
-                    text: 'No podras revertir esta accion.',
+                    title: 'Eliminar tipo de evidencia',
+                    text: 'El tipo de evidencia se marcará como Inactivo y dejará de aparecer en el listado si no está relacionado con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Si, eliminar',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar'
                 }).then((result) => {
                     if (result.isConfirmed) {

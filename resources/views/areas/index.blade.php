@@ -640,7 +640,7 @@
 
                 Swal.fire({
                     title: 'Eliminar area',
-                    text: 'El estado del área cambiará a Inactivo si no está relacionada con otros datos.',
+                    text: 'El área se marcará como Inactiva y dejará de aparecer en el listado si no está relacionada con otros datos.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc2626',

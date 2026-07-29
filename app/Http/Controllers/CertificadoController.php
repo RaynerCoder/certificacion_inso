@@ -106,7 +106,10 @@ class CertificadoController extends Controller
         $tipoCertificado->load($this->relacionesPlantillaCertificado());
         $plantilla = $tipoCertificado->plantillaActiva()
             ->with('elementos.columnas')
-            ->first();
+            ->first()
+            ?? $tipoCertificado->ultimaPlantilla()
+                ->with('elementos.columnas')
+                ->first();
 
         return view('certificados.plantilla_certificado.show', compact('tipoCertificado', 'plantilla'));
     }
@@ -116,7 +119,10 @@ class CertificadoController extends Controller
         $tipoCertificado->load($this->relacionesPlantillaCertificado());
         $plantilla = $tipoCertificado->plantillaActiva()
             ->with('elementos.columnas')
-            ->first();
+            ->first()
+            ?? $tipoCertificado->ultimaPlantilla()
+                ->with('elementos.columnas')
+                ->first();
 
         return view('certificados.plantilla_certificado.edit', array_merge(
             $this->datosPlantillaCertificado(),
@@ -127,6 +133,23 @@ class CertificadoController extends Controller
     public function actualizarPlantilla(Request $solicitud, PlantillaCertificado $plantillaCertificado)
     {
         $datos = $this->validarPlantillaCertificado($solicitud);
+
+        if ($plantillaCertificado->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
+            $relacionesEncontradas = $this->relacionesQueImpidenInactivarPlantilla($plantillaCertificado);
+
+            if ($relacionesEncontradas !== []) {
+                session()->flash('swal', [
+                    'title' => 'No se puede cambiar a Inactivo',
+                    'text' => 'La plantilla está relacionada con certificados.',
+                    'icon' => 'error',
+                ]);
+
+                return redirect()->route(
+                    'certificados_plantillas_edit',
+                    $plantillaCertificado->id_tipo_certificado
+                );
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -172,6 +195,47 @@ class CertificadoController extends Controller
             return back()
                 ->with('error', 'No se pudo actualizar la plantilla. ' . $e->getMessage())
                 ->withInput();
+        }
+    }
+
+    /**
+     * Elimina lógicamente la plantilla después de dejarla Inactiva.
+     */
+    public function eliminarPlantilla(PlantillaCertificado $plantillaCertificado)
+    {
+        $relacionesEncontradas = $this->relacionesQueImpidenInactivarPlantilla($plantillaCertificado);
+
+        if ($relacionesEncontradas !== []) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'La plantilla está relacionada con certificados.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('certificados_plantillas_index');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $plantillaCertificado->update(['estado' => 'INACTIVO']);
+            $plantillaCertificado->delete();
+
+            DB::commit();
+
+            session()->flash('swal', [
+                'title' => 'Eliminado',
+                'text' => 'La plantilla se eliminó correctamente.',
+                'icon' => 'success',
+            ]);
+
+            return redirect()->route('certificados_plantillas_index');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()
+                ->route('certificados_plantillas_index')
+                ->with('error', 'No se pudo eliminar la plantilla.');
         }
     }
 
@@ -1016,7 +1080,34 @@ class CertificadoController extends Controller
             $consulta->where('id', '!=', $idPlantillaActual);
         }
 
-        $consulta->update(['estado' => 'INACTIVO']);
+        $plantillasActivas = $consulta->get();
+
+        foreach ($plantillasActivas as $plantillaActiva) {
+            if ($this->relacionesQueImpidenInactivarPlantilla($plantillaActiva) !== []) {
+                throw ValidationException::withMessages([
+                    'form_estado' => 'No se puede reemplazar la plantilla activa porque está relacionada con certificados.',
+                ]);
+            }
+        }
+
+        $plantillasActivas->each(
+            fn (PlantillaCertificado $plantillaActiva) => $plantillaActiva->update(['estado' => 'INACTIVO'])
+        );
+    }
+
+    /**
+     * Revisa si existen certificados que todavía dependen de la plantilla.
+     */
+    private function relacionesQueImpidenInactivarPlantilla(PlantillaCertificado $plantillaCertificado): array
+    {
+        $relacionesEncontradas = [];
+        $tipoCertificado = $plantillaCertificado->tipoCertificado()->first();
+
+        if ($tipoCertificado && $tipoCertificado->certificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'certificados';
+        }
+
+        return $relacionesEncontradas;
     }
 
     private function reemplazarElementosPlantilla(PlantillaCertificado $plantilla, string $elementosJson): void

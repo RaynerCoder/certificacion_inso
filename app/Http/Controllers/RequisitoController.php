@@ -102,8 +102,23 @@ class RequisitoController extends Controller
             'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
         ]);
 
+        if ($requisito->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
+            $relacionesEncontradas = $this->relacionesQueImpidenInactivar($requisito);
+
+            if ($relacionesEncontradas !== []) {
+                session()->flash('swal', [
+                    'title' => 'No se puede cambiar a Inactivo',
+                    'text' => 'El requisito está relacionado con otros datos.',
+                    'icon' => 'error',
+                ]);
+
+                return redirect()->route('requisitos_index');
+            }
+        }
+
         try {
             DB::beginTransaction();
+
             $requisito->update([
                 'descripcion' => $datos['form_descripcion'],
                 'estado' => $datos['form_estado'],
@@ -129,34 +144,34 @@ class RequisitoController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina lógicamente el requisito después de dejarlo Inactivo.
      */
     public function destroy(Requisito $requisito)
     {
+        $relacionesEncontradas = $this->relacionesQueImpidenInactivar($requisito);
+
+        if ($relacionesEncontradas !== []) {
+            session()->flash('swal', [
+                'title' => 'No se puede eliminar',
+                'text' => 'El requisito está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('requisitos_index');
+        }
+
         try {
             DB::beginTransaction();
 
-            // Evita eliminar requisitos que ya se usan en certificados.
-            if ($requisito->certificados()->exists() || $requisito->tiposCertificados()->exists()) {
-                DB::rollBack();
-
-                session()->flash('swal', [
-                    'title' => 'No se puede eliminar',
-                    'text'  => 'Este requisito tiene certificados relacionados.',
-                    'icon'  => 'error',
-                ]);
-
-                return redirect()->route('requisitos_index');
-            }
-
+            $requisito->update(['estado' => 'INACTIVO']);
             $requisito->delete();
 
             DB::commit();
 
             session()->flash('swal', [
-                'title' => 'Bien hecho',
-                'text'  => 'El requisito se elimino correctamente.',
-                'icon'  => 'success',
+                'title' => 'Eliminado',
+                'text' => 'El requisito se eliminó correctamente.',
+                'icon' => 'success',
             ]);
 
             return redirect()->route('requisitos_index');
@@ -168,5 +183,23 @@ class RequisitoController extends Controller
                 ->route('requisitos_index')
                 ->with('error', 'No se pudo eliminar el requisito.');
         }
+    }
+
+    /**
+     * Revisa las relaciones que todavía utilizan el requisito.
+     */
+    private function relacionesQueImpidenInactivar(Requisito $requisito): array
+    {
+        $relacionesEncontradas = [];
+
+        if ($requisito->requisitoTiposCertificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'tipos de certificados';
+        }
+
+        if ($requisito->requisitoCertificados()->withTrashed()->exists()) {
+            $relacionesEncontradas[] = 'certificados';
+        }
+
+        return $relacionesEncontradas;
     }
 }
