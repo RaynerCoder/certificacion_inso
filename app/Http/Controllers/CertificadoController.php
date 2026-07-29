@@ -1527,6 +1527,7 @@ class CertificadoController extends Controller
             RequisitoCertificado::create([
                 'id_certificado' => $certificado->id,
                 'id_requisito' => $idRequisito,
+                'orden' => count($procesados) + 1,
                 'cumple' => $item['cumple'] ?? null,
                 'estado' => $item['estado'] ?? 'PENDIENTE_REVISION',
             ]);

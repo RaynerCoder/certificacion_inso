@@ -15,18 +15,19 @@ class RequisitoTipoCertificadoSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            1 => [1, 1, 1],
-            2 => [2, 1, 1],
-            3 => [3, 1, 1],
-            4 => [4, 1, 4],
-            5 => [1, 2, 1],
-            6 => [4, 2, 4],
-            7 => [5, 2, 6],
-        ] as $id => [$requisito, $tipo, $tipoEvidencia]) {
+            1 => [1, 1, 1, 1],
+            2 => [2, 1, 1, 2],
+            3 => [3, 1, 1, 3],
+            4 => [4, 1, 4, 4],
+            5 => [1, 2, 1, 1],
+            6 => [4, 2, 4, 2],
+            7 => [5, 2, 6, 3],
+        ] as $id => [$requisito, $tipo, $tipoEvidencia, $orden]) {
             $this->guardar('requisitos_tipos_certificados', $id, [
                 'id_requisito' => $requisito,
                 'id_tipo_certificado' => $tipo,
                 'id_tipo_evidencia' => $tipoEvidencia,
+                'orden' => $orden,
                 'estado' => $this->estado('requisitos_tipos_certificados'),
             ]);
         }

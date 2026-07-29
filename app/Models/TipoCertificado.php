@@ -53,7 +53,9 @@ class TipoCertificado extends Model
     // Relación uno a muchos (un tipo de certificado tiene muchos requisitos tipos certificados)
     public function tipoCertificadoRequisitos()
     {
-        return $this->hasMany(RequisitoTipoCertificado::class, 'id_tipo_certificado');
+        return $this->hasMany(RequisitoTipoCertificado::class, 'id_tipo_certificado')
+            ->orderBy('orden')
+            ->orderBy('id');
     }
 
     // Relación muchos a muchos (muchos tipos de certificados pertenecen a muchos requisitos)
@@ -65,9 +67,11 @@ class TipoCertificado extends Model
             'id_tipo_certificado',
             'id_requisito'
         )
-            ->withPivot('id', 'id_tipo_evidencia', 'estado')
+            ->withPivot('id', 'id_tipo_evidencia', 'orden', 'estado')
             ->withTimestamps()
-            ->wherePivotNull('deleted_at');
+            ->wherePivotNull('deleted_at')
+            ->orderByPivot('orden')
+            ->orderByPivot('id');
     }
 
     // Relación uno a muchos (un tipo de certificado requerido tiene muchas dependencias)

@@ -282,14 +282,14 @@
                     </div>
 
                     <div class="p-5">
-                        {{-- Inputs reales que se envian al controlador; la tabla solo ordena la informacion visualmente. --}}
+                        {{-- La posicion de cada fila se envia al controlador y se conserva como orden del requisito. --}}
                         <div id="inputsOcultosRequisitos"></div>
 
                         <div class="overflow-x-auto rounded-lg border border-slate-200">
                             <table class="w-full min-w-[980px] table-fixed divide-y divide-slate-200 text-sm">
                                 <thead class="bg-slate-50 text-xs uppercase text-slate-600">
                                     <tr>
-                                        <th class="w-12 px-3 py-3 text-left">#</th>
+                                        <th class="w-16 px-2 py-3 text-left">#</th>
                                         <th class="w-[30%] px-3 py-3 text-left">Requisito</th>
                                         <th class="w-[22%] px-3 py-3 text-left">Evidencia que debe presentar</th>
                                         <th class="w-[24%] px-3 py-3 text-left">Requisitos previos</th>
@@ -611,6 +611,8 @@
                 const requisitosCertificado = requisito.requisitos_certificado_requerido || requisitosDelCertificado(requisito
                     .id_tipo_certificado_requerido);
                 const claseFila = esCertificadoPrevio ? 'bg-emerald-50/30 hover:bg-emerald-50' : 'hover:bg-slate-50';
+                const puedeSubir = index > 0;
+                const puedeBajar = index < requisitosAsignados.length - 1;
 
                 // Todo requisito debe permitir definir que tipo de evidencia pedira el sistema.
                 const evidencia = selectorTipoEvidencia(index, idTipoEvidencia, esCertificadoPrevio);
@@ -624,7 +626,29 @@
 
                 fila.className = claseFila;
                 fila.innerHTML = `
-                    <td class="px-3 py-3 font-semibold text-slate-600">${index + 1}</td>
+                    <td class="px-2 py-3">
+                        <div class="flex items-center gap-1">
+                            <span class="w-4 text-center font-semibold text-slate-600">${index + 1}</span>
+                            <span class="inline-flex flex-col overflow-hidden rounded border border-slate-200 bg-white">
+                                <button type="button"
+                                    class="flex h-4 w-7 items-center justify-center border-b border-slate-200 ${puedeSubir ? 'text-slate-600 hover:bg-slate-50 hover:text-teal-700' : 'cursor-not-allowed bg-slate-50 text-slate-300'}"
+                                    title="Subir requisito"
+                                    aria-label="Subir requisito ${index + 1}"
+                                    onclick="moverRequisitoAsignado(${index}, -1)"
+                                    ${puedeSubir ? '' : 'disabled'}>
+                                    <i class="fa-solid fa-chevron-up text-[8px]"></i>
+                                </button>
+                                <button type="button"
+                                    class="flex h-4 w-7 items-center justify-center ${puedeBajar ? 'text-slate-600 hover:bg-slate-50 hover:text-teal-700' : 'cursor-not-allowed bg-slate-50 text-slate-300'}"
+                                    title="Bajar requisito"
+                                    aria-label="Bajar requisito ${index + 1}"
+                                    onclick="moverRequisitoAsignado(${index}, 1)"
+                                    ${puedeBajar ? '' : 'disabled'}>
+                                    <i class="fa-solid fa-chevron-down text-[8px]"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </td>
                     <td class="px-3 py-3">
                         <p class="whitespace-pre-line break-words font-semibold text-slate-800">${descripcionSegura}</p>
                         ${requisito.nuevo && !esCertificadoPrevio ? '<p class="text-xs font-medium text-teal-600">Nuevo requisito</p>' : ''}
@@ -744,6 +768,22 @@
                 requisitosAsignados[index].id_tipo_evidencia = idTipoEvidencia;
                 window.selectorEvidenciaAbierto = null;
 
+                renderizarTablaRequisitos();
+            }
+
+            // Intercambia dos filas y conserva la nueva posicion al guardar.
+            function moverRequisitoAsignado(index, desplazamiento) {
+                const nuevoIndice = index + desplazamiento;
+
+                if (!requisitosAsignados[index] || nuevoIndice < 0 || nuevoIndice >= requisitosAsignados.length) {
+                    return;
+                }
+
+                [requisitosAsignados[index], requisitosAsignados[nuevoIndice]] = [
+                    requisitosAsignados[nuevoIndice],
+                    requisitosAsignados[index],
+                ];
+                window.selectorEvidenciaAbierto = null;
                 renderizarTablaRequisitos();
             }
 

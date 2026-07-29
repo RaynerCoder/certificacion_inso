@@ -271,7 +271,9 @@ class Certificado extends Model
     // Relación uno a muchos (un certificado tiene muchos requisitos)
     public function certificadoRequisitos()
     {
-        return $this->hasMany(RequisitoCertificado::class, 'id_certificado');
+        return $this->hasMany(RequisitoCertificado::class, 'id_certificado')
+            ->orderBy('orden')
+            ->orderBy('id');
     }
 
     // Relación muchos a muchos (muchos certificados tienen muchos requisitos)
@@ -283,7 +285,9 @@ class Certificado extends Model
             'id_certificado',
             'id_requisito'
         )
-            ->withPivot('id', 'cumple', 'estado')
+            ->withPivot('id', 'orden', 'cumple', 'estado')
+            ->orderByPivot('orden')
+            ->orderByPivot('id')
             ->withTimestamps()
             ->wherePivotNull('deleted_at');
     }

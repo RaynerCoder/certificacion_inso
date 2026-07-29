@@ -191,6 +191,7 @@ class TipoCertificadoController extends Controller
                 'id_requisito' => $requisito->id,
                 'id_tipo_certificado' => $tipoCertificado->id,
                 'id_tipo_evidencia' => $idTipoEvidencia,
+                'orden' => count($requisitosProcesados) + 1,
                 'estado' => $estado,
             ]);
 
@@ -425,6 +426,7 @@ class TipoCertificadoController extends Controller
                     'id' => (string) $asignacion->id_requisito,
                     'descripcion' => $asignacion->requisito?->descripcion ?? 'Requisito no encontrado',
                     'id_tipo_evidencia' => $asignacion->id_tipo_evidencia ? (string) $asignacion->id_tipo_evidencia : '',
+                    'orden' => $asignacion->orden,
                     'id_tipo_certificado_requerido' => $dependencia?->id_tipo_certificado_requerido
                         ? (string) $dependencia->id_tipo_certificado_requerido
                         : '',

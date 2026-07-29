@@ -23,6 +23,7 @@ class RequisitoCertificadoSeeder extends Seeder
             $this->guardar('requisitos_certificados', $id, [
                 'id_certificado' => 1,
                 'id_requisito' => $requisito,
+                'orden' => $id,
                 'cumple' => null,
                 'estado' => 'PENDIENTE_REVISION',
             ]);

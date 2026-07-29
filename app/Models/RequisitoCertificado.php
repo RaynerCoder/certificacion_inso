@@ -15,8 +15,13 @@ class RequisitoCertificado extends Model
     protected $fillable = [
         'id_certificado',
         'id_requisito',
+        'orden',
         'cumple',
         'estado',
+    ];
+
+    protected $casts = [
+        'orden' => 'integer',
     ];
 
     // Relación muchos a uno (muchos requisitos certificados pertenecen a un certificado)

@@ -1713,6 +1713,7 @@ class SeguimientoController extends Controller
             ->with(['requisito', 'tipoEvidencia'])
             ->where('id_tipo_certificado', $idTipoCertificado)
             ->where('estado', 'ACTIVO')
+            ->orderBy('orden')
             ->orderBy('id')
             ->get();
     }
@@ -1884,6 +1885,7 @@ class SeguimientoController extends Controller
             $requisitoCertificado = RequisitoCertificado::create([
                 'id_certificado' => $certificado->id,
                 'id_requisito' => $idRequisito,
+                'orden' => $asignacion->orden,
                 // Mientras no exista revision tecnica, no se afirma si cumple o no cumple.
                 'cumple' => null,
                 'estado' => 'PENDIENTE_REVISION',
