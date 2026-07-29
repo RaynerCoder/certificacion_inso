@@ -14,6 +14,16 @@ return new class extends Migration
         Schema::create('rubros', function (Blueprint $table) {
             $table->id();
 
+            // Jerarquia oficial CAEB-2022:
+            // SECCION -> DIVISION -> GRUPO -> CLASE -> SUBCLASE.
+            $table->foreignId('id_rubro_padre')
+                ->nullable()
+                ->constrained('rubros')
+                ->cascadeOnUpdate()
+                ->nullOnDelete();
+            $table->string('codigo_caeb', 5)->nullable();
+            $table->string('nivel_caeb', 20)->nullable();
+
             $table->string('nombre', 255);
             $table->text('descripcion')->nullable();
             $table->string('estado', 50)->default('ACTIVO');
@@ -25,6 +35,9 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique('codigo_caeb', 'rubros_codigo_caeb_unique');
+            $table->index('nivel_caeb', 'rubros_nivel_caeb_index');
         });
     }
 

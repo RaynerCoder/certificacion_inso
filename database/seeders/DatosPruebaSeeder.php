@@ -8,7 +8,7 @@ use RuntimeException;
 class DatosPruebaSeeder extends Seeder
 {
     /**
-     * Carga un escenario completo para probar el flujo del sistema.
+     * Carga el escenario completo de desarrollo y pruebas.
      */
     public function run(): void
     {
@@ -17,9 +17,8 @@ class DatosPruebaSeeder extends Seeder
         }
 
         $this->call([
-            PermisoSeeder::class,
             RoleSeeder::class,
-            PermisoRoleSeeder::class,
+            PermisoSeeder::class,
             SuperAdministradorSeeder::class,
             UserSeeder::class,
             AmbitoSeeder::class,
@@ -61,6 +60,7 @@ class DatosPruebaSeeder extends Seeder
             CargoSeeder::class,
             FuncionarioSeeder::class,
             FuncionarioCargoSeeder::class,
+            PermisoRoleSeeder::class,
             RoleUserSeeder::class,
             PermisoUserSeeder::class,
         ]);

@@ -21,6 +21,9 @@ return new class extends Migration
             // Requisito revisado para ese certificado.
             $table->foreignId('id_requisito')->constrained('requisitos');
 
+            // Conserva la secuencia configurada de requisitos del certificado.
+            $table->unsignedInteger('orden')->nullable();
+
             // Resultado del requisito: CUMPLE, NO CUMPLE, PENDIENTE, etc.
             $table->string('cumple', 50)->nullable();
 
@@ -34,6 +37,8 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['id_certificado', 'orden'], 'rc_certificado_orden_index');
         });
     }
 

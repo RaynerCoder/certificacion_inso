@@ -27,7 +27,7 @@ class PermisoRoleSeeder extends Seeder
 
             // Funcionario: atiende trámites, consulta información técnica y ve lo que registró en ventanilla.
             2 => [
-                1, 2, 3, 4, 6, 10, 11, 12,
+                1, 2, 3, 4, 5, 6, 10, 11, 12,
                 18, 19, 21, 22, 23,
                 24, 25, 26, 27, 28,
                 29, 30, 31, 32, 33, 34, 35, 37, 38,

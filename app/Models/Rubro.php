@@ -13,10 +13,24 @@ class Rubro extends Model
     protected $table = 'rubros';
 
     protected $fillable = [
+        'id_rubro_padre',
+        'codigo_caeb',
+        'nivel_caeb',
         'nombre',
-        'descripcion',
         'estado',
     ];
+
+    // Nivel CAEB inmediatamente superior.
+    public function padre()
+    {
+        return $this->belongsTo(self::class, 'id_rubro_padre');
+    }
+
+    // Niveles CAEB que dependen directamente de este rubro.
+    public function hijos()
+    {
+        return $this->hasMany(self::class, 'id_rubro_padre');
+    }
 
     // Relacion muchos a muchos (un rubro puede pertenecer a varias personas)
     public function personas()

@@ -971,8 +971,8 @@
              .filter(option => option.value)
              .filter(option => !seleccionados.includes(String(option.value)))
              .filter(option => {
-                 const nombre = option.dataset.nombre || option.text.trim();
-                 return normalizarBusquedaOcupacionPersonaWizard(nombre).includes(textoFiltro);
+                 const etiqueta = option.dataset.etiqueta || option.text.trim();
+                 return normalizarBusquedaOcupacionPersonaWizard(etiqueta).includes(textoFiltro);
              });
 
          if (opciones.length === 0) {
@@ -981,13 +981,13 @@
          }
 
          lista.innerHTML = opciones.map(option => {
-             const nombre = option.dataset.nombre || option.text.trim();
+             const etiqueta = option.dataset.etiqueta || option.text.trim();
 
              return `
                  <button type="button"
                     class="ocupacion-persona-opcion rubro-principal-opcion"
                     data-rubro-option="${escaparHtmlPersonaWizard(option.value)}">
-                    <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(nombre)}</span>
+                    <span class="ocupacion-persona-descripcion">${escaparHtmlPersonaWizard(etiqueta)}</span>
                  </button>
              `;
          }).join('');
@@ -2777,6 +2777,13 @@
          contenedor?.classList.remove('is-open');
      }
 
+     function etiquetaRubroCaebPersonaWizard(rubro = {}) {
+         const codigo = rubro.codigo_caeb ?? rubro.codigo ?? '';
+         const nombre = rubro.nombre ?? '';
+
+         return [codigo, nombre].filter(Boolean).join(' - ') || 'Sin rubro';
+     }
+
      function renderOpcionesRubroResponsableModal(filtro = '') {
          const catalogo = document.getElementById('rubroResponsableSelectorCatalogo');
          const lista = document.querySelector('[data-rubro-responsable-options-list]');
@@ -2791,8 +2798,8 @@
              .filter(option => option.value)
              .filter(option => !idsSeleccionados.includes(String(option.value)))
              .filter(option => {
-                 const nombre = option.dataset.nombre || option.text.trim();
-                 return nombre.toLowerCase().includes(textoFiltro);
+                 const etiqueta = option.dataset.etiqueta || option.text.trim();
+                 return etiqueta.toLowerCase().includes(textoFiltro);
              });
 
          if (opciones.length === 0) {
@@ -2805,7 +2812,7 @@
                  class="ocupacion-persona-opcion rubro-responsable-opcion"
                  data-rubro-responsable-option="${escaparHtmlPersonaWizard(option.value)}">
                  <span class="ocupacion-persona-descripcion">
-                     ${escaparHtmlPersonaWizard(option.dataset.nombre || option.text.trim())}
+                     ${escaparHtmlPersonaWizard(option.dataset.etiqueta || option.text.trim())}
                  </span>
              </button>
          `).join('');
@@ -2826,6 +2833,7 @@
 
          rubrosResponsableTemporal.push({
              id: opcion.value,
+             codigo_caeb: opcion.dataset.codigo || '',
              nombre: opcion.dataset.nombre || opcion.text.trim(),
              estado: 'ACTIVO',
          });
@@ -2865,7 +2873,7 @@
              item.className = 'persona-rubro-chip';
 
              item.innerHTML = `
-                <span>${escaparHtmlPersonaWizard(rubro.nombre)}</span>
+                <span>${escaparHtmlPersonaWizard(etiquetaRubroCaebPersonaWizard(rubro))}</span>
 
                 ${soloLectura ? '' : `
                     <button type="button"
@@ -2898,6 +2906,7 @@
 
          rubrosResponsableTemporal = rubros.map(rubro => ({
              id: rubro.id ?? rubro.id_rubro ?? '',
+             codigo_caeb: rubro.codigo_caeb ?? rubro.codigo ?? '',
              nombre: rubro.nombre ?? '',
              // Mantiene compatibilidad con rubros viejos que pudieron llegar como 0/1.
              estado: rubro.estado === '0' || rubro.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
@@ -2937,7 +2946,14 @@
          const territorioTexto = textoSelectPorValorPersonaWizard('#nuevo_id_territorio', datos.idTerritorio) || 'Sin territorio';
          const estado = datos.estadoResponsable || 'ACTIVO';
          const telefonosVisibles = chipsResponsableEmpresa(datos.telefonos || [], 'numero', 'estado');
-         const rubrosVisibles = chipsResponsableEmpresa(datos.rubros || [], 'nombre', 'estado');
+         const rubrosVisibles = chipsResponsableEmpresa(
+             (datos.rubros || []).map(rubro => ({
+                 ...rubro,
+                 etiqueta: etiquetaRubroCaebPersonaWizard(rubro),
+             })),
+             'etiqueta',
+             'estado'
+         );
 
          return `
             <div class="responsables-review-title">
@@ -3039,7 +3055,7 @@
      function sublistaResponsableDesdeItem(item, tipoLista) {
          const patron = tipoLista === 'telefonos'
              ? /\[telefonos\]\[(\d+)\]\[(id|numero|estado)\]$/
-             : /\[rubros\]\[(\d+)\]\[(id|nombre|estado)\]$/;
+             : /\[rubros\]\[(\d+)\]\[(id|codigo_caeb|nombre|estado)\]$/;
          const agrupados = {};
 
          item.querySelectorAll('input[name]').forEach(input => {
@@ -3376,8 +3392,9 @@
          rubrosResponsableTemporal.forEach((rubro, index) => {
              hiddenRubros += `
                 <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][id]" value="${rubro.id || ''}">
-                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][nombre]" value="${rubro.nombre}">
-                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][estado]" value="${rubro.estado}">
+                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][codigo_caeb]" value="${escaparHtmlPersonaWizard(rubro.codigo_caeb || '')}">
+                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][nombre]" value="${escaparHtmlPersonaWizard(rubro.nombre)}">
+                <input type="hidden" name="responsables[${indiceDestino}][rubros][${index}][estado]" value="${escaparHtmlPersonaWizard(rubro.estado)}">
             `;
          });
 
@@ -3478,8 +3495,9 @@
          (responsable.rubros || []).forEach((rubro, index) => {
              hiddenRubros += `
                 <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][id]" value="${rubro.id || rubro.id_rubro || ''}">
-                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][nombre]" value="${rubro.nombre || ''}">
-                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][estado]" value="${rubro.estado || 'ACTIVO'}">
+                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][codigo_caeb]" value="${escaparHtmlPersonaWizard(rubro.codigo_caeb || rubro.codigo || '')}">
+                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][nombre]" value="${escaparHtmlPersonaWizard(rubro.nombre || '')}">
+                <input type="hidden" name="responsables[${indiceResponsable}][rubros][${index}][estado]" value="${escaparHtmlPersonaWizard(rubro.estado || 'ACTIVO')}">
             `;
          });
 

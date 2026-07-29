@@ -22,8 +22,11 @@
                 <select id="rubroPersonaSelector" class="hidden">
                     <option value="">Seleccione un rubro</option>
                     @foreach (($rubrosCatalogo ?? collect()) as $rubro)
-                        <option value="{{ $rubro->id }}" data-nombre="{{ $rubro->nombre }}">
-                            {{ $rubro->nombre }}
+                        <option value="{{ $rubro->id }}"
+                            data-codigo="{{ $rubro->codigo_caeb }}"
+                            data-nombre="{{ $rubro->nombre }}"
+                            data-etiqueta="{{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}">
+                            {{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}
                         </option>
                     @endforeach
                 </select>
@@ -56,7 +59,7 @@
             <select id="rubrosPersona" name="rubros[]" multiple class="hidden">
                 @foreach (($rubrosCatalogo ?? collect()) as $rubro)
                     <option value="{{ $rubro->id }}" @selected($rubrosSeleccionados->contains((string) $rubro->id))>
-                        {{ $rubro->nombre }}
+                        {{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}
                     </option>
                 @endforeach
             </select>

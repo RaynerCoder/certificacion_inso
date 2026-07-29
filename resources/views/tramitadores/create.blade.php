@@ -654,14 +654,21 @@
                 <input type="hidden" name="form_rubros_json" id="form_rubros_json" value="{{ old('form_rubros_json', '[]') }}">
 
                 <div class="tramitador-grid">
-                    <div class="tramitador-col-6">
-                        <x-wire-input label="Nombre del rubro" id="rubroNombre" placeholder="Ejemplo: Tramitacion y representacion legal" />
-                    </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-select label="Estado" id="rubroEstado" placeholder="Seleccione estado"
-                            :options="$opcionesEstados" option-label="nombre" option-value="id"
-                            :value="old('rubroEstado', 'ACTIVO')" />
+                    <div class="tramitador-col-9">
+                        <label class="mb-1 block text-sm font-medium text-slate-700" for="rubroId">
+                            Código y nombre del rubro
+                        </label>
+                        <select id="rubroId"
+                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+                            <option value="">Seleccione un rubro CAEB</option>
+                            @foreach (($rubrosCatalogo ?? collect()) as $rubro)
+                                <option value="{{ $rubro->id }}"
+                                    data-codigo="{{ $rubro->codigo_caeb }}"
+                                    data-nombre="{{ $rubro->nombre }}">
+                                    {{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="tramitador-col-3 flex items-end">
@@ -795,7 +802,7 @@
 
             lista.innerHTML = rubrosTramitador.map((rubro, index) => `
                 <span class="tramitador-chip">
-                    ${escaparTramitadorHtml(rubro.nombre)} - ${escaparTramitadorHtml(rubro.estado)}
+                    ${escaparTramitadorHtml([rubro.codigo_caeb, rubro.nombre].filter(Boolean).join(' - '))}
                     <button type="button" onclick="quitarRubroTramitador(${index})">Quitar</button>
                 </span>
             `).join('');
@@ -803,15 +810,23 @@
 
         // Agrega un rubro a la lista temporal del formulario.
         function agregarRubroTramitador() {
-            const nombre = document.getElementById('rubroNombre')?.value.trim();
-            const estado = document.getElementById('rubroEstado')?.value || 'ACTIVO';
+            const selector = document.getElementById('rubroId');
+            const opcion = selector?.selectedOptions?.[0];
 
-            if (!nombre) {
+            if (!opcion?.value) {
                 return;
             }
 
-            rubrosTramitador.push({ nombre, estado });
-            document.getElementById('rubroNombre').value = '';
+            if (rubrosTramitador.some(rubro => String(rubro.id) === String(opcion.value))) {
+                return;
+            }
+
+            rubrosTramitador.push({
+                id: opcion.value,
+                codigo_caeb: opcion.dataset.codigo || '',
+                nombre: opcion.dataset.nombre || opcion.textContent.trim(),
+            });
+            selector.value = '';
             renderRubrosTramitador();
         }
 

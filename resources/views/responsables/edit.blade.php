@@ -51,10 +51,13 @@
                     'numero' => (string) $telefono->numero,
                     'tipo' => $telefono->estado ?: 'CELULAR',
                 ])->values(),
-                'rubros' => $persona->rubros->map(fn ($rubro) => [
-                    'nombre' => $rubro->nombre,
-                    'estado' => $rubro->estado ?: 'ACTIVO',
-                ])->values(),
+                'rubros' => $persona->rubros
+                    ->filter(fn ($rubro) => $rubro->nivel_caeb === 'SUBCLASE')
+                    ->map(fn ($rubro) => [
+                        'id' => $rubro->id,
+                        'codigo_caeb' => $rubro->codigo_caeb,
+                        'nombre' => $rubro->nombre,
+                    ])->values(),
             ];
         })->values();
 
@@ -67,10 +70,13 @@
 
         $rubrosIniciales = old('form_rubros_json')
             ? collect(json_decode(old('form_rubros_json'), true) ?: [])->values()
-            : $personaActual?->rubros->map(fn ($rubro) => [
-                'nombre' => $rubro->nombre,
-                'estado' => $rubro->estado ?: 'ACTIVO',
-            ])->values();
+            : $personaActual?->rubros
+                ->filter(fn ($rubro) => $rubro->nivel_caeb === 'SUBCLASE')
+                ->map(fn ($rubro) => [
+                    'id' => $rubro->id,
+                    'codigo_caeb' => $rubro->codigo_caeb,
+                    'nombre' => $rubro->nombre,
+                ])->values();
 
         // Datos del respaldo actual: se usan para mostrar Ver/Quitar PDF sin tocar la BD hasta guardar.
         $urlRespaldoActual = $responsable->url_respaldo
@@ -746,16 +752,17 @@
 
                     <div class="responsable-edit-body">
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
-                            <div class="md:col-span-8">
-                                <label class="responsable-field-label" for="rubro_nombre">Nombre del rubro</label>
-                                <input id="rubro_nombre" type="text" class="responsable-field" placeholder="Ej: Control de plagas">
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label class="responsable-field-label" for="rubro_estado">Estado</label>
-                                <select id="rubro_estado" class="responsable-field">
-                                    <option value="ACTIVO">Activo</option>
-                                    <option value="INACTIVO">Inactivo</option>
+                            <div class="md:col-span-10">
+                                <label class="responsable-field-label" for="rubro_id">Código y nombre del rubro</label>
+                                <select id="rubro_id" class="responsable-field">
+                                    <option value="">Seleccione un rubro CAEB</option>
+                                    @foreach (($rubrosCatalogo ?? collect()) as $rubro)
+                                        <option value="{{ $rubro->id }}"
+                                            data-codigo="{{ $rubro->codigo_caeb }}"
+                                            data-nombre="{{ $rubro->nombre }}">
+                                            {{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}
+                                        </option>
+                                    @endforeach
                                 </select>
                             </div>
 
@@ -1028,9 +1035,9 @@
                 rubrosResponsable.forEach((rubro, indice) => {
                     const chip = document.createElement('span');
                     chip.className = 'responsable-chip';
+                    const etiqueta = [rubro.codigo_caeb, rubro.nombre].filter(Boolean).join(' - ') || 'Sin rubro';
                     chip.innerHTML = `
-                        <span>${rubro.nombre || 'Sin rubro'}</span>
-                        <small>${rubro.estado || 'ACTIVO'}</small>
+                        <span>${etiqueta}</span>
                         <button type="button" aria-label="Quitar rubro" onclick="quitarRubroResponsable(${indice})">×</button>
                     `;
                     contenedor.appendChild(chip);
@@ -1080,17 +1087,19 @@
             };
 
             window.agregarRubroResponsable = function () {
-                const nombre = document.getElementById('rubro_nombre');
-                const estado = document.getElementById('rubro_estado');
+                const selector = document.getElementById('rubro_id');
+                const opcion = selector?.selectedOptions?.[0];
 
-                if (!nombre.value.trim()) return;
+                if (!opcion?.value) return;
+                if (rubrosResponsable.some(rubro => String(rubro.id) === String(opcion.value))) return;
 
                 rubrosResponsable.push({
-                    nombre: nombre.value.trim(),
-                    estado: estado.value || 'ACTIVO'
+                    id: opcion.value,
+                    codigo_caeb: opcion.dataset.codigo || '',
+                    nombre: opcion.dataset.nombre || opcion.textContent.trim(),
                 });
 
-                nombre.value = '';
+                selector.value = '';
                 guardarListasResponsable();
                 renderRubrosResponsable();
             };

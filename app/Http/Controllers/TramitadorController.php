@@ -64,8 +64,14 @@ class TramitadorController extends Controller
 
         // El modulo siempre registra responsables con rol tramitador.
         $roles = Role::where('slug', 'tramitador')->where('estado', 1)->get();
+        $rubrosCatalogo = Rubro::query()
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->orderBy('codigo_caeb')
+            ->get(['id', 'codigo_caeb', 'nombre']);
 
-        return view('tramitadores.create', compact('empresas', 'territorios', 'roles'));
+        return view('tramitadores.create', compact('empresas', 'territorios', 'roles', 'rubrosCatalogo'));
     }
 
     /**
@@ -115,16 +121,28 @@ class TramitadorController extends Controller
                 }
             }
 
-            // Rubros enviados desde la vista como JSON.
-            foreach ($this->normalizarListaJson($datos['form_rubros_json'] ?? null, ['nombre', 'estado']) as $rubro) {
-                if (filled($rubro['nombre'] ?? null)) {
-                    Rubro::create([
-                        'id_persona' => $persona->id,
-                        'nombre' => $this->mayuscula($rubro['nombre']),
-                        'estado' => $rubro['estado'] ?: 'ACTIVO',
-                    ]);
-                }
-            }
+            // El id es interno; solo se vinculan rubros existentes del catalogo CAEB.
+            $idsRubrosSolicitados = collect(
+                $this->normalizarListaJson($datos['form_rubros_json'] ?? null, ['id'])
+            )
+                ->pluck('id')
+                ->filter(fn ($idRubro) => filter_var($idRubro, FILTER_VALIDATE_INT) !== false)
+                ->map(fn ($idRubro) => (int) $idRubro)
+                ->unique()
+                ->values();
+
+            $idsRubros = Rubro::query()
+                ->whereIn('id', $idsRubrosSolicitados)
+                ->whereNotNull('codigo_caeb')
+                ->where('nivel_caeb', 'SUBCLASE')
+                ->where('estado', 'ACTIVO')
+                ->pluck('id');
+
+            $persona->rubros()->sync(
+                $idsRubros->mapWithKeys(fn ($idRubro) => [
+                    (int) $idRubro => ['estado' => 'ACTIVO'],
+                ])->all()
+            );
 
             // Finalmente se asocia la persona natural como tramitador de la empresa.
             Responsable::create([

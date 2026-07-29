@@ -69,14 +69,14 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
         $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
-        $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
+        $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with([
             'natural',
             'telefonos',
             'territorio',
-            'rubros'
+            'rubros' => fn ($query) => $query->where('rubros.nivel_caeb', 'SUBCLASE'),
         ])
             // El selector de responsables solo debe mostrar personas naturales con CI.
             // Así evitamos opciones como "Sin CI -" que vienen de empresas o registros incompletos.
@@ -187,7 +187,7 @@ class PersonaController extends Controller
 
             // RUBROS PERSONA / EMPRESA
             'rubros'   => 'nullable|array',
-            'rubros.*' => 'integer|exists:rubros,id',
+            'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
 
             // RESPONSABLES EMPRESA
             'responsables'                     => 'nullable|array',
@@ -213,8 +213,8 @@ class PersonaController extends Controller
             'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
             'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
             'responsables.*.rubros'            => 'nullable|array',
-            'responsables.*.rubros.*.id'       => 'nullable|integer|exists:rubros,id',
-            'responsables.*.rubros.*.nombre'   => 'required|string|max:255',
+            'responsables.*.rubros.*.id'       => ['required', 'integer', $this->reglaRubroCaebActivo()],
+            'responsables.*.rubros.*.nombre'   => 'nullable|string|max:255',
             'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
             // Datos del responsable
             'responsables.*.id_rol'            => [
@@ -391,40 +391,75 @@ class PersonaController extends Controller
     }
 
 
-    // Sincroniza rubros del catalogo con una persona o empresa sin duplicar registros.
+    // El selector usa el id interno, pero solo permite registros del catalogo CAEB activo.
+    private function reglaRubroCaebActivo()
+    {
+        return Rule::exists('rubros', 'id')->where(fn ($query) => $query
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->whereNull('deleted_at'));
+    }
+
+    // Los formularios reciben solo el id interno, codigo CAEB y nombre.
+    private function catalogoRubrosCaeb()
+    {
+        return Rubro::query()
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->orderBy('codigo_caeb')
+            ->get(['id', 'codigo_caeb', 'nombre']);
+    }
+
+    // Sincroniza el catalogo CAEB y conserva relaciones historicas sin codigo.
     private function registrarRubrosPersona($idPersona, array $rubros): void
     {
-        $idsRubros = collect($rubros)
+        $idsSolicitados = collect($rubros)
             ->map(function ($rubro) {
                 if (is_array($rubro)) {
-                    if (!empty($rubro['id']) || !empty($rubro['id_rubro'])) {
-                        return $rubro['id'] ?? $rubro['id_rubro'];
-                    }
-
-                    if (!empty($rubro['nombre'])) {
-                        return Rubro::firstOrCreate(
-                            ['nombre' => $this->mayuscula($rubro['nombre'])],
-                            [
-                                'descripcion' => null,
-                                'estado' => $rubro['estado'] ?? 'ACTIVO',
-                            ]
-                        )->id;
-                    }
-
-                    return null;
+                    return $rubro['id'] ?? $rubro['id_rubro'] ?? null;
                 }
 
                 return $rubro;
             })
-            ->filter()
+            ->filter(fn ($idRubro) => filter_var($idRubro, FILTER_VALIDATE_INT) !== false)
+            ->map(fn ($idRubro) => (int) $idRubro)
             ->unique()
             ->values();
+
+        $idsRubros = Rubro::query()
+            ->whereIn('id', $idsSolicitados)
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->pluck('id');
 
         $datosSync = $idsRubros
             ->mapWithKeys(fn ($idRubro) => [(int) $idRubro => ['estado' => 'ACTIVO']])
             ->all();
 
-        Persona::find($idPersona)?->rubros()->sync($datosSync);
+        $persona = Persona::find($idPersona);
+
+        if (! $persona) {
+            return;
+        }
+
+        // Las relaciones historicas o de niveles superiores no aparecen en el
+        // selector, pero tampoco se eliminan al editar una persona o empresa.
+        $datosHistoricos = $persona->rubros()
+            ->where(function ($query) {
+                $query->whereNull('rubros.codigo_caeb')
+                    ->orWhereNull('rubros.nivel_caeb')
+                    ->orWhere('rubros.nivel_caeb', '<>', 'SUBCLASE');
+            })
+            ->get()
+            ->mapWithKeys(fn ($rubro) => [
+                (int) $rubro->id => ['estado' => $rubro->pivot->estado ?? 'ACTIVO'],
+            ])
+            ->all();
+
+        $persona->rubros()->sync($datosSync + $datosHistoricos);
     }
 
     private function descripcionOcupacionCob($idOcupacion): ?string
@@ -871,10 +906,15 @@ class PersonaController extends Controller
         $tiposEmpresas = TipoEmpresa::all();
         $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
         $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
-        $rubrosCatalogo = Rubro::whereIn('estado', ['ACTIVO', '1', 1])->orderBy('nombre')->get();
+        $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
-        $personas = Persona::with(['natural', 'telefonos', 'territorio', 'rubros'])
+        $personas = Persona::with([
+            'natural',
+            'telefonos',
+            'territorio',
+            'rubros' => fn ($query) => $query->where('rubros.nivel_caeb', 'SUBCLASE'),
+        ])
             ->where('id', '!=', $persona->id)
             // En edicion tambien se filtra el catalogo para que solo se elijan responsables validos.
             ->whereHas('natural', fn ($consultaNatural) => $consultaNatural
@@ -892,6 +932,7 @@ class PersonaController extends Controller
             ->values();
 
         $rubrosRegistrados = $persona->rubros
+            ->filter(fn ($rubro) => $rubro->nivel_caeb === 'SUBCLASE')
             ->pluck('id')
             ->values();
 
@@ -932,11 +973,14 @@ class PersonaController extends Controller
                         ])->values()
                         : [],
                     'rubros' => $responsable->persona?->rubros
-                        ? $responsable->persona->rubros->map(fn ($rubro) => [
+                        ? $responsable->persona->rubros
+                            ->filter(fn ($rubro) => $rubro->nivel_caeb === 'SUBCLASE')
+                            ->map(fn ($rubro) => [
                             'id' => $rubro->id,
+                            'codigo_caeb' => $rubro->codigo_caeb,
                             'nombre' => $rubro->nombre,
                             'estado' => $rubro->estado,
-                        ])->values()
+                            ])->values()
                         : [],
                 ])
                 ->values()
@@ -1031,7 +1075,7 @@ class PersonaController extends Controller
 
             // RUBROS PERSONA / EMPRESA
             'rubros'   => 'nullable|array',
-            'rubros.*' => 'integer|exists:rubros,id',
+            'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
 
             // RESPONSABLES EMPRESA
             'responsables'                     => 'nullable|array',
@@ -1057,8 +1101,8 @@ class PersonaController extends Controller
             'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
             'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
             'responsables.*.rubros'            => 'nullable|array',
-            'responsables.*.rubros.*.id'       => 'nullable|integer|exists:rubros,id',
-            'responsables.*.rubros.*.nombre'   => 'required|string|max:255',
+            'responsables.*.rubros.*.id'       => ['required', 'integer', $this->reglaRubroCaebActivo()],
+            'responsables.*.rubros.*.nombre'   => 'nullable|string|max:255',
             'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
             'responsables.*.id_rol'            => [
                 'required_if:form_tipo_registro,EMPRESA',

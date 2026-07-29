@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Rubro;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class RubroController extends Controller
 {
@@ -25,33 +24,12 @@ class RubroController extends Controller
     }
 
     /**
-     * Guarda un rubro si llega desde un formulario simple.
+     * El catalogo CAEB es normativo y se actualiza unicamente mediante su SQL oficial.
      */
     public function store(Request $solicitud)
     {
-        $datos = $solicitud->validate([
-            'form_id_persona' => ['required', 'exists:personas,id'],
-            'form_nombre' => ['required', 'string', 'max:255'],
-            'form_estado' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            Rubro::create([
-                'id_persona' => $datos['form_id_persona'],
-                'nombre' => $datos['form_nombre'],
-                'estado' => $datos['form_estado'] ?? 'ACTIVO',
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('rubros_index')->with('success', 'Rubro registrado correctamente.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return back()->with('error', 'No se pudo registrar el rubro.')->withInput();
-        }
+        return redirect()->route('rubros_index')
+            ->with('error', 'El catálogo de rubros CAEB no permite registros manuales.');
     }
 
     /**
@@ -63,30 +41,20 @@ class RubroController extends Controller
     }
 
     /**
-     * Actualiza campos basicos si se reutiliza el endpoint.
+     * Los nombres y codigos oficiales no se modifican desde el sistema.
      */
     public function update(Request $solicitud, Rubro $rubro)
     {
-        $datos = $solicitud->validate([
-            'form_nombre' => ['required', 'string', 'max:255'],
-            'form_estado' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $rubro->update([
-            'nombre' => $datos['form_nombre'],
-            'estado' => $datos['form_estado'] ?? $rubro->estado,
-        ]);
-
-        return redirect()->route('rubros_index')->with('success', 'Rubro actualizado correctamente.');
+        return redirect()->route('rubros_index')
+            ->with('error', 'El catálogo de rubros CAEB no permite modificaciones manuales.');
     }
 
     /**
-     * Elimina el rubro con soft delete para mantener historial.
+     * La baja manual se bloquea para conservar el catalogo normativo completo.
      */
     public function destroy(Rubro $rubro)
     {
-        $rubro->delete();
-
-        return redirect()->route('rubros_index')->with('success', 'Rubro eliminado correctamente.');
+        return redirect()->route('rubros_index')
+            ->with('error', 'El catálogo de rubros CAEB no permite eliminaciones manuales.');
     }
 }

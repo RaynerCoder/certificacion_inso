@@ -24,6 +24,9 @@ return new class extends Migration
             // Tipo de certificado que exige el requisito.
             $table->foreignId('id_tipo_certificado')->constrained('tipos_certificados');
 
+            // Posicion del requisito dentro del tipo de certificado.
+            $table->unsignedInteger('orden')->nullable();
+
             // Estado general de la relacion: ACTIVO, INACTIVO, etc.
             $table->string('estado', 50)->default('ACTIVO');
 
@@ -37,6 +40,7 @@ return new class extends Migration
 
             // Evita duplicar el mismo requisito dentro del mismo tipo de certificado.
             $table->index(['id_tipo_certificado', 'id_requisito'], 'rtc_tipo_requisito_index');
+            $table->index(['id_tipo_certificado', 'orden'], 'rtc_tipo_orden_index');
         });
     }
 

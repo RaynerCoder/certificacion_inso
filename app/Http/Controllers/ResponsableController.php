@@ -125,8 +125,21 @@ class ResponsableController extends Controller
         $territorios = Territorio::orderBy('nombre')->get();
         // Se usa la tabla roles para asignar el rol del responsable.
         $roles = Role::where('estado', 1)->orderBy('name')->get();
+        $rubrosCatalogo = Rubro::query()
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->orderBy('codigo_caeb')
+            ->get(['id', 'codigo_caeb', 'nombre']);
 
-        return view('responsables.edit', compact('responsable', 'empresas', 'personas', 'territorios', 'roles'));
+        return view('responsables.edit', compact(
+            'responsable',
+            'empresas',
+            'personas',
+            'territorios',
+            'roles',
+            'rubrosCatalogo'
+        ));
     }
 
     /**
@@ -377,7 +390,7 @@ class ResponsableController extends Controller
         ]);
 
         $datos['telefonos'] = $this->normalizarListaJson($datos['form_telefonos_json'] ?? null, ['numero', 'tipo']);
-        $datos['rubros'] = $this->normalizarListaJson($datos['form_rubros_json'] ?? null, ['nombre', 'estado']);
+        $datos['rubros'] = $this->normalizarListaJson($datos['form_rubros_json'] ?? null, ['id']);
 
         return $datos;
     }
@@ -445,34 +458,40 @@ class ResponsableController extends Controller
     }
 
     /**
-     * Guarda los rubros como catalogo y vincula la persona por la tabla pivote.
+     * Vincula solamente rubros existentes del catalogo oficial CAEB.
      */
     private function sincronizarRubrosResponsable(Persona $persona, array $rubros): void
     {
-        $idsRubros = collect($rubros)
-            ->map(function ($rubro) {
-                if (is_array($rubro) && ! empty($rubro['id'])) {
-                    return (int) $rubro['id'];
-                }
-
-                $nombre = is_array($rubro) ? ($rubro['nombre'] ?? null) : $rubro;
-                $nombre = $this->mayuscula($nombre);
-
-                if (! $nombre) {
-                    return null;
-                }
-
-                return Rubro::firstOrCreate(
-                    ['nombre' => $nombre],
-                    ['descripcion' => null, 'estado' => 'ACTIVO']
-                )->id;
-            })
-            ->filter()
+        $idsSolicitados = collect($rubros)
+            ->pluck('id')
+            ->filter(fn ($idRubro) => filter_var($idRubro, FILTER_VALIDATE_INT) !== false)
+            ->map(fn ($idRubro) => (int) $idRubro)
             ->unique()
             ->values();
 
+        $idsRubros = Rubro::query()
+            ->whereIn('id', $idsSolicitados)
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->pluck('id');
+
+        $datosHistoricos = $persona->rubros()
+            ->where(function ($query) {
+                $query->whereNull('rubros.codigo_caeb')
+                    ->orWhereNull('rubros.nivel_caeb')
+                    ->orWhere('rubros.nivel_caeb', '<>', 'SUBCLASE');
+            })
+            ->get()
+            ->mapWithKeys(fn ($rubro) => [
+                (int) $rubro->id => ['estado' => $rubro->pivot->estado ?? 'ACTIVO'],
+            ]);
+
         $persona->rubros()->sync(
-            $idsRubros->mapWithKeys(fn ($idRubro) => [(int) $idRubro => ['estado' => 'ACTIVO']])->all()
+            $idsRubros
+                ->mapWithKeys(fn ($idRubro) => [(int) $idRubro => ['estado' => 'ACTIVO']])
+                ->union($datosHistoricos)
+                ->all()
         );
     }
     /**

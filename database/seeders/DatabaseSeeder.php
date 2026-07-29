@@ -12,8 +12,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            DatosProduccionSeeder::class,
-        ]);
+        $this->call(
+            app()->environment('production')
+                ? DatosProduccionSeeder::class
+                : DatosPruebaSeeder::class
+        );
     }
 }

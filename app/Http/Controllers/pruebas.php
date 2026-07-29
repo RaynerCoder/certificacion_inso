@@ -31,6 +31,7 @@ public function updateNatural(Request $request, Persona $persona)
 
         // RUBROS
         'rubros' => 'nullable|array',
+        'rubros.*' => 'integer|exists:rubros,id',
     ]);
 
     DB::beginTransaction();
@@ -89,21 +90,18 @@ public function updateNatural(Request $request, Persona $persona)
         // ==========================================
         // RUBROS
         // ==========================================
-        Rubro::where('id_persona', $persona->id)->delete();
+        $idsRubros = Rubro::query()
+            ->whereIn('id', $datos['rubros'] ?? [])
+            ->whereNotNull('codigo_caeb')
+            ->where('nivel_caeb', 'SUBCLASE')
+            ->where('estado', 'ACTIVO')
+            ->pluck('id');
 
-        if (!empty($datos['rubros'])) {
-
-            foreach ($datos['rubros'] as $rubro) {
-
-                Rubro::create([
-                    'id_persona' => $persona->id,
-                    'nombre'     => $rubro['nombre'],
-                    'estado'     => $rubro['estado'] ?? 'ACTIVO',
-                ]);
-
-            }
-
-        }
+        $persona->rubros()->sync(
+            $idsRubros->mapWithKeys(fn ($idRubro) => [
+                (int) $idRubro => ['estado' => 'ACTIVO'],
+            ])->all()
+        );
 
         DB::commit();
 
@@ -249,7 +247,7 @@ public function destroyNatural(Persona $persona)
 
         Telefono::where('id_persona', $persona->id)->delete();
 
-        Rubro::where('id_persona', $persona->id)->delete();
+        $persona->rubros()->detach();
 
         if ($persona->natural) {
             $persona->natural->delete();
