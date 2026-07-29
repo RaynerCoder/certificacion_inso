@@ -21,3 +21,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Archivos de documentación y revisión generados fuera del sistema.
+/output/pdf/
+/tmp/pdfs/
