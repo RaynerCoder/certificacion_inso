@@ -1,5 +1,6 @@
 -- ARCHIVO 2 DE 2: CARGA DE DATOS OFICIALES CAEB-2022
 -- Requiere haber ejecutado primero el archivo de estructura.
+-- Seleccione su base de datos en phpMyAdmin antes de importar.
 -- CARGA JERARQUICA OFICIAL DE RUBROS CAEB-2022
 -- Fuente: PDF "Clasificacion de Actividades Economicas de Bolivia CAEB-2022"
 -- publicado por el Instituto Nacional de Estadistica de Bolivia (INE).
@@ -28,7 +29,6 @@
 --   1. Hacer respaldo de la base.
 --   2. Ejecutar primero 01_actualizar_estructura_rubros_caeb_2022.sql.
 
-USE `sistema_certificador_inso`;
 SET NAMES utf8mb4;
 
 START TRANSACTION;

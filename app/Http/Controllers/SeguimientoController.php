@@ -29,6 +29,7 @@ use Illuminate\Validation\ValidationException;
 class SeguimientoController extends Controller
 {
     private const TOKENS_INICIO_TRAMITE = 'tokens_inicio_tramite';
+    private const LONGITUD_MAXIMA_EVIDENCIA_TEXTO = 50;
 
     // Este servicio concentra reglas de beneficiario/tramitador.
     // Se usa para saber si un usuario puede ver, corregir o enviar tramites de una empresa.
@@ -152,6 +153,7 @@ class SeguimientoController extends Controller
         $asignacionesRequisitos = $this->requisitosConfiguradosDelTipoCertificado((int) $tipoCertificado->id);
 
         $this->validarArchivosSubidosDeRequisitos($solicitud, $asignacionesRequisitos);
+        $this->validarTextosIngresadosDeRequisitos($solicitud, $asignacionesRequisitos);
 
         $this->validarTokenEnvioTramite($solicitud);
 
@@ -202,7 +204,8 @@ class SeguimientoController extends Controller
                 $certificado,
                 $asignacionesRequisitos,
                 $this->posicionesDeArchivosPorRequisitoConfigurado($solicitud),
-                $solicitud->file('documentos_requisitos', [])
+                $solicitud->file('documentos_requisitos', []),
+                $this->valoresTextoPorRequisitoConfigurado($solicitud)
             );
 
             // Primer movimiento del flujo: el tramite queda enviado al responsable inicial del area.
@@ -1336,18 +1339,21 @@ class SeguimientoController extends Controller
         $dependenciasPorTipoCertificado = $this->dependenciasPorTipoCertificado($tiposCertificados);
         $certificadosVigentesPorPersona = $this->certificadosVigentesPorPersona($personasBase->pluck('id')->all());
 
-        return compact(
-            'tiposCertificados',
-            'personas',
-            'tramitadoresPorBeneficiario',
-            'requisitosPorTipoCertificado',
-            'dependenciasPorTipoCertificado',
-            'certificadosVigentesPorPersona',
-            'beneficiarioBloqueado',
-            'beneficiarioAutomatico',
-            'tramitadorAutomatico',
-            'tramitadorBloqueado',
-            'mostrarTramitador'
+        return array_merge(
+            compact(
+                'tiposCertificados',
+                'personas',
+                'tramitadoresPorBeneficiario',
+                'requisitosPorTipoCertificado',
+                'dependenciasPorTipoCertificado',
+                'certificadosVigentesPorPersona',
+                'beneficiarioBloqueado',
+                'beneficiarioAutomatico',
+                'tramitadorAutomatico',
+                'tramitadorBloqueado',
+                'mostrarTramitador'
+            ),
+            ['longitudMaximaEvidenciaTexto' => self::LONGITUD_MAXIMA_EVIDENCIA_TEXTO]
         );
     }
 
@@ -1664,10 +1670,16 @@ class SeguimientoController extends Controller
             'form_id_tipo_certificado' => ['required', 'exists:tipos_certificados,id'],
             'form_descripcion' => ['nullable', 'string'],
             'requisitos_certificados' => ['nullable', 'array'],
+            'requisitos_certificados.*' => ['array'],
             'requisitos_certificados.*.id_requisito_tipo_certificado' => ['nullable', 'exists:requisitos_tipos_certificados,id'],
             'requisitos_certificados.*.id_requisito' => ['required', 'exists:requisitos,id'],
             'requisitos_certificados.*.id_tipo_evidencia' => ['nullable', 'exists:tipos_evidencias,id'],
             'requisitos_certificados.*.observacion' => ['nullable', 'string', 'max:500'],
+            'requisitos_certificados.*.valor_texto' => [
+                'nullable',
+                'string',
+                'max:' . self::LONGITUD_MAXIMA_EVIDENCIA_TEXTO,
+            ],
             'documentos_requisitos' => ['nullable', 'array'],
             'documentos_requisitos.*' => ['nullable', 'file'],
         ], [
@@ -1677,6 +1689,7 @@ class SeguimientoController extends Controller
             'array' => 'El campo :attribute debe tener un formato valido.',
             'string' => 'El campo :attribute debe ser texto.',
             'file' => 'El :attribute debe ser un archivo valido.',
+            'requisitos_certificados.*.valor_texto.max' => 'El dato ingresado es demasiado extenso.',
         ], [
             'form_id_persona_beneficiario' => 'beneficiario',
             'form_id_persona_tramitador' => 'tramitador',
@@ -1685,6 +1698,7 @@ class SeguimientoController extends Controller
             'requisitos_certificados.*.id_requisito_tipo_certificado' => 'configuracion del requisito',
             'requisitos_certificados.*.id_requisito' => 'requisito del tramite',
             'requisitos_certificados.*.id_tipo_evidencia' => 'tipo de evidencia',
+            'requisitos_certificados.*.valor_texto' => 'dato solicitado',
             'documentos_requisitos.*' => 'evidencia',
         ]);
     }
@@ -1734,6 +1748,51 @@ class SeguimientoController extends Controller
         }
 
         return $indices;
+    }
+
+    // Relaciona cada requisito configurado con el texto ingresado por el solicitante.
+    private function valoresTextoPorRequisitoConfigurado(Request $request): array
+    {
+        $valores = [];
+
+        foreach ($request->input('requisitos_certificados', []) as $item) {
+            $idAsignacion = isset($item['id_requisito_tipo_certificado'])
+                ? (int) $item['id_requisito_tipo_certificado']
+                : null;
+
+            if ($idAsignacion && array_key_exists('valor_texto', $item)) {
+                $valores[$idAsignacion] = trim((string) $item['valor_texto']);
+            }
+        }
+
+        return $valores;
+    }
+
+    // Exige el dato solamente cuando la configuracion real del requisito usa evidencia TEXTO.
+    private function validarTextosIngresadosDeRequisitos(Request $request, $asignacionesRequisitos): void
+    {
+        $indicesPorAsignacion = $this->posicionesDeArchivosPorRequisitoConfigurado($request);
+        $valoresPorAsignacion = $this->valoresTextoPorRequisitoConfigurado($request);
+
+        foreach ($asignacionesRequisitos as $asignacion) {
+            $codigo = mb_strtoupper((string) $asignacion->tipoEvidencia?->codigo);
+
+            if ($codigo !== 'TEXTO') {
+                continue;
+            }
+
+            $indice = $indicesPorAsignacion[$asignacion->id] ?? null;
+            $valor = $valoresPorAsignacion[$asignacion->id] ?? '';
+
+            if ($indice === null || $valor === '') {
+                throw ValidationException::withMessages([
+                    $indice === null
+                        ? 'requisitos_certificados'
+                        : "requisitos_certificados.$indice.valor_texto" =>
+                        'Debe ingresar el dato solicitado para "' . ($asignacion->requisito?->descripcion ?? 'este requisito') . '".',
+                ]);
+            }
+        }
     }
 
     // Valida archivos con la configuracion guardada para cada requisito.
@@ -1869,7 +1928,13 @@ class SeguimientoController extends Controller
 
     // GUARDA LOS REQUISITOS DE LA SOLICITUD
     // Cada requisito queda pendiente para que el tecnico lo revise despues.
-    private function guardarRequisitosTramite(Certificado $certificado, $asignacionesRequisitos, array $indicesDocumentos, array $documentos): void
+    private function guardarRequisitosTramite(
+        Certificado $certificado,
+        $asignacionesRequisitos,
+        array $indicesDocumentos,
+        array $documentos,
+        array $valoresTexto
+    ): void
     {
         $procesados = [];
 
@@ -1913,6 +1978,17 @@ class SeguimientoController extends Controller
                     $documentos[$indiceDocumento],
                     $requisitoCertificado,
                     $idTipoEvidencia ? (int) $idTipoEvidencia : null
+                );
+            }
+
+            $codigoEvidencia = mb_strtoupper((string) $asignacion->tipoEvidencia?->codigo);
+            $valorTexto = $valoresTexto[$asignacion->id] ?? '';
+
+            if ($codigoEvidencia === 'TEXTO' && $valorTexto !== '') {
+                $this->guardarValorEvidenciaRequisito(
+                    $requisitoCertificado,
+                    $idTipoEvidencia ? (int) $idTipoEvidencia : null,
+                    $valorTexto
                 );
             }
 

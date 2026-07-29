@@ -1,120 +1,84 @@
 -- ARCHIVO 1 DE 2: ACTUALIZACION DE ESTRUCTURA DE RUBROS
--- No elimina datos, no cambia ids y no reinicia AUTO_INCREMENT.
--- RUBROS: ESTRUCTURA JERARQUICA PARA CAEB-2022
--- Este archivo transforma la tabla rubros existente sin eliminar registros,
--- relaciones ni ids. Ejecutarlo antes del archivo 02 de datos.
 --
--- Conserva el nombre de las tablas `rubros` y `personas_rubros`.
--- No elimina registros, no cambia ids y no reinicia AUTO_INCREMENT.
+-- IMPORTANTE:
+--   1. Seleccione primero su base de datos en phpMyAdmin.
+--   2. Importe este archivo dentro de esa base.
+--   3. No utiliza USE, information_schema ni PREPARE.
 --
--- Campos incorporados en `rubros`:
---   * id_rubro_padre: id del nivel CAEB inmediatamente superior.
---   * codigo_caeb: codigo oficial de longitud 1 a 5.
---   * nivel_caeb: SECCION, DIVISION, GRUPO, CLASE o SUBCLASE.
+-- Puede ejecutarse aunque el intento anterior haya agregado parcialmente
+-- columnas o indices. No elimina registros, no cambia ids, no modifica
+-- personas_rubros y no reinicia AUTO_INCREMENT.
 
-USE `sistema_certificador_inso`;
 SET NAMES utf8mb4;
 
-SET @base_actual = DATABASE();
+DROP PROCEDURE IF EXISTS `actualizar_estructura_rubros_caeb_2022`;
 
-SELECT COUNT(*) INTO @existe_id_rubro_padre
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND COLUMN_NAME = 'id_rubro_padre';
+DELIMITER $$
 
-SET @sql = IF(
-    @existe_id_rubro_padre = 0,
-    'ALTER TABLE `rubros` ADD COLUMN `id_rubro_padre` BIGINT UNSIGNED NULL AFTER `id`',
-    'SELECT ''La columna id_rubro_padre ya existe'' AS aviso'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+CREATE PROCEDURE `actualizar_estructura_rubros_caeb_2022`()
+BEGIN
+    -- Si la columna ya existe, MySQL genera 1060 y se continua normalmente.
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1060 SET @caeb_id_rubro_padre_existia = 1;
 
-SELECT COUNT(*) INTO @existe_codigo_caeb
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND COLUMN_NAME = 'codigo_caeb';
+        ALTER TABLE `rubros`
+            ADD COLUMN `id_rubro_padre` BIGINT UNSIGNED NULL AFTER `id`;
+    END;
 
-SET @sql = IF(
-    @existe_codigo_caeb = 0,
-    'ALTER TABLE `rubros` ADD COLUMN `codigo_caeb` VARCHAR(5) NULL AFTER `id_rubro_padre`',
-    'ALTER TABLE `rubros` MODIFY COLUMN `codigo_caeb` VARCHAR(5) NULL'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1060 SET @caeb_codigo_existia = 1;
 
-SELECT COUNT(*) INTO @existe_nivel_caeb
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND COLUMN_NAME = 'nivel_caeb';
+        ALTER TABLE `rubros`
+            ADD COLUMN `codigo_caeb` VARCHAR(5) NULL AFTER `id_rubro_padre`;
+    END;
 
-SET @sql = IF(
-    @existe_nivel_caeb = 0,
-    'ALTER TABLE `rubros` ADD COLUMN `nivel_caeb` VARCHAR(20) NULL AFTER `codigo_caeb`',
-    'SELECT ''La columna nivel_caeb ya existe'' AS aviso'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+    -- Convierte una posible version CHAR(5) anterior sin perder codigos.
+    ALTER TABLE `rubros`
+        MODIFY COLUMN `codigo_caeb` VARCHAR(5) NULL;
 
-SELECT COUNT(*) INTO @existe_indice_codigo
-FROM information_schema.STATISTICS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND INDEX_NAME = 'rubros_codigo_caeb_unique';
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1060 SET @caeb_nivel_existia = 1;
 
-SET @sql = IF(
-    @existe_indice_codigo = 0,
-    'ALTER TABLE `rubros` ADD UNIQUE KEY `rubros_codigo_caeb_unique` (`codigo_caeb`)',
-    'SELECT ''El indice unico de codigo_caeb ya existe'' AS aviso'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+        ALTER TABLE `rubros`
+            ADD COLUMN `nivel_caeb` VARCHAR(20) NULL AFTER `codigo_caeb`;
+    END;
 
-SELECT COUNT(*) INTO @existe_indice_nivel
-FROM information_schema.STATISTICS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND INDEX_NAME = 'rubros_nivel_caeb_index';
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1061 SET @caeb_indice_codigo_existia = 1;
 
-SET @sql = IF(
-    @existe_indice_nivel = 0,
-    'ALTER TABLE `rubros` ADD KEY `rubros_nivel_caeb_index` (`nivel_caeb`)',
-    'SELECT ''El indice de nivel_caeb ya existe'' AS aviso'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+        ALTER TABLE `rubros`
+            ADD UNIQUE KEY `rubros_codigo_caeb_unique` (`codigo_caeb`);
+    END;
 
-SELECT COUNT(*) INTO @existe_clave_padre
-FROM information_schema.KEY_COLUMN_USAGE
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND COLUMN_NAME = 'id_rubro_padre'
-  AND REFERENCED_TABLE_NAME = 'rubros';
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1061 SET @caeb_indice_nivel_existia = 1;
 
-SET @sql = IF(
-    @existe_clave_padre = 0,
-    'ALTER TABLE `rubros` ADD CONSTRAINT `rubros_id_rubro_padre_foreign` FOREIGN KEY (`id_rubro_padre`) REFERENCES `rubros` (`id`) ON UPDATE CASCADE ON DELETE SET NULL',
-    'SELECT ''La relacion jerarquica de rubros ya existe'' AS aviso'
-);
-PREPARE sentencia FROM @sql;
-EXECUTE sentencia;
-DEALLOCATE PREPARE sentencia;
+        ALTER TABLE `rubros`
+            ADD KEY `rubros_nivel_caeb_index` (`nivel_caeb`);
+    END;
 
-SELECT
-    COLUMN_NAME AS campo,
-    COLUMN_TYPE AS tipo,
-    IS_NULLABLE AS permite_null,
-    COLUMN_KEY AS clave
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = @base_actual
-  AND TABLE_NAME = 'rubros'
-  AND COLUMN_NAME IN ('id', 'id_rubro_padre', 'codigo_caeb', 'nivel_caeb', 'nombre')
-ORDER BY ORDINAL_POSITION;
+    -- 1826: nombre de restriccion duplicado en MySQL.
+    -- 1005: restriccion equivalente ya existente en algunas versiones MariaDB.
+    BEGIN
+        DECLARE CONTINUE HANDLER FOR 1826 SET @caeb_clave_padre_existia = 1;
+        DECLARE CONTINUE HANDLER FOR 1005 SET @caeb_clave_padre_existia = 1;
+
+        ALTER TABLE `rubros`
+            ADD CONSTRAINT `rubros_id_rubro_padre_foreign`
+            FOREIGN KEY (`id_rubro_padre`)
+            REFERENCES `rubros` (`id`)
+            ON UPDATE CASCADE
+            ON DELETE SET NULL;
+    END;
+END$$
+
+DELIMITER ;
+
+CALL `actualizar_estructura_rubros_caeb_2022`();
+DROP PROCEDURE `actualizar_estructura_rubros_caeb_2022`;
+
+-- Control visual: deben aparecer id_rubro_padre, codigo_caeb y nivel_caeb.
+SHOW COLUMNS FROM `rubros`;
+
+-- Control visual: deben aparecer los indices de codigo, nivel y padre.
+SHOW INDEX FROM `rubros`;

@@ -451,6 +451,36 @@
         padding: 9px 10px;
     }
 
+    .tramite-texto-input {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 700;
+        outline: none;
+        padding: 9px 10px;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .tramite-texto-input:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, .12);
+    }
+
+    .tramite-texto-input.is-invalid {
+        border-color: #dc2626;
+        background: #fef2f2;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, .10);
+    }
+
+    .tramite-texto-input::placeholder {
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
     /*
         Control PDF compacto:
         input oculto + botones Seleccionar / Ver / Quitar.

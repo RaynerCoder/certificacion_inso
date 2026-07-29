@@ -10,6 +10,8 @@
         const erroresLaravel = @json($errors->getBag('default')->getMessages());
         const tramitadorSeleccionadoServidor = @json((string) ($tramitadorSeleccionado ?? ''));
         const tipoSeleccionadoServidor = @json((string) ($tipoSeleccionado ?? ''));
+        const requisitosAnteriores = Object.values(@json(old('requisitos_certificados', [])) || {});
+        const longitudMaximaEvidenciaTexto = @json($longitudMaximaEvidenciaTexto ?? 50);
 
         // Campos principales del inicio de tramite.
         const tipoSelect = document.getElementById('form_id_tipo_certificado');
@@ -28,7 +30,7 @@
             formTramite.noValidate = true;
 
             formTramite.addEventListener('submit', (evento) => {
-                if (!validarArchivosAntesDeEnviar()) {
+                if (!validarArchivosAntesDeEnviar() || !validarTextosAntesDeEnviar()) {
                     evento.preventDefault();
                     evento.stopImmediatePropagation();
                 }
@@ -48,6 +50,16 @@
         // Devuelve el primer mensaje que Laravel envio para un campo.
         function errorLaravel(campo) {
             return erroresLaravel[campo]?.[0] || '';
+        }
+
+        // Recupera el texto escrito si Laravel devolvio el formulario con errores.
+        function valorTextoAnterior(requisito, index) {
+            const idAsignacion = String(requisito.id_requisito_tipo_certificado || '');
+            const anterior = requisitosAnteriores.find((item) => (
+                String(item?.id_requisito_tipo_certificado || '') === idAsignacion
+            )) || requisitosAnteriores[index] || {};
+
+            return String(anterior.valor_texto || '');
         }
 
         // Muestra nombres largos sin romper la fila de la tabla.
@@ -551,6 +563,60 @@
             error?.remove();
         }
 
+        // El tipo TEXTO es obligatorio y se valida sin mostrar contador de caracteres.
+        function validarTextosAntesDeEnviar() {
+            const textosObligatorios = Array.from(document.querySelectorAll('.tramite-texto-input[required]'));
+
+            textosObligatorios.forEach(input => limpiarErrorTextoCliente(input));
+
+            const primerFaltante = textosObligatorios.find(input => input.value.trim() === '');
+
+            if (!primerFaltante) {
+                return true;
+            }
+
+            mostrarErrorTextoCliente(primerFaltante, 'Ingrese el dato solicitado antes de enviar el tramite.');
+            primerFaltante.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            primerFaltante.focus();
+
+            return false;
+        }
+
+        function prepararControlTexto(fila) {
+            const inputTexto = fila.querySelector('.tramite-texto-input');
+
+            inputTexto?.addEventListener('input', () => {
+                if (inputTexto.value.trim() !== '') {
+                    limpiarErrorTextoCliente(inputTexto);
+                }
+            });
+        }
+
+        function mostrarErrorTextoCliente(inputTexto, mensaje) {
+            const celda = inputTexto.closest('td');
+
+            inputTexto.classList.add('is-invalid');
+
+            let error = celda?.querySelector('[data-error-texto-cliente]');
+            if (!error && celda) {
+                error = document.createElement('p');
+                error.dataset.errorTextoCliente = '1';
+                error.className = 'mt-2 text-sm text-red-600';
+                celda.appendChild(error);
+            }
+
+            if (error) {
+                error.textContent = mensaje;
+            }
+        }
+
+        function limpiarErrorTextoCliente(inputTexto) {
+            const celda = inputTexto.closest('td');
+
+            inputTexto.classList.remove('is-invalid');
+            celda?.querySelector('[data-error-texto-cliente]')?.remove();
+        }
+
         // Valida visualmente contra el accept del input; la validacion definitiva queda en Laravel.
         function archivoPermitidoPorInput(inputArchivo, archivo) {
             const nombre = archivo.name.toLowerCase();
@@ -602,10 +668,12 @@
                 const inputId = `documento_requisito_${index}`;
                 const errorRequisito = errorLaravel(`requisitos_certificados.${index}.id_requisito`);
                 const errorDocumento = errorLaravel(`documentos_requisitos.${index}`);
+                const errorTexto = errorLaravel(`requisitos_certificados.${index}.valor_texto`);
                 const codigoEvidencia = String(requisito.tipo_evidencia_codigo || 'PDF').toUpperCase();
                 const tipoEvidenciaNombre = requisito.tipo_evidencia_nombre || codigoEvidencia;
                 const configArchivo = configuracionArchivoEvidencia(codigoEvidencia, requisito.tipo_evidencia_tamanio_maximo_mb);
                 const certificadosHtml = certificadosRequeridosHtml(requisito.certificados_requeridos);
+                const textoAnterior = valorTextoAnterior(requisito, index);
 
                 fila.innerHTML = `
                     <td>${index + 1}</td>
@@ -623,7 +691,17 @@
                         </div>
                     </td>
                     <td>
-                        ${configArchivo.permiteArchivo ? `
+                        ${codigoEvidencia === 'TEXTO' ? `
+                            <input
+                                type="text"
+                                name="requisitos_certificados[${index}][valor_texto]"
+                                class="tramite-texto-input ${errorTexto ? 'is-invalid' : ''}"
+                                value="${escaparHtml(textoAnterior)}"
+                                maxlength="${longitudMaximaEvidenciaTexto}"
+                                placeholder="Ingrese el dato solicitado"
+                                autocomplete="off"
+                                required>
+                        ` : configArchivo.permiteArchivo ? `
                             <div class="tramite-pdf-control ${errorDocumento ? 'is-invalid' : ''}">
                                 <input class="tramite-pdf-input"
                                     id="${inputId}"
@@ -662,10 +740,13 @@
                             </div>
                         `}
                         ${errorDocumento ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorDocumento)}</p>` : ''}
+                        ${errorTexto ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorTexto)}</p>` : ''}
                     </td>
                 `;
 
-                if (configArchivo.permiteArchivo) {
+                if (codigoEvidencia === 'TEXTO') {
+                    prepararControlTexto(fila);
+                } else if (configArchivo.permiteArchivo) {
                     prepararControlPdf(fila);
                 }
 
