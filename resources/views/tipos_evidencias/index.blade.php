@@ -23,7 +23,7 @@
 
         .tipos-evidencias-tabla table {
             width: 100%;
-            min-width: 1120px;
+            min-width: 1000px;
             table-layout: fixed;
         }
 
@@ -40,33 +40,37 @@
         .tipos-evidencias-tabla th:first-child,
         .tipos-evidencias-tabla td:first-child {
             width: 5%;
-            min-width: 60px;
+            min-width: 50px;
             text-align: center;
             white-space: nowrap !important;
         }
 
+        /* El codigo es un identificador corto y nunca debe dividirse entre dos lineas. */
         .tipos-evidencias-tabla th:nth-child(2),
         .tipos-evidencias-tabla td:nth-child(2) {
-            width: 10%;
-            min-width: 120px;
+            width: 12%;
+            min-width: 125px;
+            overflow-wrap: normal;
+            white-space: nowrap !important;
+            word-break: keep-all;
         }
 
         .tipos-evidencias-tabla th:nth-child(3),
         .tipos-evidencias-tabla td:nth-child(3) {
-            width: 13%;
-            min-width: 150px;
+            width: 14%;
+            min-width: 140px;
         }
 
         .tipos-evidencias-tabla th:nth-child(4),
         .tipos-evidencias-tabla td:nth-child(4) {
-            width: 36%;
-            min-width: 320px;
+            width: 34%;
+            min-width: 300px;
         }
 
         .tipos-evidencias-tabla th:nth-child(5),
         .tipos-evidencias-tabla td:nth-child(5) {
             width: 12%;
-            min-width: 150px;
+            min-width: 125px;
             text-align: center;
             white-space: nowrap !important;
         }
@@ -81,8 +85,8 @@
 
         .tipos-evidencias-tabla th:last-child,
         .tipos-evidencias-tabla td:last-child {
-            width: 15%;
-            min-width: 170px;
+            width: 14%;
+            min-width: 150px;
             text-align: center;
             white-space: nowrap !important;
         }
