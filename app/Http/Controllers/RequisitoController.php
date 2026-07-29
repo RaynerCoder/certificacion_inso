@@ -192,10 +192,12 @@ class RequisitoController extends Controller
     {
         $relacionesEncontradas = [];
 
-        if ($requisito->requisitoTiposCertificados()->withTrashed()->exists()) {
+        // Una configuración retirada queda como historial, pero ya no utiliza el requisito.
+        if ($requisito->requisitoTiposCertificados()->exists()) {
             $relacionesEncontradas[] = 'tipos de certificados';
         }
 
+        // Los certificados conservan su historial y siguen vinculados al requisito.
         if ($requisito->requisitoCertificados()->withTrashed()->exists()) {
             $relacionesEncontradas[] = 'certificados';
         }

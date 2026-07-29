@@ -575,15 +575,16 @@ class TipoCertificadoController extends Controller
             $relacionesEncontradas[] = 'certificados';
         }
 
-        if ($tipoCertificado->tipoCertificadoRequisitos()->withTrashed()->exists()) {
+        // Las configuraciones eliminadas se conservan como historial y no bloquean el catálogo.
+        if ($tipoCertificado->tipoCertificadoRequisitos()->exists()) {
             $relacionesEncontradas[] = 'requisitos configurados';
         }
 
-        if ($tipoCertificado->dependenciasDondeEsRequerido()->withTrashed()->exists()) {
+        if ($tipoCertificado->dependenciasDondeEsRequerido()->exists()) {
             $relacionesEncontradas[] = 'dependencias de certificados';
         }
 
-        if ($tipoCertificado->plantillasCertificados()->withTrashed()->exists()) {
+        if ($tipoCertificado->plantillasCertificados()->exists()) {
             $relacionesEncontradas[] = 'plantillas';
         }
 

@@ -206,10 +206,12 @@ class TipoEvidenciaController extends Controller
     {
         $relacionesEncontradas = [];
 
-        if ($tipoEvidencia->requisitoTiposCertificados()->withTrashed()->exists()) {
+        // Una configuración retirada queda como historial, pero ya no utiliza el tipo de evidencia.
+        if ($tipoEvidencia->requisitoTiposCertificados()->exists()) {
             $relacionesEncontradas[] = 'requisitos de tipos de certificados';
         }
 
+        // Las evidencias presentadas conservan la relación aunque el trámite haya finalizado.
         if ($tipoEvidencia->evidenciasRequisitos()->withTrashed()->exists()) {
             $relacionesEncontradas[] = 'evidencias de trámites';
         }
