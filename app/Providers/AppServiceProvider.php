@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +21,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // En producción todas las rutas generadas por Laravel deben conservar HTTPS.
+        // Esto evita que formularios abiertos por HTTPS intenten enviar sus datos por HTTP.
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
+
         // Directiva Blade para mostrar u ocultar partes de la vista segun permisos dinamicos.
         // Uso: @permiso('productos.ver') ... @endpermiso
         Blade::if('permiso', function (string|array $permisos): bool {
