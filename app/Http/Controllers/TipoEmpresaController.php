@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\TipoEmpresa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TipoEmpresaController extends Controller
 {
@@ -21,7 +22,7 @@ class TipoEmpresaController extends Controller
      */
     public function create()
     {
-        return view('tipos_empresas.create');
+        return redirect()->route('tipos_empresas_index');
     }
 
     /**
@@ -29,10 +30,7 @@ class TipoEmpresaController extends Controller
      */
     public function store(Request $solicitud)
     {
-        $datos = $solicitud->validate([
-            'form_descripcion' => 'required|string|unique:tipos_empresas,descripcion',
-            'form_estado'      => 'nullable|max:50'
-        ]);
+        $datos = $this->validarTipoEmpresa($solicitud);
 
         try {
 
@@ -87,10 +85,21 @@ class TipoEmpresaController extends Controller
      */
     public function update(Request $solicitud, TipoEmpresa $tipoEmpresa)
     {
-        $datos = $solicitud->validate([
-            'form_descripcion' => 'required|string|unique:tipos_empresas,descripcion,' . $tipoEmpresa->id,
-            'form_estado'      => 'nullable|max:50'
-        ]);
+        $datos = $this->validarTipoEmpresa($solicitud, $tipoEmpresa);
+
+        if (
+            $tipoEmpresa->estado !== 'INACTIVO'
+            && $datos['form_estado'] === 'INACTIVO'
+            && $this->tipoEmpresaEstaRelacionado($tipoEmpresa)
+        ) {
+            session()->flash('swal', [
+                'title' => 'No se puede cambiar a Inactivo',
+                'text' => 'El tipo de empresa está relacionado con otros datos.',
+                'icon' => 'error',
+            ]);
+
+            return redirect()->route('tipos_empresas_index');
+        }
 
         try {
 
@@ -126,49 +135,73 @@ class TipoEmpresaController extends Controller
     
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina lógicamente el tipo de empresa después de dejarlo Inactivo.
      */
     public function destroy(TipoEmpresa $tipoEmpresa)
     {
-        try {
-
-            DB::beginTransaction();
-
-            if ($tipoEmpresa->empresas()->exists()) {
-
-                session()->flash('swal', [
-                    'title' => '¡Error!',
-                    'text'  => 'No se puede eliminar el tipo de empresa porque tiene empresas relacionadas.',
-                    'icon'  => 'error'
-                ]);
-
-                DB::rollBack();
-
-                return redirect()
-                    ->route('tipos_empresas_index');
-            }
-
-            $tipoEmpresa->delete();
-
+        if ($this->tipoEmpresaEstaRelacionado($tipoEmpresa)) {
             session()->flash('swal', [
-                'title' => '¡Bien hecho!',
-                'text'  => 'El tipo de empresa se ha eliminado correctamente.',
-                'icon'  => 'success'
+                'title' => 'No se puede eliminar',
+                'text' => 'El tipo de empresa está relacionado con otros datos.',
+                'icon' => 'error',
             ]);
 
+            return redirect()->route('tipos_empresas_index');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $tipoEmpresa->update(['estado' => 'INACTIVO']);
+            $tipoEmpresa->delete();
+
             DB::commit();
+
+            session()->flash('swal', [
+                'title' => 'Eliminado',
+                'text' => 'El tipo de empresa se eliminó correctamente.',
+                'icon' => 'success',
+            ]);
 
             return redirect()
                 ->route('tipos_empresas_index')
                 ->with('success', 'Tipo de empresa eliminado exitosamente');
-
         } catch (\Exception $e) {
-
             DB::rollBack();
 
             return redirect()
                 ->route('tipos_empresas_index')
                 ->with('error', 'No se pudo eliminar el tipo de empresa.');
         }
+    }
+
+    /**
+     * Valida los dos datos administrados por este catálogo.
+     */
+    private function validarTipoEmpresa(
+        Request $solicitud,
+        ?TipoEmpresa $tipoEmpresa = null
+    ): array {
+        return $solicitud->validate([
+            'form_descripcion' => [
+                'required',
+                'string',
+                Rule::unique('tipos_empresas', 'descripcion')
+                    ->ignore($tipoEmpresa?->id)
+                    ->whereNull('deleted_at'),
+            ],
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
+        ], [], [
+            'form_descripcion' => 'descripción',
+            'form_estado' => 'estado',
+        ]);
+    }
+
+    /**
+     * Incluye empresas eliminadas lógicamente porque conservan esta relación.
+     */
+    private function tipoEmpresaEstaRelacionado(TipoEmpresa $tipoEmpresa): bool
+    {
+        return $tipoEmpresa->empresas()->withTrashed()->exists();
     }
 }

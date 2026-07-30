@@ -1,4 +1,4 @@
-<div class="flex items-center space-x-2">
+<div class="tabla-acciones">
 
     <x-wire-button href="{{ route('tipos_empresas_edit', $tipo_empresa) }}" blue xs>
         Editar

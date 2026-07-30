@@ -243,6 +243,9 @@ def add_numbering_definition(document, fmt="decimal", text="%1.", color=TEXT):
     lvl_text = OxmlElement("w:lvlText")
     lvl_text.set(qn("w:val"), text)
     lvl.append(lvl_text)
+    suffix = OxmlElement("w:suff")
+    suffix.set(qn("w:val"), "tab")
+    lvl.append(suffix)
     lvl_jc = OxmlElement("w:lvlJc")
     lvl_jc.set(qn("w:val"), "left")
     lvl.append(lvl_jc)
@@ -261,12 +264,20 @@ def add_numbering_definition(document, fmt="decimal", text="%1.", color=TEXT):
     lvl.append(p_pr)
 
     r_pr = OxmlElement("w:rPr")
+    r_fonts = OxmlElement("w:rFonts")
+    r_fonts.set(qn("w:ascii"), "Calibri")
+    r_fonts.set(qn("w:hAnsi"), "Calibri")
+    r_pr.append(r_fonts)
     color_el = OxmlElement("w:color")
     color_el.set(qn("w:val"), color)
     r_pr.append(color_el)
     lvl.append(r_pr)
     abstract.append(lvl)
-    numbering.append(abstract)
+    first_num = numbering.find(qn("w:num"))
+    if first_num is None:
+        numbering.append(abstract)
+    else:
+        numbering.insert(list(numbering).index(first_num), abstract)
 
     existing_num = [int(node.get(qn("w:numId"))) for node in numbering.findall(qn("w:num"))]
     num_id = (max(existing_num) + 1) if existing_num else 100
@@ -349,6 +360,7 @@ def add_content_table(document, headers, rows, widths, header_fill=LIGHT_BLUE):
         set_cell_shading(cell, header_fill)
         p = cell.paragraphs[0]
         set_paragraph_spacing(p, after=0, line=1.1)
+        p.paragraph_format.keep_with_next = True
         add_text(p, label, bold=True, color=NAVY, size=9.5)
 
     for row_index, row_values in enumerate(rows):
@@ -578,7 +590,6 @@ def build_document():
     ]:
         add_list_item(document, item, steps)
 
-    document.add_page_break()
     add_heading(document, "3. Qué ocurre al dar de baja al tramitador", 1)
     add_callout(
         document,
@@ -657,7 +668,6 @@ def build_document():
         [3280, 6080],
     )
 
-    document.add_page_break()
     add_heading(document, "5. No todas las formas de “eliminar” son iguales", 1)
     add_content_table(
         document,
@@ -755,10 +765,11 @@ def build_document():
     )
 
     add_heading(document, "7. Observaciones del funcionamiento actual", 1)
-    add_body(
+    observation_intro = add_body(
         document,
         "Estas observaciones describen riesgos encontrados en el código vigente. No significan que ya hayan sido corregidos ni que el documento haya modificado el sistema.",
     )
+    observation_intro.paragraph_format.keep_with_next = True
     add_content_table(
         document,
         ["Observación", "Impacto práctico", "Mejora sugerida"],

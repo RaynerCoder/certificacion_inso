@@ -21,9 +21,13 @@ class TipoEmpresaTable extends DataTableComponent
         return [
             Column::make("ID", "id")
                 ->sortable(),
-            Column::make("Descripcion", "descripcion")
+            Column::make("Descripción", "descripcion")
+                ->searchable()
                 ->sortable(),
             Column::make("Estado", "estado")
+                ->format(fn ($estado) => view('tablas.chip_estado', [
+                    'estado' => $estado,
+                ]))
                 ->sortable(),
             Column::make('Acciones')
                 ->label(function($fila){
