@@ -1861,7 +1861,24 @@
          return reglas;
      }
 
-     function aplicarRequiredFrontendPersonaWizard() {
+     function configurarColoresValidacionNativaPersonaWizard(activos) {
+         if (!formPersonaWizard) return;
+
+         if (activos) {
+             formPersonaWizard.querySelectorAll('[data-validacion-colores-persona="1"]').forEach(contenedor => {
+                 contenedor.setAttribute('with-validation-colors', '');
+                 contenedor.removeAttribute('data-validacion-colores-persona');
+             });
+             return;
+         }
+
+         formPersonaWizard.querySelectorAll('[with-validation-colors]').forEach(contenedor => {
+             contenedor.dataset.validacionColoresPersona = '1';
+             contenedor.removeAttribute('with-validation-colors');
+         });
+     }
+
+     function limpiarRequiredFrontendPersonaWizard() {
          if (!formPersonaWizard) return;
 
          formPersonaWizard.querySelectorAll('[data-required-persona-wizard="1"]').forEach(campo => {
@@ -1869,6 +1886,15 @@
              campo.removeAttribute('aria-required');
              campo.removeAttribute('data-required-persona-wizard');
          });
+
+         configurarColoresValidacionNativaPersonaWizard(false);
+     }
+
+     // Los campos se marcan como obligatorios solo cuando se intenta enviar el formulario.
+     function aplicarRequiredFrontendPersonaWizard() {
+         if (!formPersonaWizard) return;
+
+         limpiarRequiredFrontendPersonaWizard();
 
          reglasObligatoriasPersonaWizard().forEach(([nombreCampo]) => {
              const campo = buscarCampoPersonaWizard(nombreCampo);
@@ -1878,6 +1904,8 @@
              campo.setAttribute('aria-required', 'true');
              campo.dataset.requiredPersonaWizard = '1';
          });
+
+         configurarColoresValidacionNativaPersonaWizard(true);
      }
 
      function validarEmailPersonaWizard(nombreCampo, mensaje) {
@@ -2078,7 +2106,7 @@
              cambiarTipoRegistro();
          }
 
-         aplicarRequiredFrontendPersonaWizard();
+         limpiarRequiredFrontendPersonaWizard();
          actualizarTipoRapidoPersonaWizard();
          actualizarProgresoPersonaWizard();
          mostrarPasoPersonaWizard(0);
@@ -2182,7 +2210,7 @@
       restaurarBorradorPersonaWizard();
       rehidratarListasOldPersonaWizard();
       sincronizarCuentaUsuarioPersona(false);
-      aplicarRequiredFrontendPersonaWizard();
+      limpiarRequiredFrontendPersonaWizard();
       tipoRegistroAnterior = tipoPersonaWizard();
       mostrarPasoPersonaWizard(pasoInicialPorErroresPersonaWizard());
 
@@ -2191,6 +2219,7 @@
          if (tieneErroresServidorPersona) return;
 
          limpiarRegistroNuevoPersonaWizard();
+         limpiarRequiredFrontendPersonaWizard();
          tipoRegistroAnterior = tipoPersonaWizard();
          mostrarPasoPersonaWizard(0);
      });
