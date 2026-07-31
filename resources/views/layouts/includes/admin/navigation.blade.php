@@ -1,7 +1,12 @@
 @php
     // Datos que se muestran junto a la campana de notificaciones.
     $usuarioCabecera = Auth::user();
-    $usuarioCabecera?->loadMissing(['funcionario.cargos', 'roles', 'persona.empresa', 'persona.natural']);
+    $usuarioCabecera?->loadMissing([
+        'funcionario.cargos',
+        'roles',
+        'persona.empresa.responsables.persona.natural',
+        'persona.natural',
+    ]);
 
     $funcionarioCabecera = $usuarioCabecera?->funcionario;
     $nombreFuncionarioCabecera = $funcionarioCabecera
@@ -20,6 +25,20 @@
         ])))
         : '';
 
+    // En cuentas de empresa se identifica a la empresa y a la persona que utiliza sus credenciales.
+    $responsablesEmpresaCabecera = $usuarioCabecera?->persona?->empresa?->responsables ?? collect();
+    $responsableActivoCabecera = $responsablesEmpresaCabecera
+        ->filter(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO')
+        ->sortByDesc('id')
+        ->first();
+    $nombreResponsableCabecera = $responsableActivoCabecera?->persona?->natural
+        ? trim(implode(' ', array_filter([
+            $responsableActivoCabecera->persona->natural->nombres,
+            $responsableActivoCabecera->persona->natural->apellido_paterno,
+            $responsableActivoCabecera->persona->natural->apellido_materno,
+        ])))
+        : '';
+
     $tipoPersonaCabecera = match (true) {
         (bool) $usuarioCabecera?->persona?->empresa => 'Empresa',
         (bool) $usuarioCabecera?->persona?->natural => 'Persona natural',
@@ -33,9 +52,12 @@
     $cargoPerfilCabecera = $funcionarioCabecera
         ? $funcionarioCabecera->cargos->pluck('nombre')->filter()->unique()->implode(', ')
         : '';
-    $detallePerfilCabecera = $cargoPerfilCabecera !== ''
-        ? $cargoPerfilCabecera
-        : $tipoPersonaCabecera;
+    $detallePerfilCabecera = match (true) {
+        $cargoPerfilCabecera !== '' => $cargoPerfilCabecera,
+        (bool) $usuarioCabecera?->persona?->empresa && $nombreResponsableCabecera !== ''
+            => 'Responsable: ' . $nombreResponsableCabecera,
+        default => $tipoPersonaCabecera,
+    };
     $rolesPerfilCabecera = $usuarioCabecera?->roles->pluck('name')->filter()->unique()->implode(', ') ?? '';
     $rolesPerfilCabecera = $rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Sin rol asignado';
     $correoPerfilCabecera = $usuarioCabecera?->email ?? 'Sin correo registrado';

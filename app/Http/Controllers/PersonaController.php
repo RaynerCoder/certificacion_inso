@@ -19,6 +19,7 @@ use App\Models\Responsable;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class PersonaController extends Controller
@@ -53,6 +54,7 @@ class PersonaController extends Controller
             'date' => 'El campo :attribute debe tener una fecha válida.',
             'max' => 'El campo :attribute no debe superar :max caracteres.',
             'min' => 'El campo :attribute debe tener al menos :min caracteres.',
+            'size' => 'Debe registrar exactamente :size :attribute.',
             'file' => 'El campo :attribute debe ser un archivo válido.',
             'mimes' => 'El archivo de :attribute debe ser de tipo: :values.',
         ];
@@ -67,8 +69,7 @@ class PersonaController extends Controller
         $paises = Territorio::where('id_ambito', 1)->orderBy('nombre')->get();
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
-        $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
-        $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
+        $rolSolicitante = $this->rolSolicitanteActivo();
         $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -92,8 +93,7 @@ class PersonaController extends Controller
             'departamentos' => $departamentos,
             'personas' => $personas,
             'tiposEmpresas' => $tiposEmpresas,
-            'rolesCuentaCatalogo' => $rolesCuentaCatalogo,
-            'rolesResponsablesCatalogo' => $rolesResponsablesCatalogo,
+            'rolSolicitante' => $rolSolicitante,
             'rubrosCatalogo' => $rubrosCatalogo,
             'ocupacionesCob' => $ocupacionesCob,
             'expedidosNatural' => $expedidosNatural,
@@ -143,6 +143,8 @@ class PersonaController extends Controller
     public function store(Request $solicitud)
     {
         $this->usarPaisComoTerritorioSiNoHayDepartamento($solicitud);
+        $rolSolicitante = $this->rolSolicitanteActivo();
+        $this->fijarDatosAccesoSolicitanteEnSolicitud($solicitud, $rolSolicitante);
 
         try {
             $datos = $solicitud->validate([
@@ -190,7 +192,7 @@ class PersonaController extends Controller
             'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
 
             // RESPONSABLES EMPRESA
-            'responsables'                     => 'nullable|array',
+            'responsables'                     => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
             'responsables.*.tipo'              => 'required|in:NUEVO,EXISTENTE',
             'responsables.*.id_persona'        => 'nullable|exists:personas,id',
             'responsables.*.domicilio'         => 'nullable|string|max:255',
@@ -220,11 +222,11 @@ class PersonaController extends Controller
             'responsables.*.id_rol'            => [
                 'required_if:form_tipo_registro,EMPRESA',
                 'nullable',
-                $this->reglaRolDisponibleParaRegistroExterno(),
+                Rule::in([$rolSolicitante->id]),
             ],
             'responsables.*.url_respaldo'      => 'nullable|string|max:255',
             'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.estado'            => 'nullable|string|max:50',
+            'responsables.*.estado'            => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
 
             // CUENTA DE USUARIO PARA QUE LA PERSONA/EMPRESA PUEDA INICIAR SESION
             'form_usuario_name' => 'required|string|max:255|unique:users,name',
@@ -232,7 +234,7 @@ class PersonaController extends Controller
             'form_usuario_password' => 'nullable|string|min:8',
             'form_id_role' => [
                 'required',
-                $this->reglaRolDisponibleParaRegistroExterno(),
+                Rule::in([$rolSolicitante->id]),
             ],
             ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: evitan mostrar campos tecnicos como form_id_territorio al usuario.
@@ -253,12 +255,14 @@ class PersonaController extends Controller
                 'form_id_role' => 'rol de acceso',
                 'responsables.*.id_rol' => 'rol del responsable',
                 'responsables.*.id_persona' => 'persona responsable',
+                'responsables' => 'responsable o representante legal',
             ]);
 
             // Evita errores SQL cuando se registra un responsable nuevo sin datos obligatorios de persona.
             $this->validarResponsablesAntesDeGuardar($datos['responsables'] ?? []);
             $this->validarTerritoriosResponsables($datos['responsables'] ?? []);
             $this->validarTerritorioPrincipal($datos['form_id_pais'], $datos['form_id_territorio']);
+
         } catch (ValidationException $e) {
             // Si falla un campo externo al modal, guardamos los PDF validos ya seleccionados.
             // Esto evita que el responsable agregado pierda su respaldo al volver con errores.
@@ -277,12 +281,15 @@ class PersonaController extends Controller
                 $passwordGeneradaCuenta = $passwordCuenta;
             }
 
+            $responsableActivo = $datos['form_tipo_registro'] !== 'EMPRESA'
+                || strtoupper($datos['responsables'][0]['estado'] ?? 'ACTIVO') === 'ACTIVO';
+
             // La cuenta se crea primero para enlazarla a personas.id_usuario.
             $usuarioAcceso = User::create([
                 'name' => $datos['form_usuario_name'],
                 'email' => $datos['form_usuario_email'],
                 'password' => $passwordCuenta,
-                'estado' => 1,
+                'estado' => strtoupper($datos['form_estado'] ?? 'ACTIVO') === 'ACTIVO' && $responsableActivo ? 1 : 0,
             ]);
 
             // Asigna el rol elegido para la cuenta de acceso de esta persona/empresa.
@@ -604,32 +611,40 @@ class PersonaController extends Controller
         }
     }
 
-    // Los formularios externos no deben ofrecer roles reservados para el personal del sistema.
-    private function rolesDisponiblesParaRegistroExterno()
+    // Busca el rol por su código estable para no depender del ID de cada base de datos.
+    private function rolSolicitanteActivo(): Role
     {
         return Role::query()
+            ->where('slug', 'solicitante')
             ->where('estado', 1)
-            ->where(function ($consulta) {
-                $consulta
-                    ->whereNull('especial')
-                    ->orWhere('especial', '');
-            })
-            ->orderBy('name')
-            ->get();
+            ->whereNull('deleted_at')
+            ->firstOrFail();
     }
 
-    private function reglaRolDisponibleParaRegistroExterno()
+    // Tanto la cuenta como la relacion del responsable utilizan el rol Solicitante.
+    private function fijarDatosAccesoSolicitanteEnSolicitud(Request $solicitud, Role $rolSolicitante): void
     {
-        return Rule::exists('roles', 'id')->where(
-            fn ($consulta) => $consulta
-                ->where('estado', 1)
-                ->whereNull('deleted_at')
-                ->where(function ($rolesPermitidos) {
-                    $rolesPermitidos
-                        ->whereNull('especial')
-                        ->orWhere('especial', '');
-                })
-        );
+        $responsables = collect($solicitud->input('responsables', []))
+            ->map(fn (array $responsable) => array_merge($responsable, [
+                'id_rol' => $rolSolicitante->id,
+            ]))
+            ->all();
+
+        $datosFijos = [
+            'form_id_role' => $rolSolicitante->id,
+            'responsables' => $responsables,
+        ];
+
+        if ($solicitud->input('form_tipo_registro') === 'EMPRESA') {
+            $responsable = $responsables[0] ?? [];
+            $ciResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['ci'] ?? ''));
+
+            // La empresa utiliza las credenciales de su unico responsable activo.
+            $datosFijos['form_usuario_name'] = Str::lower($ciResponsable);
+            $datosFijos['form_usuario_email'] = trim((string) ($responsable['correo'] ?? ''));
+        }
+
+        $solicitud->merge($datosFijos);
     }
 
     private function validarTerritoriosResponsables(array $responsables): void
@@ -786,19 +801,36 @@ class PersonaController extends Controller
                 $urlRespaldo = $this->guardarRespaldoResponsable($responsable['archivo_respaldo']);
             }
 
-            // RESPONSABLE
+            // La relacion existente se reutiliza para conservar su historial y evitar duplicados.
             $claveResponsable = $idPersonaResponsable . ':' . $responsable['id_rol'];
+            $estadoResponsable = strtoupper($responsable['estado'] ?? 'ACTIVO');
+            $relacionResponsable = Responsable::withTrashed()
+                ->where('id_empresa', $idEmpresa)
+                ->where('id_persona', $idPersonaResponsable)
+                ->where('id_rol', $responsable['id_rol'])
+                ->latest('id')
+                ->first();
 
-            Responsable::create([
+            if ($relacionResponsable?->trashed()) {
+                $relacionResponsable->restore();
+            }
+
+            $datosRelacion = [
                 'id_empresa'      => $idEmpresa,
                 'id_persona'      => $idPersonaResponsable,
                 'id_rol'          => $responsable['id_rol'],
                 'url_respaldo'    => $urlRespaldo,
                 // La fecha se define en el servidor y no depende de un valor enviado desde el modal.
-                'fecha_registro'  => $fechasRegistroExistentes[$claveResponsable] ?? now()->toDateString(),
-                'fecha_baja'      => null,
-                'estado'          => $responsable['estado'] ?? 'ACTIVO',
-            ]);
+                'fecha_registro'  => $fechasRegistroExistentes[$claveResponsable]
+                    ?? $relacionResponsable?->fecha_registro
+                    ?? now()->toDateString(),
+                'fecha_baja'      => $estadoResponsable === 'INACTIVO' ? now()->toDateString() : null,
+                'estado'          => $estadoResponsable,
+            ];
+
+            $relacionResponsable
+                ? $relacionResponsable->update($datosRelacion)
+                : Responsable::create($datosRelacion);
         }
     }
 
@@ -904,8 +936,7 @@ class PersonaController extends Controller
         $paises = Territorio::where('id_ambito', 1)->orderBy('nombre')->get();
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
-        $rolesCuentaCatalogo = $this->rolesDisponiblesParaRegistroExterno();
-        $rolesResponsablesCatalogo = $this->rolesDisponiblesParaRegistroExterno();
+        $rolSolicitante = $this->rolSolicitanteActivo();
         $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -938,6 +969,11 @@ class PersonaController extends Controller
 
         $responsablesRegistrados = $persona->empresa
             ? $persona->empresa->responsables
+                ->sortByDesc(fn ($responsable) =>
+                    (strtoupper((string) $responsable->estado) === 'ACTIVO' ? 1000000000 : 0)
+                    + (int) $responsable->id
+                )
+                ->take(1)
                 ->map(fn ($responsable) => [
                     'tipo' => 'EXISTENTE',
                     'id_persona' => $responsable->id_persona,
@@ -961,8 +997,8 @@ class PersonaController extends Controller
                         $responsable->persona?->natural?->apellido_paterno,
                         $responsable->persona?->natural?->apellido_materno,
                     ]))),
-                    'id_rol' => $responsable->id_rol,
-                    'rol_nombre' => $responsable->rol?->name,
+                    'id_rol' => $rolSolicitante->id,
+                    'rol_nombre' => $rolSolicitante->name,
                     'url_respaldo' => $responsable->url_respaldo,
                     'estado' => $responsable->estado,
                     'telefonos' => $responsable->persona?->telefonos
@@ -996,8 +1032,7 @@ class PersonaController extends Controller
             'telefonosRegistrados',
             'rubrosRegistrados',
             'responsablesRegistrados',
-            'rolesCuentaCatalogo',
-            'rolesResponsablesCatalogo',
+            'rolSolicitante',
             'rubrosCatalogo',
             'ocupacionesCob',
             'expedidosNatural'
@@ -1010,7 +1045,11 @@ class PersonaController extends Controller
     public function update(Request $solicitud, Persona $persona)
     {
         $this->usarPaisComoTerritorioSiNoHayDepartamento($solicitud);
-        $persona->loadMissing(['natural', 'usuario.roles']);
+        $persona->loadMissing(['natural', 'usuario.roles', 'empresa.responsables.persona.natural']);
+        $rolSolicitante = $this->rolSolicitanteActivo();
+        $this->fijarDatosAccesoSolicitanteEnSolicitud($solicitud, $rolSolicitante);
+        $responsableActivoAnterior = $persona->empresa?->responsables
+            ->first(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO');
         $usuarioCuentaId = $persona->usuario?->id;
         $naturalId = $persona->natural?->id;
         $reglaPasswordCuenta = 'nullable|string|min:8';
@@ -1078,7 +1117,7 @@ class PersonaController extends Controller
             'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
 
             // RESPONSABLES EMPRESA
-            'responsables'                     => 'nullable|array',
+            'responsables'                     => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
             'responsables.*.tipo'              => 'required|in:NUEVO,EXISTENTE',
             'responsables.*.id_persona'        => 'nullable|exists:personas,id',
             'responsables.*.domicilio'         => 'nullable|string|max:255',
@@ -1107,11 +1146,11 @@ class PersonaController extends Controller
             'responsables.*.id_rol'            => [
                 'required_if:form_tipo_registro,EMPRESA',
                 'nullable',
-                $this->reglaRolDisponibleParaRegistroExterno(),
+                Rule::in([$rolSolicitante->id]),
             ],
             'responsables.*.url_respaldo'      => 'nullable|string|max:255',
             'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.estado'            => 'nullable|string|max:50',
+            'responsables.*.estado'            => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
 
             // CUENTA DE ACCESO RELACIONADA A LA PERSONA/EMPRESA
             'form_usuario_name' => [
@@ -1129,7 +1168,7 @@ class PersonaController extends Controller
             'form_usuario_password' => $reglaPasswordCuenta,
             'form_id_role' => [
                 'required',
-                $this->reglaRolDisponibleParaRegistroExterno(),
+                Rule::in([$rolSolicitante->id]),
             ],
             ], $this->mensajesValidacionPersona(), [
                 // Nombres legibles: mantienen create y edit con mensajes entendibles.
@@ -1150,6 +1189,7 @@ class PersonaController extends Controller
                 'form_id_role' => 'rol de acceso',
                 'responsables.*.id_rol' => 'rol del responsable',
                 'responsables.*.id_persona' => 'persona responsable',
+                'responsables' => 'responsable o representante legal',
             ]);
 
             // Evita errores SQL tambien al editar responsables nuevos de empresa.
@@ -1177,6 +1217,22 @@ class PersonaController extends Controller
             throw $e;
         }
 
+        $responsableEnviado = $datos['responsables'][0] ?? null;
+        $responsableActivo = $datos['form_tipo_registro'] !== 'EMPRESA'
+            || strtoupper($responsableEnviado['estado'] ?? 'ACTIVO') === 'ACTIVO';
+        $cambioResponsable = false;
+
+        if ($datos['form_tipo_registro'] === 'EMPRESA') {
+            $idResponsableEnviado = (int) ($responsableEnviado['id_persona'] ?? 0);
+            $ciResponsableEnviado = trim((string) ($responsableEnviado['ci'] ?? ''));
+            $ciResponsableAnterior = trim((string) ($responsableActivoAnterior?->persona?->natural?->ci ?? ''));
+
+            $cambioResponsable = ! $responsableActivoAnterior
+                || ($idResponsableEnviado > 0
+                    ? $idResponsableEnviado !== (int) $responsableActivoAnterior->id_persona
+                    : $ciResponsableEnviado === '' || $ciResponsableEnviado !== $ciResponsableAnterior);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1184,10 +1240,10 @@ class PersonaController extends Controller
             $usuarioAcceso = $persona->usuario ?: new User();
             $usuarioAcceso->name = $datos['form_usuario_name'];
             $usuarioAcceso->email = $datos['form_usuario_email'];
-            $usuarioAcceso->estado = $estadoPersona === 'ACTIVO' ? 1 : 0;
+            $usuarioAcceso->estado = $estadoPersona === 'ACTIVO' && $responsableActivo ? 1 : 0;
             $passwordGeneradaCuenta = null;
 
-            if (!empty($datos['form_usuario_password']) || ! $usuarioCuentaId) {
+            if (!empty($datos['form_usuario_password']) || ! $usuarioCuentaId || $cambioResponsable) {
                 $passwordCuenta = $datos['form_usuario_password'] ?: $this->generarPasswordTemporalCuenta();
                 $usuarioAcceso->password = $passwordCuenta;
 
@@ -1198,6 +1254,10 @@ class PersonaController extends Controller
 
             $usuarioAcceso->save();
             $usuarioAcceso->roles()->sync([$datos['form_id_role']]);
+
+            if ($cambioResponsable || ! $responsableActivo || $estadoPersona === 'INACTIVO') {
+                $this->cerrarAccesosUsuario($usuarioAcceso);
+            }
 
             $persona->update([
                 'id_usuario'     => $usuarioAcceso->id,
@@ -1256,19 +1316,15 @@ class PersonaController extends Controller
                     ]
                 );
 
-                $fechasRegistroResponsables = Responsable::where('id_empresa', $empresa->id)
-                    ->get()
-                    ->mapWithKeys(fn ($responsable) => [
-                        $responsable->id_persona . ':' . $responsable->id_rol => $responsable->fecha_registro,
-                    ])
-                    ->all();
+                // Los anteriores quedan como historial; solo el enviado conserva su estado actual.
+                Responsable::where('id_empresa', $empresa->id)
+                    ->where('estado', '!=', 'INACTIVO')
+                    ->update([
+                        'estado' => 'INACTIVO',
+                        'fecha_baja' => now()->toDateString(),
+                    ]);
 
-                Responsable::where('id_empresa', $empresa->id)->delete();
-                $this->registrarResponsablesEmpresa(
-                    $empresa->id,
-                    $datos['responsables'] ?? [],
-                    $fechasRegistroResponsables
-                );
+                $this->registrarResponsablesEmpresa($empresa->id, $datos['responsables'] ?? []);
             }
 
             DB::commit();
@@ -1298,6 +1354,21 @@ class PersonaController extends Controller
     private function generarPasswordTemporalCuenta(): string
     {
         return Str::random(10);
+    }
+
+    // Revoca las sesiones cuando cambia o se inactiva quien utiliza la cuenta de la empresa.
+    private function cerrarAccesosUsuario(User $usuario): void
+    {
+        $usuario->forceFill(['remember_token' => Str::random(60)])->save();
+        $usuario->tokens()->delete();
+
+        if (config('session.driver') === 'database') {
+            $tablaSesiones = config('session.table', 'sessions');
+
+            if (Schema::hasTable($tablaSesiones)) {
+                DB::table($tablaSesiones)->where('user_id', $usuario->id)->delete();
+            }
+        }
     }
 
     /**

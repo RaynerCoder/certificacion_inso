@@ -3,16 +3,14 @@
     $esEdicionCuenta = ($modoCuenta ?? 'crear') === 'editar';
     $usuarioCuenta = $persona->usuario ?? null;
     $cuentaExistente = (bool) $usuarioCuenta;
-    $rolActualCuenta = $usuarioCuenta?->roles?->first()?->id;
-    $rolSeleccionadoCuenta = old('form_id_role', $rolActualCuenta);
 @endphp
 
 <div class="wizard-section-block">
     <div class="wizard-section-heading">
         <span class="wizard-section-number">1</span>
         <div>
-            <h3>Cuenta de acceso al sistema</h3>
-            <p>Revise o cambie las credenciales que usara la persona o empresa para iniciar sesion.</p>
+            <h3 id="tituloCuentaAccesoPersona">Cuenta de acceso al sistema</h3>
+            <p id="descripcionCuentaAccesoPersona">Credenciales que se utilizaran para iniciar sesion.</p>
         </div>
     </div>
 
@@ -24,33 +22,17 @@
             <x-wire-input label="Correo de acceso" id="form_usuario_email" name="form_usuario_email" type="email"
                 placeholder="correo@ejemplo.com" value="{{ old('form_usuario_email', $usuarioCuenta->email ?? '') }}" />
 
-            <div class="ocupacion-persona-autocomplete" data-rol-cuenta>
-                <label for="buscadorRolCuenta" class="mb-1 block text-sm font-medium text-slate-700">
+            <div>
+                <label for="form_id_role_visible" class="mb-1 block text-sm font-medium text-slate-700">
                     Rol de acceso
                 </label>
 
                 <select id="form_id_role" name="form_id_role" class="hidden">
-                    <option value="">Seleccione el rol</option>
-                    @foreach ($rolesCuentaCatalogo as $rolCuenta)
-                        <option value="{{ $rolCuenta->id }}" @selected((string) $rolSeleccionadoCuenta === (string) $rolCuenta->id)>
-                            {{ $rolCuenta->name }}
-                        </option>
-                    @endforeach
+                    <option value="{{ $rolSolicitante->id }}" selected>{{ $rolSolicitante->name }}</option>
                 </select>
 
-                <div class="ocupacion-persona-control">
-                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-
-                    <input type="search" id="buscadorRolCuenta" data-rol-cuenta-buscar
-                        placeholder="Escriba el nombre del rol" autocomplete="off">
-
-                    <button type="button" class="ocupacion-persona-limpiar" data-rol-cuenta-limpiar
-                        aria-label="Quitar rol seleccionado">
-                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                    </button>
-                </div>
-
-                <div class="ocupacion-persona-resultados" data-rol-cuenta-resultados></div>
+                <input id="form_id_role_visible" type="text" value="{{ $rolSolicitante->name }}" readonly
+                    class="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 cursor-not-allowed">
 
                 @error('form_id_role')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

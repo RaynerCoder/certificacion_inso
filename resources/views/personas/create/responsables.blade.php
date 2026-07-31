@@ -49,27 +49,17 @@
 
         {{-- BODY --}}
         <div class="p-6 space-y-5">
-
-            <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
-
-                <h3 class="text-sm font-semibold text-gray-700">
-                    Responsables agregados
-                </h3>
-
-                <div class="responsables-review-table mt-3">
-                    <div id="listaResponsablesEmpresa" class="responsables-review-body">
+            <div class="responsables-review-table">
+                <div id="listaResponsablesEmpresa" class="responsables-review-body">
 
                     <span id="mensajeSinResponsables" class="responsables-review-empty">
 
-                        Todavía no se agregaron responsables.
+                        Todavía no se registró un responsable.
 
                     </span>
 
-                    </div>
                 </div>
-
             </div>
-
         </div>
 
     </div>
@@ -88,7 +78,7 @@
                 </h2>
 
                 <p class="text-xs text-gray-500">
-                    Registro y asignación de responsables relacionados a la empresa.
+                    Registre al responsable o representante legal de la empresa.
                 </p>
             </div>
 
@@ -101,7 +91,7 @@
         {{-- BODY --}}
         <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto" data-modal-body-responsable>
             {{-- SECCIÓN 1 --}}
-            <div class="rounded-xl border border-slate-200 overflow-visible">
+            <div class="relative z-50 rounded-xl border border-slate-200 overflow-visible">
 
                 <div class="bg-slate-100 px-4 py-2 border-b border-slate-200">
                     <h3 class="text-sm font-bold text-slate-700">
@@ -420,14 +410,15 @@
 
                 <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                    {{-- Rol del responsable: se guarda como id_rol en la tabla responsables. --}}
-                    <x-wire-native-select label="Rol o cargo" id="nuevo_id_rol">
-                        <option value="">Seleccione rol</option>
-                        @foreach ($rolesResponsablesCatalogo as $rolResponsable)
-                            <option value="{{ $rolResponsable->id }}">
-                                {{ $rolResponsable->name }}
-                            </option>
-                        @endforeach
+                    {{-- El servidor vuelve a fijar este rol para impedir cambios desde el navegador. --}}
+                    <x-wire-native-select
+                        label="Rol de registro"
+                        id="nuevo_id_rol"
+                        disabled
+                    >
+                        <option value="{{ $rolSolicitante->id }}" selected>
+                            {{ $rolSolicitante->name }}
+                        </option>
                     </x-wire-native-select>
 
                     <div data-error-wrapper="nuevo_url_respaldo">

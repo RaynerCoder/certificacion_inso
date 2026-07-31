@@ -156,7 +156,7 @@
 
                 <button type="button" data-wizard-ir="4" class="paso-burbuja">
                     <span class="paso-circulo">5</span>
-                    <span>Cuenta</span>
+                    <span id="etiquetaPasoAccesoPersona">Cuenta</span>
                 </button>
 
                 <button type="button" data-wizard-ir="5" class="paso-burbuja">
@@ -266,27 +266,27 @@
                             @include('personas.create.rubros')
                         </div>
 
-                        {{-- Boton de responsables visible para empresa; no crea rutas ni cambia guardado. --}}
+                    </div>
+
+                    <div class="wizard-persona-step persona-wizard-flat hidden space-y-5" data-wizard-step="4">
                         <div id="bloque_responsables_wizard" class="wizard-section-block is-soft hidden">
                             <div class="wizard-section-heading">
-                                <span class="wizard-section-number">2</span>
+                                <span class="wizard-section-number">1</span>
                                 <div class="min-w-0 flex-1">
-                                    <h3>Responsables de la empresa</h3>
-                                    <p>Agregue responsables existentes o registre uno nuevo desde el modal.</p>
+                                    <h3>Responsable o representante legal</h3>
+                                    <p>Registre a la persona que utilizara la cuenta de acceso de la empresa.</p>
                                 </div>
 
                                 <div id="accion_responsables_wizard" class="responsables-wizard-action">
-                                    <button type="button" onclick="abrirModalResponsable()">
-                                        Agregar Responsable
+                                    <button id="btnGestionarResponsableEmpresa" type="button" onclick="abrirModalResponsable()">
+                                        Agregar responsable
                                     </button>
                                 </div>
                             </div>
 
                             @include('personas.create.responsables')
                         </div>
-                    </div>
 
-                    <div class="wizard-persona-step persona-wizard-flat hidden" data-wizard-step="4">
                         @include('personas.create.cuenta-usuario')
                     </div>
 

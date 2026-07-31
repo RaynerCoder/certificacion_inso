@@ -478,7 +478,7 @@
              '#listaResponsablesEmpresa',
              '.responsable-agregado',
              'mensajeSinResponsables',
-             'Todavía no se agregaron responsables.'
+             'Todavía no se registró un responsable.'
          );
 
          if (typeof indiceResponsable !== 'undefined') {
@@ -903,6 +903,8 @@
 
      // Lee un input oculto dentro de una lista dinamica, por ejemplo telefonos[0][numero].
      function valorOcultoResumenPersonaWizard(contenedor, campo) {
+         if (!contenedor) return '';
+
          const input = Array.from(contenedor.querySelectorAll('input[name]'))
              .find(elemento => elemento.name.endsWith(`[${campo}]`));
 
@@ -1201,9 +1203,9 @@
          if (!responsables.length) {
              return `
                 <div class="persona-review-table-block persona-review-responsables-block">
-                    <h5>Responsables que se guardaran</h5>
+                    <h5>Responsable que se guardará</h5>
                     <div class="persona-review-responsable-empty-state">
-                        No se agregaron responsables.
+                        No se registró un responsable.
                     </div>
                 </div>
             `;
@@ -1279,7 +1281,7 @@
 
          return `
             <div class="persona-review-table-block persona-review-responsables-block">
-                <h5>Responsables que se guardaran</h5>
+                <h5>Responsable que se guardará</h5>
                 <div class="persona-review-responsables-list">
                     ${filas}
                 </div>
@@ -1308,11 +1310,12 @@
              .replace(/[^a-z0-9]/g, '');
      }
 
-     // Sugiere usuario con CI para natural o NIT/matricula para empresa.
+     // Para empresa, la cuenta se entrega al responsable; por eso se sugiere su CI.
      function sugerirNombreUsuarioPersonaWizard() {
          const tipo = tipoPersonaWizard();
+         const responsable = document.querySelector('.responsable-agregado');
          const base = tipo === 'EMPRESA'
-             ? valorPersonaWizard('[name="form_nit"]') || valorPersonaWizard('[name="form_matricula"]')
+             ? valorOcultoResumenPersonaWizard(responsable, 'ci')
              : valorPersonaWizard('[name="form_ci"]');
 
          return textoUsuarioSeguroPersonaWizard(base);
@@ -1347,15 +1350,32 @@
          panel.classList.remove('hidden');
          panel.querySelectorAll('input').forEach(campo => campo.disabled = false);
 
+         const esEmpresa = tipoPersonaWizard() === 'EMPRESA';
          const usuarioSugerido = sugerirNombreUsuarioPersonaWizard();
-         const correoPrincipal = valorPersonaWizard('[name="form_correo"]');
+         const responsable = document.querySelector('.responsable-agregado');
+         const correoPrincipal = esEmpresa
+             ? valorOcultoResumenPersonaWizard(responsable, 'correo')
+             : valorPersonaWizard('[name="form_correo"]');
 
-         if (usuarioSugerido && (forzar || usuario.dataset.manual !== '1')) {
+         // En empresa estas credenciales siempre pertenecen al responsable registrado.
+         usuario.readOnly = esEmpresa;
+         correo.readOnly = esEmpresa;
+         usuario.classList.toggle('bg-slate-100', esEmpresa);
+         correo.classList.toggle('bg-slate-100', esEmpresa);
+         usuario.classList.toggle('cursor-not-allowed', esEmpresa);
+         correo.classList.toggle('cursor-not-allowed', esEmpresa);
+
+         if (esEmpresa) {
+             usuario.value = usuarioSugerido;
+             correo.value = correoPrincipal;
+             usuario.dataset.autocompletado = '1';
+             correo.dataset.autocompletado = '1';
+         } else if (usuarioSugerido && (forzar || usuario.dataset.manual !== '1')) {
              usuario.value = usuarioSugerido;
              usuario.dataset.autocompletado = '1';
          }
 
-         if (correoPrincipal && (forzar || correo.dataset.manual !== '1')) {
+         if (!esEmpresa && correoPrincipal && (forzar || correo.dataset.manual !== '1')) {
              correo.value = correoPrincipal;
              correo.dataset.autocompletado = '1';
          }
@@ -1494,9 +1514,9 @@
          );
          marcarProgresoPersonaWizard(
              progresoPersonaWizard.complementos,
-             tipo === 'EMPRESA' ? (cantidadRubros > 0 || cantidadResponsables > 0) : tipo === 'NATURAL' ? cantidadRubros > 0 : false,
+             tipo === 'EMPRESA' ? cantidadRubros > 0 : tipo === 'NATURAL' ? cantidadRubros > 0 : false,
              tipo === 'EMPRESA'
-                 ? (cantidadRubros > 0 || cantidadResponsables > 0 ? [] : ['rubro o responsable'])
+                 ? (cantidadRubros > 0 ? [] : ['rubro'])
                  : tipo === 'NATURAL'
                      ? (cantidadRubros > 0 ? [] : ['rubro'])
                      : ['complementos']
@@ -1515,6 +1535,7 @@
 
          const cuentaCompleta = Boolean(
              datosBaseCuentaCompletos &&
+             (tipo !== 'EMPRESA' || cantidadResponsables === 1) &&
              valorPersonaWizard('[name="form_usuario_name"]') &&
              valorPersonaWizard('[name="form_usuario_email"]') &&
              valorPersonaWizard('[name="form_id_role"]')
@@ -1524,6 +1545,10 @@
 
          if (!datosBaseCuentaCompletos) {
              pendientesCuenta.push(tipo === 'NATURAL' ? 'correo y CI' : tipo === 'EMPRESA' ? 'correo y NIT' : 'tipo de registro');
+         }
+
+         if (tipo === 'EMPRESA' && cantidadResponsables !== 1) {
+             pendientesCuenta.push('un responsable o representante legal');
          }
 
          pendientesCuenta.push(...camposVaciosPersonaWizard([
@@ -1592,8 +1617,6 @@
                  itemResumenPersonaWizard('Estado empresa', valorPersonaWizard('[name="form_estado_empresa"]'))
              ];
 
-             paso4Complementos.push(itemResumenPersonaWizard('Responsables agregados', cantidadResponsables));
-             paso4Complementos.push(resumenResponsablesPersonaWizard());
          }
 
          const paso5CuentaAcceso = [
@@ -1610,12 +1633,17 @@
              )
          ];
 
+         if (tipo === 'EMPRESA') {
+             paso5CuentaAcceso.unshift(resumenResponsablesPersonaWizard());
+             paso5CuentaAcceso.unshift(itemResumenPersonaWizard('Responsable registrado', cantidadResponsables));
+         }
+
          resumenPersonaWizard.innerHTML = [
              grupoResumenPersonaWizard('Paso 1 - Tipo de registro', 'Define si se guardara como persona natural o empresa.', paso1Tipo),
              grupoResumenPersonaWizard('Paso 2 - Datos generales', 'Datos que alimentan la tabla personas y su territorio.', paso2DatosGenerales),
              grupoResumenPersonaWizard('Paso 3 - Datos especificos', tipo === 'EMPRESA' ? 'Datos que alimentan la tabla empresas.' : 'Datos que alimentan la tabla naturals.', paso3DatosEspecificos),
-             grupoResumenPersonaWizard('Paso 4 - Complementos', tipo === 'EMPRESA' ? 'Telefonos y responsables que se guardaran relacionados a la empresa.' : 'Telefonos y rubros que se guardaran relacionados a la persona natural.', paso4Complementos),
-             grupoResumenPersonaWizard('Paso 5 - Cuenta de acceso', 'Usuario, correo, rol y contrasena que se guardaran para iniciar sesion.', paso5CuentaAcceso),
+             grupoResumenPersonaWizard('Paso 4 - Complementos', 'Telefonos y rubros relacionados con el registro.', paso4Complementos),
+             grupoResumenPersonaWizard(tipo === 'EMPRESA' ? 'Paso 5 - Responsable y acceso' : 'Paso 5 - Cuenta de acceso', 'Responsable y credenciales que se utilizaran para iniciar sesion.', paso5CuentaAcceso),
          ].join('');
      }
 
@@ -1661,7 +1689,8 @@
 
          if (camposGenerales.includes(nombreCampo)) return 1;
          if (camposEspecificos.includes(nombreCampo)) return 2;
-         if (nombreCampo.startsWith('telefonos') || nombreCampo.startsWith('rubros') || nombreCampo.startsWith('responsables')) return 3;
+         if (nombreCampo.startsWith('telefonos') || nombreCampo.startsWith('rubros')) return 3;
+         if (nombreCampo.startsWith('responsables')) return 4;
          if (nombreCampo.startsWith('form_usuario_') || nombreCampo === 'form_id_role') return 4;
 
          return 0;
@@ -1933,6 +1962,22 @@
          aplicarRequiredFrontendPersonaWizard();
          limpiarErrorCampoPersonaWizard('tipo_registro');
 
+         if (tipoPersonaWizard() === 'EMPRESA' && document.querySelectorAll('.responsable-agregado').length !== 1) {
+             mostrarPasoPersonaWizard(4);
+
+             if (typeof Swal !== 'undefined') {
+                 Swal.fire({
+                     icon: 'warning',
+                     title: 'Responsable requerido',
+                     text: 'Registre un solo responsable o representante legal para la empresa.',
+                     confirmButtonText: 'Entendido',
+                 });
+             }
+
+             document.getElementById('btnGestionarResponsableEmpresa')?.focus();
+             return false;
+         }
+
          let primerCampoError = null;
 
          reglasObligatoriasPersonaWizard().forEach(([nombreCampo, mensaje]) => {
@@ -2003,11 +2048,24 @@
          }
 
          if (pasoPersonaActual === 3) {
-             titulo = tipo === 'EMPRESA' ? 'Telefonos y Responsables' : 'Telefonos y Rubros';
-             subtitulo = tipo === 'EMPRESA' ?
-                 'Agregue telefonos de contacto y responsables de la empresa.' :
-                 'Agregue telefonos de contacto y rubros de la persona natural.';
+             titulo = 'Telefonos y rubros';
+             subtitulo = 'Agregue los datos complementarios relacionados con el registro.';
          }
+
+         if (pasoPersonaActual === 4 && tipo === 'EMPRESA') {
+             titulo = 'Responsable o representante legal y acceso';
+             subtitulo = 'Registre a la persona responsable y revise las credenciales que utilizara.';
+         }
+
+         const etiquetaPasoAcceso = document.getElementById('etiquetaPasoAccesoPersona');
+         const tituloCuenta = document.getElementById('tituloCuentaAccesoPersona');
+         const descripcionCuenta = document.getElementById('descripcionCuentaAccesoPersona');
+
+         if (etiquetaPasoAcceso) etiquetaPasoAcceso.textContent = tipo === 'EMPRESA' ? 'Responsable y acceso' : 'Cuenta';
+         if (tituloCuenta) tituloCuenta.textContent = tipo === 'EMPRESA' ? 'Cuenta para el responsable o representante legal' : 'Cuenta de acceso al sistema';
+         if (descripcionCuenta) descripcionCuenta.textContent = tipo === 'EMPRESA'
+             ? 'Estas credenciales seran utilizadas por el responsable o representante legal activo.'
+             : 'Credenciales que utilizara la persona para iniciar sesion.';
 
          if (tituloPasoWizard) tituloPasoWizard.textContent = titulo;
          if (subtituloPasoWizard) subtituloPasoWizard.textContent = subtitulo;
@@ -2232,6 +2290,7 @@
      let rubrosResponsableTemporal = [];
      let responsableEditandoElemento = null;
      let responsableEditandoIndice = null;
+     let responsableEnReemplazo = false;
      let pdfTemporalResponsableModal = null;
      let versionCargaTerritorioResponsable = 0;
 
@@ -2528,10 +2587,15 @@
      }
 
      function abrirModalResponsable() {
-         responsableEditandoElemento = null;
-         responsableEditandoIndice = null;
+         const responsableActual = document.querySelector('#listaResponsablesEmpresa .responsable-agregado');
+
+         responsableEditandoElemento = responsableActual;
+         responsableEditandoIndice = responsableActual
+             ? indiceFormularioResponsableDesdeItem(responsableActual)
+             : null;
+         responsableEnReemplazo = Boolean(responsableActual);
          limpiarModalResponsable();
-         configurarEncabezadoModalResponsable(false);
+         configurarEncabezadoModalResponsable(false, responsableEnReemplazo);
          document.getElementById('modalNuevoResponsable').classList.remove('hidden');
          prepararModoPersonaNueva();
      }
@@ -2540,19 +2604,20 @@
          document.getElementById('modalNuevoResponsable').classList.add('hidden');
          responsableEditandoElemento = null;
          responsableEditandoIndice = null;
+         responsableEnReemplazo = false;
          configurarEncabezadoModalResponsable(false);
      }
 
-     function configurarEncabezadoModalResponsable(esEdicion) {
+     function configurarEncabezadoModalResponsable(esEdicion, esReemplazo = false) {
          const titulo = document.getElementById('tituloModalResponsable');
          const boton = document.getElementById('btnGuardarResponsableModal');
 
          if (titulo) {
-             titulo.textContent = esEdicion ? 'Editar responsable' : 'Registrar responsable';
+             titulo.textContent = esEdicion ? 'Editar responsable' : esReemplazo ? 'Cambiar responsable' : 'Registrar responsable';
          }
 
          if (boton) {
-             boton.textContent = esEdicion ? 'Guardar cambios' : 'Agregar Responsable';
+             boton.textContent = esEdicion ? 'Guardar cambios' : esReemplazo ? 'Confirmar cambio' : 'Agregar responsable';
          }
      }
 
@@ -2946,9 +3011,20 @@
 
      // Recalcula los numeros visibles cuando se agrega o quita un responsable.
      function actualizarNumerosResponsablesEmpresa() {
-         document.querySelectorAll('.responsable-agregado .responsables-review-number').forEach((numero, index) => {
+         const responsables = document.querySelectorAll('.responsable-agregado');
+
+         responsables.forEach((item, index) => {
+             const numero = item.querySelector('.responsables-review-number');
+             if (!numero) return;
              numero.textContent = index + 1;
          });
+
+         const botonGestion = document.getElementById('btnGestionarResponsableEmpresa');
+         if (botonGestion) {
+             botonGestion.textContent = responsables.length ? 'Cambiar responsable' : 'Agregar responsable';
+         }
+
+         actualizarProgresoPersonaWizard();
      }
 
      // Muestra telefonos o rubros dentro de la fila del responsable agregado.
@@ -3240,6 +3316,7 @@
 
          responsableEditandoElemento = item;
          responsableEditandoIndice = indiceFormularioResponsableDesdeItem(item);
+         responsableEnReemplazo = false;
 
          configurarEncabezadoModalResponsable(true);
          document.getElementById('modalNuevoResponsable').classList.remove('hidden');
@@ -3261,7 +3338,6 @@
          document.getElementById('nuevo_expedido').value = valorOcultoResumenPersonaWizard(item, 'expedido');
          document.getElementById('nuevo_genero').value = valorOcultoResumenPersonaWizard(item, 'genero');
          seleccionarOcupacionResponsableModal(valorOcultoResumenPersonaWizard(item, 'id_ocupacion'));
-         document.getElementById('nuevo_id_rol').value = valorOcultoResumenPersonaWizard(item, 'id_rol');
          document.getElementById('nuevo_estado_responsable').value = valorOcultoResumenPersonaWizard(item, 'estado') || 'ACTIVO';
 
          asignarFechaResponsableModal('nuevo_fecha_nacimiento', valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento'));
@@ -3399,7 +3475,7 @@
          const tipoResponsable = idPersonaExistente ? 'EXISTENTE' : 'NUEVO';
          const indiceDestino = responsableEditandoElemento ? responsableEditandoIndice : indiceResponsable;
          const item = responsableEditandoElemento || document.createElement('div');
-         const archivoRespaldoAnterior = responsableEditandoElemento
+         const archivoRespaldoAnterior = responsableEditandoElemento && !responsableEnReemplazo
              ? responsableEditandoElemento.querySelector('input[type="file"][name*="[archivo_respaldo]"]')
              : null;
          const urlRespaldoActual = document.getElementById('modalNuevoResponsable')?.dataset.urlRespaldoActual || '';
@@ -3489,9 +3565,11 @@
 
          responsableEditandoElemento = null;
          responsableEditandoIndice = null;
+         responsableEnReemplazo = false;
 
          cerrarModalResponsable();
          limpiarModalResponsable();
+         sincronizarCuentaUsuarioPersona(true);
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      }
 
@@ -3618,6 +3696,7 @@
          lista.appendChild(item);
          actualizarNumerosResponsablesEmpresa();
          indiceResponsable++;
+         sincronizarCuentaUsuarioPersona(true);
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      }
 
@@ -3629,12 +3708,13 @@
          if (lista.children.length === 0) {
              lista.innerHTML = `
                 <span id="mensajeSinResponsables" class="responsables-review-empty">
-                    Todavía no se agregaron responsables.
+                    Todavía no se registró un responsable.
                 </span>
             `;
          }
 
          actualizarNumerosResponsablesEmpresa();
+         sincronizarCuentaUsuarioPersona(true);
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      }
 
@@ -3778,7 +3858,6 @@
          const ids = [
              'nuevo_telefono',
              'nuevo_estado_telefono',
-             'nuevo_id_rol',
              'nuevo_url_respaldo',
              'nuevo_estado_responsable',
          ];
