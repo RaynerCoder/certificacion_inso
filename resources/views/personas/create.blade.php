@@ -66,6 +66,18 @@
                 return 'Seleccione el territorio del responsable.';
             }
 
+            if (str_starts_with($campo, 'responsables.') && str_contains($campo, '.nombres')) {
+                return 'Ingrese los nombres del responsable.';
+            }
+
+            if (str_starts_with($campo, 'responsables.') && str_contains($campo, '.apellido_paterno')) {
+                return 'Ingrese el apellido paterno del responsable.';
+            }
+
+            if (str_starts_with($campo, 'responsables.') && str_contains($campo, '.genero')) {
+                return 'Seleccione el género del responsable.';
+            }
+
             if (str_starts_with($campo, 'responsables.') && str_contains($campo, '.id_persona')) {
                 return 'Seleccione la persona responsable.';
             }

@@ -199,6 +199,7 @@ class PersonaController extends Controller
             'responsables.*.nit'               => 'nullable|string|max:50',
             'responsables.*.correo'            => 'nullable|email|max:50',
             'responsables.*.id_territorio'     => 'nullable|exists:territorios,id',
+            'responsables.*.territorio_nombre' => 'nullable|string|max:255',
             'responsables.*.nombres'           => 'nullable|string|max:100',
             'responsables.*.apellido_paterno'  => 'nullable|string|max:100',
             'responsables.*.apellido_materno'  => 'nullable|string|max:100',
@@ -207,7 +208,7 @@ class PersonaController extends Controller
             'responsables.*.complemento'       => 'nullable|string|max:10',
             'responsables.*.expedido'          => 'nullable|string|max:10',
             'responsables.*.fecha_nacimiento'  => 'nullable|date',
-            'responsables.*.genero'            => 'nullable',
+            'responsables.*.genero'            => ['nullable', Rule::in(['0', '1', 0, 1])],
             'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
             'responsables.*.ocupacion'         => 'nullable|string|max:255',
             'responsables.*.telefonos'         => 'nullable|array',
@@ -604,6 +605,10 @@ class PersonaController extends Controller
             if ($ciResponsable === '') {
                 $errores["responsables.$indice.ci"] = 'Ingrese el CI del responsable.';
             }
+
+            if (! isset($responsable['genero']) || $responsable['genero'] === '') {
+                $errores["responsables.$indice.genero"] = 'Seleccione el género del responsable.';
+            }
         }
 
         if (! empty($errores)) {
@@ -638,10 +643,17 @@ class PersonaController extends Controller
         if ($solicitud->input('form_tipo_registro') === 'EMPRESA') {
             $responsable = $responsables[0] ?? [];
             $ciResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['ci'] ?? ''));
+            $nitEmpresa = preg_replace('/[^A-Za-z0-9]/', '', (string) $solicitud->input('form_nit', ''));
+            $nombreUsuario = trim((string) $solicitud->input('form_usuario_name', ''));
+            $correoAcceso = trim((string) $solicitud->input('form_usuario_email', ''));
 
-            // La empresa utiliza las credenciales de su unico responsable activo.
-            $datosFijos['form_usuario_name'] = Str::lower($ciResponsable);
-            $datosFijos['form_usuario_email'] = trim((string) ($responsable['correo'] ?? ''));
+            // El CI o NIT y el correo del responsable solo sirven como sugerencias iniciales.
+            $datosFijos['form_usuario_name'] = $nombreUsuario !== ''
+                ? $nombreUsuario
+                : Str::lower($ciResponsable ?: $nitEmpresa);
+            $datosFijos['form_usuario_email'] = $correoAcceso !== ''
+                ? $correoAcceso
+                : trim((string) ($responsable['correo'] ?? ''));
         }
 
         $solicitud->merge($datosFijos);
@@ -981,6 +993,7 @@ class PersonaController extends Controller
                     'nit' => $responsable->persona?->nit,
                     'correo' => $responsable->persona?->correo,
                     'id_territorio' => $responsable->persona?->id_territorio,
+                    'territorio_nombre' => $responsable->persona?->territorio?->nombre,
                     'nombres' => $responsable->persona?->natural?->nombres,
                     'apellido_paterno' => $responsable->persona?->natural?->apellido_paterno,
                     'apellido_materno' => $responsable->persona?->natural?->apellido_materno,
@@ -1124,6 +1137,7 @@ class PersonaController extends Controller
             'responsables.*.nit'               => 'nullable|string|max:50',
             'responsables.*.correo'            => 'nullable|email|max:50',
             'responsables.*.id_territorio'     => 'nullable|exists:territorios,id',
+            'responsables.*.territorio_nombre' => 'nullable|string|max:255',
             'responsables.*.nombres'           => 'nullable|string|max:100',
             'responsables.*.apellido_paterno'  => 'nullable|string|max:100',
             'responsables.*.apellido_materno'  => 'nullable|string|max:100',
@@ -1132,7 +1146,7 @@ class PersonaController extends Controller
             'responsables.*.complemento'       => 'nullable|string|max:10',
             'responsables.*.expedido'          => 'nullable|string|max:10',
             'responsables.*.fecha_nacimiento'  => 'nullable|date',
-            'responsables.*.genero'            => 'nullable',
+            'responsables.*.genero'            => ['nullable', Rule::in(['0', '1', 0, 1])],
             'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
             'responsables.*.ocupacion'         => 'nullable|string|max:255',
             'responsables.*.telefonos'         => 'nullable|array',

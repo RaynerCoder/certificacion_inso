@@ -17,7 +17,7 @@
     <div id="persona_cuenta_usuario_panel" class="persona-account-panel">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <x-wire-input label="Nombre de usuario" id="form_usuario_name" name="form_usuario_name"
-                placeholder="Ej: CI o NIT" value="{{ old('form_usuario_name', $usuarioCuenta->name ?? '') }}" />
+                placeholder="Nombre de usuario" value="{{ old('form_usuario_name', $usuarioCuenta->name ?? '') }}" />
 
             <x-wire-input label="Correo de acceso" id="form_usuario_email" name="form_usuario_email" type="email"
                 placeholder="correo@ejemplo.com" value="{{ old('form_usuario_email', $usuarioCuenta->email ?? '') }}" />

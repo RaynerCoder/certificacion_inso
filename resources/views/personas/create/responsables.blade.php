@@ -114,6 +114,7 @@
                             <option value="{{ $persona->id }}" data-domicilio="{{ $persona->domicilio }}"
                                 data-nit="{{ $persona->nit }}" data-correo="{{ $persona->correo }}"
                                 data-territorio="{{ $persona->territorio?->id ?? '' }}"
+                                data-territorio-nombre="{{ $persona->territorio?->nombre ?? '' }}"
                                 data-nombres="{{ $persona->natural?->nombres ?? '' }}"
                                 data-paterno="{{ $persona->natural?->apellido_paterno ?? '' }}"
                                 data-materno="{{ $persona->natural?->apellido_materno ?? '' }}"

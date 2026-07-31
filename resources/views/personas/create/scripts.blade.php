@@ -1041,7 +1041,7 @@
          actualizarSelectorRubroPersonaWizard();
      }
 
-     // Lista todos los telefonos que realmente se enviaran al controlador.
+     // Muestra los telefonos relacionados con la persona o empresa.
      function resumenTelefonosPersonaWizard() {
          const filas = Array.from(document.querySelectorAll('.telefono-agregado'))
              .map((item, indice) => {
@@ -1052,7 +1052,7 @@
              });
 
          return tablaResumenPersonaWizard(
-             'Telefonos que se guardaran',
+             tipoPersonaWizard() === 'EMPRESA' ? 'Teléfono de la empresa' : 'Teléfono de la persona',
              ['#', 'Número', 'Estado'],
              filas,
              'No se agregaron telefonos.'
@@ -1220,6 +1220,7 @@
              const casado = valorOcultoResumenPersonaWizard(item, 'apellido_casado');
              const nombre = [nombres, paterno, materno, casado].filter(Boolean).join(' ') || 'Responsable existente';
              const territorioId = valorOcultoResumenPersonaWizard(item, 'id_territorio');
+             const territorioNombre = valorOcultoResumenPersonaWizard(item, 'territorio_nombre');
              const archivoRespaldo = item.querySelector('input[type="file"]');
              const respaldoGuardado = valorOcultoResumenPersonaWizard(item, 'url_respaldo');
              const tieneRespaldo = archivoRespaldo?.files?.length || respaldoGuardado;
@@ -1249,7 +1250,7 @@
                             <h6>Contacto del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Correo', valorOcultoResumenPersonaWizard(item, 'correo') || 'Sin correo')}
                             ${datoResponsableRevisionPersonaWizard('Domicilio del responsable', valorOcultoResumenPersonaWizard(item, 'domicilio') || 'Sin domicilio')}
-                            ${datoResponsableRevisionPersonaWizard('Territorio del responsable', textoSelectPorValorPersonaWizard('#nuevo_id_territorio', territorioId) || 'Sin territorio')}
+                            ${datoResponsableRevisionPersonaWizard('Territorio del responsable', territorioNombre || textoSelectPorValorPersonaWizard('#nuevo_id_territorio', territorioId) || 'Sin territorio')}
                         </section>
 
                         <section>
@@ -1315,7 +1316,7 @@
          const tipo = tipoPersonaWizard();
          const responsable = document.querySelector('.responsable-agregado');
          const base = tipo === 'EMPRESA'
-             ? valorOcultoResumenPersonaWizard(responsable, 'ci')
+             ? (valorOcultoResumenPersonaWizard(responsable, 'ci') || valorPersonaWizard('[name="form_nit"]'))
              : valorPersonaWizard('[name="form_ci"]');
 
          return textoUsuarioSeguroPersonaWizard(base);
@@ -1357,25 +1358,25 @@
              ? valorOcultoResumenPersonaWizard(responsable, 'correo')
              : valorPersonaWizard('[name="form_correo"]');
 
-         // En empresa estas credenciales siempre pertenecen al responsable registrado.
-         usuario.readOnly = esEmpresa;
-         correo.readOnly = esEmpresa;
-         usuario.classList.toggle('bg-slate-100', esEmpresa);
-         correo.classList.toggle('bg-slate-100', esEmpresa);
-         usuario.classList.toggle('cursor-not-allowed', esEmpresa);
-         correo.classList.toggle('cursor-not-allowed', esEmpresa);
+         usuario.readOnly = false;
+         correo.readOnly = false;
+         usuario.classList.remove('bg-slate-100', 'cursor-not-allowed');
+         correo.classList.remove('bg-slate-100', 'cursor-not-allowed');
 
-         if (esEmpresa) {
-             usuario.value = usuarioSugerido;
-             correo.value = correoPrincipal;
-             usuario.dataset.autocompletado = '1';
-             correo.dataset.autocompletado = '1';
-         } else if (usuarioSugerido && (forzar || usuario.dataset.manual !== '1')) {
+         // Un valor recibido del servidor o recuperado del borrador se considera una eleccion manual.
+         if (usuario.value.trim() && usuario.dataset.autocompletado !== '1') {
+             usuario.dataset.manual = '1';
+         }
+         if (correo.value.trim() && correo.dataset.autocompletado !== '1') {
+             correo.dataset.manual = '1';
+         }
+
+         if (usuarioSugerido && (forzar || usuario.dataset.manual !== '1')) {
              usuario.value = usuarioSugerido;
              usuario.dataset.autocompletado = '1';
          }
 
-         if (!esEmpresa && correoPrincipal && (forzar || correo.dataset.manual !== '1')) {
+         if (correoPrincipal && (forzar || correo.dataset.manual !== '1')) {
              correo.value = correoPrincipal;
              correo.dataset.autocompletado = '1';
          }
@@ -1565,9 +1566,7 @@
          if (!resumenPersonaWizard) return;
 
          const tipo = tipoPersonaWizard();
-         const cantidadTelefonos = document.querySelectorAll('.telefono-agregado').length;
          const cantidadRubros = document.getElementById('rubrosPersona')?.selectedOptions.length || 0;
-         const cantidadResponsables = document.querySelectorAll('.responsable-agregado').length;
 
          const paso1Tipo = [
              itemResumenPersonaWizard('Tipo de registro', tipo === 'EMPRESA' ? 'Empresa' : 'Persona natural'),
@@ -1584,7 +1583,6 @@
 
          let paso3DatosEspecificos = [];
          const paso4Complementos = [
-             itemResumenPersonaWizard('Telefonos agregados', cantidadTelefonos),
              resumenTelefonosPersonaWizard()
          ];
 
@@ -1635,7 +1633,6 @@
 
          if (tipo === 'EMPRESA') {
              paso5CuentaAcceso.unshift(resumenResponsablesPersonaWizard());
-             paso5CuentaAcceso.unshift(itemResumenPersonaWizard('Responsable registrado', cantidadResponsables));
          }
 
          resumenPersonaWizard.innerHTML = [
@@ -3048,7 +3045,9 @@
          const indiceFormulario = Number.isInteger(datos.indiceFormulario) ? datos.indiceFormulario : indiceResponsable;
          const numeroVisible = datos.numeroVisible || indiceFormulario + 1;
          const etiquetaTipo = tipoResponsable === 'EXISTENTE' ? 'Existente' : 'Nuevo';
-         const territorioTexto = textoSelectPorValorPersonaWizard('#nuevo_id_territorio', datos.idTerritorio) || 'Sin territorio';
+         const territorioTexto = datos.territorioNombre
+             || textoSelectPorValorPersonaWizard('#nuevo_id_territorio', datos.idTerritorio)
+             || 'Sin territorio';
          const estado = datos.estadoResponsable || 'ACTIVO';
          const telefonosVisibles = chipsResponsableEmpresa(datos.telefonos || [], 'numero', 'estado');
          const rubrosVisibles = chipsResponsableEmpresa(
@@ -3128,6 +3127,7 @@
             <input type="hidden" name="responsables[${indiceFormulario}][nit]" value="${datos.nit || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][correo]" value="${datos.correo || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][id_territorio]" value="${datos.idTerritorio || ''}">
+            <input type="hidden" name="responsables[${indiceFormulario}][territorio_nombre]" value="${escaparHtmlPersonaWizard(datos.territorioNombre || territorioTexto)}">
 
             <input type="hidden" name="responsables[${indiceFormulario}][nombres]" value="${datos.nombres || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][apellido_paterno]" value="${datos.paterno || ''}">
@@ -3366,6 +3366,8 @@
          const nit = document.getElementById('nuevo_nit').value.trim();
          const correo = document.getElementById('nuevo_correo').value.trim();
          const idTerritorio = document.getElementById('nuevo_id_territorio').value;
+         const territorioNombre = document.getElementById('nuevo_id_territorio')
+             ?.selectedOptions?.[0]?.textContent?.trim() || '';
 
          const nombres = document.getElementById('nuevo_nombres').value.trim();
          const paterno = document.getElementById('nuevo_apellido_paterno').value.trim();
@@ -3417,6 +3419,20 @@
                  idTerritorio,
                  'Seleccione el territorio del responsable.',
                  primerCampoError
+             );
+             primerCampoError = validarCampoResponsable(
+                 'nuevo_genero',
+                 genero,
+                 'Seleccione el género del responsable.',
+                 primerCampoError
+             );
+         }
+
+         const campoCorreoResponsable = document.getElementById('nuevo_correo');
+         if (correo && !campoCorreoResponsable.checkValidity()) {
+             primerCampoError = primerCampoError || mostrarErrorCampoResponsable(
+                 'nuevo_correo',
+                 'Ingrese un correo válido para el responsable.'
              );
          }
 
@@ -3510,6 +3526,7 @@
              nit,
              correo,
              idTerritorio,
+             territorioNombre,
              nombres,
              paterno,
              materno,
@@ -3673,6 +3690,7 @@
              nit: responsable.nit || '',
              correo: responsable.correo || '',
              idTerritorio: responsable.id_territorio || '',
+             territorioNombre: responsable.territorio_nombre || '',
              nombres: responsable.nombres || '',
              paterno: responsable.apellido_paterno || '',
              materno: responsable.apellido_materno || '',
@@ -3899,6 +3917,7 @@
          'nuevo_ci',
          'nuevo_correo',
          'nuevo_id_territorio',
+         'nuevo_genero',
          'nuevo_id_rol',
          'nuevo_telefono',
          'nuevo_url_respaldo',
