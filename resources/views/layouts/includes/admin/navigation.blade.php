@@ -280,13 +280,13 @@
                                     <span class="cert-topbar-profile-name" title="{{ $nombrePerfilCabecera }}">
                                         {{ $nombrePerfilCabecera }}
                                     </span>
-                                    @if ($etiquetaDetallePerfilCabecera !== '')
-                                        <span class="cert-topbar-profile-detail-label">
-                                            {{ $etiquetaDetallePerfilCabecera }}
-                                        </span>
-                                    @endif
-                                    <span class="cert-topbar-profile-detail" title="{{ $detallePerfilCabecera }}">
-                                        {{ $detallePerfilCabecera }}
+                                    <span class="cert-topbar-profile-detail-line" title="{{ $etiquetaDetallePerfilCabecera !== '' ? $etiquetaDetallePerfilCabecera . ': ' : '' }}{{ $detallePerfilCabecera }}">
+                                        @if ($etiquetaDetallePerfilCabecera !== '')
+                                            <span class="cert-topbar-profile-detail-label">
+                                                {{ $etiquetaDetallePerfilCabecera }}:
+                                            </span>
+                                        @endif
+                                        <span class="cert-topbar-profile-detail">{{ $detallePerfilCabecera }}</span>
                                     </span>
                                     <span class="cert-topbar-profile-role" title="{{ $rolesPerfilCabecera }}">
                                         {{ $rolesPerfilCabecera }}
@@ -303,12 +303,10 @@
                                 <strong class="block text-sm font-black text-slate-800">
                                     {{ $nombrePerfilCabecera }}
                                 </strong>
-                                @if ($etiquetaDetallePerfilCabecera !== '')
-                                    <span class="mt-1 block text-xs font-bold text-blue-700">
-                                        {{ $etiquetaDetallePerfilCabecera }}
-                                    </span>
-                                @endif
-                                <span class="block text-xs font-bold text-slate-700">
+                                <span class="mt-1 block truncate text-xs font-bold text-slate-700">
+                                    @if ($etiquetaDetallePerfilCabecera !== '')
+                                        <span class="text-blue-700">{{ $etiquetaDetallePerfilCabecera }}:</span>
+                                    @endif
                                     {{ $detallePerfilCabecera }}
                                 </span>
                                 <span class="mt-1 block text-xs font-semibold text-emerald-700">

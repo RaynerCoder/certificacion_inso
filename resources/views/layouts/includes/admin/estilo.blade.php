@@ -56,8 +56,7 @@
     }
 
     .cert-topbar-profile-name,
-    .cert-topbar-profile-detail-label,
-    .cert-topbar-profile-detail,
+    .cert-topbar-profile-detail-line,
     .cert-topbar-profile-role {
         display: block;
         max-width: 190px;
@@ -72,7 +71,7 @@
         font-weight: 900;
     }
 
-    .cert-topbar-profile-detail,
+    .cert-topbar-profile-detail-line,
     .cert-topbar-profile-role {
         margin-top: 1px;
         font-size: 11px;
@@ -80,9 +79,7 @@
     }
 
     .cert-topbar-profile-detail-label {
-        margin-top: 1px;
         color: #1d4ed8;
-        font-size: 10px;
         font-weight: 800;
     }
 
@@ -114,8 +111,7 @@
         }
 
         .cert-topbar-profile-name,
-        .cert-topbar-profile-detail-label,
-        .cert-topbar-profile-detail,
+        .cert-topbar-profile-detail-line,
         .cert-topbar-profile-role {
             max-width: 34vw;
         }
@@ -124,7 +120,7 @@
             font-size: 12px;
         }
 
-        .cert-topbar-profile-detail,
+        .cert-topbar-profile-detail-line,
         .cert-topbar-profile-role {
             font-size: 10px;
         }
