@@ -150,7 +150,34 @@
              return primerCampoError;
          }
 
-         return primerCampoError || mostrarErrorCampoResponsable(idCampo, mensaje);
+         const campoConError = mostrarErrorCampoResponsable(idCampo, mensaje);
+
+         return primerCampoError || campoConError;
+     }
+
+     // Lleva al usuario al control visible, incluso cuando el valor real vive en un select oculto.
+     function enfocarPrimerErrorResponsable(campo) {
+         if (!campo) return;
+
+         let controlVisible = campo;
+
+         if (campo.id === 'nuevo_id_territorio') {
+             const niveles = Array.from(document.querySelectorAll(
+                 '[data-territorio-responsable-niveles] .territorio-responsable-select'
+             ));
+             const ultimoNivel = niveles.length ? niveles[niveles.length - 1] : null;
+
+             controlVisible = ultimoNivel?.tomselect?.control_input
+                 || ultimoNivel
+                 || document.getElementById('buscadorPaisResponsable');
+         } else if (campo.tomselect?.control_input) {
+             controlVisible = campo.tomselect.control_input;
+         }
+
+         const referencia = ubicarReferenciaErrorCampoResponsable(campo.id, campo);
+         referencia?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+
+         setTimeout(() => controlVisible?.focus?.(), 250);
      }
 
      // Limpia todos los errores inline del modal de responsable.
@@ -3448,10 +3475,11 @@
 
          const campoCorreoResponsable = document.getElementById('nuevo_correo');
          if (correo && !campoCorreoResponsable.checkValidity()) {
-             primerCampoError = primerCampoError || mostrarErrorCampoResponsable(
+             const campoCorreoInvalido = mostrarErrorCampoResponsable(
                  'nuevo_correo',
                  'Ingrese un correo válido para el responsable.'
              );
+             primerCampoError = primerCampoError || campoCorreoInvalido;
          }
 
          primerCampoError = validarCampoResponsable(
@@ -3466,10 +3494,11 @@
              archivoRespaldo.name.toLowerCase().endsWith('.pdf');
 
          if (!respaldoEsPdf) {
-             primerCampoError = primerCampoError || mostrarErrorCampoResponsable(
+             const campoRespaldoInvalido = mostrarErrorCampoResponsable(
                  'nuevo_url_respaldo',
                  'El respaldo del responsable debe ser un PDF.'
              );
+             primerCampoError = primerCampoError || campoRespaldoInvalido;
          } else {
              limpiarErrorCampoResponsable('nuevo_url_respaldo');
          }
@@ -3497,8 +3526,16 @@
          }
 
          if (primerCampoError) {
-             primerCampoError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-             primerCampoError.focus?.();
+             const mensajesError = Array.from(document.querySelectorAll(
+                 '#modalNuevoResponsable [data-error-responsable]'
+             ))
+                 .map(error => error.textContent.trim())
+                 .filter(Boolean);
+
+             mostrarAvisoModalResponsable(
+                 `Revise los datos del responsable: ${[...new Set(mensajesError)].join(' ')}`
+             );
+             enfocarPrimerErrorResponsable(primerCampoError);
              return;
          }
 

@@ -240,7 +240,14 @@
 
                     <x-wire-input label="Complemento" id="nuevo_complemento" placeholder="Complemento" />
 
-                    <x-wire-input label="Expedido" id="nuevo_expedido" placeholder="LP, CB, SC..." />
+                    <x-wire-native-select label="Expedido" id="nuevo_expedido">
+                        <option value="">Seleccione expedido</option>
+                        @foreach (($expedidosNatural ?? \App\Models\Natural::EXPEDIDOS) as $codigoExpedido => $nombreExpedido)
+                            <option value="{{ $codigoExpedido }}">
+                                {{ $codigoExpedido }} - {{ $nombreExpedido }}
+                            </option>
+                        @endforeach
+                    </x-wire-native-select>
 
                     <x-wire-datetime-picker label="Fecha de nacimiento" id="nuevo_fecha_nacimiento"
                         name="nuevo_fecha_nacimiento" without-time />
