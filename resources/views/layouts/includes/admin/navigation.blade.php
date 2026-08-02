@@ -55,9 +55,13 @@
     $detallePerfilCabecera = match (true) {
         $cargoPerfilCabecera !== '' => $cargoPerfilCabecera,
         (bool) $usuarioCabecera?->persona?->empresa && $nombreResponsableCabecera !== ''
-            => 'Responsable: ' . $nombreResponsableCabecera,
+            => $nombreResponsableCabecera,
         default => $tipoPersonaCabecera,
     };
+    $etiquetaDetallePerfilCabecera = (bool) $usuarioCabecera?->persona?->empresa
+        && $nombreResponsableCabecera !== ''
+            ? 'Representante legal'
+            : '';
     $rolesPerfilCabecera = $usuarioCabecera?->roles->pluck('name')->filter()->unique()->implode(', ') ?? '';
     $rolesPerfilCabecera = $rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Sin rol asignado';
     $correoPerfilCabecera = $usuarioCabecera?->email ?? 'Sin correo registrado';
@@ -276,6 +280,11 @@
                                     <span class="cert-topbar-profile-name" title="{{ $nombrePerfilCabecera }}">
                                         {{ $nombrePerfilCabecera }}
                                     </span>
+                                    @if ($etiquetaDetallePerfilCabecera !== '')
+                                        <span class="cert-topbar-profile-detail-label">
+                                            {{ $etiquetaDetallePerfilCabecera }}
+                                        </span>
+                                    @endif
                                     <span class="cert-topbar-profile-detail" title="{{ $detallePerfilCabecera }}">
                                         {{ $detallePerfilCabecera }}
                                     </span>
@@ -294,10 +303,15 @@
                                 <strong class="block text-sm font-black text-slate-800">
                                     {{ $nombrePerfilCabecera }}
                                 </strong>
-                                <span class="mt-1 block text-xs font-bold text-emerald-700">
+                                @if ($etiquetaDetallePerfilCabecera !== '')
+                                    <span class="mt-1 block text-xs font-bold text-blue-700">
+                                        {{ $etiquetaDetallePerfilCabecera }}
+                                    </span>
+                                @endif
+                                <span class="block text-xs font-bold text-slate-700">
                                     {{ $detallePerfilCabecera }}
                                 </span>
-                                <span class="mt-1 block text-xs font-semibold text-slate-600">
+                                <span class="mt-1 block text-xs font-semibold text-emerald-700">
                                     {{ $rolesPerfilCabecera }}
                                 </span>
                                 <span class="mt-1 block truncate text-xs font-semibold text-slate-500">

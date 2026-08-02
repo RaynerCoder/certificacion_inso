@@ -56,6 +56,7 @@
     }
 
     .cert-topbar-profile-name,
+    .cert-topbar-profile-detail-label,
     .cert-topbar-profile-detail,
     .cert-topbar-profile-role {
         display: block;
@@ -74,9 +75,19 @@
     .cert-topbar-profile-detail,
     .cert-topbar-profile-role {
         margin-top: 1px;
-        color: #64748b;
         font-size: 11px;
         font-weight: 700;
+    }
+
+    .cert-topbar-profile-detail-label {
+        margin-top: 1px;
+        color: #1d4ed8;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .cert-topbar-profile-detail {
+        color: #475569;
     }
 
     .cert-topbar-profile-role {
@@ -103,6 +114,7 @@
         }
 
         .cert-topbar-profile-name,
+        .cert-topbar-profile-detail-label,
         .cert-topbar-profile-detail,
         .cert-topbar-profile-role {
             max-width: 34vw;
