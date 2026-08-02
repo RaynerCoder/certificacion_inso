@@ -97,9 +97,7 @@
          campo?.removeAttribute('aria-invalid');
      }
 
-     // Busca el contenedor real del campo para no meter el mensaje dentro del input.
-     // WireUI renderiza cada campo con form-wrapper="id_del_campo"; ahi es donde Laravel/WireUI
-     // muestra sus errores, debajo del control y sin deformar la caja del input.
+     // Busca la celda completa del campo para que el error no ocupe otra columna.
      function ubicarReferenciaErrorCampoResponsable(idCampo, campo) {
          const wrapperManual = document.querySelector(`[data-error-wrapper="${idCampo}"]`);
 
@@ -111,14 +109,14 @@
              .find(wrapper => wrapper.getAttribute('form-wrapper') === idCampo);
 
          if (wrapperWireUi) {
-             return wrapperWireUi.querySelector('[name="form.wrapper.container"]') || wrapperWireUi;
+             return wrapperWireUi;
          }
 
          if (campo.tomselect?.wrapper) {
              return campo.tomselect.wrapper;
          }
 
-         return campo;
+         return campo.parentElement || campo;
      }
 
      // Muestra el error debajo del input/select usando el mismo criterio visual de Laravel.
@@ -137,7 +135,7 @@
          error.className = 'mt-2 text-sm text-red-600';
          error.textContent = mensaje;
 
-         referencia.insertAdjacentElement('afterend', error);
+         referencia.appendChild(error);
 
          return campo;
      }
@@ -3336,7 +3334,7 @@
      }
 
      // Muestra un aviso dentro del modal. No abre otro modal y no cierra lo que el usuario esta llenando.
-     function mostrarAvisoModalResponsable(mensaje) {
+     function mostrarAvisoModalResponsable(mensaje, desplazarAlInicio = true) {
          const cuerpoModal = document.querySelector('#modalNuevoResponsable [data-modal-body-responsable]');
 
          if (!cuerpoModal) return;
@@ -3349,7 +3347,10 @@
          aviso.textContent = mensaje;
 
          cuerpoModal.prepend(aviso);
-         cuerpoModal.scrollTo({ top: 0, behavior: 'smooth' });
+
+         if (desplazarAlInicio) {
+             cuerpoModal.scrollTo({ top: 0, behavior: 'smooth' });
+         }
      }
 
      // Edita la fila temporal del responsable sin convertirlo en datos propios de la empresa.
@@ -3526,14 +3527,9 @@
          }
 
          if (primerCampoError) {
-             const mensajesError = Array.from(document.querySelectorAll(
-                 '#modalNuevoResponsable [data-error-responsable]'
-             ))
-                 .map(error => error.textContent.trim())
-                 .filter(Boolean);
-
              mostrarAvisoModalResponsable(
-                 `Revise los datos del responsable: ${[...new Set(mensajesError)].join(' ')}`
+                 'Faltan datos obligatorios. Revise los campos marcados en rojo.',
+                 false
              );
              enfocarPrimerErrorResponsable(primerCampoError);
              return;
