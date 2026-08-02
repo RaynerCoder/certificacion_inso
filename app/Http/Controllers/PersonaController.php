@@ -643,14 +643,14 @@ class PersonaController extends Controller
         if ($solicitud->input('form_tipo_registro') === 'EMPRESA') {
             $responsable = $responsables[0] ?? [];
             $ciResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['ci'] ?? ''));
-            $nitEmpresa = preg_replace('/[^A-Za-z0-9]/', '', (string) $solicitud->input('form_nit', ''));
+            $nitResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['nit'] ?? ''));
             $nombreUsuario = trim((string) $solicitud->input('form_usuario_name', ''));
             $correoAcceso = trim((string) $solicitud->input('form_usuario_email', ''));
 
-            // El CI o NIT y el correo del responsable solo sirven como sugerencias iniciales.
+            // Las sugerencias de acceso pertenecen al responsable, no a la empresa.
             $datosFijos['form_usuario_name'] = $nombreUsuario !== ''
                 ? $nombreUsuario
-                : Str::lower($ciResponsable ?: $nitEmpresa);
+                : Str::lower($ciResponsable ?: $nitResponsable);
             $datosFijos['form_usuario_email'] = $correoAcceso !== ''
                 ? $correoAcceso
                 : trim((string) ($responsable['correo'] ?? ''));

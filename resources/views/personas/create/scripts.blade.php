@@ -1316,7 +1316,7 @@
          const tipo = tipoPersonaWizard();
          const responsable = document.querySelector('.responsable-agregado');
          const base = tipo === 'EMPRESA'
-             ? (valorOcultoResumenPersonaWizard(responsable, 'ci') || valorPersonaWizard('[name="form_nit"]'))
+             ? (valorOcultoResumenPersonaWizard(responsable, 'ci') || valorOcultoResumenPersonaWizard(responsable, 'nit'))
              : valorPersonaWizard('[name="form_ci"]');
 
          return textoUsuarioSeguroPersonaWizard(base);
@@ -1357,6 +1357,24 @@
          const correoPrincipal = esEmpresa
              ? valorOcultoResumenPersonaWizard(responsable, 'correo')
              : valorPersonaWizard('[name="form_correo"]');
+
+         // Una empresa no toma credenciales de sus propios datos generales.
+         if (esEmpresa && !responsable) {
+             const esperaResponsableRecuperado = tieneErroresServidorPersona
+                 && responsablesOldPersonaWizard.length > 0;
+
+             if (!esperaResponsableRecuperado) {
+                 usuario.value = '';
+                 correo.value = '';
+                 delete usuario.dataset.autocompletado;
+                 delete correo.dataset.autocompletado;
+                 delete usuario.dataset.manual;
+                 delete correo.dataset.manual;
+             }
+
+             actualizarProgresoPersonaWizard();
+             return;
+         }
 
          usuario.readOnly = false;
          correo.readOnly = false;
@@ -3714,7 +3732,7 @@
          lista.appendChild(item);
          actualizarNumerosResponsablesEmpresa();
          indiceResponsable++;
-         sincronizarCuentaUsuarioPersona(true);
+         sincronizarCuentaUsuarioPersona(!tieneErroresServidorPersona);
          refrescarResumenSiEstaEnRevisionPersonaWizard();
      }
 
