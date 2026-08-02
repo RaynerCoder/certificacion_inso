@@ -10,15 +10,15 @@
 
     .cert-topbar-profile-trigger {
         display: inline-flex;
-        min-height: 34px;
-        max-width: min(300px, 36vw);
+        min-height: 48px;
+        max-width: min(400px, 42vw);
         align-items: center;
-        gap: 9px;
+        gap: 10px;
         border-radius: 10px;
         background: #ffffff;
-        padding: 3px 7px;
+        padding: 5px 8px;
         text-align: left;
-        line-height: 1.05;
+        line-height: 1.2;
         transition: background 160ms ease, box-shadow 160ms ease;
     }
 
@@ -32,9 +32,9 @@
     }
 
     .cert-topbar-avatar {
-        width: 34px;
-        height: 34px;
-        flex: 0 0 34px;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
         border-radius: 9999px;
         object-fit: cover;
         box-shadow: 0 0 0 1px #d1fae5;
@@ -59,7 +59,7 @@
     .cert-topbar-profile-detail-line,
     .cert-topbar-profile-role {
         display: block;
-        max-width: 190px;
+        max-width: 305px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -73,12 +73,13 @@
 
     .cert-topbar-profile-detail-line,
     .cert-topbar-profile-role {
-        margin-top: 1px;
-        font-size: 11px;
+        margin-top: 2px;
+        font-size: 12px;
         font-weight: 700;
     }
 
     .cert-topbar-profile-detail-label {
+        margin-right: 3px;
         color: #1d4ed8;
         font-weight: 800;
     }
@@ -95,6 +96,23 @@
         flex: 0 0 auto;
         color: #94a3b8;
         font-size: 11px;
+    }
+
+    .cert-topbar-profile-menu {
+        width: 24rem !important;
+        max-width: calc(100vw - 1rem);
+    }
+
+    @media (max-width: 1024px) {
+        .cert-topbar-profile-trigger {
+            max-width: 42vw;
+        }
+
+        .cert-topbar-profile-name,
+        .cert-topbar-profile-detail-line,
+        .cert-topbar-profile-role {
+            max-width: 32vw;
+        }
     }
 
     @media (max-width: 640px) {

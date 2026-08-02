@@ -40,7 +40,7 @@ class PermisoRoleSeeder extends Seeder
             4 => [1, 8, 9, 12, 19, 36],
 
             // Representante legal: puede iniciar y seguir tramites de su empresa.
-            5 => [1, 8, 9, 12, 36],
+            5 => [1, 8, 9, 12, 19, 36],
 
             // Tramitador: puede iniciar y seguir tramites de empresas donde este autorizado.
             6 => [1, 8, 9, 12, 36],

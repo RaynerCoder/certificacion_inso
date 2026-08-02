@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\VerificarPermiso;
 use App\Http\Middleware\VerificarUsuarioActivo;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -29,5 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Si el formulario de acceso quedo abierto, vuelve a cargarlo con un token vigente.
+        $exceptions->respond(function (Response $response) {
+            if ($response->getStatusCode() !== 419 || ! request()->is('login')) {
+                return $response;
+            }
+
+            return redirect()
+                ->route('login')
+                ->with('status', 'La página de acceso había expirado. Ya fue actualizada; ingrese nuevamente.');
+        });
     })->create();

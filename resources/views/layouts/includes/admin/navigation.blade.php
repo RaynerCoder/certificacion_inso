@@ -263,7 +263,7 @@
                 </div>
 
                 <div class="relative">
-                    <x-dropdown align="right" width="60">
+                    <x-dropdown align="right" width="60" dropdownClasses="cert-topbar-profile-menu">
                         <x-slot name="trigger">
                             <button type="button" class="cert-topbar-profile-trigger">
                                 @if (Laravel\Jetstream\Jetstream::managesProfilePhotos())
@@ -303,7 +303,7 @@
                                 <strong class="block text-sm font-black text-slate-800">
                                     {{ $nombrePerfilCabecera }}
                                 </strong>
-                                <span class="mt-1 block truncate text-xs font-bold text-slate-700">
+                                <span class="mt-1 block break-words text-xs font-bold text-slate-700">
                                     @if ($etiquetaDetallePerfilCabecera !== '')
                                         <span class="text-blue-700">{{ $etiquetaDetallePerfilCabecera }}:</span>
                                     @endif

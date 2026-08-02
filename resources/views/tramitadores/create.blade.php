@@ -1,883 +1,256 @@
-<x-admin-layout title="Registrar Tramitador | Certificador" :breadcrumbs="[
-    ['name' => 'Menu', 'href' => route('admin_dashboard')],
-    ['name' => 'Tramitadores', 'href' => Route::has('tramitadores_index') ? route('tramitadores_index') : '#'],
-    ['name' => 'Registrar'],
+<x-admin-layout title="Registrar tramitador | Certificador" :breadcrumbs="[
+    ['name' => 'Menú', 'href' => route('admin_dashboard')],
+    ['name' => 'Tramitadores', 'href' => route('tramitadores_index')],
+    ['name' => 'Registrar', 'href' => '#'],
 ]">
-
-    @php
-        // Colecciones seguras: permiten abrir la vista aunque el controlador todavia no envie datos.
-        $empresas = collect($empresas ?? []);
-        $territorios = collect($territorios ?? []);
-        $roles = collect($roles ?? []);
-        $rolTramitador = $roles->first(fn ($rol) => $rol->slug === 'tramitador' || str_contains(mb_strtoupper($rol->name), 'TRAMITADOR'));
-        $rolSeleccionado = old('form_id_rol', $rolTramitador?->id);
-
-        // Opciones para WireUI Select: permiten buscar sin crear estilos propios ni cambiar la logica del controlador.
-        $opcionesEmpresas = $empresas->map(function ($empresa) {
-            $razonSocial = $empresa->razon_social ?? $empresa->persona?->empresa?->razon_social ?? 'Empresa sin razon social';
-            $nit = $empresa->persona?->nit ?: 'Sin NIT';
-
-            return [
-                'id' => $empresa->id,
-                'nombre' => $razonSocial,
-                'detalle' => 'NIT: ' . $nit,
-            ];
-        })->values()->toArray();
-
-        // Opciones de roles disponibles para relacionar al tramitador con la empresa.
-        $opcionesRoles = $roles->map(fn ($rol) => [
-            'id' => $rol->id,
-            'nombre' => $rol->name,
-        ])->values()->toArray();
-
-        // Opciones de territorio para ubicar a la persona natural que se registra.
-        $opcionesTerritorios = $territorios->map(fn ($territorio) => [
-            'id' => $territorio->id,
-            'nombre' => $territorio->nombre,
-        ])->values()->toArray();
-
-        // Catalogos simples usados por WireUI Select dentro del mismo formulario.
-        $opcionesEstados = [
-            ['id' => 'ACTIVO', 'nombre' => 'Activo'],
-            ['id' => 'INACTIVO', 'nombre' => 'Inactivo'],
-        ];
-
-        $opcionesGeneros = [
-            ['id' => '1', 'nombre' => 'Masculino'],
-            ['id' => '0', 'nombre' => 'Femenino'],
-        ];
-
-        $opcionesTiposTelefono = [
-            ['id' => 'CELULAR', 'nombre' => 'Celular'],
-            ['id' => 'FIJO', 'nombre' => 'Fijo'],
-            ['id' => 'REFERENCIA', 'nombre' => 'Referencia'],
-        ];
-
-        // La ruta propia se usara cuando exista el modulo; por ahora evita romper la vista.
-        $accionFormulario = Route::has('tramitadores_store') ? route('tramitadores_store') : '#';
-        $rutaVolver = Route::has('tramitadores_index') ? route('tramitadores_index') : (Route::has('responsables_index') ? route('responsables_index') : '#');
-    @endphp
-
-    <style>
-        /* Pantalla principal del registro de tramitadores. */
-        .tramitador-shell {
-            display: grid;
-            gap: 14px;
-        }
-
-        .tramitador-panel {
-            /* WireUI Select despliega opciones fuera del alto del panel; por eso no se debe recortar el contenido. */
-            position: relative;
-            overflow: visible;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            background: #ffffff;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
-        }
-
-        /* Cuando un campo esta activo, el panel queda por encima de los paneles siguientes. */
-        .tramitador-panel:focus-within {
-            z-index: 30;
-        }
-
-        .tramitador-panel-head {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            background: linear-gradient(90deg, #f0fdfa, #ffffff);
-            padding: 12px 14px;
-        }
-
-        .tramitador-panel-head.is-persona {
-            background: linear-gradient(90deg, #f5f3ff, #ffffff);
-        }
-
-        .tramitador-panel-head.is-contacto {
-            background: linear-gradient(90deg, #ecfdf5, #ffffff);
-        }
-
-        .tramitador-panel-head.is-rubro {
-            background: linear-gradient(90deg, #fffbeb, #ffffff);
-        }
-
-        .tramitador-panel-icon {
-            display: inline-flex;
-            width: 32px;
-            height: 32px;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            background: #0d9488;
-            color: #ffffff;
-            font-size: 14px;
-        }
-
-        .tramitador-panel-head.is-persona .tramitador-panel-icon {
-            background: #7c3aed;
-        }
-
-        .tramitador-panel-head.is-contacto .tramitador-panel-icon {
-            background: #059669;
-        }
-
-        .tramitador-panel-head.is-rubro .tramitador-panel-icon {
-            background: #d97706;
-        }
-
-        .tramitador-panel-title {
-            margin: 0;
-            color: #0f172a;
-            font-size: 15px;
-            font-weight: 900;
-            line-height: 1.2;
-        }
-
-        .tramitador-panel-subtitle {
-            margin: 2px 0 0;
-            color: #64748b;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .tramitador-panel-body {
-            padding: 16px;
-        }
-
-        .tramitador-grid {
-            display: grid;
-            grid-template-columns: repeat(12, minmax(0, 1fr));
-            gap: 14px;
-        }
-
-        .tramitador-col-2 { grid-column: span 2; }
-        .tramitador-col-3 { grid-column: span 3; }
-        .tramitador-col-4 { grid-column: span 4; }
-        .tramitador-col-5 { grid-column: span 5; }
-        .tramitador-col-6 { grid-column: span 6; }
-        .tramitador-col-8 { grid-column: span 8; }
-        .tramitador-col-12 { grid-column: span 12; }
-
-        .tramitador-list-box {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: #f8fafc;
-            padding: 10px;
-        }
-
-        .tramitador-list-title {
-            color: #334155;
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .tramitador-chip-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-            margin-top: 8px;
-        }
-
-        .tramitador-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            border: 1px solid #cbd5e1;
-            border-radius: 999px;
-            background: #ffffff;
-            padding: 5px 8px;
-            color: #334155;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .tramitador-chip button {
-            color: #dc2626;
-            font-size: 11px;
-            font-weight: 900;
-        }
-
-        .tramitador-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .tramitador-btn {
-            display: inline-flex;
-            min-height: 38px;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border-radius: 7px;
-            padding: 0 14px;
-            font-size: 13px;
-            font-weight: 900;
-            line-height: 1;
-            white-space: nowrap;
-        }
-
-        .tramitador-btn.is-light {
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            color: #334155;
-        }
-
-        .tramitador-btn.is-primary {
-            border: 1px solid #059669;
-            background: #059669;
-            color: #ffffff;
-        }
-
-        .tramitador-btn.is-inline-add {
-            width: 170px;
-            min-height: 40px;
-            padding-inline: 12px;
-            font-size: 12px;
-        }
-
-        /* Control compacto para PDF: mantiene el mismo estilo usado en productos, responsables y trámites. */
-        .tramitador-pdf-control {
-            display: flex;
-            width: 100%;
-            min-height: 38px;
-            align-items: center;
-            justify-content: space-between;
-            gap: 9px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: #ffffff;
-            padding: 5px 7px;
-        }
-
-        .tramitador-pdf-input {
-            display: none;
-        }
-
-        .tramitador-pdf-info {
-            display: flex;
-            min-width: 0;
-            flex: 1 1 auto;
-            align-items: center;
-            gap: 7px;
-        }
-
-        .tramitador-pdf-info i {
-            display: inline-flex;
-            width: 18px;
-            height: 26px;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-            color: #ef4444;
-            font-size: 16px;
-        }
-
-        .tramitador-pdf-info div {
-            min-width: 0;
-        }
-
-        .tramitador-pdf-info strong {
-            display: block;
-            overflow: hidden;
-            max-width: 100%;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #334155;
-            font-size: 11px;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .tramitador-pdf-info span {
-            display: none;
-        }
-
-        .tramitador-pdf-actions {
-            display: flex;
-            flex: 0 0 auto;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .tramitador-pdf-button {
-            display: inline-flex;
-            min-height: 27px;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            background: #ffffff;
-            padding: 0 8px;
-            color: #475569;
-            font-size: 11px;
-            font-weight: 800;
-            line-height: 1;
-            transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
-        }
-
-        .tramitador-pdf-button:disabled {
-            cursor: not-allowed;
-            opacity: .55;
-        }
-
-        .tramitador-pdf-button.is-select {
-            border-color: #a7f3d0;
-            background: #ecfdf5;
-            color: #047857;
-            cursor: pointer;
-        }
-
-        .tramitador-pdf-button.is-view {
-            border-color: #bae6fd;
-            background: #f0f9ff;
-            color: #0369a1;
-        }
-
-        .tramitador-pdf-button.is-remove {
-            border-color: #fecaca;
-            background: #fff7f7;
-            color: #dc2626;
-        }
-
-        .tramitador-pdf-button:not(:disabled):hover {
-            border-color: #0d9488;
-            color: #0f766e;
-        }
-
-        @media (max-width: 900px) {
-            .tramitador-col-2,
-            .tramitador-col-3,
-            .tramitador-col-4,
-            .tramitador-col-5,
-            .tramitador-col-6,
-            .tramitador-col-8 {
-                grid-column: span 12;
-            }
-
-            .tramitador-pdf-control {
-                align-items: stretch;
-                flex-wrap: wrap;
-                min-height: auto;
-            }
-
-            .tramitador-pdf-actions {
-                width: 100%;
-            }
-
-            .tramitador-pdf-button {
-                flex: 1 1 0;
-            }
-
-            .tramitador-btn.is-inline-add {
-                width: 170px;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .tramitador-btn,
-            .tramitador-btn.is-inline-add {
-                width: 100%;
-            }
-        }
-    </style>
-
-    <form action="{{ $accionFormulario }}" method="POST" enctype="multipart/form-data" class="tramitador-shell" autocomplete="off">
-        @csrf
-
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="relative px-6 py-5">
-                <div class="absolute inset-x-0 top-0 h-1 bg-emerald-600"></div>
-                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-800">
-                            Registrar tramitador
-                        </h1>
-                        <p class="mt-1 text-sm text-slate-500">
-                            Registre una persona natural como tramitador de una empresa.
-                        </p>
-                    </div>
-
-                    <a href="{{ $rutaVolver }}" class="tramitador-btn is-light">
-                        <i class="fa-solid fa-arrow-left"></i>
-                        Volver
-                    </a>
-                </div>
-            </div>
+    <div class="mx-auto max-w-5xl space-y-6">
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h1 class="text-xl font-semibold text-slate-900">Asignar un tramitador</h1>
+            <p class="mt-2 text-sm text-slate-600">
+                Empresa: <span class="font-semibold text-slate-800">{{ $empresa->razon_social }}</span>.
+                Primero se verificará si la persona ya existe. Esta solicitud no crea ni muestra credenciales.
+            </p>
         </div>
 
-        {{-- Relacion empresa-responsable: llena responsables. --}}
-        <section class="tramitador-panel">
-            <div class="tramitador-panel-head">
-                <span class="tramitador-panel-icon">
-                    <i class="fa-regular fa-building"></i>
-                </span>
-                <div>
-                    <h2 class="tramitador-panel-title">Empresa y rol del tramitador</h2>
-                    <p class="tramitador-panel-subtitle">Estos datos relacionan la empresa con la persona natural.</p>
-                </div>
+        @if ($errors->any())
+            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <p class="font-semibold">Revise los datos marcados antes de continuar.</p>
+                <ul class="mt-2 list-disc space-y-1 pl-5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
             </div>
+        @endif
 
-            <div class="tramitador-panel-body">
-                <div class="tramitador-grid">
-                    <div class="tramitador-col-6">
-                        <x-wire-select label="Empresa" name="form_id_empresa" placeholder="Buscar empresa"
-                            searchable :options="$opcionesEmpresas" option-label="nombre" option-value="id"
-                            option-description="detalle" :value="old('form_id_empresa')" />
-                    </div>
+        <form action="{{ route('tramitadores_store') }}" method="POST" enctype="multipart/form-data"
+            id="formTramitador" class="space-y-6">
+            @csrf
 
-                    <div class="tramitador-col-6">
-                        <x-wire-select label="Rol en la empresa" name="form_id_rol" placeholder="Seleccione rol"
-                            :options="$opcionesRoles" option-label="nombre" option-value="id"
-                            :value="$rolSeleccionado" />
-                    </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-datetime-picker label="Fecha de registro" name="form_fecha_registro" without-time
-                            :value="old('form_fecha_registro', now()->toDateString())" />
-                    </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-select label="Estado de la relacion" name="form_estado" placeholder="Seleccione estado"
-                            :options="$opcionesEstados" option-label="nombre" option-value="id"
-                            :value="old('form_estado', 'ACTIVO')" />
-                    </div>
-
-                    <div class="tramitador-col-4">
-                        <label class="mb-1 block text-sm font-medium text-slate-700" for="form_url_respaldo">
-                            Respaldo PDF
-                        </label>
-
-                        {{-- El input real queda oculto; los botones mantienen el estilo usado en los demás PDF del sistema. --}}
-                        <div class="tramitador-pdf-control">
-                            <input id="form_url_respaldo" name="form_url_respaldo" type="file"
-                                accept="application/pdf,.pdf" class="tramitador-pdf-input">
-
-                            <div class="tramitador-pdf-info">
-                                <i class="fa-regular fa-file-pdf"></i>
-                                <div>
-                                    <strong id="tramitadorPdfNombre">Sin PDF seleccionado</strong>
-                                    <span id="tramitadorPdfEstado">Seleccione un respaldo PDF si corresponde.</span>
-                                </div>
-                            </div>
-
-                            <div class="tramitador-pdf-actions">
-                                <label for="form_url_respaldo" class="tramitador-pdf-button is-select">
-                                    <i class="fa-solid fa-upload"></i>
-                                    <span>Seleccionar</span>
-                                </label>
-
-                                <button type="button" id="btnVerPdfTramitador"
-                                    class="tramitador-pdf-button is-view" disabled>
-                                    <i class="fa-solid fa-eye"></i>
-                                    <span>Ver</span>
-                                </button>
-
-                                <button type="button" id="btnQuitarPdfTramitador"
-                                    class="tramitador-pdf-button is-remove" disabled>
-                                    <i class="fa-solid fa-xmark"></i>
-                                    <span>Quitar</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        @error('form_url_respaldo')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+            <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="mb-5">
+                    <h2 class="font-semibold text-slate-900">1. Identificar a la persona</h2>
+                    <p class="mt-1 text-sm text-slate-500">La búsqueda evita crear otra ficha y otras credenciales para la misma persona.</p>
                 </div>
-            </div>
-        </section>
 
-        {{-- Datos base de persona: llena personas. --}}
-        <section class="tramitador-panel">
-            <div class="tramitador-panel-head">
-                <span class="tramitador-panel-icon">
-                    <i class="fa-regular fa-address-card"></i>
-                </span>
-                <div>
-                    <h2 class="tramitador-panel-title">Datos generales de la persona</h2>
-                    <p class="tramitador-panel-subtitle">Informacion comun registrada en la tabla personas.</p>
+                <div class="grid gap-4 md:grid-cols-[1fr_180px_auto] md:items-end">
+                    <div>
+                        <label for="form_ci" class="mb-1 block text-sm font-medium text-slate-700">Cédula de identidad</label>
+                        <input id="form_ci" name="form_ci" value="{{ old('form_ci') }}" maxlength="50" required
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label for="form_complemento" class="mb-1 block text-sm font-medium text-slate-700">Complemento</label>
+                        <input id="form_complemento" name="form_complemento" value="{{ old('form_complemento') }}" maxlength="10"
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
+                    </div>
+                    <button type="button" id="btnBuscarPersona"
+                        class="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">
+                        Buscar
+                    </button>
                 </div>
-            </div>
 
-            <div class="tramitador-panel-body">
-                <div class="tramitador-grid">
-                    <div class="tramitador-col-4">
-                        <x-wire-input label="Correo" name="form_correo" type="email" placeholder="correo@dominio.com"
-                            value="{{ old('form_correo') }}" />
-                    </div>
+                <div id="resultadoBusqueda" class="mt-4 hidden rounded-lg border p-4 text-sm" aria-live="polite"></div>
+            </section>
 
-                    <div class="tramitador-col-4">
-                        <x-wire-input label="NIT personal (opcional)" name="form_nit" placeholder="Sin NIT"
-                            value="{{ old('form_nit') }}" />
-                    </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-select label="Territorio" name="form_id_territorio" placeholder="Buscar territorio"
-                            searchable :options="$opcionesTerritorios" option-label="nombre" option-value="id"
-                            :value="old('form_id_territorio')" />
-                    </div>
-
-                    <div class="tramitador-col-12">
-                        <x-wire-input label="Domicilio" name="form_domicilio" placeholder="Ingrese domicilio"
-                            value="{{ old('form_domicilio') }}" />
-                    </div>
+            <section id="datosPersonaNueva" class="hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="mb-5">
+                    <h2 class="font-semibold text-slate-900">2. Datos mínimos de la persona nueva</h2>
+                    <p class="mt-1 text-sm text-slate-500">Solo se solicitan datos necesarios para crear su ficha. La cuenta se habilitará posteriormente en INSO.</p>
                 </div>
-            </div>
-        </section>
 
-        {{-- Datos especificos de persona natural: llena naturals. --}}
-        <section class="tramitador-panel">
-            <div class="tramitador-panel-head is-persona">
-                <span class="tramitador-panel-icon">
-                    <i class="fa-regular fa-user"></i>
-                </span>
-                <div>
-                    <h2 class="tramitador-panel-title">Datos de persona natural</h2>
-                    <p class="tramitador-panel-subtitle">Identificacion personal del tramitador.</p>
-                </div>
-            </div>
-
-            <div class="tramitador-panel-body">
-                <div class="tramitador-grid">
-                    <div class="tramitador-col-4">
-                        <x-wire-input label="Nombres" name="form_nombres" placeholder="Ingrese nombres"
-                            value="{{ old('form_nombres') }}" />
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="form_nombres" class="mb-1 block text-sm font-medium text-slate-700">Nombres</label>
+                        <input id="form_nombres" name="form_nombres" value="{{ old('form_nombres') }}" maxlength="100"
+                            data-requerido-persona class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
                     </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-input label="Apellido paterno" name="form_apellido_paterno" placeholder="Apellido paterno"
-                            value="{{ old('form_apellido_paterno') }}" />
+                    <div>
+                        <label for="form_apellido_paterno" class="mb-1 block text-sm font-medium text-slate-700">Apellido paterno</label>
+                        <input id="form_apellido_paterno" name="form_apellido_paterno" value="{{ old('form_apellido_paterno') }}" maxlength="100"
+                            data-requerido-persona class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
                     </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-input label="Apellido materno" name="form_apellido_materno" placeholder="Apellido materno"
-                            value="{{ old('form_apellido_materno') }}" />
+                    <div>
+                        <label for="form_apellido_materno" class="mb-1 block text-sm font-medium text-slate-700">Apellido materno</label>
+                        <input id="form_apellido_materno" name="form_apellido_materno" value="{{ old('form_apellido_materno') }}" maxlength="100"
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
                     </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-input label="CI" name="form_ci" placeholder="Carnet de identidad"
-                            value="{{ old('form_ci') }}" />
+                    <div>
+                        <label for="form_expedido" class="mb-1 block text-sm font-medium text-slate-700">Expedido</label>
+                        <select id="form_expedido" name="form_expedido"
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
+                            <option value="">Seleccione</option>
+                            @foreach (\App\Models\Natural::EXPEDIDOS as $codigo => $nombre)
+                                <option value="{{ $codigo }}" @selected(old('form_expedido') === $codigo)>{{ $nombre }}</option>
+                            @endforeach
+                        </select>
                     </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-input label="Complemento" name="form_complemento" placeholder="Complemento"
-                            value="{{ old('form_complemento') }}" />
+                    <div>
+                        <label for="form_correo" class="mb-1 block text-sm font-medium text-slate-700">Correo</label>
+                        <input id="form_correo" name="form_correo" type="email" value="{{ old('form_correo') }}" maxlength="50"
+                            data-requerido-persona class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
                     </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-input label="Expedido" name="form_expedido" placeholder="LP, CB, SC..."
-                            value="{{ old('form_expedido') }}" />
-                    </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-select label="Genero" name="form_genero" placeholder="Seleccione genero"
-                            :options="$opcionesGeneros" option-label="nombre" option-value="id"
-                            :value="old('form_genero')" />
-                    </div>
-
-                    <div class="tramitador-col-4">
-                        <x-wire-datetime-picker label="Fecha de nacimiento" name="form_fecha_nacimiento" without-time
-                            :value="old('form_fecha_nacimiento')" />
-                    </div>
-
-                    <div class="tramitador-col-8">
-                        <x-wire-input label="Ocupacion" name="form_ocupacion" placeholder="Ejemplo: Tramitador externo"
-                            value="{{ old('form_ocupacion') }}" />
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {{-- Telefonos: se enviaran como JSON para llenar telefonos. --}}
-        <section class="tramitador-panel">
-            <div class="tramitador-panel-head is-contacto">
-                <span class="tramitador-panel-icon">
-                    <i class="fa-solid fa-phone"></i>
-                </span>
-                <div>
-                    <h2 class="tramitador-panel-title">Telefonos</h2>
-                    <p class="tramitador-panel-subtitle">Agregue uno o varios telefonos del tramitador.</p>
-                </div>
-            </div>
-
-            <div class="tramitador-panel-body">
-                <input type="hidden" name="form_telefonos_json" id="form_telefonos_json" value="{{ old('form_telefonos_json', '[]') }}">
-
-                <div class="tramitador-grid">
-                    <div class="tramitador-col-5">
-                        <x-wire-input label="Telefono" id="telefonoNumero" placeholder="Ejemplo: 70123456" />
-                    </div>
-
-                    <div class="tramitador-col-3">
-                        <x-wire-select label="Tipo" id="telefonoTipo" placeholder="Seleccione tipo"
-                            :options="$opcionesTiposTelefono" option-label="nombre" option-value="id"
-                            :value="old('telefonoTipo', 'CELULAR')" />
-                    </div>
-
-                    <div class="tramitador-col-4 flex items-end">
-                        <button type="button" class="tramitador-btn is-primary is-inline-add" onclick="agregarTelefonoTramitador()">
-                            <i class="fa-solid fa-plus"></i>
-                            Agregar telefono
-                        </button>
-                    </div>
-
-                    <div class="tramitador-col-12">
-                        <div class="tramitador-list-box">
-                            <p class="tramitador-list-title">Telefonos agregados</p>
-                            <div id="telefonosLista" class="tramitador-chip-list">
-                                <span class="text-sm text-slate-500">Sin telefonos agregados.</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {{-- Rubros: se enviaran como JSON para llenar rubros. --}}
-        <section class="tramitador-panel">
-            <div class="tramitador-panel-head is-rubro">
-                <span class="tramitador-panel-icon">
-                    <i class="fa-solid fa-briefcase"></i>
-                </span>
-                <div>
-                    <h2 class="tramitador-panel-title">Rubros o actividad</h2>
-                    <p class="tramitador-panel-subtitle">Actividad relacionada con la persona natural tramitadora.</p>
-                </div>
-            </div>
-
-            <div class="tramitador-panel-body">
-                <input type="hidden" name="form_rubros_json" id="form_rubros_json" value="{{ old('form_rubros_json', '[]') }}">
-
-                <div class="tramitador-grid">
-                    <div class="tramitador-col-9">
-                        <label class="mb-1 block text-sm font-medium text-slate-700" for="rubroId">
-                            Código y nombre del rubro
-                        </label>
-                        <select id="rubroId"
-                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
-                            <option value="">Seleccione un rubro CAEB</option>
-                            @foreach (($rubrosCatalogo ?? collect()) as $rubro)
-                                <option value="{{ $rubro->id }}"
-                                    data-codigo="{{ $rubro->codigo_caeb }}"
-                                    data-nombre="{{ $rubro->nombre }}">
-                                    {{ $rubro->codigo_caeb }} - {{ $rubro->nombre }}
+                    <div>
+                        <label for="form_id_territorio" class="mb-1 block text-sm font-medium text-slate-700">Territorio</label>
+                        <select id="form_id_territorio" name="form_id_territorio" data-requerido-persona
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
+                            <option value="">Seleccione</option>
+                            @foreach ($territorios as $territorio)
+                                <option value="{{ $territorio->id }}" @selected((string) old('form_id_territorio') === (string) $territorio->id)>
+                                    {{ $territorio->nombre }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
-
-                    <div class="tramitador-col-3 flex items-end">
-                        <button type="button" class="tramitador-btn is-primary is-inline-add" onclick="agregarRubroTramitador()">
-                            <i class="fa-solid fa-plus"></i>
-                            Agregar rubro
-                        </button>
+                    <div>
+                        <label for="form_genero" class="mb-1 block text-sm font-medium text-slate-700">Género</label>
+                        <select id="form_genero" name="form_genero" data-requerido-persona
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
+                            <option value="">Seleccione</option>
+                            <option value="1" @selected(old('form_genero') === '1')>Masculino</option>
+                            <option value="0" @selected(old('form_genero') === '0')>Femenino</option>
+                        </select>
                     </div>
-
-                    <div class="tramitador-col-12">
-                        <div class="tramitador-list-box">
-                            <p class="tramitador-list-title">Rubros agregados</p>
-                            <div id="rubrosLista" class="tramitador-chip-list">
-                                <span class="text-sm text-slate-500">Sin rubros agregados.</span>
-                            </div>
-                        </div>
+                    <div>
+                        <label for="form_domicilio" class="mb-1 block text-sm font-medium text-slate-700">Domicilio (opcional)</label>
+                        <input id="form_domicilio" name="form_domicilio" value="{{ old('form_domicilio') }}" maxlength="255"
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
                     </div>
                 </div>
+            </section>
+
+            <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="mb-5">
+                    <h2 class="font-semibold text-slate-900">3. Autorización de la empresa</h2>
+                    <p class="mt-1 text-sm text-slate-500">La relación permanecerá pendiente hasta que INSO revise esta información.</p>
+                </div>
+
+                <div>
+                    <div>
+                        <label for="form_fecha_registro" class="mb-1 block text-sm font-medium text-slate-700">Fecha de registro</label>
+                        <input id="form_fecha_registro" name="form_fecha_registro" type="date"
+                            value="{{ old('form_fecha_registro', now()->toDateString()) }}" required
+                            class="w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500 md:max-w-md">
+                    </div>
+                    <div class="mt-4">
+                        <label for="form_carta_autorizacion" class="mb-1 block text-sm font-medium text-slate-700">Carta de autorización (PDF)</label>
+                        <input id="form_carta_autorizacion" name="form_carta_autorizacion" type="file" accept="application/pdf" required
+                            class="block w-full rounded-lg border border-slate-300 bg-white text-sm text-slate-700 file:mr-4 file:border-0 file:bg-slate-100 file:px-4 file:py-2.5 file:font-semibold">
+                        <p class="mt-1 text-xs text-slate-500">Máximo 5 MB. El archivo se guarda de forma privada.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="flex justify-end gap-3">
+                <a href="{{ route('tramitadores_index') }}" class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</a>
+                <button type="submit" id="btnGuardar" disabled
+                    class="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50">
+                    Registrar solicitud
+                </button>
             </div>
-        </section>
+        </form>
+    </div>
 
-        <div class="tramitador-actions">
-            <a href="{{ $rutaVolver }}" class="tramitador-btn is-light">
-                Salir sin guardar
-            </a>
+    @push('js')
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const botonBuscar = document.getElementById('btnBuscarPersona');
+                const botonGuardar = document.getElementById('btnGuardar');
+                const resultado = document.getElementById('resultadoBusqueda');
+                const datosPersonaNueva = document.getElementById('datosPersonaNueva');
+                const camposPersonaNueva = datosPersonaNueva.querySelectorAll('[data-requerido-persona]');
+                let documentoVerificado = false;
 
-            <button type="submit" class="tramitador-btn is-primary" @disabled(! Route::has('tramitadores_store'))>
-                Guardar tramitador
-            </button>
-        </div>
-    </form>
+                const mostrarPersonaNueva = (mostrar) => {
+                    datosPersonaNueva.classList.toggle('hidden', !mostrar);
+                    camposPersonaNueva.forEach((campo) => campo.required = mostrar);
+                };
 
-    <script>
-        // Listas temporales del formulario. El controlador las recibira como JSON.
-        let telefonosTramitador = JSON.parse(document.getElementById('form_telefonos_json')?.value || '[]');
-        let rubrosTramitador = JSON.parse(document.getElementById('form_rubros_json')?.value || '[]');
-        let pdfTemporalTramitador = null;
+                const mostrarResultado = (mensaje, tipo = 'ok') => {
+                    resultado.className = `mt-4 rounded-lg border p-4 text-sm ${tipo === 'error'
+                        ? 'border-red-200 bg-red-50 text-red-800'
+                        : 'border-teal-200 bg-teal-50 text-teal-900'}`;
+                    resultado.textContent = mensaje;
+                };
 
-        // Control del PDF: permite seleccionar, ver y quitar sin cambiar el nombre del campo que recibe Laravel.
-        const inputPdfTramitador = document.getElementById('form_url_respaldo');
-        const nombrePdfTramitador = document.getElementById('tramitadorPdfNombre');
-        const estadoPdfTramitador = document.getElementById('tramitadorPdfEstado');
-        const btnVerPdfTramitador = document.getElementById('btnVerPdfTramitador');
-        const btnQuitarPdfTramitador = document.getElementById('btnQuitarPdfTramitador');
+                const invalidarBusqueda = () => {
+                    documentoVerificado = false;
+                    botonGuardar.disabled = true;
+                    resultado.classList.add('hidden');
+                    mostrarPersonaNueva(false);
+                };
 
-        // Evita insertar texto sin escapar dentro de chips generados por JavaScript.
-        function escaparTramitadorHtml(valor) {
-            return String(valor ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
+                document.getElementById('form_ci').addEventListener('input', invalidarBusqueda);
+                document.getElementById('form_complemento').addEventListener('input', invalidarBusqueda);
 
-        // Libera la URL temporal cuando se reemplaza o quita el PDF seleccionado.
-        function liberarPdfTemporalTramitador() {
-            if (pdfTemporalTramitador) {
-                URL.revokeObjectURL(pdfTemporalTramitador);
-                pdfTemporalTramitador = null;
-            }
-        }
+                botonBuscar.addEventListener('click', async () => {
+                    const ci = document.getElementById('form_ci').value.trim();
+                    const complemento = document.getElementById('form_complemento').value.trim();
 
-        // Actualiza el nombre, estado y botones del control PDF.
-        function actualizarVistaPdfTramitador(nombre = 'Sin PDF seleccionado', estado = '', url = '') {
-            nombrePdfTramitador.textContent = nombre;
-            estadoPdfTramitador.textContent = estado;
-            btnVerPdfTramitador.dataset.pdfUrl = url;
-            btnVerPdfTramitador.disabled = !url;
-            btnQuitarPdfTramitador.disabled = !url;
-        }
+                    if (!ci) {
+                        mostrarResultado('Ingrese la cédula de identidad.', 'error');
+                        return;
+                    }
 
-        // Quita el PDF temporal y deja el campo limpio antes de enviar el formulario.
-        function limpiarPdfTramitador() {
-            inputPdfTramitador.value = '';
-            liberarPdfTemporalTramitador();
-            actualizarVistaPdfTramitador();
-        }
+                    botonBuscar.disabled = true;
+                    botonBuscar.textContent = 'Buscando...';
 
-        // Actualiza el input oculto de telefonos y su lista visual.
-        function renderTelefonosTramitador() {
-            const input = document.getElementById('form_telefonos_json');
-            const lista = document.getElementById('telefonosLista');
+                    try {
+                        const respuesta = await fetch(@json(route('tramitadores_buscar_persona')), {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': @json(csrf_token()),
+                            },
+                            body: JSON.stringify({ ci, complemento }),
+                        });
+                        const datos = await respuesta.json();
 
-            input.value = JSON.stringify(telefonosTramitador);
+                        if (!respuesta.ok) {
+                            const errores = datos.errors ? Object.values(datos.errors).flat().join(' ') : datos.message;
+                            throw new Error(errores || 'No se pudo completar la búsqueda.');
+                        }
 
-            if (telefonosTramitador.length === 0) {
-                lista.innerHTML = '<span class="text-sm text-slate-500">Sin telefonos agregados.</span>';
-                return;
-            }
+                        documentoVerificado = true;
 
-            lista.innerHTML = telefonosTramitador.map((telefono, index) => `
-                <span class="tramitador-chip">
-                    ${escaparTramitadorHtml(telefono.numero)} - ${escaparTramitadorHtml(telefono.tipo)}
-                    <button type="button" onclick="quitarTelefonoTramitador(${index})">Quitar</button>
-                </span>
-            `).join('');
-        }
+                        if (!datos.existe) {
+                            mostrarPersonaNueva(true);
+                            mostrarResultado('La persona no está registrada. Complete sus datos mínimos para crear la ficha.');
+                            botonGuardar.disabled = false;
+                            return;
+                        }
 
-        // Agrega un telefono a la lista temporal del formulario.
-        function agregarTelefonoTramitador() {
-            const numero = document.getElementById('telefonoNumero')?.value.trim();
-            const tipo = document.getElementById('telefonoTipo')?.value || 'CELULAR';
+                        mostrarPersonaNueva(false);
+                        const cuenta = datos.tiene_cuenta ? 'Ya posee una cuenta; no se crearán nuevas credenciales.' : 'Aún no posee una cuenta; INSO la habilitará al validar.';
+                        const relacion = datos.relacion?.existe ? ` Ya existe una relación con estado ${datos.relacion.estado}.` : '';
+                        mostrarResultado(`${datos.nombre}. Correo: ${datos.correo || 'no registrado'}. ${cuenta}${relacion}`, datos.relacion?.existe ? 'error' : 'ok');
+                        botonGuardar.disabled = Boolean(datos.relacion?.existe);
+                    } catch (error) {
+                        documentoVerificado = false;
+                        botonGuardar.disabled = true;
+                        mostrarPersonaNueva(false);
+                        mostrarResultado(error.message, 'error');
+                    } finally {
+                        botonBuscar.disabled = false;
+                        botonBuscar.textContent = 'Buscar';
+                    }
+                });
 
-            if (!numero) {
-                return;
-            }
+                document.getElementById('formTramitador').addEventListener('submit', (evento) => {
+                    if (!documentoVerificado) {
+                        evento.preventDefault();
+                        mostrarResultado('Busque y verifique primero la cédula de identidad.', 'error');
+                    }
+                });
 
-            telefonosTramitador.push({ numero, tipo });
-            document.getElementById('telefonoNumero').value = '';
-            renderTelefonosTramitador();
-        }
-
-        // Quita un telefono de la lista temporal.
-        function quitarTelefonoTramitador(index) {
-            telefonosTramitador.splice(index, 1);
-            renderTelefonosTramitador();
-        }
-
-        // Actualiza el input oculto de rubros y su lista visual.
-        function renderRubrosTramitador() {
-            const input = document.getElementById('form_rubros_json');
-            const lista = document.getElementById('rubrosLista');
-
-            input.value = JSON.stringify(rubrosTramitador);
-
-            if (rubrosTramitador.length === 0) {
-                lista.innerHTML = '<span class="text-sm text-slate-500">Sin rubros agregados.</span>';
-                return;
-            }
-
-            lista.innerHTML = rubrosTramitador.map((rubro, index) => `
-                <span class="tramitador-chip">
-                    ${escaparTramitadorHtml([rubro.codigo_caeb, rubro.nombre].filter(Boolean).join(' - '))}
-                    <button type="button" onclick="quitarRubroTramitador(${index})">Quitar</button>
-                </span>
-            `).join('');
-        }
-
-        // Agrega un rubro a la lista temporal del formulario.
-        function agregarRubroTramitador() {
-            const selector = document.getElementById('rubroId');
-            const opcion = selector?.selectedOptions?.[0];
-
-            if (!opcion?.value) {
-                return;
-            }
-
-            if (rubrosTramitador.some(rubro => String(rubro.id) === String(opcion.value))) {
-                return;
-            }
-
-            rubrosTramitador.push({
-                id: opcion.value,
-                codigo_caeb: opcion.dataset.codigo || '',
-                nombre: opcion.dataset.nombre || opcion.textContent.trim(),
+                @if (old('form_correo'))
+                    documentoVerificado = true;
+                    mostrarPersonaNueva(true);
+                    botonGuardar.disabled = false;
+                    mostrarResultado('Corrija los datos indicados y vuelva a registrar la solicitud.');
+                @endif
             });
-            selector.value = '';
-            renderRubrosTramitador();
-        }
-
-        // Quita un rubro de la lista temporal.
-        function quitarRubroTramitador(index) {
-            rubrosTramitador.splice(index, 1);
-            renderRubrosTramitador();
-        }
-
-        inputPdfTramitador?.addEventListener('change', () => {
-            const archivo = inputPdfTramitador.files?.[0];
-
-            if (!archivo) {
-                limpiarPdfTramitador();
-                return;
-            }
-
-            // Valida PDF en frontend; Laravel vuelve a validar en backend.
-            const esPdf = archivo.type === 'application/pdf' || archivo.name.toLowerCase().endsWith('.pdf');
-
-            if (!esPdf) {
-                limpiarPdfTramitador();
-
-                if (window.Swal) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Archivo no permitido',
-                        text: 'Solo se permiten archivos PDF.',
-                        confirmButtonText: 'Entendido',
-                    });
-                }
-
-                return;
-            }
-
-            liberarPdfTemporalTramitador();
-            pdfTemporalTramitador = URL.createObjectURL(archivo);
-            actualizarVistaPdfTramitador(archivo.name, 'PDF seleccionado para guardar.', pdfTemporalTramitador);
-        });
-
-        btnVerPdfTramitador?.addEventListener('click', () => {
-            const url = btnVerPdfTramitador.dataset.pdfUrl;
-
-            if (url) {
-                window.open(url, '_blank');
-            }
-        });
-
-        btnQuitarPdfTramitador?.addEventListener('click', limpiarPdfTramitador);
-
-        renderTelefonosTramitador();
-        renderRubrosTramitador();
-    </script>
+        </script>
+    @endpush
 </x-admin-layout>

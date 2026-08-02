@@ -172,7 +172,14 @@ Route::delete('/responsables/{responsable}', [ResponsableController::class, 'des
 ========================= */
 Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index')->middleware('permiso:tramitadores.ver');
 Route::get('/tramitadores/create', [TramitadorController::class, 'create'])->name('tramitadores_create')->middleware('permiso:tramitadores.ver');
+Route::post('/tramitadores/buscar-persona', [TramitadorController::class, 'buscarPersona'])
+    ->name('tramitadores_buscar_persona')
+    ->middleware(['permiso:tramitadores.ver', 'throttle:20,1']);
 Route::post('/tramitadores', [TramitadorController::class, 'store'])->name('tramitadores_store')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/{tramitador}', [TramitadorController::class, 'show'])->name('tramitadores_show')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/{tramitador}/carta', [TramitadorController::class, 'descargarCarta'])
+    ->name('tramitadores_carta')
+    ->middleware('permiso:tramitadores.ver');
 Route::post('/tramitadores/{tramitador}/dar-baja', [TramitadorController::class, 'darBaja'])
     ->name('tramitadores_baja')
     ->middleware('permiso:tramitadores.ver');

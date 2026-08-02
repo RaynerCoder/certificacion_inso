@@ -110,6 +110,10 @@ class TramitadorTable extends DataTableComponent
                     $query->orWhere('personas.correo', 'like', "%{$searchTerm}%");
                 }),
 
+            Column::make('Fecha registro', 'fecha_registro')
+                ->format(fn ($fecha) => $fecha ?: 'Sin fecha')
+                ->sortable(),
+
             Column::make('Estado', 'estado')
                 ->label(function (Responsable $fila) {
                     return view('tablas.chip_estado', [

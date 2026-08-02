@@ -14,9 +14,11 @@
 ]">
 
     <x-slot name="action">
-        <x-wire-button href="{{ route('tramitadores_create') }}" blue>
-            Nuevo Tramitador
-        </x-wire-button>
+        @permiso('tramitadores.ver')
+            <x-wire-button href="{{ route('tramitadores_create') }}" blue>
+                Asignar tramitador
+            </x-wire-button>
+        @endpermiso
     </x-slot>
 
     {{-- Tabla principal del modulo: app/Livewire/Datatables/TramitadorTable.php --}}
