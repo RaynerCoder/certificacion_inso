@@ -16,7 +16,6 @@ class NotificacionTramite extends Model
         'id_usuario_destino',
         'id_usuario_emisor',
         'id_certificado',
-        'id_responsable',
         'titulo',
         'mensaje',
         'fecha_visto',
@@ -43,12 +42,6 @@ class NotificacionTramite extends Model
     public function certificado()
     {
         return $this->belongsTo(Certificado::class, 'id_certificado');
-    }
-
-    // Solicitud de tramitador que debe validar INSO.
-    public function responsable()
-    {
-        return $this->belongsTo(Responsable::class, 'id_responsable');
     }
 
 }

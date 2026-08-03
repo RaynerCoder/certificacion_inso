@@ -278,13 +278,14 @@ class TramitadorEmpresaTest extends TestCase
         $relacion = Responsable::where('id_empresa', $empresa->id)->firstOrFail();
         $this->assertDatabaseHas('notificaciones_tramites', [
             'id_usuario_destino' => $validador->id,
-            'id_responsable' => $relacion->id,
+            'id_certificado' => null,
+            'mensaje' => $empresa->razon_social . ' registró a NUEVO TRAMITADOR como tramitador.',
             'estado' => 'ACTIVO',
         ]);
         $this->actingAs($validador)
             ->getJson(route('notificaciones_tramites'))
             ->assertOk()
-            ->assertJsonPath('notificaciones.0.url', route('tramitadores_edit', $relacion));
+            ->assertJsonPath('notificaciones.0.url', route('tramitadores_index'));
 
         $this->actingAs($validador)->put(route('tramitadores_update', $relacion), [
             'form_estado' => 'ACTIVO',
@@ -298,11 +299,6 @@ class TramitadorEmpresaTest extends TestCase
         $this->assertSame('nuevo.tramitador@example.com', $usuarioTramitador->email);
         $this->assertTrue(Hash::check('6655443', $usuarioTramitador->password));
         $this->assertTrue($usuarioTramitador->tieneRol('tramitador'));
-        $this->assertDatabaseHas('notificaciones_tramites', [
-            'id_responsable' => $relacion->id,
-            'estado' => 'VISTO',
-        ]);
-
         $otroUsuario = User::factory()->create(['estado' => 1]);
         $this->actingAs($otroUsuario);
         $relacion->update(['fecha_baja' => '2026-12-31']);

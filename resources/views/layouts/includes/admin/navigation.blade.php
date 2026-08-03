@@ -104,18 +104,20 @@
                                 'certificado.beneficiario.natural',
                                 'certificado.beneficiario.empresa',
                                 'certificado.tramitador.natural',
-                                'certificado.tramitador.empresa',
-                                'responsable.empresa',
-                                'responsable.persona.natural'
+                                'certificado.tramitador.empresa'
                             )
                             ->where('id_usuario_destino', Auth::id())
-                            ->whereNull('fecha_visto')
-                            ->where('estado', 'ACTIVO')
+                            ->whereIn('estado', ['ACTIVO', 'VISTO'])
                         : null;
                     $notificacionesTramites = $consultaNotificacionesTramites
-                        ? (clone $consultaNotificacionesTramites)->latest()->take(8)->get()
+                        ? (clone $consultaNotificacionesTramites)->latest()->take(5)->get()
                         : collect();
-                    $totalNotificacionesTramites = $consultaNotificacionesTramites ? $consultaNotificacionesTramites->count() : 0;
+                    $totalNotificacionesTramites = $consultaNotificacionesTramites
+                        ? (clone $consultaNotificacionesTramites)
+                            ->whereNull('fecha_visto')
+                            ->where('estado', 'ACTIVO')
+                            ->count()
+                        : 0;
 
                     // Remitente visible en la campana: funcionario con cargo o solicitante como empresa/persona natural.
                     $datosRemitenteNotificacion = function ($usuario) {
@@ -184,26 +186,33 @@
 
                     <div id="tramiteNotificationPanel"
                         class="hidden absolute right-0 z-50 mt-3 w-[calc(100vw-1rem)] max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
-                        <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                        <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
                             <div>
                                 <strong class="block text-sm font-black text-slate-800">Notificaciones</strong>
-                                <span class="text-xs font-semibold text-slate-500">Trámites y validaciones pendientes</span>
+                                <span class="text-xs font-semibold text-slate-500">Últimas 5 notificaciones</span>
                                 <div class="mt-1 flex flex-wrap gap-2 text-[10px] font-bold">
                                     <span class="rounded-full bg-red-100 px-2 py-0.5 text-red-700">Trámite</span>
                                     <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Tramitador</span>
                                 </div>
                             </div>
-                            <button type="button" id="btnLeerTodasTramites"
-                                class="text-xs font-bold text-emerald-700 hover:text-emerald-900">
-                                Marcar vistas
-                            </button>
+                            <div class="flex shrink-0 items-center gap-2">
+                                <button type="button" id="btnLeerTodasTramites"
+                                    class="text-xs font-bold text-emerald-700 hover:text-emerald-900">
+                                    Marcar vistas
+                                </button>
+                                <button type="button" id="btnCerrarNotificaciones"
+                                    class="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                    aria-label="Cerrar notificaciones" title="Cerrar">
+                                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div id="tramiteNotificationList" class="max-h-96 overflow-y-auto">
                             @forelse ($notificacionesTramites as $notificacion)
                                 @php
                                     $certificadoNotificacion = $notificacion->certificado;
-                                    $responsableNotificacion = $notificacion->responsable;
+                                    $esValidacionTramitador = ! $certificadoNotificacion;
                                     $beneficiarioNotificacion = $certificadoNotificacion?->beneficiario;
                                     $nombreBeneficiarioNotificacion = 'Sin beneficiario';
 
@@ -225,8 +234,8 @@
                                             (int) $certificadoNotificacion->beneficiario?->id_usuario === (int) Auth::id()
                                             || (int) $certificadoNotificacion->tramitador?->id_usuario === (int) Auth::id()
                                         );
-                                    $urlNotificacionTramite = $responsableNotificacion
-                                        ? route('tramitadores_edit', $responsableNotificacion)
+                                    $urlNotificacionTramite = $esValidacionTramitador
+                                        ? route('tramitadores_index')
                                         : ($certificadoNotificacion
                                         ? route('certificados_show', [
                                             'certificado' => $certificadoNotificacion,
@@ -235,10 +244,10 @@
                                         : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')));
                                     $remitenteNotificacion = $datosRemitenteNotificacion($notificacion->usuarioEmisor);
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
-                                    $claseNotificacion = $responsableNotificacion
+                                    $claseNotificacion = $esValidacionTramitador
                                         ? 'border-l-4 border-l-blue-500 bg-blue-50/70'
                                         : 'border-l-4 border-l-red-500 bg-red-50/70';
-                                    $claseBotonNotificacion = $responsableNotificacion
+                                    $claseBotonNotificacion = $esValidacionTramitador
                                         ? 'bg-blue-600 hover:bg-blue-700'
                                         : 'bg-red-600 hover:bg-red-700';
                                 @endphp
@@ -248,9 +257,9 @@
                                     <strong class="block text-sm font-black text-slate-800">
                                         {{ $notificacion->titulo }}
                                     </strong>
-                                    @if ($responsableNotificacion)
+                                    @if ($esValidacionTramitador)
                                         <p class="mt-1 text-xs font-semibold text-slate-600">Validación de tramitador</p>
-                                        <p class="text-xs text-slate-500">Empresa: {{ $responsableNotificacion->empresa?->razon_social ?: 'Sin empresa' }}</p>
+                                        <p class="text-xs text-slate-500">{{ $notificacion->mensaje }}</p>
                                     @else
                                         <p class="mt-1 text-xs font-semibold text-slate-600">
                                             {{ $certificadoNotificacion?->codigo ?? '' }} -
@@ -270,12 +279,12 @@
                                     <button type="button"
                                         class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black text-white {{ $claseBotonNotificacion }}">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                        {{ $responsableNotificacion ? 'Validar' : 'Atender solicitud' }}
+                                        {{ $esValidacionTramitador ? 'Ver tramitadores' : 'Atender solicitud' }}
                                     </button>
                                 </div>
                             @empty
                                 <div class="px-4 py-5 text-center text-sm font-semibold text-slate-500">
-                                    Sin notificaciones nuevas.
+                                    Sin notificaciones.
                                 </div>
                             @endforelse
                         </div>
@@ -392,6 +401,7 @@
         const lista = document.getElementById('tramiteNotificationList');
         const badge = document.getElementById('tramiteNotificationBadge');
         const botonLeerTodas = document.getElementById('btnLeerTodasTramites');
+        const botonCerrar = document.getElementById('btnCerrarNotificaciones');
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         let totalAnterior = Number(badge?.textContent || 0);
 
@@ -453,7 +463,7 @@
 
             lista.innerHTML = datos.notificaciones.length
                 ? datos.notificaciones.map(plantillaNotificacion).join('')
-                : '<div class="px-4 py-5 text-center text-sm font-semibold text-slate-500">Sin notificaciones nuevas.</div>';
+                : '<div class="px-4 py-5 text-center text-sm font-semibold text-slate-500">Sin notificaciones.</div>';
 
             if (datos.total > totalAnterior && window.Swal) {
                 Swal.fire({
@@ -483,6 +493,7 @@
         }
 
         boton.addEventListener('click', () => panel.classList.toggle('hidden'));
+        botonCerrar?.addEventListener('click', () => panel.classList.add('hidden'));
 
         lista.addEventListener('click', async (event) => {
             const botonAtender = event.target.closest('.tramite-notification-open');

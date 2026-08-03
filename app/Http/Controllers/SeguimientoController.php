@@ -373,7 +373,7 @@ class SeguimientoController extends Controller
     }
 
     // NOTIFICACIONES DE TRAMITES
-    // Devuelve las notificaciones no leidas para refrescar la campana sin recargar la pagina.
+    // Devuelve las cinco notificaciones más recientes; el contador conserva solo las no leídas.
     public function notificacionesTramites(Request $request)
     {
         if (!Schema::hasTable('notificaciones_tramites')) {
@@ -392,21 +392,18 @@ class SeguimientoController extends Controller
                 'certificado.beneficiario.natural',
                 'certificado.beneficiario.empresa',
                 'certificado.tramitador.natural',
-                'certificado.tramitador.empresa',
-                'responsable.empresa',
-                'responsable.persona.natural'
+                'certificado.tramitador.empresa'
             )
             ->where('id_usuario_destino', $request->user()->id)
-            ->whereNull('fecha_visto')
-            ->where('estado', 'ACTIVO');
+            ->whereIn('estado', ['ACTIVO', 'VISTO']);
 
         $notificaciones = (clone $consultaBase)
             ->latest()
-            ->take(8)
+            ->take(5)
             ->get()
             ->map(function ($notificacion) use ($request) {
                 $certificado = $notificacion->certificado;
-                $responsable = $notificacion->responsable;
+                $esValidacionTramitador = ! $certificado;
                 $remitente = $this->datosUsuarioNotificacion($notificacion->usuarioEmisor);
                 $esSolicitante = $certificado
                     && $this->gestionTramitadores->usuarioPuedeConsultarTramite($request->user(), $certificado);
@@ -416,16 +413,17 @@ class SeguimientoController extends Controller
                     'titulo' => $notificacion->titulo,
                     'mensaje' => $notificacion->mensaje ?? '',
                     'codigo' => $certificado?->codigo ?? '',
-                    'categoria' => $responsable ? 'tramitador' : 'tramite',
-                    'tipo' => $responsable ? 'Validación de tramitador' : ($certificado?->tipoCertificado?->nombre ?? 'Trámite'),
-                    'beneficiario' => $responsable?->empresa?->razon_social
-                        ?? $this->nombrePersona($certificado?->beneficiario),
-                    'etiqueta_relacion' => $responsable ? 'Empresa' : 'Beneficiario',
-                    'accion' => $responsable ? 'Validar' : 'Atender solicitud',
+                    'categoria' => $esValidacionTramitador ? 'tramitador' : 'tramite',
+                    'tipo' => $esValidacionTramitador ? 'Validación de tramitador' : ($certificado?->tipoCertificado?->nombre ?? 'Trámite'),
+                    'beneficiario' => $esValidacionTramitador
+                        ? ($notificacion->mensaje ?: 'Solicitud de tramitador')
+                        : $this->nombrePersona($certificado?->beneficiario),
+                    'etiqueta_relacion' => $esValidacionTramitador ? 'Solicitud' : 'Beneficiario',
+                    'accion' => $esValidacionTramitador ? 'Ver tramitadores' : 'Atender solicitud',
                     'quien_envia' => $remitente['nombre'],
                     'quien_envia_detalle' => $remitente['detalle'],
-                    'url' => $responsable
-                        ? route('tramitadores_edit', $responsable)
+                    'url' => $esValidacionTramitador
+                        ? route('tramitadores_index')
                         : ($certificado
                         ? route('certificados_show', [
                             'certificado' => $certificado,
@@ -438,7 +436,10 @@ class SeguimientoController extends Controller
             });
 
         return response()->json([
-            'total' => $consultaBase->count(),
+            'total' => (clone $consultaBase)
+                ->whereNull('fecha_visto')
+                ->where('estado', 'ACTIVO')
+                ->count(),
             'notificaciones' => $notificaciones,
         ]);
     }
@@ -452,14 +453,15 @@ class SeguimientoController extends Controller
 
         $notificacion = NotificacionTramite::query()
             ->where('id_usuario_destino', $request->user()->id)
-            ->whereNull('fecha_visto')
             ->whereKey($notificacion)
             ->firstOrFail();
 
-        $notificacion->update([
-            'fecha_visto' => now(),
-            'estado' => 'VISTO',
-        ]);
+        if (! $notificacion->fecha_visto) {
+            $notificacion->update([
+                'fecha_visto' => now(),
+                'estado' => 'VISTO',
+            ]);
+        }
 
         return response()->json(['ok' => true]);
     }

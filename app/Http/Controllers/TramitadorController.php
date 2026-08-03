@@ -328,7 +328,6 @@ class TramitadorController extends Controller
                     $relacion->update($cambios);
                 }
 
-                $this->cerrarNotificacionesValidacion($relacion);
             });
         } catch (ValidationException $exception) {
             return back()
@@ -721,10 +720,17 @@ class TramitadorController extends Controller
 
     private function notificarValidadores(Responsable $relacion): void
     {
-        if (! Schema::hasTable('notificaciones_tramites')
-            || ! Schema::hasColumn('notificaciones_tramites', 'id_responsable')) {
+        if (! Schema::hasTable('notificaciones_tramites')) {
             return;
         }
+
+        $natural = $relacion->persona?->natural;
+        $nombreTramitador = trim(implode(' ', array_filter([
+            $natural?->nombres,
+            $natural?->apellido_paterno,
+            $natural?->apellido_materno,
+        ]))) ?: 'Sin nombre';
+        $nombreEmpresa = $relacion->empresa?->razon_social ?: 'Una empresa';
 
         $usuarios = User::query()
             ->where('estado', 1)
@@ -742,31 +748,15 @@ class TramitadorController extends Controller
                 'id_usuario_destino' => $usuario->id,
                 'id_usuario_emisor' => auth()->id(),
                 'id_certificado' => null,
-                'id_responsable' => $relacion->id,
                 'titulo' => 'Tramitador pendiente de validación',
-                'mensaje' => 'Una empresa registró un tramitador.',
+                'mensaje' => sprintf(
+                    '%s registró a %s como tramitador.',
+                    $nombreEmpresa,
+                    $nombreTramitador
+                ),
                 'estado' => 'ACTIVO',
             ]);
         }
-    }
-
-    private function cerrarNotificacionesValidacion(Responsable $relacion): void
-    {
-        if ((string) $relacion->estado === 'PENDIENTE_VALIDACION'
-            || ! Schema::hasTable('notificaciones_tramites')
-            || ! Schema::hasColumn('notificaciones_tramites', 'id_responsable')) {
-            return;
-        }
-
-        NotificacionTramite::query()
-            ->where('id_responsable', $relacion->id)
-            ->where('estado', 'ACTIVO')
-            ->update([
-                'estado' => 'VISTO',
-                'fecha_visto' => now(),
-                'id_usuario_modificacion' => auth()->id(),
-                'updated_at' => now(),
-            ]);
     }
 
     private function autorizarValidacion(): void
