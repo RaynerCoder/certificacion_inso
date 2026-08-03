@@ -394,8 +394,8 @@ class SeguimientoController extends Controller
                 'certificado.tramitador.natural',
                 'certificado.tramitador.empresa'
             )
-            ->where('id_usuario_destino', $request->user()->id)
-            ->whereIn('estado', ['ACTIVO', 'VISTO']);
+            // El historial conserva las ultimas cinco, aunque ya hayan sido vistas.
+            ->where('id_usuario_destino', $request->user()->id);
 
         $notificaciones = (clone $consultaBase)
             ->latest()

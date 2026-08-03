@@ -474,20 +474,6 @@ class TipoCertificadoController extends Controller
             'form_estado' => 'estado',
         ]);
 
-        if ($tipoCertificado->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
-            $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoCertificado);
-
-            if ($relacionesEncontradas !== []) {
-                session()->flash('swal', [
-                    'title' => 'No se puede cambiar a Inactivo',
-                    'text' => 'El tipo de certificado está relacionado con otros datos.',
-                    'icon' => 'error',
-                ]);
-
-                return redirect()->route('tipos_certificados_index');
-            }
-        }
-
         $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
 
         try {
@@ -529,7 +515,7 @@ class TipoCertificadoController extends Controller
      */
     public function destroy(TipoCertificado $tipoCertificado)
     {
-        $relacionesEncontradas = $this->relacionesQueImpidenInactivar($tipoCertificado);
+        $relacionesEncontradas = $this->relacionesQueImpidenEliminar($tipoCertificado);
 
         if ($relacionesEncontradas !== []) {
             session()->flash('swal', [
@@ -569,7 +555,7 @@ class TipoCertificadoController extends Controller
     /**
      * Revisa las relaciones que todavía utilizan el tipo de certificado.
      */
-    private function relacionesQueImpidenInactivar(TipoCertificado $tipoCertificado): array
+    private function relacionesQueImpidenEliminar(TipoCertificado $tipoCertificado): array
     {
         $relacionesEncontradas = [];
 

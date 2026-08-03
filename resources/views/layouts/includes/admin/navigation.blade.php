@@ -106,8 +106,8 @@
                                 'certificado.tramitador.natural',
                                 'certificado.tramitador.empresa'
                             )
+                            // El historial conserva las ultimas cinco, aunque ya hayan sido vistas.
                             ->where('id_usuario_destino', Auth::id())
-                            ->whereIn('estado', ['ACTIVO', 'VISTO'])
                         : null;
                     $notificacionesTramites = $consultaNotificacionesTramites
                         ? (clone $consultaNotificacionesTramites)->latest()->take(5)->get()
@@ -185,9 +185,9 @@
                     </button>
 
                     <div id="tramiteNotificationPanel"
-                        class="hidden absolute right-0 z-50 mt-3 w-[calc(100vw-1rem)] max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
-                        <div class="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
-                            <div>
+                        class="cert-notification-panel hidden absolute right-0 z-50 mt-3 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                        <div class="cert-notification-header flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
+                            <div class="cert-notification-heading">
                                 <strong class="block text-sm font-black text-slate-800">Notificaciones</strong>
                                 <span class="text-xs font-semibold text-slate-500">Últimas 5 notificaciones</span>
                                 <div class="mt-1 flex flex-wrap gap-2 text-[10px] font-bold">
@@ -195,7 +195,7 @@
                                     <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Tramitador</span>
                                 </div>
                             </div>
-                            <div class="flex shrink-0 items-center gap-2">
+                            <div class="cert-notification-actions flex shrink-0 items-center gap-2">
                                 <button type="button" id="btnLeerTodasTramites"
                                     class="text-xs font-bold text-emerald-700 hover:text-emerald-900">
                                     Marcar vistas
@@ -208,7 +208,7 @@
                             </div>
                         </div>
 
-                        <div id="tramiteNotificationList" class="max-h-96 overflow-y-auto">
+                        <div id="tramiteNotificationList" class="cert-notification-list overflow-y-auto">
                             @forelse ($notificacionesTramites as $notificacion)
                                 @php
                                     $certificadoNotificacion = $notificacion->certificado;

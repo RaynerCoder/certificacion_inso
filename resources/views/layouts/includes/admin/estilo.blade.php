@@ -103,6 +103,28 @@
         max-width: calc(100vw - 1rem);
     }
 
+    .cert-notification-panel {
+        width: min(26rem, calc(100vw - 1rem));
+    }
+
+    .cert-notification-heading {
+        min-width: 0;
+    }
+
+    .cert-notification-actions {
+        white-space: nowrap;
+    }
+
+    .cert-notification-list {
+        max-height: min(28rem, calc(100vh - 9rem));
+    }
+
+    .tramite-notification-item,
+    .tramite-notification-item p,
+    .tramite-notification-item strong {
+        overflow-wrap: anywhere;
+    }
+
     @media (max-width: 1024px) {
         .cert-topbar-profile-trigger {
             max-width: 42vw;
@@ -116,6 +138,25 @@
     }
 
     @media (max-width: 640px) {
+        .cert-notification-panel {
+            position: fixed !important;
+            top: 4.25rem !important;
+            right: .5rem !important;
+            left: .5rem !important;
+            width: auto !important;
+            max-width: none !important;
+            margin-top: 0 !important;
+        }
+
+        .cert-notification-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .cert-notification-list {
+            max-height: calc(100vh - 12rem);
+        }
+
         .cert-topbar-profile-trigger {
             max-width: 54vw;
             gap: 7px;
