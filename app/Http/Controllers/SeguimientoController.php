@@ -391,6 +391,7 @@ class SeguimientoController extends Controller
                 'certificado.tipoCertificado',
                 'certificado.beneficiario.natural',
                 'certificado.beneficiario.empresa',
+                'certificado.beneficiario.empresa.responsables.persona.natural',
                 'certificado.tramitador.natural',
                 'certificado.tramitador.empresa'
             )
@@ -404,7 +405,7 @@ class SeguimientoController extends Controller
             ->map(function ($notificacion) use ($request) {
                 $certificado = $notificacion->certificado;
                 $esValidacionTramitador = ! $certificado;
-                $remitente = $this->datosUsuarioNotificacion($notificacion->usuarioEmisor);
+                $presentacion = $notificacion->datosPresentacion();
                 $esSolicitante = $certificado
                     && $this->gestionTramitadores->usuarioPuedeConsultarTramite($request->user(), $certificado);
 
@@ -417,11 +418,12 @@ class SeguimientoController extends Controller
                     'tipo' => $esValidacionTramitador ? 'Validación de tramitador' : ($certificado?->tipoCertificado?->nombre ?? 'Trámite'),
                     'beneficiario' => $esValidacionTramitador
                         ? ($notificacion->mensaje ?: 'Solicitud de tramitador')
-                        : $this->nombrePersona($certificado?->beneficiario),
-                    'etiqueta_relacion' => $esValidacionTramitador ? 'Solicitud' : 'Beneficiario',
+                        : $presentacion['solicitante'],
+                    'etiqueta_relacion' => $esValidacionTramitador ? 'Solicitud' : 'Solicitante',
+                    'tipo_solicitante' => $presentacion['tipo_solicitante'],
                     'accion' => $esValidacionTramitador ? 'Ver tramitadores' : 'Atender solicitud',
-                    'quien_envia' => $remitente['nombre'],
-                    'quien_envia_detalle' => $remitente['detalle'],
+                    'quien_envia' => $presentacion['enviado_por'],
+                    'quien_envia_detalle' => $presentacion['actua_como'],
                     'url' => $esValidacionTramitador
                         ? route('tramitadores_index')
                         : ($certificado
@@ -2504,45 +2506,6 @@ class SeguimientoController extends Controller
         return auth()->user()->tieneRol('administrador')
             || auth()->user()->tieneRol('tecnico-evaluador')
             || $this->usuarioTieneCargoActivo(auth()->user());
-    }
-
-    // REMITENTE DE NOTIFICACION
-    // Muestra funcionario con cargo o, si es solicitante, empresa/persona natural.
-    private function datosUsuarioNotificacion(?User $usuario): array
-    {
-        if (!$usuario) {
-            return [
-                'nombre' => 'Sin remitente',
-                'detalle' => 'Sin dato',
-            ];
-        }
-
-        $usuario->loadMissing('funcionario.cargos', 'persona.empresa', 'persona.natural');
-
-        if ($usuario->funcionario) {
-            $nombreFuncionario = trim(implode(' ', array_filter([
-                $usuario->funcionario->nombres,
-                $usuario->funcionario->apellido_paterno,
-                $usuario->funcionario->apellido_materno,
-            ])));
-
-            return [
-                'nombre' => $nombreFuncionario ?: ($usuario->name ?: 'Sin funcionario'),
-                'detalle' => $usuario->funcionario->cargos?->pluck('nombre')->filter()->implode(', ') ?: 'Sin cargo',
-            ];
-        }
-
-        if ($usuario->persona) {
-            return [
-                'nombre' => $this->nombrePersona($usuario->persona),
-                'detalle' => $usuario->persona->empresa ? 'Empresa' : 'Persona natural',
-            ];
-        }
-
-        return [
-            'nombre' => $usuario->name ?: 'Sin remitente',
-            'detalle' => 'Sin persona vinculada',
-        ];
     }
 
     // NOMBRE LEGIBLE DE PERSONA
