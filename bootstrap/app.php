@@ -30,14 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Si el formulario de acceso quedo abierto, vuelve a cargarlo con un token vigente.
+        // Una sesión o token vencido siempre debe volver al acceso, sin mostrar Page Expired.
         $exceptions->respond(function (Response $response) {
-            if ($response->getStatusCode() !== 419 || ! request()->is('login')) {
+            if ($response->getStatusCode() !== 419) {
                 return $response;
             }
 
             return redirect()
                 ->route('login')
-                ->with('status', 'La página de acceso había expirado. Ya fue actualizada; ingrese nuevamente.');
+                ->with('status', 'La sesión había expirado. Ingrese nuevamente.');
         });
     })->create();
