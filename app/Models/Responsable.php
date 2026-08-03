@@ -17,7 +17,9 @@ class Responsable extends Model
         'url_respaldo',
         'fecha_registro',
         'fecha_baja',
-        'estado'
+        'estado',
+        'id_usuario_validacion',
+        'id_usuario_baja',
     ];
     
      // Relación muchos a uno (muchos responsables pertenecen a una empresa)
@@ -36,6 +38,18 @@ class Responsable extends Model
     public function rol()
     {
         return $this->belongsTo(Role::class, 'id_rol');
+    }
+
+    // Usuario INSO que tomó la primera decisión sobre la habilitación del tramitador.
+    public function usuarioValidacion()
+    {
+        return $this->belongsTo(User::class, 'id_usuario_validacion')->withTrashed();
+    }
+
+    // Usuario de la empresa o de INSO que ejecutó la baja vigente.
+    public function usuarioBaja()
+    {
+        return $this->belongsTo(User::class, 'id_usuario_baja')->withTrashed();
     }
   
     

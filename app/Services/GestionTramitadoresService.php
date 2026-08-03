@@ -199,6 +199,7 @@ class GestionTramitadoresService
         $tramitador->update([
             'estado' => 'INACTIVO',
             'fecha_baja' => now()->toDateString(),
+            'id_usuario_baja' => $usuarioResponsable->id,
         ]);
 
         return $pendientes->count();

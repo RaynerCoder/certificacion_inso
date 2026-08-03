@@ -25,6 +25,8 @@ class TramitadorTable extends DataTableComponent
             ?->loadMissing('persona.empresa')
             ?->persona
             ?->empresa;
+        $esValidadorInso = ! $empresa
+            && (auth()->user()?->puede('tramitadores.validar') ?? false);
 
         return Responsable::query()
             ->select('responsables.*')
@@ -54,10 +56,19 @@ class TramitadorTable extends DataTableComponent
                 $query->where('roles.slug', 'tramitador')
                     ->orWhere('roles.name', 'like', '%TRAMITADOR%');
             })
+            // Los datos históricos duplicados se conservan, pero solo se muestra la relación más reciente.
+            ->whereRaw('responsables.id = (
+                SELECT MAX(relacion_actual.id)
+                FROM responsables AS relacion_actual
+                WHERE relacion_actual.id_empresa = responsables.id_empresa
+                  AND relacion_actual.id_persona = responsables.id_persona
+                  AND relacion_actual.id_rol = responsables.id_rol
+                  AND relacion_actual.deleted_at IS NULL
+            )')
             ->when(
                 $empresa,
                 fn (Builder $query) => $query->where('responsables.id_empresa', $empresa->id),
-                fn (Builder $query) => $query->whereRaw('1 = 0')
+                fn (Builder $query) => $esValidadorInso ? $query : $query->whereRaw('1 = 0')
             )
             ->with([
                 'empresa.persona',
@@ -111,7 +122,9 @@ class TramitadorTable extends DataTableComponent
                 }),
 
             Column::make('Fecha registro', 'fecha_registro')
-                ->format(fn ($fecha) => $fecha ?: 'Sin fecha')
+                ->format(fn ($fecha) => $fecha
+                    ? \Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y H:i')
+                    : 'Sin fecha')
                 ->sortable(),
 
             Column::make('Estado', 'estado')

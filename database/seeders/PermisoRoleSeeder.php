@@ -15,6 +15,14 @@ class PermisoRoleSeeder extends Seeder
      */
     public function run(): void
     {
+        $permisoValidarTramitadores = DB::table('permisos')
+            ->where('nombre', 'tramitadores.validar')
+            ->value('id');
+
+        if (! $permisoValidarTramitadores) {
+            throw new \RuntimeException('Primero debe registrarse el permiso tramitadores.validar.');
+        }
+
         $permisosAdministrador = DB::table('permisos')
             ->where('estado', 1)
             ->orderBy('id')
@@ -28,7 +36,7 @@ class PermisoRoleSeeder extends Seeder
             // Funcionario: atiende trámites, consulta información técnica y ve lo que registró en ventanilla.
             2 => [
                 1, 2, 3, 4, 5, 6, 10, 11, 12,
-                18, 19, 21, 22, 23,
+                18, 19, 21, 22, 23, $permisoValidarTramitadores,
                 24, 25, 26, 27, 28,
                 29, 30, 31, 32, 33, 34, 35, 37, 38,
             ],

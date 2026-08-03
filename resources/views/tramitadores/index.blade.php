@@ -14,43 +14,52 @@
 ]">
 
     <x-slot name="action">
-        @permiso('tramitadores.ver')
-            <x-wire-button href="{{ route('tramitadores_create') }}" blue>
-                Asignar tramitador
-            </x-wire-button>
-        @endpermiso
+        @if ($empresa)
+            @permiso('tramitadores.ver')
+                <x-wire-button href="{{ route('tramitadores_create') }}" class="w-full justify-center sm:w-auto" blue>
+                    Asignar tramitador
+                </x-wire-button>
+            @endpermiso
+        @endif
     </x-slot>
 
     {{-- Tabla principal del modulo: app/Livewire/Datatables/TramitadorTable.php --}}
-    @livewire('datatables.tramitador-table')
+    <div class="min-w-0 max-w-full overflow-x-auto">
+        @livewire('datatables.tramitador-table')
+    </div>
 
     @push('js')
         <script>
-            document.querySelectorAll('[data-tramitador-baja]').forEach((formulario) => {
-                formulario.addEventListener('submit', (evento) => {
-                    evento.preventDefault();
+            document.addEventListener('submit', (evento) => {
+                const formulario = evento.target.closest('[data-tramitador-baja]');
 
-                    const nombre = formulario.dataset.tramitadorNombre;
-                    const pendientes = Number(formulario.dataset.tramitesPendientes || 0);
-                    const detalle = pendientes
-                        ? `Tiene ${pendientes} tramite(s) pendiente(s). Se transferiran al beneficiario.`
-                        : 'No tiene tramites pendientes de correccion.';
+                if (! formulario) {
+                    return;
+                }
 
-                    Swal.fire({
-                        title: `Dar de baja a ${nombre}`,
-                        text: detalle,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Confirmar baja',
-                        cancelButtonText: 'Cancelar',
-                    }).then((resultado) => {
-                        if (!resultado.isConfirmed) {
-                            return;
-                        }
+                evento.preventDefault();
 
-                        formulario.querySelector('button[type="submit"]')?.setAttribute('disabled', 'disabled');
-                        formulario.submit();
-                    });
+                const nombre = formulario.dataset.tramitadorNombre;
+                const empresa = formulario.dataset.tramitadorEmpresa;
+                const pendientes = Number(formulario.dataset.tramitesPendientes || 0);
+                const detalle = pendientes
+                    ? `Tiene ${pendientes} trámite(s) pendiente(s), que se transferirán al beneficiario.`
+                    : 'No tiene trámites pendientes de corrección.';
+
+                Swal.fire({
+                    title: `Dar de baja a ${nombre}`,
+                    text: `Dejará de representar a ${empresa}. ${detalle}`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Confirmar baja',
+                    cancelButtonText: 'Cancelar',
+                }).then((resultado) => {
+                    if (!resultado.isConfirmed) {
+                        return;
+                    }
+
+                    formulario.querySelector('button[type="submit"]')?.setAttribute('disabled', 'disabled');
+                    formulario.submit();
                 });
             });
         </script>

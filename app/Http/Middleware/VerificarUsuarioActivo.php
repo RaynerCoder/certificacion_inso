@@ -21,12 +21,11 @@ class VerificarUsuarioActivo
         }
 
         // Consulta el estado actual para no confiar en datos antiguos guardados en la sesion.
-        $usuarioActivo = $usuario->newQuery()
+        $usuarioActual = $usuario->newQuery()
             ->whereKey($usuario->getAuthIdentifier())
-            ->where('estado', 1)
-            ->exists();
+            ->first();
 
-        if ($usuarioActivo) {
+        if ($usuarioActual && (string) $usuarioActual->estado === '1') {
             return $next($request);
         }
 

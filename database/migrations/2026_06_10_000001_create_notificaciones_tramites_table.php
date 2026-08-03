@@ -20,8 +20,9 @@ return new class extends Migration
             // Usuario que genero o envio la notificacion.
             $table->foreignId('id_usuario_emisor')->nullable()->constrained('users');
 
-            // Tramite/certificado que origina la notificacion.
-            $table->foreignId('id_certificado')->constrained('certificados');
+            // La notificación puede pertenecer a un trámite o a la validación de un tramitador.
+            $table->foreignId('id_certificado')->nullable()->constrained('certificados');
+            $table->foreignId('id_responsable')->nullable()->constrained('responsables');
 
             // Texto visible de la notificacion, separado en columnas normales.
             $table->string('titulo', 255);

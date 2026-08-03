@@ -392,7 +392,9 @@ class SeguimientoController extends Controller
                 'certificado.beneficiario.natural',
                 'certificado.beneficiario.empresa',
                 'certificado.tramitador.natural',
-                'certificado.tramitador.empresa'
+                'certificado.tramitador.empresa',
+                'responsable.empresa',
+                'responsable.persona.natural'
             )
             ->where('id_usuario_destino', $request->user()->id)
             ->whereNull('fecha_visto')
@@ -404,6 +406,7 @@ class SeguimientoController extends Controller
             ->get()
             ->map(function ($notificacion) use ($request) {
                 $certificado = $notificacion->certificado;
+                $responsable = $notificacion->responsable;
                 $remitente = $this->datosUsuarioNotificacion($notificacion->usuarioEmisor);
                 $esSolicitante = $certificado
                     && $this->gestionTramitadores->usuarioPuedeConsultarTramite($request->user(), $certificado);
@@ -413,16 +416,22 @@ class SeguimientoController extends Controller
                     'titulo' => $notificacion->titulo,
                     'mensaje' => $notificacion->mensaje ?? '',
                     'codigo' => $certificado?->codigo ?? '',
-                    'tipo' => $certificado?->tipoCertificado?->nombre ?? 'Tramite',
-                    'beneficiario' => $this->nombrePersona($certificado?->beneficiario),
+                    'categoria' => $responsable ? 'tramitador' : 'tramite',
+                    'tipo' => $responsable ? 'Validación de tramitador' : ($certificado?->tipoCertificado?->nombre ?? 'Trámite'),
+                    'beneficiario' => $responsable?->empresa?->razon_social
+                        ?? $this->nombrePersona($certificado?->beneficiario),
+                    'etiqueta_relacion' => $responsable ? 'Empresa' : 'Beneficiario',
+                    'accion' => $responsable ? 'Validar' : 'Atender solicitud',
                     'quien_envia' => $remitente['nombre'],
                     'quien_envia_detalle' => $remitente['detalle'],
-                    'url' => $certificado
+                    'url' => $responsable
+                        ? route('tramitadores_edit', $responsable)
+                        : ($certificado
                         ? route('certificados_show', [
                             'certificado' => $certificado,
                             'bandeja' => $esSolicitante ? 'enviadas' : 'recibidas',
                         ])
-                        : ($esSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')),
+                        : ($esSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index'))),
                     'fecha' => $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha',
                     'fecha_humana' => $notificacion->created_at?->diffForHumans() ?? 'Sin fecha',
                 ];

@@ -170,18 +170,26 @@ Route::delete('/responsables/{responsable}', [ResponsableController::class, 'des
 /* =========================
    TRAMITADORES
 ========================= */
-Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index')->middleware('permiso:tramitadores.ver,tramitadores.validar');
 Route::get('/tramitadores/create', [TramitadorController::class, 'create'])->name('tramitadores_create')->middleware('permiso:tramitadores.ver');
-Route::post('/tramitadores/buscar-persona', [TramitadorController::class, 'buscarPersona'])
-    ->name('tramitadores_buscar_persona')
-    ->middleware(['permiso:tramitadores.ver', 'throttle:20,1']);
+Route::get('/tramitadores/territorios/{territorio}/hijos', [TramitadorController::class, 'territoriosHijos'])
+    ->name('tramitadores_territorios_hijos')
+    ->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/territorios/{territorio}/ruta', [TramitadorController::class, 'rutaTerritorio'])
+    ->name('tramitadores_territorio_ruta')
+    ->middleware('permiso:tramitadores.ver');
 Route::post('/tramitadores', [TramitadorController::class, 'store'])->name('tramitadores_store')->middleware('permiso:tramitadores.ver');
-Route::get('/tramitadores/{tramitador}', [TramitadorController::class, 'show'])->name('tramitadores_show')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/{tramitador}/edit', [TramitadorController::class, 'edit'])->name('tramitadores_edit')->middleware('permiso:tramitadores.validar');
+Route::put('/tramitadores/{tramitador}', [TramitadorController::class, 'update'])->name('tramitadores_update')->middleware('permiso:tramitadores.validar');
+Route::get('/tramitadores/{tramitador}', [TramitadorController::class, 'show'])->name('tramitadores_show')->middleware('permiso:tramitadores.ver,tramitadores.validar');
 Route::get('/tramitadores/{tramitador}/carta', [TramitadorController::class, 'descargarCarta'])
     ->name('tramitadores_carta')
-    ->middleware('permiso:tramitadores.ver');
+    ->middleware('permiso:tramitadores.ver,tramitadores.validar');
 Route::post('/tramitadores/{tramitador}/dar-baja', [TramitadorController::class, 'darBaja'])
     ->name('tramitadores_baja')
+    ->middleware('permiso:tramitadores.ver,tramitadores.validar');
+Route::post('/tramitadores/{tramitador}/solicitar-nuevamente', [TramitadorController::class, 'solicitarNuevamente'])
+    ->name('tramitadores_solicitar_nuevamente')
     ->middleware('permiso:tramitadores.ver');
 
 

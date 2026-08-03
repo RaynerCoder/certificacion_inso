@@ -187,8 +187,8 @@
             'icon' => 'fa-solid fa-user-check',
             'href' => $href('tramitadores_index'),
             'active' => $activo(['tramitadores_']),
-            'permission' => 'tramitadores.ver',
-            'visible' => $esCuentaEmpresa,
+            'permission' => ['tramitadores.ver', 'tramitadores.validar'],
+            'visible' => $esCuentaEmpresa || $puedeVerModulo('tramitadores.validar'),
         ],
         [
             'name' => 'Reportes',

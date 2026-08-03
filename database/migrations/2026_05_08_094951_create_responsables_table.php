@@ -18,9 +18,11 @@ return new class extends Migration
             $table->foreignId('id_persona')->constrained('personas');
             $table->foreignId('id_rol')->constrained('roles');
             $table->text('url_respaldo')->nullable();
-            $table->date('fecha_registro')->nullable();
+            $table->dateTime('fecha_registro')->nullable();
             $table->date('fecha_baja')->nullable();
             $table->string('estado', 50)->nullable();
+            $table->foreignId('id_usuario_validacion')->nullable()->constrained('users');
+            $table->foreignId('id_usuario_baja')->nullable()->constrained('users');
             
             // Auditoría
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');

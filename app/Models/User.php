@@ -34,7 +34,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'estado'
+        'estado',
     ];
 
     /**
@@ -95,6 +95,36 @@ class User extends Authenticatable
     public function funcionario()
     {
         return $this->hasOne(Funcionario::class, 'id_usuario');
+    }
+
+    /**
+     * Nombre legible de la persona o entidad propietaria de la cuenta.
+     */
+    public function nombreCompleto(): string
+    {
+        $this->loadMissing(['funcionario', 'persona.natural', 'persona.empresa']);
+
+        $nombreFuncionario = collect([
+            $this->funcionario?->nombres,
+            $this->funcionario?->apellido_paterno,
+            $this->funcionario?->apellido_materno,
+        ])->filter(fn ($parte) => filled($parte))->implode(' ');
+
+        if ($nombreFuncionario !== '') {
+            return $nombreFuncionario;
+        }
+
+        $nombreNatural = collect([
+            $this->persona?->natural?->nombres,
+            $this->persona?->natural?->apellido_paterno,
+            $this->persona?->natural?->apellido_materno,
+        ])->filter(fn ($parte) => filled($parte))->implode(' ');
+
+        if ($nombreNatural !== '') {
+            return $nombreNatural;
+        }
+
+        return $this->persona?->empresa?->razon_social ?: $this->name;
     }
 
     // Relacion muchos a muchos (muchos usuarios tienen permisos directos)

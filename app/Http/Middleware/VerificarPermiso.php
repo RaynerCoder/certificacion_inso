@@ -40,6 +40,11 @@ class VerificarPermiso
             'notificaciones_tramites_leer' => 'dashboard.ver',
             'notificaciones_tramites_leer_todas' => 'dashboard.ver',
             'reportes_index' => 'reportes.ver',
+            'tramitadores_index' => ['tramitadores.ver', 'tramitadores.validar'],
+            'tramitadores_show' => ['tramitadores.ver', 'tramitadores.validar'],
+            'tramitadores_carta' => ['tramitadores.ver', 'tramitadores.validar'],
+            'tramitadores_edit' => 'tramitadores.validar',
+            'tramitadores_update' => 'tramitadores.validar',
             // El detalle del certificado tambien se abre desde "Mis tramites".
             // El controlador valida despues que el tramite pertenezca al usuario.
             'certificados_show' => [

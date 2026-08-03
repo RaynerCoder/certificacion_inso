@@ -104,7 +104,9 @@
                                 'certificado.beneficiario.natural',
                                 'certificado.beneficiario.empresa',
                                 'certificado.tramitador.natural',
-                                'certificado.tramitador.empresa'
+                                'certificado.tramitador.empresa',
+                                'responsable.empresa',
+                                'responsable.persona.natural'
                             )
                             ->where('id_usuario_destino', Auth::id())
                             ->whereNull('fecha_visto')
@@ -181,11 +183,15 @@
                     </button>
 
                     <div id="tramiteNotificationPanel"
-                        class="hidden absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                        class="hidden absolute right-0 z-50 mt-3 w-[calc(100vw-1rem)] max-w-xs overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
                         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                             <div>
                                 <strong class="block text-sm font-black text-slate-800">Notificaciones</strong>
-                                <span class="text-xs font-semibold text-slate-500">Trámites pendientes de atención</span>
+                                <span class="text-xs font-semibold text-slate-500">Trámites y validaciones pendientes</span>
+                                <div class="mt-1 flex flex-wrap gap-2 text-[10px] font-bold">
+                                    <span class="rounded-full bg-red-100 px-2 py-0.5 text-red-700">Trámite</span>
+                                    <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Tramitador</span>
+                                </div>
                             </div>
                             <button type="button" id="btnLeerTodasTramites"
                                 class="text-xs font-bold text-emerald-700 hover:text-emerald-900">
@@ -197,6 +203,7 @@
                             @forelse ($notificacionesTramites as $notificacion)
                                 @php
                                     $certificadoNotificacion = $notificacion->certificado;
+                                    $responsableNotificacion = $notificacion->responsable;
                                     $beneficiarioNotificacion = $certificadoNotificacion?->beneficiario;
                                     $nombreBeneficiarioNotificacion = 'Sin beneficiario';
 
@@ -218,28 +225,41 @@
                                             (int) $certificadoNotificacion->beneficiario?->id_usuario === (int) Auth::id()
                                             || (int) $certificadoNotificacion->tramitador?->id_usuario === (int) Auth::id()
                                         );
-                                    $urlNotificacionTramite = $certificadoNotificacion
+                                    $urlNotificacionTramite = $responsableNotificacion
+                                        ? route('tramitadores_edit', $responsableNotificacion)
+                                        : ($certificadoNotificacion
                                         ? route('certificados_show', [
                                             'certificado' => $certificadoNotificacion,
                                             'bandeja' => $esNotificacionSolicitante ? 'enviadas' : 'recibidas',
                                         ])
-                                        : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index'));
+                                        : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')));
                                     $remitenteNotificacion = $datosRemitenteNotificacion($notificacion->usuarioEmisor);
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
+                                    $claseNotificacion = $responsableNotificacion
+                                        ? 'border-l-4 border-l-blue-500 bg-blue-50/70'
+                                        : 'border-l-4 border-l-red-500 bg-red-50/70';
+                                    $claseBotonNotificacion = $responsableNotificacion
+                                        ? 'bg-blue-600 hover:bg-blue-700'
+                                        : 'bg-red-600 hover:bg-red-700';
                                 @endphp
-                                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3"
+                                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 {{ $claseNotificacion }}"
                                     data-id="{{ $notificacion->id }}"
                                     data-url="{{ $urlNotificacionTramite }}">
                                     <strong class="block text-sm font-black text-slate-800">
                                         {{ $notificacion->titulo }}
                                     </strong>
-                                    <p class="mt-1 text-xs font-semibold text-slate-600">
-                                        {{ $certificadoNotificacion?->codigo ?? '' }} -
-                                        {{ $certificadoNotificacion?->tipoCertificado?->nombre ?? 'Tramite' }}
-                                    </p>
-                                    <p class="text-xs text-slate-500">
-                                        Beneficiario: {{ $nombreBeneficiarioNotificacion }}
-                                    </p>
+                                    @if ($responsableNotificacion)
+                                        <p class="mt-1 text-xs font-semibold text-slate-600">Validación de tramitador</p>
+                                        <p class="text-xs text-slate-500">Empresa: {{ $responsableNotificacion->empresa?->razon_social ?: 'Sin empresa' }}</p>
+                                    @else
+                                        <p class="mt-1 text-xs font-semibold text-slate-600">
+                                            {{ $certificadoNotificacion?->codigo ?? '' }} -
+                                            {{ $certificadoNotificacion?->tipoCertificado?->nombre ?? 'Trámite' }}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            Beneficiario: {{ $nombreBeneficiarioNotificacion }}
+                                        </p>
+                                    @endif
                                     <p class="mt-1 text-xs font-semibold text-slate-600">
                                         Fecha: {{ $fechaNotificacion }}
                                     </p>
@@ -248,9 +268,9 @@
                                         <span class="block">{{ $remitenteNotificacion['detalle'] }}</span>
                                     </p>
                                     <button type="button"
-                                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700">
+                                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black text-white {{ $claseBotonNotificacion }}">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                        Atender solicitud
+                                        {{ $responsableNotificacion ? 'Validar' : 'Atender solicitud' }}
                                     </button>
                                 </div>
                             @empty
@@ -386,21 +406,30 @@
 
         // Renderiza una notificacion individual con boton directo a la bandeja de solicitudes.
         function plantillaNotificacion(notificacion) {
+            const referencia = [notificacion.codigo, notificacion.tipo].filter(Boolean).join(' - ');
+            const esValidacionTramitador = notificacion.categoria === 'tramitador';
+            const claseNotificacion = esValidacionTramitador
+                ? 'border-l-4 border-l-blue-500 bg-blue-50/70'
+                : 'border-l-4 border-l-red-500 bg-red-50/70';
+            const claseBoton = esValidacionTramitador
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-red-600 hover:bg-red-700';
+
             return `
-                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3"
+                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 ${claseNotificacion}"
                     data-id="${escaparHtml(notificacion.id)}" data-url="${escaparHtml(notificacion.url || caja.dataset.indexUrl)}">
                     <strong class="block text-sm font-black text-slate-800">${escaparHtml(notificacion.titulo)}</strong>
-                    <p class="mt-1 text-xs font-semibold text-slate-600">${escaparHtml(notificacion.codigo || '')} - ${escaparHtml(notificacion.tipo || 'Trámite')}</p>
-                    <p class="text-xs text-slate-500">Beneficiario: ${escaparHtml(notificacion.beneficiario || 'Sin beneficiario')}</p>
+                    <p class="mt-1 text-xs font-semibold text-slate-600">${escaparHtml(referencia || 'Notificación')}</p>
+                    <p class="text-xs text-slate-500">${escaparHtml(notificacion.etiqueta_relacion || 'Beneficiario')}: ${escaparHtml(notificacion.beneficiario || 'Sin dato')}</p>
                     <p class="mt-1 text-xs font-semibold text-slate-600">Fecha: ${escaparHtml(notificacion.fecha || 'Sin fecha')}</p>
                     <p class="text-xs text-slate-500">
                         Envía: <span class="font-semibold text-slate-700">${escaparHtml(notificacion.quien_envia || 'Sin remitente')}</span>
                         <span class="block">${escaparHtml(notificacion.quien_envia_detalle || 'Sin dato')}</span>
                     </p>
                     <button type="button"
-                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700">
+                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black text-white ${claseBoton}">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                        Atender solicitud
+                        ${escaparHtml(notificacion.accion || 'Atender solicitud')}
                     </button>
                 </div>
             `;
@@ -433,7 +462,7 @@
                     timer: 3500,
                     showConfirmButton: false,
                     icon: 'info',
-                    title: 'Nueva solicitud de trámite'
+                    title: 'Nueva notificación'
                 });
             }
 
