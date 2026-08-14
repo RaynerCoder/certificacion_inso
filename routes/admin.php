@@ -448,13 +448,14 @@ Route::get('/procedencias/{procedencia}',[ProcedenciaController::class, 'show'])
 /* =========================
    PAGO
 ========================= */
-Route::get('/pagos', [PagoController::class, 'index'])->name('pagos_index');
+Route::get('/pagos', [PagoController::class, 'index'])->name('pagos_index')->middleware('permiso:pagos.ver,pagos.validar');
 Route::get('/pagos/create', [PagoController::class, 'create'])->name('pagos_create');
 Route::post('/pagos', [PagoController::class, 'store'])->name('pagos_store')->middleware('permiso:pagos.validar');
-Route::get('/pagos/{pago}/edit', [PagoController::class, 'edit'])->name('pagos_edit');
-Route::put('/pagos/{pago}', [PagoController::class, 'update'])->name('pagos_update');
+Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])->name('pagos_comprobante');
+Route::get('/pagos/{pago}/edit', [PagoController::class, 'edit'])->name('pagos_edit')->middleware('permiso:pagos.validar');
+Route::put('/pagos/{pago}', [PagoController::class, 'update'])->name('pagos_update')->middleware('permiso:pagos.validar');
 Route::delete('/pagos/{pago}', [PagoController::class, 'destroy'])->name('pagos_destroy');
-Route::get('/pagos/{pago}',[PagoController::class, 'show'])->name('pagos_show');
+Route::get('/pagos/{pago}', [PagoController::class, 'show'])->name('pagos_show')->middleware('permiso:pagos.ver,pagos.validar');
 
 
 

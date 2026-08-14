@@ -76,6 +76,11 @@
         padding: 0 11px;
     }
 
+    .ruta-control:focus-within {
+        border-color: #14b8a6;
+        box-shadow: 0 0 0 2px rgb(20 184 166 / 10%);
+    }
+
     .ruta-control.is-search {
         min-width: min(100%, 330px);
     }
@@ -97,6 +102,13 @@
         outline: 0;
     }
 
+    .ruta-control input:focus,
+    .ruta-control select:focus {
+        border: 0 !important;
+        box-shadow: none !important;
+        outline: 0 !important;
+    }
+
     .ruta-table-wrap {
         background: #ffffff;
         border: 1px solid #dbe4ee;
@@ -107,8 +119,30 @@
     .ruta-table {
         border-collapse: separate;
         border-spacing: 0;
-        min-width: 1080px;
+        min-width: 1180px;
+        table-layout: fixed;
         width: 100%;
+    }
+
+    .ruta-col-id {
+        width: 7%;
+    }
+
+    .ruta-col-fecha {
+        width: 11%;
+    }
+
+    .ruta-col-persona {
+        width: 15%;
+    }
+
+    .ruta-col-anterior {
+        width: 14%;
+    }
+
+    .ruta-col-referencia,
+    .ruta-col-descripcion {
+        width: 19%;
     }
 
     .ruta-table th {
@@ -119,7 +153,8 @@
         font-weight: 950;
         padding: 10px 12px;
         text-align: left;
-        white-space: nowrap;
+        line-height: 1.25;
+        white-space: normal;
     }
 
     .ruta-table td {
@@ -149,6 +184,14 @@
         display: block;
         font-size: 0.88rem;
         font-weight: 950;
+        margin-bottom: 1px;
+    }
+
+    .ruta-movimiento-id {
+        color: #64748b;
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 750;
         margin-bottom: 6px;
     }
 
@@ -161,6 +204,16 @@
         line-height: 1;
         padding: 5px 10px;
         white-space: nowrap;
+    }
+
+    .ruta-rol {
+        color: #0369a1;
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        line-height: 1.3;
+        margin-top: 3px;
+        overflow-wrap: anywhere;
     }
 
     .ruta-chip.is-success {

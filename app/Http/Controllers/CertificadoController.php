@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Certificado;
 use App\Models\NotificacionTramite;
 use App\Models\Persona;
@@ -13,6 +12,7 @@ use App\Models\RequisitoCertificado;
 use App\Models\TipoCertificado;
 use App\Models\User;
 use App\Services\GestionTramitadoresService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -23,9 +23,7 @@ use Illuminate\Validation\ValidationException;
 
 class CertificadoController extends Controller
 {
-    public function __construct(private GestionTramitadoresService $gestionTramitadores)
-    {
-    }
+    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
 
     /**
      * Display a listing of the resource.
@@ -45,7 +43,6 @@ class CertificadoController extends Controller
         return view('certificados.emitir_certificado.index');
     }
 
-    
     public function plantillas()
     {
         $tiposCertificados = $this->tiposCertificadosParaPlantilla();
@@ -96,7 +93,7 @@ class CertificadoController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo guardar la plantilla. ' . $e->getMessage())
+                ->with('error', 'No se pudo guardar la plantilla. '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -162,7 +159,7 @@ class CertificadoController extends Controller
             }
 
             $urlFondo = $this->guardarFondoPlantilla($solicitud);
-            if (!$urlFondo && !$solicitud->boolean('quitar_fondo_plantilla')) {
+            if (! $urlFondo && ! $solicitud->boolean('quitar_fondo_plantilla')) {
                 $urlFondo = $plantillaCertificado->url_fondo;
             }
 
@@ -193,7 +190,7 @@ class CertificadoController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo actualizar la plantilla. ' . $e->getMessage())
+                ->with('error', 'No se pudo actualizar la plantilla. '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -294,7 +291,7 @@ class CertificadoController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo registrar el certificado. ' . $e->getMessage())
+                ->with('error', 'No se pudo registrar el certificado. '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -368,7 +365,7 @@ class CertificadoController extends Controller
         // Ultima etapa abierta: desde aqui el jefe puede asignar o revisar si aun no derivo a tecnico.
         $seguimientoAtencionActual = $certificado->seguimientos
             ->sortByDesc('id')
-            ->first(fn ($seguimiento) => !$seguimiento->fecha_derivacion && $seguimiento->estado === 'ACTIVO');
+            ->first(fn ($seguimiento) => ! $seguimiento->fecha_derivacion && $seguimiento->estado === 'ACTIVO');
 
         // Jefatura UTHSI: puede atender cuando el tramite esta actualmente en su bandeja.
         $esJefeUnidad = $usuarioActual
@@ -385,7 +382,7 @@ class CertificadoController extends Controller
             ], true)
         );
 
-        if (!$esSolicitante && !$esRegistroPropio && !$participaEnSeguimiento && !$puedeConsultaGeneral) {
+        if (! $esSolicitante && ! $esRegistroPropio && ! $participaEnSeguimiento && ! $puedeConsultaGeneral) {
             abort(403, 'No tiene permiso para ver este tramite.');
         }
 
@@ -395,7 +392,7 @@ class CertificadoController extends Controller
             ->first(function ($seguimiento) use ($usuarioActual, $esJefeUnidad) {
                 $usuarioDestino = $seguimiento->usuarioSiguiente;
 
-                return !$seguimiento->fecha_derivacion
+                return ! $seguimiento->fecha_derivacion
                     && $seguimiento->estado === 'ACTIVO'
                     && (
                         (
@@ -418,29 +415,32 @@ class CertificadoController extends Controller
             ->first(function ($seguimiento) use ($certificado, $esSolicitante) {
                 return $certificado->estado === 'OBSERVADO'
                     && $esSolicitante
-                    && !$seguimiento->fecha_derivacion
+                    && ! $seguimiento->fecha_derivacion
                     && $seguimiento->estado === 'ACTIVO'
                     && (int) $seguimiento->id_usuario_siguiente === (int) auth()->id();
             });
 
+        // La revision tecnica es interna. El solicitante solo la ve cuando tiene una correccion notificada.
+        $mostrarRevisionRequisitos = ! $esSolicitante || (bool) $seguimientoCorreccionActual;
+
         // Los permisos de consulta no habilitan por si solos acciones que cambian el tramite.
         $puedeGestionarTramite = $usuarioActual?->puede('seguimientos_tramite.gestionar') ?? false;
         $puedeAsignarTecnico = $puedeGestionarTramite
-            && !$consultaGeneral
+            && ! $consultaGeneral
             && $esJefeUnidad
             && $seguimientoAtencionActual;
         $puedeRevisarRequisitos = $puedeGestionarTramite
-            && !$consultaGeneral
-            && !$esSolicitante
+            && ! $consultaGeneral
+            && ! $esSolicitante
             && $seguimientoTecnicoActual;
         // Permite registrar correccion presencial cuando el tramite esta observado y la etapa activa esta en el solicitante.
         $puedeRegistrarCorreccionRecibida = $puedeGestionarTramite
-            && !$consultaGeneral
-            && !$esSolicitante
+            && ! $consultaGeneral
+            && ! $esSolicitante
             && $esUsuarioInterno
             && $certificado->estado === 'OBSERVADO'
             && $seguimientoAtencionActual
-            && !$seguimientoAtencionActual->fecha_derivacion
+            && ! $seguimientoAtencionActual->fecha_derivacion
             && $seguimientoAtencionActual->estado === 'ACTIVO';
         $puedeNotificarCorreccion = $puedeRevisarRequisitos
             && $certificado->certificadoRequisitos->contains(fn ($requisito) => $requisito->cumple === 'NO' && $requisito->estado === 'REVISION_OBSERVADA');
@@ -453,18 +453,18 @@ class CertificadoController extends Controller
         $destinatarioCorreccionBloqueado = ! $certificado->beneficiario?->empresa;
         $todosRequisitosCumplen = $certificado->cumpleTodosLosRequisitos();
         $puedeFinalizarTramite = $puedeGestionarTramite
-            && !$consultaGeneral
-            && !$esSolicitante
+            && ! $consultaGeneral
+            && ! $esSolicitante
             && $seguimientoTecnicoActual
             && $todosRequisitosCumplen
-            && !in_array($certificado->estado, ['APROBADO', 'EMITIDO'], true);
+            && ! in_array($certificado->estado, ['APROBADO', 'EMITIDO'], true);
         $tramiteRequiereHabilitarTramitador = $certificado->certificadoRequisitos
             ->flatMap(fn (RequisitoCertificado $requisito) => $requisito->evidenciasRequisitos)
             ->contains(fn ($evidencia) => mb_strtoupper((string) $evidencia->tipoEvidencia?->codigo) === 'TRAMITADOR')
             && (bool) $certificado->beneficiario?->empresa
             && (bool) $certificado->tramitador?->natural;
         // Boton de emision: aparece despues de finalizar el tramite.
-        $puedeEmitirCertificado = !$consultaGeneral
+        $puedeEmitirCertificado = ! $consultaGeneral
             && $esUsuarioInterno
             && ($usuarioActual?->puede('certificados.emitir') ?? false)
             && $certificado->puedeEmitirse();
@@ -503,6 +503,7 @@ class CertificadoController extends Controller
             'seguimientoAtencionActual',
             'seguimientoTecnicoActual',
             'seguimientoCorreccionActual',
+            'mostrarRevisionRequisitos',
             'puedeAsignarTecnico',
             'puedeRevisarRequisitos',
             'puedeRegistrarCorreccionRecibida',
@@ -526,7 +527,7 @@ class CertificadoController extends Controller
 
         $puedeGestionarEmision = $this->usuarioPuedeEmitirCertificado($certificado);
 
-        if (!$puedeGestionarEmision && !$this->usuarioPuedeImprimirCertificado($certificado)) {
+        if (! $puedeGestionarEmision && ! $this->usuarioPuedeImprimirCertificado($certificado)) {
             abort(403, 'No puede imprimir este certificado.');
         }
 
@@ -547,13 +548,13 @@ class CertificadoController extends Controller
     {
         $certificado->load($this->relacionesParaEmision());
 
-        if (!$this->usuarioPuedeEmitirCertificado($certificado)) {
+        if (! $this->usuarioPuedeEmitirCertificado($certificado)) {
             abort(403, 'No puede emitir este certificado.');
         }
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
 
-        if (!$plantillaCertificado) {
+        if (! $plantillaCertificado) {
             return back()->with('error', 'No se puede emitir el certificado porque no tiene una plantilla activa configurada.');
         }
 
@@ -597,7 +598,7 @@ class CertificadoController extends Controller
     {
         $certificado->load($this->relacionesParaEmision());
 
-        if (!$this->usuarioPuedeEmitirCertificado($certificado)) {
+        if (! $this->usuarioPuedeEmitirCertificado($certificado)) {
             abort(403, 'No puede enviar este certificado.');
         }
 
@@ -691,7 +692,7 @@ class CertificadoController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo actualizar el certificado. ' . $e->getMessage())
+                ->with('error', 'No se pudo actualizar el certificado. '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -1026,7 +1027,7 @@ class CertificadoController extends Controller
 
         if (Schema::hasColumn('plantillas_certificados', 'imprimir_transparente')) {
             $datosPlantilla['imprimir_transparente'] = $solicitud->has('form_imprimir_fondo')
-                ? !$solicitud->boolean('form_imprimir_fondo')
+                ? ! $solicitud->boolean('form_imprimir_fondo')
                 : $solicitud->boolean('form_imprimir_transparente');
         }
 
@@ -1051,17 +1052,17 @@ class CertificadoController extends Controller
 
     private function guardarFondoPlantilla(Request $solicitud): ?string
     {
-        if (!$solicitud->hasFile('form_url_fondo')) {
+        if (! $solicitud->hasFile('form_url_fondo')) {
             return null;
         }
 
         $archivo = $solicitud->file('form_url_fondo');
         $extension = $archivo->getClientOriginalExtension();
-        $nombreArchivo = 'plantilla_' . now()->format('Ymd_His') . '_' . uniqid() . '.' . $extension;
+        $nombreArchivo = 'plantilla_'.now()->format('Ymd_His').'_'.uniqid().'.'.$extension;
         $ruta = $archivo->storeAs('documentos/plantillas_certificados', $nombreArchivo, 'public');
 
-        $rutaStorage = storage_path('app/public/' . $ruta);
-        $rutaPublica = public_path('storage/' . $ruta);
+        $rutaStorage = storage_path('app/public/'.$ruta);
+        $rutaPublica = public_path('storage/'.$ruta);
         File::ensureDirectoryExists(dirname($rutaPublica));
 
         if (File::exists($rutaStorage)) {
@@ -1127,7 +1128,7 @@ class CertificadoController extends Controller
     {
         $elementos = json_decode($elementosJson, true);
 
-        if (!is_array($elementos)) {
+        if (! is_array($elementos)) {
             return;
         }
 
@@ -1142,7 +1143,7 @@ class CertificadoController extends Controller
             $textoFijo = $item['texto_fijo'] ?? null;
 
             // Solo se guardan campos definidos por el sistema; así no se aceptan códigos inventados desde el navegador.
-            if ($codigoElemento && !in_array($codigoElemento, $codigosPermitidos, true)) {
+            if ($codigoElemento && ! in_array($codigoElemento, $codigosPermitidos, true)) {
                 continue;
             }
 
@@ -1218,7 +1219,7 @@ class CertificadoController extends Controller
             $codigoCampo = $columna['codigo_campo'] ?? null;
             $esColumnaManual = is_string($codigoCampo) && str_starts_with($codigoCampo, 'tabla.columna_');
 
-            if (!$codigoCampo || (!in_array($codigoCampo, $codigosPermitidos, true) && !$esColumnaManual)) {
+            if (! $codigoCampo || (! in_array($codigoCampo, $codigosPermitidos, true) && ! $esColumnaManual)) {
                 continue;
             }
 
@@ -1301,7 +1302,7 @@ class CertificadoController extends Controller
             return $fechaInicio->copy()->addDays((int) $diasVigencia);
         }
 
-        if (!empty($datos['form_fecha_fin'])) {
+        if (! empty($datos['form_fecha_fin'])) {
             return \Illuminate\Support\Carbon::parse($datos['form_fecha_fin']);
         }
 
@@ -1313,8 +1314,8 @@ class CertificadoController extends Controller
     private function generarDocumentoEmitido(Certificado $certificado, PlantillaCertificado $plantillaCertificado): string
     {
         $documento = $this->datosDocumentoEmitido($certificado, $plantillaCertificado);
-        $nombreArchivo = 'certificado_' . $certificado->id . '_' . now()->format('Ymd_His') . '.pdf';
-        $ruta = 'documentos/certificados/' . $nombreArchivo;
+        $nombreArchivo = 'certificado_'.$certificado->id.'_'.now()->format('Ymd_His').'.pdf';
+        $ruta = 'documentos/certificados/'.$nombreArchivo;
 
         $pdf = Pdf::loadView('certificados.emitir_certificado.documento_pdf', compact('documento'))
             ->setPaper($documento['papel'], $documento['orientacion']);
@@ -1322,8 +1323,8 @@ class CertificadoController extends Controller
         Storage::disk('public')->put($ruta, $pdf->output());
 
         // Mantiene visible el archivo en instalaciones locales donde public/storage no es un enlace simbólico.
-        $rutaStorage = storage_path('app/public/' . $ruta);
-        $rutaPublica = public_path('storage/' . $ruta);
+        $rutaStorage = storage_path('app/public/'.$ruta);
+        $rutaPublica = public_path('storage/'.$ruta);
         File::ensureDirectoryExists(dirname($rutaPublica));
 
         if (File::exists($rutaStorage)) {
@@ -1395,9 +1396,9 @@ class CertificadoController extends Controller
         $contenido = json_decode((string) $elemento->texto_fijo, true);
         $filas = is_array($contenido['filas'] ?? null) ? $contenido['filas'] : [];
 
-        if (!$filas) {
+        if (! $filas) {
             $filas = [[...$elemento->columnas
-                ->map(fn ($columna) => '{{' . str_replace('.', '_', $columna->codigo_campo) . '}}')
+                ->map(fn ($columna) => '{{'.str_replace('.', '_', $columna->codigo_campo).'}}')
                 ->all()]];
         }
 
@@ -1420,15 +1421,15 @@ class CertificadoController extends Controller
         $rutaRelativa = str_starts_with($rutaLimpia, 'storage/')
             ? substr($rutaLimpia, strlen('storage/'))
             : $rutaLimpia;
-        $rutaArchivo = storage_path('app/public/' . $rutaRelativa);
+        $rutaArchivo = storage_path('app/public/'.$rutaRelativa);
 
-        if (!File::exists($rutaArchivo) || !in_array(strtolower(File::extension($rutaArchivo)), ['jpg', 'jpeg', 'png', 'webp'], true)) {
+        if (! File::exists($rutaArchivo) || ! in_array(strtolower(File::extension($rutaArchivo)), ['jpg', 'jpeg', 'png', 'webp'], true)) {
             return null;
         }
 
         $tipo = File::mimeType($rutaArchivo) ?: 'image/png';
 
-        return 'data:' . $tipo . ';base64,' . base64_encode(File::get($rutaArchivo));
+        return 'data:'.$tipo.';base64,'.base64_encode(File::get($rutaArchivo));
     }
 
     // NOMBRE LEGIBLE DE PERSONA
@@ -1447,7 +1448,7 @@ class CertificadoController extends Controller
             ])));
         }
 
-        return 'Persona #' . $persona->id;
+        return 'Persona #'.$persona->id;
     }
 
     private function nombreFuncionarioUsuario(?User $usuario): string
@@ -1455,7 +1456,7 @@ class CertificadoController extends Controller
         $usuario?->loadMissing('funcionario');
 
         $funcionario = $usuario?->funcionario;
-        if (!$funcionario) {
+        if (! $funcionario) {
             return 'Sin funcionario';
         }
 
@@ -1490,18 +1491,18 @@ class CertificadoController extends Controller
     // Retorna la ruta relativa para publicarla luego con asset('storage/...').
     private function guardarDocumentoCertificado(Request $solicitud): ?string
     {
-        if (!$solicitud->hasFile('form_url_documento')) {
+        if (! $solicitud->hasFile('form_url_documento')) {
             return null;
         }
 
         $archivo = $solicitud->file('form_url_documento');
-        $nombreArchivo = 'certificado_' . now()->format('Ymd_His') . '_' . uniqid() . '.pdf';
+        $nombreArchivo = 'certificado_'.now()->format('Ymd_His').'_'.uniqid().'.pdf';
 
         $ruta = $archivo->storeAs('documentos/certificados', $nombreArchivo, 'public');
 
         // Si no existe el enlace public/storage, se copia para que el PDF sea visible en Laragon.
-        $rutaStorage = storage_path('app/public/' . $ruta);
-        $rutaPublica = public_path('storage/' . $ruta);
+        $rutaStorage = storage_path('app/public/'.$ruta);
+        $rutaPublica = public_path('storage/'.$ruta);
         File::ensureDirectoryExists(dirname($rutaPublica));
 
         if (File::exists($rutaStorage)) {
@@ -1520,7 +1521,7 @@ class CertificadoController extends Controller
         foreach ($requisitos as $item) {
             $idRequisito = $item['id_requisito'] ?? null;
 
-            if (!$idRequisito || in_array((int) $idRequisito, $procesados, true)) {
+            if (! $idRequisito || in_array((int) $idRequisito, $procesados, true)) {
                 continue;
             }
 
@@ -1591,7 +1592,7 @@ class CertificadoController extends Controller
     // Usa la plantilla activa del tipo de certificado; si aun no existe, usa el modelo base cargado en el sistema.
     private function plantillaActivaParaEmision(Certificado $certificado): ?PlantillaCertificado
     {
-        if (!Schema::hasTable('plantillas_certificados') || !Schema::hasTable('plantillas_elementos')) {
+        if (! Schema::hasTable('plantillas_certificados') || ! Schema::hasTable('plantillas_elementos')) {
             return null;
         }
 
@@ -1719,7 +1720,7 @@ class CertificadoController extends Controller
 
     private function textoFirmaPlantilla(?User $usuario): string
     {
-        return trim($this->nombreFuncionarioUsuario($usuario) . "\n" . $this->cargoFuncionarioUsuario($usuario));
+        return trim($this->nombreFuncionarioUsuario($usuario)."\n".$this->cargoFuncionarioUsuario($usuario));
     }
 
     private function unirValoresPlantilla($valores): string
@@ -1732,17 +1733,19 @@ class CertificadoController extends Controller
 
         return $texto !== '' ? $texto : 'Sin dato';
     }
+
     private function textoCatalogoUnidad($unidad): string
     {
-        if (!$unidad) {
+        if (! $unidad) {
             return 'Sin unidad';
         }
 
-        return trim($unidad->nombre . ($unidad->abreviatura ? ' (' . $unidad->abreviatura . ')' : ''));
+        return trim($unidad->nombre.($unidad->abreviatura ? ' ('.$unidad->abreviatura.')' : ''));
     }
+
     private function documentoPersona(?Persona $persona): string
     {
-        if (!$persona) {
+        if (! $persona) {
             return 'Sin documento';
         }
 
@@ -1774,14 +1777,14 @@ class CertificadoController extends Controller
     {
         $usuario = auth()->user();
 
-        if (!$usuario || !$certificado->puedeEmitirse()) {
+        if (! $usuario || ! $certificado->puedeEmitirse()) {
             return false;
         }
 
         $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
 
         return collect([
-            $certificado->beneficiario?->usuario,
+            $certificado->beneficiario?->usuarioAcceso(),
             $certificado->tramitador?->usuario,
         ])
             ->filter()
@@ -1795,7 +1798,7 @@ class CertificadoController extends Controller
         $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
 
         return collect([
-            $certificado->beneficiario?->usuario,
+            $certificado->beneficiario?->usuarioAcceso(),
             $certificado->tramitador?->usuario,
         ])
             ->filter()
@@ -1809,4 +1812,3 @@ class CertificadoController extends Controller
         return $texto === null ? null : mb_strtoupper(trim($texto), 'UTF-8');
     }
 }
-

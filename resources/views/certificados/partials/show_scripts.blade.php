@@ -209,37 +209,6 @@
                     .replaceAll("'", '&#039;');
             }
 
-            function obtenerTituloRequisito(fila) {
-                if (fila?.dataset?.requirementTitle) {
-                    return fila.dataset.requirementTitle;
-                }
-
-                const celda = fila?.querySelector('[data-requirement-title-cell]') || fila?.querySelector('td:nth-child(2)');
-
-                if (!celda) {
-                    return 'Requisito seleccionado';
-                }
-
-                const copia = celda.cloneNode(true);
-                copia.querySelectorAll('input, button, select, textarea, label').forEach((elemento) => elemento.remove());
-
-                return copia.textContent.replace(/\s+/g, ' ').trim() || 'Requisito seleccionado';
-            }
-
-            function contenidoModalRequisito(fila, textoAyuda) {
-                const requisito = escaparHtml(obtenerTituloRequisito(fila));
-
-                return `
-                    <div class="cert-swal-requirement">
-                        <p>${escaparHtml(textoAyuda)}</p>
-                        <p class="cert-swal-requirement-line">
-                            <span>Requisito a revisar:</span>
-                            <strong>${requisito}</strong>
-                        </p>
-                    </div>
-                `;
-            }
-
             function pintarHistorialRequisito(idRequisito) {
                 const historial = historialRequisitos[idRequisito];
 
@@ -283,313 +252,237 @@
                 pintarHistorialRequisito(botonesHistorial[0].dataset.requirementId);
             }
 
-            function marcarFilaTocada(fila, tocada = true) {
-                const inputTocado = fila.querySelector('[data-review-touched]');
+            // La mesa de revisión mantiene lista y detalle sincronizados sin alterar el formulario del servidor.
+            document.querySelectorAll('[data-review-workbench]').forEach((mesa) => {
+                const registros = Array.from(mesa.querySelectorAll('[data-review-record]'));
+                const paneles = Array.from(mesa.querySelectorAll('[data-review-panel]'));
+                const buscador = mesa.querySelector('[data-review-search]');
+                const filtros = Array.from(mesa.querySelectorAll('[data-review-filter]'));
+                const mensajeVacio = mesa.querySelector('[data-review-empty]');
+                const claveSeleccion = mesa.dataset.reviewStorageKey;
+                let filtroActivo = 'all';
+                let requisitoActivo = null;
 
-                if (inputTocado) {
-                    inputTocado.value = tocada ? '1' : '0';
-                }
-            }
+                const normalizar = (texto) => String(texto || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase();
 
-            function limpiarObservacion(fila) {
-                const input = fila.querySelector('[data-observation-input]');
-                const caja = fila.querySelector('[data-observation-box]');
-                const texto = fila.querySelector('[data-observation-text]');
-                const visual = fila.querySelector('[data-observation-display]');
-
-                if (input) {
-                    input.value = '';
-                }
-
-                if (texto) {
-                    texto.textContent = '';
+                function panelDe(id) {
+                    return paneles.find((panel) => panel.dataset.reviewPanel === String(id));
                 }
 
-                caja?.classList.remove('is-visible');
-
-                if (visual) {
-                    visual.textContent = 'Sin observación';
-                    visual.classList.remove('is-danger');
-                }
-            }
-
-            function mostrarObservacion(fila, observacion) {
-                const input = fila.querySelector('[data-observation-input]');
-                const caja = fila.querySelector('[data-observation-box]');
-                const texto = fila.querySelector('[data-observation-text]');
-                const visual = fila.querySelector('[data-observation-display]');
-
-                if (input) {
-                    input.value = observacion;
+                function registroDe(id) {
+                    return registros.find((registro) => registro.dataset.reviewRecord === String(id));
                 }
 
-                if (texto) {
-                    texto.textContent = observacion;
-                }
+                function seleccionarRequisito(id, desplazar = false) {
+                    const registro = registroDe(id);
+                    const panel = panelDe(id);
 
-                caja?.classList.add('is-visible');
-
-                if (visual) {
-                    visual.textContent = observacion || 'Sin observación';
-                    visual.classList.toggle('is-danger', Boolean(observacion));
-                }
-            }
-
-            async function confirmarCumple(radio, fila) {
-                if (!swalDisponible()) {
-                    if (!confirm('¿Confirma que este requisito cumple?')) {
-                        radio.checked = false;
+                    if (!registro || !panel) {
                         return;
                     }
 
-                    marcarFilaTocada(fila);
-                    limpiarObservacion(fila);
-                    return;
+                    requisitoActivo = String(id);
+                    registros.forEach((item) => item.classList.toggle('is-active', item === registro));
+                    paneles.forEach((item) => { item.hidden = item !== panel; });
+                    pintarHistorialRequisito(id);
+
+                    if (desplazar && window.matchMedia('(max-width: 900px)').matches) {
+                        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                 }
 
-                const respuesta = await Swal.fire({
-                    title: '¿Confirmar cumplimiento?',
-                    html: contenidoModalRequisito(fila, 'Confirme solo si reviso el requisito y el documento cumple correctamente.'),
-                    icon: 'success',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, cumple',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#059669',
-                    cancelButtonColor: '#64748b',
-                });
+                function estadoVisual(estado) {
+                    if (estado === 'SI') {
+                        return { texto: 'Cumple', clase: 'is-si', icono: 'fa-regular fa-circle-check' };
+                    }
 
-                if (!respuesta.isConfirmed) {
-                    radio.checked = false;
-                    return;
+                    if (estado === 'NO') {
+                        return { texto: 'No cumple', clase: 'is-no', icono: 'fa-regular fa-circle-xmark' };
+                    }
+
+                    return { texto: 'Pendiente', clase: 'is-pending', icono: 'fa-solid fa-circle' };
                 }
 
-                marcarFilaTocada(fila);
-                limpiarObservacion(fila);
-            }
+                function pintarEstado(elemento, estado) {
+                    if (!elemento) return;
 
-            async function pedirObservacion(radio, fila, valorActual = '', limpiarSiCancela = true) {
-                if (!swalDisponible()) {
-                    const observacion = prompt('Explique por qué este requisito no cumple:', valorActual);
-
-                    if (!observacion || !observacion.trim()) {
-                        if (limpiarSiCancela) {
-                            radio.checked = false;
-                        }
-                        return;
-                    }
-
-                    mostrarObservacion(fila, observacion.trim());
-                    marcarFilaTocada(fila);
-                    return;
+                    const visual = estadoVisual(estado);
+                    elemento.classList.remove('is-si', 'is-no', 'is-pending');
+                    elemento.classList.add(visual.clase);
+                    elemento.querySelector('span').textContent = visual.texto;
+                    elemento.querySelector('i').className = visual.icono;
                 }
 
-                const respuesta = await Swal.fire({
-                    title: 'Registrar observación',
-                    html: contenidoModalRequisito(fila, 'Explique con claridad que debe corregir el solicitante.'),
-                    input: 'textarea',
-                    inputValue: valorActual,
-                    inputPlaceholder: 'Detalle la observación técnica del requisito...',
-                    inputAttributes: {
-                        maxlength: 1000,
-                    },
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Guardar observación',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonColor: '#64748b',
-                    inputValidator: (value) => {
-                        if (!value || !value.trim()) {
-                            return 'Debe registrar la observación para marcar No cumple.';
-                        }
+                function actualizarResumen() {
+                    const conteos = { all: registros.length, pending: 0, SI: 0, NO: 0 };
 
-                        return undefined;
-                    },
-                });
-
-                if (!respuesta.isConfirmed) {
-                    if (limpiarSiCancela) {
-                        radio.checked = false;
-                    }
-                    return;
-                }
-
-                const observacion = respuesta.value.trim();
-
-                const confirmacion = await Swal.fire({
-                    title: '¿Guardar esta observación?',
-                    html: contenidoModalRequisito(fila, 'Revise la observacion antes de guardarla. Luego podra modificarla con el boton Editar antes de guardar la revision.'),
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, guardar',
-                    cancelButtonText: 'Volver',
-                    confirmButtonColor: '#dc2626',
-                    cancelButtonColor: '#64748b',
-                });
-
-                if (!confirmacion.isConfirmed) {
-                    if (limpiarSiCancela) {
-                        radio.checked = false;
-                    }
-                    return;
-                }
-
-                mostrarObservacion(fila, observacion);
-                marcarFilaTocada(fila);
-            }
-
-            function actualizarEstadoRequisito(fila, estado, observacion = null) {
-                const decision = fila.querySelector('[data-review-decision]');
-                const enlaceDocumento = fila.querySelector('[data-document-link]');
-                const textoDocumento = fila.querySelector('[data-document-text]');
-                const textoDocumentoNormal = enlaceDocumento?.dataset.documentDefault || 'Ver evidencia';
-                const textoDocumentoObservado = enlaceDocumento?.dataset.documentObserved || 'Evidencia observada';
-
-                if (decision) {
-                    decision.value = estado;
-                }
-
-                fila.querySelectorAll('[data-review-check-option]').forEach((check) => {
-                    check.checked = check.value === estado;
-                    check.closest('.tramite-check-option')?.classList.toggle('is-selected', check.checked);
-                });
-
-                marcarFilaTocada(fila, Boolean(estado));
-
-                if (estado === 'SI') {
-                    enlaceDocumento?.classList.remove('tramite-pill-danger');
-                    fila.classList.remove('tramite-row-observed');
-
-                    if (textoDocumento) {
-                        textoDocumento.textContent = textoDocumentoNormal;
-                    }
-
-                    limpiarObservacion(fila);
-                    return;
-                }
-
-                if (estado === 'NO') {
-                    enlaceDocumento?.classList.add('tramite-pill-danger');
-                    fila.classList.add('tramite-row-observed');
-
-                    if (textoDocumento) {
-                        textoDocumento.textContent = textoDocumentoObservado;
-                    }
-
-                    if (observacion !== null) {
-                        mostrarObservacion(fila, observacion);
-                    }
-
-                    return;
-                }
-
-                enlaceDocumento?.classList.remove('tramite-pill-danger');
-                fila.classList.remove('tramite-row-observed');
-
-                if (textoDocumento) {
-                    textoDocumento.textContent = textoDocumentoNormal;
-                }
-            }
-
-            document.querySelectorAll('[data-review-check-option]').forEach((casilla) => {
-                casilla.addEventListener('change', async () => {
-                    const fila = casilla.closest('tr');
-
-                    if (!fila) {
-                        return;
-                    }
-
-                    const decisionAnterior = fila.querySelector('[data-review-decision]')?.value || '';
-                    const observacionActual = fila.querySelector('[data-observation-input]')?.value || '';
-
-                    if (!casilla.checked) {
-                        actualizarEstadoRequisito(fila, decisionAnterior);
-                        return;
-                    }
-
-                    if (!swalDisponible()) {
-                        if (casilla.value === 'SI') {
-                            if (confirm('¿Confirma que este requisito cumple?')) {
-                                actualizarEstadoRequisito(fila, 'SI');
-                                return;
-                            }
-                        } else {
-                            const observacion = prompt('Explique por qué este requisito no cumple:', observacionActual);
-
-                            if (observacion && observacion.trim()) {
-                                actualizarEstadoRequisito(fila, 'NO', observacion.trim());
-                                return;
-                            }
-                        }
-
-                        actualizarEstadoRequisito(fila, decisionAnterior);
-                        return;
-                    }
-
-                    if (casilla.value === 'SI') {
-                        const respuesta = await Swal.fire({
-                            title: '¿Confirmar cumplimiento?',
-                            html: contenidoModalRequisito(fila, 'Confirme solo si reviso el requisito y el documento cumple correctamente.'),
-                            icon: 'success',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, cumple',
-                            cancelButtonText: 'Cancelar',
-                            confirmButtonColor: '#059669',
-                            cancelButtonColor: '#64748b',
-                        });
-
-                        if (respuesta.isConfirmed) {
-                            actualizarEstadoRequisito(fila, 'SI');
-                            return;
-                        }
-
-                        actualizarEstadoRequisito(fila, decisionAnterior);
-                        return;
-                    }
-
-                    const respuesta = await Swal.fire({
-                        title: '¿Confirmar No cumple?',
-                        html: contenidoModalRequisito(fila, 'Debe registrar la observacion que vera el solicitante.'),
-                        input: 'textarea',
-                        inputValue: observacionActual,
-                        inputPlaceholder: 'Detalle por qué el requisito no cumple...',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Guardar observación',
-                        cancelButtonText: 'Cancelar',
-                        confirmButtonColor: '#dc2626',
-                        cancelButtonColor: '#64748b',
-                        inputValidator: (value) => {
-                            if (!value || !value.trim()) {
-                                return 'Debe registrar la observación para marcar NO.';
-                            }
-
-                            return undefined;
-                        },
+                    registros.forEach((registro) => {
+                        const estado = registro.dataset.reviewState || 'pending';
+                        conteos[estado] = (conteos[estado] || 0) + 1;
                     });
 
-                    if (respuesta.isConfirmed) {
-                        actualizarEstadoRequisito(fila, 'NO', respuesta.value.trim());
-                        return;
+                    Object.entries(conteos).forEach(([estado, cantidad]) => {
+                        const contador = mesa.querySelector(`[data-review-filter-count="${estado}"]`);
+                        if (contador) contador.textContent = cantidad;
+                    });
+
+                    const revisados = conteos.SI + conteos.NO;
+                    const porcentaje = registros.length ? Math.round((revisados / registros.length) * 100) : 0;
+                    const textoRevisados = mesa.querySelector('[data-review-count-reviewed]');
+                    const barra = mesa.querySelector('[data-review-progress]');
+                    const progreso = barra?.parentElement;
+
+                    if (textoRevisados) textoRevisados.textContent = revisados;
+                    if (barra) barra.style.width = `${porcentaje}%`;
+                    progreso?.setAttribute('aria-valuenow', String(porcentaje));
+                }
+
+                function aplicarFiltro() {
+                    const termino = normalizar(buscador?.value);
+                    let visibles = 0;
+
+                    registros.forEach((registro) => {
+                        const coincideEstado = filtroActivo === 'all' || registro.dataset.reviewState === filtroActivo;
+                        const coincideTexto = !termino || normalizar(registro.dataset.reviewSearchText).includes(termino);
+                        const visible = coincideEstado && coincideTexto;
+                        registro.hidden = !visible;
+                        if (visible) visibles++;
+                    });
+
+                    if (mensajeVacio) mensajeVacio.hidden = visibles > 0;
+
+                    const activoVisible = registroDe(requisitoActivo);
+                    if (!activoVisible || activoVisible.hidden) {
+                        const siguiente = registros.find((registro) => !registro.hidden);
+                        if (siguiente) seleccionarRequisito(siguiente.dataset.reviewRecord);
                     }
+                }
 
-                    actualizarEstadoRequisito(fila, decisionAnterior);
-                });
-            });
+                function cambiarDecision(registro, estado) {
+                    const panel = panelDe(registro.dataset.reviewRecord);
+                    const decision = registro.querySelector('[data-review-decision]');
+                    const tocado = registro.querySelector('[data-review-touched]');
+                    const observacion = panel?.querySelector('[data-review-observation]');
+                    const textoObservacion = panel?.querySelector('[data-observation-input]');
+                    const ayuda = panel?.querySelector('[data-review-decision-help]');
 
-            document.querySelectorAll('[data-edit-observation]').forEach((boton) => {
-                boton.addEventListener('click', async () => {
-                    const fila = boton.closest('tr');
-                    const checkNo = fila?.querySelector('[data-review-check-option][value="NO"]');
-                    const observacionActual = fila?.querySelector('[data-observation-input]')?.value || '';
+                    if (!panel || !decision || !tocado) return;
 
-                    if (!fila || !checkNo) {
-                        return;
+                    decision.value = estado;
+                    tocado.value = '1';
+                    registro.dataset.reviewState = estado;
+                    panel.classList.toggle('is-observed', estado === 'NO');
+                    panel.querySelectorAll('[data-review-choice]').forEach((opcion) => {
+                        opcion.classList.toggle('is-selected', opcion.value === estado);
+                    });
+
+                    const pideMotivo = estado === 'NO';
+                    if (observacion) observacion.hidden = !pideMotivo;
+                    if (textoObservacion) {
+                        textoObservacion.disabled = !pideMotivo;
+                        textoObservacion.classList.remove('is-invalid');
                     }
+                    if (ayuda) ayuda.textContent = pideMotivo
+                        ? 'Indique qué debe corregir el solicitante.'
+                        : 'El requisito quedará marcado como cumplido.';
 
-                    checkNo.checked = true;
-                    await pedirObservacion(checkNo, fila, observacionActual, false);
+                    pintarEstado(registro.querySelector('[data-review-list-state]'), estado);
+                    pintarEstado(panel.querySelector('[data-review-detail-state]'), estado);
+                    actualizarResumen();
+                    aplicarFiltro();
+
+                    if (pideMotivo) textoObservacion?.focus();
+                }
+
+                registros.forEach((registro) => {
+                    registro.querySelector('[data-review-select]')?.addEventListener('click', () => {
+                        seleccionarRequisito(registro.dataset.reviewRecord, true);
+                    });
                 });
+
+                paneles.forEach((panel) => {
+                    panel.querySelectorAll('[data-review-choice]').forEach((opcion) => {
+                        opcion.addEventListener('click', () => {
+                            const registro = registroDe(panel.dataset.reviewPanel);
+                            if (registro) cambiarDecision(registro, opcion.value);
+                        });
+                    });
+
+                    panel.querySelector('[data-observation-input]')?.addEventListener('input', (evento) => {
+                        evento.currentTarget.classList.remove('is-invalid');
+                    });
+                });
+
+                filtros.forEach((filtro) => {
+                    filtro.addEventListener('click', () => {
+                        filtroActivo = filtro.dataset.reviewFilter;
+                        filtros.forEach((item) => item.classList.toggle('is-active', item === filtro));
+                        aplicarFiltro();
+                    });
+                });
+
+                buscador?.addEventListener('input', aplicarFiltro);
+
+                mesa.addEventListener('submit', (evento) => {
+                    const tocados = registros.filter((registro) => registro.querySelector('[data-review-touched]')?.value === '1');
+                    const sinMotivo = tocados.find((registro) => {
+                        const decision = registro.querySelector('[data-review-decision]')?.value;
+                        const texto = panelDe(registro.dataset.reviewRecord)?.querySelector('[data-observation-input]');
+                        return decision === 'NO' && !texto?.value.trim();
+                    });
+
+                    if (!tocados.length || sinMotivo) {
+                        evento.preventDefault();
+
+                        const mensaje = sinMotivo
+                            ? 'Explique el motivo del requisito marcado como No cumple.'
+                            : 'Revise al menos un requisito antes de guardar.';
+
+                        if (sinMotivo) {
+                            seleccionarRequisito(sinMotivo.dataset.reviewRecord, true);
+                            const textarea = panelDe(sinMotivo.dataset.reviewRecord)?.querySelector('[data-observation-input]');
+                            textarea?.classList.add('is-invalid');
+                            textarea?.focus();
+                        }
+
+                        if (swalDisponible()) {
+                            Swal.fire({ icon: 'warning', title: 'Revisión incompleta', text: mensaje, confirmButtonColor: '#059669' });
+                        } else {
+                            alert(mensaje);
+                        }
+                    }
+                });
+
+                mesa.querySelector('[data-review-save]')?.addEventListener('click', () => {
+                    if (!claveSeleccion || !requisitoActivo) return;
+                    try { sessionStorage.setItem(claveSeleccion, requisitoActivo); } catch (error) {}
+                });
+
+                mesa.querySelector('[data-review-save-next]')?.addEventListener('click', () => {
+                    if (!claveSeleccion) return;
+                    const posicion = registros.findIndex((registro) => registro.dataset.reviewRecord === requisitoActivo);
+                    const ordenados = [...registros.slice(posicion + 1), ...registros.slice(0, posicion + 1)];
+                    const siguiente = ordenados.find((registro) => registro.dataset.reviewState === 'pending');
+                    if (!siguiente) return;
+                    try { sessionStorage.setItem(claveSeleccion, siguiente.dataset.reviewRecord); } catch (error) {}
+                });
+
+                let seleccionGuardada = null;
+                try {
+                    seleccionGuardada = claveSeleccion ? sessionStorage.getItem(claveSeleccion) : null;
+                    if (claveSeleccion) sessionStorage.removeItem(claveSeleccion);
+                } catch (error) {}
+
+                const inicial = registroDe(seleccionGuardada)
+                    || registros.find((registro) => registro.dataset.reviewState === 'pending')
+                    || registros[0];
+
+                if (inicial) seleccionarRequisito(inicial.dataset.reviewRecord);
+                actualizarResumen();
+                aplicarFiltro();
             });
 
             const modalPago = document.querySelector('[data-payment-modal]');
@@ -632,7 +525,19 @@
             const botonSeleccionarPagoPdf = document.querySelector('[data-payment-pdf-select]');
             const botonVerPagoPdf = document.querySelector('[data-payment-pdf-view]');
             const botonQuitarPagoPdf = document.querySelector('[data-payment-pdf-remove]');
+            const formularioPago = document.querySelector('[data-payment-form]');
+            const metodoPago = formularioPago?.querySelector('[data-payment-method]');
+            const idPago = formularioPago?.querySelector('[data-payment-id]');
+            const tituloModalPago = document.querySelector('[data-payment-modal-title]');
+            const descripcionModalPago = document.querySelector('[data-payment-modal-description]');
+            const ayudaPagoPdf = document.querySelector('[data-payment-pdf-help]');
+            const etiquetaSubmitPago = document.querySelector('[data-payment-submit-label]');
             let urlTemporalPagoPdf = null;
+            let urlComprobanteActual = formularioPago?.dataset.currentPdfUrl || null;
+
+            if (urlComprobanteActual) {
+                botonVerPagoPdf?.removeAttribute('disabled');
+            }
 
             function limpiarPdfPagoTemporal() {
                 if (urlTemporalPagoPdf) {
@@ -645,10 +550,16 @@
                 }
 
                 if (nombrePagoPdf) {
-                    nombrePagoPdf.textContent = 'Sin PDF seleccionado';
+                    nombrePagoPdf.textContent = urlComprobanteActual
+                        ? 'Comprobante actual registrado'
+                        : 'Sin PDF seleccionado';
                 }
 
-                botonVerPagoPdf?.setAttribute('disabled', 'disabled');
+                if (urlComprobanteActual) {
+                    botonVerPagoPdf?.removeAttribute('disabled');
+                } else {
+                    botonVerPagoPdf?.setAttribute('disabled', 'disabled');
+                }
                 botonQuitarPagoPdf?.setAttribute('disabled', 'disabled');
             }
 
@@ -687,12 +598,41 @@
             });
 
             botonVerPagoPdf?.addEventListener('click', () => {
-                if (urlTemporalPagoPdf) {
-                    window.open(urlTemporalPagoPdf, '_blank');
+                const url = urlTemporalPagoPdf || urlComprobanteActual;
+                if (url) {
+                    window.open(url, '_blank');
                 }
             });
 
             botonQuitarPagoPdf?.addEventListener('click', limpiarPdfPagoTemporal);
+
+            // Prepara el mismo modal con los datos del pago seleccionado.
+            document.querySelectorAll('[data-edit-payment]').forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    if (!formularioPago) return;
+
+                    formularioPago.action = boton.dataset.updateUrl;
+                    metodoPago.name = '_method';
+                    metodoPago.value = 'PUT';
+                    idPago.value = boton.dataset.paymentId;
+                    formularioPago.querySelector('[name="form_id_procedencia_pago"]').value = boton.dataset.procedencia || '';
+                    formularioPago.querySelector('[name="form_tipo_pago"]').value = boton.dataset.tipo || '';
+                    formularioPago.querySelector('[name="form_fecha_pago"]').value = boton.dataset.fecha || '';
+                    formularioPago.querySelector('[name="form_monto_pago"]').value = boton.dataset.monto || '';
+                    formularioPago.querySelector('[name="form_factura_pago"]').value = boton.dataset.factura || '';
+
+                    urlComprobanteActual = boton.dataset.comprobante || null;
+                    limpiarPdfPagoTemporal();
+                    nombrePagoPdf.textContent = urlComprobanteActual
+                        ? 'Comprobante actual registrado'
+                        : 'Sin PDF registrado';
+                    ayudaPagoPdf.textContent = 'Seleccione otro PDF solo para reemplazarlo';
+                    tituloModalPago.textContent = 'Editar pago';
+                    descripcionModalPago.textContent = 'Corrija los datos del pago relacionado a este trámite.';
+                    etiquetaSubmitPago.textContent = 'Actualizar pago';
+                    abrirModalPago();
+                });
+            });
 
             const modalDestinoCorreccion = document.querySelector('[data-correction-recipient-modal]');
 

@@ -27,16 +27,15 @@ use Throwable;
 
 class TramitadorController extends Controller
 {
-    public function __construct(private GestionTramitadoresService $gestionTramitadores)
-    {
-    }
+    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
 
     /**
      * La empresa ve sus registros; INSO ve todos cuando puede validarlos.
      */
     public function index(): View
     {
-        $empresa = auth()->user()?->loadMissing('persona.empresa')?->persona?->empresa;
+        $usuario = auth()->user()?->loadMissing('persona.empresa');
+        $empresa = $usuario?->empresaDeAccesoActiva();
         $esValidadorInso = $this->esValidadorInso();
 
         abort_unless($empresa || $esValidadorInso, 403);
@@ -226,14 +225,14 @@ class TramitadorController extends Controller
         $mensajeRegistro = $cuentaExistente
             ? sprintf(
                 '<p>El tramitador ya tiene una cuenta en el sistema.</p>'
-                . '<p class="mt-2">Se registró la solicitud para habilitarlo como tramitador de <strong>%s</strong>.</p>'
-                . '<p class="mt-2">Podrá representar a esta empresa cuando INSO apruebe la solicitud. Su usuario y contraseña actuales no cambiarán.</p>',
+                .'<p class="mt-2">Se registró la solicitud para habilitarlo como tramitador de <strong>%s</strong>.</p>'
+                .'<p class="mt-2">Podrá representar a esta empresa cuando INSO apruebe la solicitud. Su usuario y contraseña actuales no cambiarán.</p>',
                 e($empresa->razon_social)
             )
             : sprintf(
                 '<p>El tramitador fue registrado correctamente y está pendiente de validación por INSO.</p>'
-                . '<p class="mt-2">Cuando la cuenta sea habilitada podrá ingresar con:</p>'
-                . '<div class="mt-3 text-left"><strong>Usuario:</strong> %s<br><strong>Contraseña:</strong> %s</div>',
+                .'<p class="mt-2">Cuando la cuenta sea habilitada podrá ingresar con:</p>'
+                .'<div class="mt-3 text-left"><strong>Usuario:</strong> %s<br><strong>Contraseña:</strong> %s</div>',
                 e($personaRegistrada->correo),
                 e($personaRegistrada->natural?->ci)
             );
@@ -364,7 +363,8 @@ class TramitadorController extends Controller
             'usuarioBaja.persona.empresa',
         ]);
 
-        $empresaAutenticada = auth()->user()?->loadMissing('persona.empresa')?->persona?->empresa;
+        $usuario = auth()->user()?->loadMissing('persona.empresa');
+        $empresaAutenticada = $usuario?->empresaDeAccesoActiva();
         $puedeSolicitarNuevamente = $empresaAutenticada
             && (int) $empresaAutenticada->id === (int) $tramitador->id_empresa
             && auth()->user()?->puede('tramitadores.ver')
@@ -480,7 +480,7 @@ class TramitadorController extends Controller
     public function darBaja(Responsable $tramitador): RedirectResponse
     {
         $usuario = auth()->user()?->loadMissing('persona.empresa');
-        $permisoRequerido = $usuario?->persona?->empresa
+        $permisoRequerido = $usuario?->empresaDeAccesoActiva()
             ? 'tramitadores.ver'
             : 'tramitadores.validar';
 
@@ -644,8 +644,7 @@ class TramitadorController extends Controller
             ]);
         }
 
-        return $coincidencias->first(fn (Natural $natural) =>
-            $this->normalizarComplemento($natural->complemento) === $complemento
+        return $coincidencias->first(fn (Natural $natural) => $this->normalizarComplemento($natural->complemento) === $complemento
         );
     }
 
@@ -664,8 +663,7 @@ class TramitadorController extends Controller
         Responsable $relacion,
         ?int $idUsuarioValidacion = null,
         ?string $nuevaPassword = null
-    ): void
-    {
+    ): void {
         $relacion->loadMissing(['persona.natural', 'persona.usuario', 'rol']);
         $persona = $relacion->persona;
         $natural = $persona?->natural;
@@ -735,10 +733,8 @@ class TramitadorController extends Controller
         $usuarios = User::query()
             ->where('estado', 1)
             ->where(function ($query) {
-                $query->whereHas('permisosDirectos', fn ($permiso) =>
-                    $permiso->where('nombre', 'tramitadores.validar')->where('permisos.estado', 1)
-                )->orWhereHas('roles.permisos', fn ($permiso) =>
-                    $permiso->where('nombre', 'tramitadores.validar')->where('permisos.estado', 1)
+                $query->whereHas('permisosDirectos', fn ($permiso) => $permiso->where('nombre', 'tramitadores.validar')->where('permisos.estado', 1)
+                )->orWhereHas('roles.permisos', fn ($permiso) => $permiso->where('nombre', 'tramitadores.validar')->where('permisos.estado', 1)
                 );
             })
             ->get(['users.id']);
@@ -769,7 +765,7 @@ class TramitadorController extends Controller
         $usuario = auth()->user()?->loadMissing('persona.empresa');
 
         return $usuario
-            && ! $usuario->persona?->empresa
+            && ! $usuario->empresaDeAccesoActiva()
             && $usuario->puede('tramitadores.validar');
     }
 
@@ -810,7 +806,8 @@ class TramitadorController extends Controller
 
     private function empresaAutenticada(): Empresa
     {
-        $empresa = auth()->user()?->loadMissing('persona.empresa')?->persona?->empresa;
+        $usuario = auth()->user()?->loadMissing('persona.empresa');
+        $empresa = $usuario?->empresaDeAccesoActiva();
 
         abort_if(! $empresa, 403, 'Solo una empresa puede registrar tramitadores.');
 

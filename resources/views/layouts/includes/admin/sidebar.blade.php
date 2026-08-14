@@ -65,7 +65,7 @@
     // Usuario autenticado usado para decidir que opciones del menu puede ver.
     $usuarioMenu = auth()->user();
     $usuarioMenu?->loadMissing('persona.empresa', 'funcionario');
-    $esCuentaEmpresa = (bool) $usuarioMenu?->persona?->empresa;
+    $esCuentaEmpresa = (bool) $usuarioMenu?->empresaDeAccesoActiva();
     // La ficha de funcionario define si la cuenta pertenece al personal INSO.
     // Así no se mezcla su bandeja de registros con la bandeja del beneficiario.
     $esFuncionarioInso = (bool) $usuarioMenu?->funcionario;
@@ -197,6 +197,14 @@
             'href' => $href('reportes_index'),
             'active' => $activo(['reportes_']),
             'permission' => 'reportes.ver',
+        ],
+        [
+            'name' => 'Pagos',
+            'description' => 'Pagos registrados',
+            'icon' => 'fa-solid fa-credit-card',
+            'href' => $href('pagos_index'),
+            'active' => $activo(['pagos_']),
+            'permission' => ['pagos.ver', 'pagos.validar'],
         ],
         [
             // Modulo operativo: separa claramente lo que el usuario envia y lo que debe atender.

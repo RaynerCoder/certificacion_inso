@@ -10,7 +10,7 @@ class CertificadoSeeder extends Seeder
     use GuardaSeeders;
 
     /**
-     * Trámite demo: empresa beneficiaria solicita mediante persona natural tramitadora.
+     * Trámite demo: AGROPARC es beneficiaria y Mario actúa como representante legal.
      */
     public function run(): void
     {
@@ -21,7 +21,7 @@ class CertificadoSeeder extends Seeder
             'codigo' => 'TRM-2026-000001',
             'fecha_inicio' => '2026-06-15',
             'fecha_fin' => null,
-            'descripcion' => 'Solicitud de registro/autorización para productos plaguicidas presentados por AGROPARC EI S.R.L.',
+            'descripcion' => 'Solicitud de AGROPARC EI S.R.L. presentada por su representante legal Mario Erwin Pedraza Merida.',
             'url_documento' => null,
             'estado' => 'EN_REVISION',
         ]);

@@ -12,11 +12,23 @@ class ResponsableSeeder extends Seeder
 
     public function run(): void
     {
+        // Esta relacion pertenecia al escenario anterior. Se conserva como historial,
+        // pero deja de autorizar a Laura como tramitadora de BIOCONTROL.
+        DB::table('responsables')
+            ->where('id', 4)
+            ->update([
+                'fecha_baja' => '2026-07-31',
+                'estado' => 'INACTIVO',
+                'updated_at' => now(),
+            ]);
+
         foreach ([
+            // Mario representa legalmente a AGROPARC.
             1 => [1, 2, 'representante-legal', 'documentos/responsables/agroparc-representante.pdf'],
-            2 => [1, 2, 'tramitador', 'documentos/responsables/agroparc-tramitador.pdf'],
-            3 => [1, 4, 'tramitador', 'documentos/responsables/laura-agroparc-tramitadora.pdf'],
-            4 => [2, 4, 'tramitador', 'documentos/responsables/laura-biocontrol-tramitadora.pdf'],
+            // Laura puede tramitar para AGROPARC, pero no es su representante legal.
+            2 => [1, 4, 'tramitador', 'documentos/responsables/laura-agroparc-tramitadora.pdf'],
+            // Laura representa legalmente a BIOCONTROL.
+            3 => [2, 4, 'representante-legal', 'documentos/responsables/biocontrol-representante.pdf'],
         ] as $id => [$empresa, $persona, $slugRol, $respaldo]) {
             $this->guardar('responsables', $id, [
                 'id_empresa' => $empresa,
@@ -37,7 +49,7 @@ class ResponsableSeeder extends Seeder
     {
         $idRol = DB::table('roles')->where('slug', $slug)->value('id');
 
-        if (!$idRol) {
+        if (! $idRol) {
             throw new \RuntimeException("No existe el rol {$slug}. Ejecute RoleSeeder antes de ResponsableSeeder.");
         }
 

@@ -12,14 +12,15 @@ class PersonaSeeder extends Seeder
 
     /**
      * Personas demo del flujo:
-     * - ID 1: empresa beneficiaria/importadora.
-     * - ID 2: persona natural tramitadora y representante.
+     * - ID 1 y 3: empresas beneficiarias sin cuenta propia.
+     * - ID 2 y 4: personas naturales que representan empresas.
+     * - ID 5: persona natural que realiza sus propios trámites.
      */
     public function run(): void
     {
         foreach ([
             1 => [
-                'id_usuario' => 8,
+                'id_usuario' => null,
                 'domicilio' => 'Av. Busch, Edificio Agrocentro, La Paz',
                 'nit' => '1028753027',
                 'correo' => 'tramites@agroparc.test',
@@ -35,7 +36,7 @@ class PersonaSeeder extends Seeder
                 'estado' => 'ACTIVO',
             ],
             3 => [
-                'id_usuario' => 15,
+                'id_usuario' => null,
                 'domicilio' => 'Av. America 455, Cochabamba',
                 'nit' => '3045567012',
                 'correo' => 'tramites@biocontrol.test',

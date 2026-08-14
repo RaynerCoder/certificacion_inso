@@ -88,6 +88,11 @@
         color: #475569;
     }
 
+    .cert-topbar-profile-detail.is-representation {
+        color: #1d4ed8;
+        font-weight: 800;
+    }
+
     .cert-topbar-profile-role {
         color: #047857;
     }
@@ -101,6 +106,83 @@
     .cert-topbar-profile-menu {
         width: 24rem !important;
         max-width: calc(100vw - 1rem);
+    }
+
+    .cert-topbar-companies {
+        border-bottom: 1px solid #e2e8f0;
+        padding: 12px 16px 8px;
+    }
+
+    .cert-topbar-companies-title {
+        display: block;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .cert-topbar-companies-list {
+        display: block;
+        width: 100%;
+        max-height: 14rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+        margin-top: 7px;
+    }
+
+    .cert-topbar-company-item {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+        border-top: 1px solid #f1f5f9;
+        padding: 9px 0;
+    }
+
+    .cert-topbar-company-item:first-child {
+        border-top: 0;
+    }
+
+    .cert-topbar-company-icon {
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 32px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #dbeafe;
+        border-radius: 8px;
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .cert-topbar-company-text {
+        display: block;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .cert-topbar-company-text strong,
+    .cert-topbar-company-text small {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cert-topbar-company-text strong {
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .cert-topbar-company-text small {
+        margin-top: 2px;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 800;
     }
 
     .cert-notification-panel {
@@ -123,6 +205,12 @@
     .tramite-notification-item p,
     .tramite-notification-item strong {
         overflow-wrap: anywhere;
+    }
+
+    /* El borde azul permite reconocer de inmediato las solicitudes de tramitadores. */
+    .tramite-notification-item.notificacion-tramitador {
+        border-left: 4px solid #3b82f6;
+        background-color: rgba(239, 246, 255, .7);
     }
 
     @media (max-width: 1024px) {

@@ -2,30 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Persona;
-use App\Models\Territorio;
 use App\Models\Empresa;
-use App\Models\TipoEmpresa;
 use App\Models\Natural;
 use App\Models\OcupacionCob;
-use App\Models\Telefono;
-use App\Models\Rubro;
-use App\Models\User;
-use App\Models\Role;
 use App\Models\Pago;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\Persona;
 use App\Models\Responsable;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use App\Models\Role;
+use App\Models\Rubro;
+use App\Models\Telefono;
+use App\Models\Territorio;
+use App\Models\TipoEmpresa;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PersonaController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Muestra las personas naturales y juridicas registradas.
      */
     public function index()
     {
@@ -35,10 +36,9 @@ class PersonaController extends Controller
             'territorio',
             'rubros',
             'empresa.tipoEmpresa',
-            'empresa.responsables.persona.natural'
+            'empresa.responsables.persona.natural',
         ])->latest()->get();
 
-        //dd($personas->all());
         return view('personas.index', compact('personas'));
     }
 
@@ -60,8 +60,157 @@ class PersonaController extends Controller
         ];
     }
 
+    private function reglasValidacionPersona(
+        Role $rolSolicitante,
+        Role $rolRepresentanteLegal,
+        ?Persona $personaEditada = null,
+        ?User $usuarioCuenta = null
+    ): array {
+        return [
+            'form_tipo_registro' => 'required|in:NATURAL,EMPRESA',
+
+            // Datos comunes de la persona natural o jurídica.
+            'form_domicilio' => 'nullable|string|max:255',
+            'form_nit' => [
+                'required_if:form_tipo_registro,EMPRESA',
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('personas', 'nit')->ignore($personaEditada?->id),
+            ],
+            'form_correo' => [
+                'required',
+                'email',
+                'max:50',
+                Rule::unique('personas', 'correo')->ignore($personaEditada?->id),
+            ],
+            'form_id_pais' => [
+                'required',
+                Rule::exists('territorios', 'id')->where(fn ($query) => $query->where('id_ambito', 1)),
+            ],
+            'form_id_territorio' => 'required|exists:territorios,id',
+            'form_estado' => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
+
+            // Datos exclusivos de una persona natural.
+            'form_ci' => [
+                'required_if:form_tipo_registro,NATURAL',
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('naturals', 'ci')->ignore($personaEditada?->natural?->id),
+            ],
+            'form_complemento' => 'nullable|string|max:10',
+            'form_expedido' => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
+            'form_nombres' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
+            'form_apellido_paterno' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
+            'form_apellido_materno' => 'nullable|string|max:100',
+            'form_apellido_casado' => 'nullable|string|max:100',
+            'form_fecha_nacimiento' => 'nullable|date',
+            'form_genero' => 'required_if:form_tipo_registro,NATURAL|nullable',
+            'form_id_ocupacion' => 'nullable|exists:ocupaciones_cob,id',
+
+            // Datos exclusivos de una empresa.
+            'form_id_tipo_empresa' => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:tipos_empresas,id',
+            'form_razon_social' => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:255',
+            'form_matricula' => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:50',
+            'form_latitud' => 'nullable',
+            'form_longitud' => 'nullable',
+            'form_estado_empresa' => 'nullable|max:50',
+
+            'telefonos' => 'nullable|array',
+            'telefonos.*.id' => 'nullable|integer|exists:telefonos,id',
+            'telefonos.*.numero' => 'required|string|max:50',
+            'telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
+
+            'rubros' => 'nullable|array',
+            'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
+
+            // La empresa administra un representante legal desde este formulario.
+            'responsables' => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
+            'responsables.*.tipo' => 'required|in:NUEVO,EXISTENTE',
+            'responsables.*.id_persona' => [
+                'nullable',
+                Rule::exists('personas', 'id')->where(fn ($query) => $query
+                    ->where('estado', 'ACTIVO')
+                    ->whereNull('deleted_at')),
+            ],
+            'responsables.*.domicilio' => 'nullable|string|max:255',
+            'responsables.*.nit' => 'nullable|string|max:50',
+            'responsables.*.correo' => 'nullable|email|max:50',
+            'responsables.*.id_territorio' => 'nullable|exists:territorios,id',
+            'responsables.*.territorio_nombre' => 'nullable|string|max:255',
+            'responsables.*.nombres' => 'nullable|string|max:100',
+            'responsables.*.apellido_paterno' => 'nullable|string|max:100',
+            'responsables.*.apellido_materno' => 'nullable|string|max:100',
+            'responsables.*.apellido_casado' => 'nullable|string|max:100',
+            'responsables.*.ci' => 'nullable|string|max:50',
+            'responsables.*.complemento' => 'nullable|string|max:10',
+            'responsables.*.expedido' => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
+            'responsables.*.fecha_nacimiento' => 'nullable|date',
+            'responsables.*.genero' => ['nullable', Rule::in(['0', '1', 0, 1])],
+            'responsables.*.id_ocupacion' => 'nullable|exists:ocupaciones_cob,id',
+            'responsables.*.ocupacion' => 'nullable|string|max:255',
+            'responsables.*.telefonos' => 'nullable|array',
+            'responsables.*.telefonos.*.id' => 'nullable|integer|exists:telefonos,id',
+            'responsables.*.telefonos.*.numero' => 'required|string|max:50',
+            'responsables.*.telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
+            'responsables.*.rubros' => 'nullable|array',
+            'responsables.*.rubros.*.id' => ['required', 'integer', $this->reglaRubroCaebActivo()],
+            'responsables.*.rubros.*.nombre' => 'nullable|string|max:255',
+            'responsables.*.rubros.*.estado' => 'nullable|string|max:50',
+            'responsables.*.id_rol' => [
+                'required_if:form_tipo_registro,EMPRESA',
+                'nullable',
+                Rule::in([$rolRepresentanteLegal->id]),
+            ],
+            'responsables.*.url_respaldo' => 'nullable|string|max:255',
+            'responsables.*.archivo_respaldo' => 'nullable|file|mimes:pdf|max:5120',
+            'responsables.*.estado' => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
+
+            // El rol de acceso se valida aunque el campo este bloqueado en la interfaz.
+            'form_usuario_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users', 'name')->ignore($usuarioCuenta?->id),
+            ],
+            'form_usuario_email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($usuarioCuenta?->id),
+            ],
+            'form_usuario_password' => 'nullable|string|min:8',
+            'form_id_role' => ['required', Rule::in([$rolSolicitante->id])],
+        ];
+    }
+
+    private function atributosValidacionPersona(): array
+    {
+        return [
+            'form_tipo_registro' => 'tipo de registro',
+            'form_correo' => 'correo electrónico',
+            'form_id_pais' => 'país',
+            'form_id_territorio' => 'territorio',
+            'form_ci' => 'CI',
+            'form_nombres' => 'nombres',
+            'form_apellido_paterno' => 'apellido paterno',
+            'form_genero' => 'género',
+            'form_id_tipo_empresa' => 'tipo de empresa',
+            'form_razon_social' => 'razón social',
+            'form_matricula' => 'matrícula',
+            'form_usuario_name' => 'nombre de usuario',
+            'form_usuario_email' => 'correo de acceso',
+            'form_usuario_password' => 'contraseña de acceso',
+            'form_id_role' => 'rol de acceso',
+            'responsables.*.id_rol' => 'rol del responsable',
+            'responsables.*.id_persona' => 'persona responsable',
+            'responsables' => 'responsable o representante legal',
+        ];
+    }
+
     /**
-     * Show the form for creating a new resource.
+     * Muestra el formulario de registro.
      */
     public function create()
     {
@@ -70,6 +219,7 @@ class PersonaController extends Controller
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
         $rolSolicitante = $this->rolSolicitanteActivo();
+        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
         $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -86,7 +236,7 @@ class PersonaController extends Controller
                 ->where('ci', '!=', ''))
             ->orderBy('id')
             ->get();
-        
+
         return view('personas.create', [
             'territorios' => $territorios,
             'paises' => $paises,
@@ -94,6 +244,7 @@ class PersonaController extends Controller
             'personas' => $personas,
             'tiposEmpresas' => $tiposEmpresas,
             'rolSolicitante' => $rolSolicitante,
+            'rolRepresentanteLegal' => $rolRepresentanteLegal,
             'rubrosCatalogo' => $rubrosCatalogo,
             'ocupacionesCob' => $ocupacionesCob,
             'expedidosNatural' => $expedidosNatural,
@@ -138,126 +289,28 @@ class PersonaController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
-    */
+     * Registra una persona natural o una empresa con su cuenta de acceso.
+     */
     public function store(Request $solicitud)
     {
         $this->usarPaisComoTerritorioSiNoHayDepartamento($solicitud);
         $rolSolicitante = $this->rolSolicitanteActivo();
-        $this->fijarDatosAccesoSolicitanteEnSolicitud($solicitud, $rolSolicitante);
+        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
+        $this->fijarRolesEmpresaEnSolicitud($solicitud, $rolSolicitante, $rolRepresentanteLegal);
+        $responsableSolicitado = $solicitud->input('responsables.0', []);
+        $personaResponsableExistente = $this->personaResponsableExistente($responsableSolicitado);
+        $usuarioResponsableExistente = $personaResponsableExistente?->usuario;
 
         try {
-            $datos = $solicitud->validate([
-            'form_tipo_registro' => 'required|in:NATURAL,EMPRESA',
-
-            // PERSONA GENERAL
-            'form_domicilio'     => 'nullable|string|max:255',
-            'form_nit'           => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:50|unique:personas,nit',
-            'form_correo'        => 'required|email|max:50|unique:personas,correo',
-            'form_id_pais'       => [
-                'required',
-                Rule::exists('territorios', 'id')->where(fn ($query) => $query->where('id_ambito', 1)),
-            ],
-            'form_id_territorio' => 'required|exists:territorios,id',
-            'form_estado'        => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
-
-            // NATURAL
-            'form_ci'               => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:50|unique:naturals,ci',
-            'form_complemento'      => 'nullable|string|max:10',
-            'form_expedido'         => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
-            'form_nombres'          => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
-            'form_apellido_paterno' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
-            'form_apellido_materno' => 'nullable|string|max:100',
-            'form_apellido_casado'  => 'nullable|string|max:100',
-            'form_fecha_nacimiento' => 'nullable|date',
-            'form_genero'           => 'required_if:form_tipo_registro,NATURAL|nullable',
-            'form_id_ocupacion'     => 'nullable|exists:ocupaciones_cob,id',
-
-            // EMPRESA
-            'form_id_tipo_empresa'       => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:tipos_empresas,id',
-            'form_razon_social'          => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:255',
-            'form_matricula'             => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:50',
-            'form_latitud'               => 'nullable',
-            'form_longitud'              => 'nullable',
-            'form_estado_empresa'        => 'nullable|max:50',
-
-            // TELÉFONOS PERSONA PRINCIPAL
-            'telefonos'          => 'nullable|array',
-            'telefonos.*.id'     => 'nullable|integer|exists:telefonos,id',
-            'telefonos.*.numero' => 'required|string|max:50',
-            'telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
-
-            // RUBROS PERSONA / EMPRESA
-            'rubros'   => 'nullable|array',
-            'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
-
-            // RESPONSABLES EMPRESA
-            'responsables'                     => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
-            'responsables.*.tipo'              => 'required|in:NUEVO,EXISTENTE',
-            'responsables.*.id_persona'        => 'nullable|exists:personas,id',
-            'responsables.*.domicilio'         => 'nullable|string|max:255',
-            'responsables.*.nit'               => 'nullable|string|max:50',
-            'responsables.*.correo'            => 'nullable|email|max:50',
-            'responsables.*.id_territorio'     => 'nullable|exists:territorios,id',
-            'responsables.*.territorio_nombre' => 'nullable|string|max:255',
-            'responsables.*.nombres'           => 'nullable|string|max:100',
-            'responsables.*.apellido_paterno'  => 'nullable|string|max:100',
-            'responsables.*.apellido_materno'  => 'nullable|string|max:100',
-            'responsables.*.apellido_casado'   => 'nullable|string|max:100',
-            'responsables.*.ci'                => 'nullable|string|max:50',
-            'responsables.*.complemento'       => 'nullable|string|max:10',
-            'responsables.*.expedido'          => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
-            'responsables.*.fecha_nacimiento'  => 'nullable|date',
-            'responsables.*.genero'            => ['nullable', Rule::in(['0', '1', 0, 1])],
-            'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
-            'responsables.*.ocupacion'         => 'nullable|string|max:255',
-            'responsables.*.telefonos'         => 'nullable|array',
-            'responsables.*.telefonos.*.id'    => 'nullable|integer|exists:telefonos,id',
-            'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
-            'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
-            'responsables.*.rubros'            => 'nullable|array',
-            'responsables.*.rubros.*.id'       => ['required', 'integer', $this->reglaRubroCaebActivo()],
-            'responsables.*.rubros.*.nombre'   => 'nullable|string|max:255',
-            'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
-            // Datos del responsable
-            'responsables.*.id_rol'            => [
-                'required_if:form_tipo_registro,EMPRESA',
-                'nullable',
-                Rule::in([$rolSolicitante->id]),
-            ],
-            'responsables.*.url_respaldo'      => 'nullable|string|max:255',
-            'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.estado'            => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
-
-            // CUENTA DE USUARIO PARA QUE LA PERSONA/EMPRESA PUEDA INICIAR SESION
-            'form_usuario_name' => 'required|string|max:255|unique:users,name',
-            'form_usuario_email' => 'required|email|max:255|unique:users,email',
-            'form_usuario_password' => 'nullable|string|min:8',
-            'form_id_role' => [
-                'required',
-                Rule::in([$rolSolicitante->id]),
-            ],
-            ], $this->mensajesValidacionPersona(), [
-                // Nombres legibles: evitan mostrar campos tecnicos como form_id_territorio al usuario.
-                'form_tipo_registro' => 'tipo de registro',
-                'form_correo' => 'correo electrónico',
-                'form_id_pais' => 'país',
-                'form_id_territorio' => 'territorio',
-                'form_ci' => 'CI',
-                'form_nombres' => 'nombres',
-                'form_apellido_paterno' => 'apellido paterno',
-                'form_genero' => 'género',
-                'form_id_tipo_empresa' => 'tipo de empresa',
-                'form_razon_social' => 'razón social',
-                'form_matricula' => 'matrícula',
-                'form_usuario_name' => 'nombre de usuario',
-                'form_usuario_email' => 'correo de acceso',
-                'form_usuario_password' => 'contraseña de acceso',
-                'form_id_role' => 'rol de acceso',
-                'responsables.*.id_rol' => 'rol del responsable',
-                'responsables.*.id_persona' => 'persona responsable',
-                'responsables' => 'responsable o representante legal',
-            ]);
+            $datos = $solicitud->validate(
+                $this->reglasValidacionPersona(
+                    $rolSolicitante,
+                    $rolRepresentanteLegal,
+                    usuarioCuenta: $usuarioResponsableExistente
+                ),
+                $this->mensajesValidacionPersona(),
+                $this->atributosValidacionPersona()
+            );
 
             // Evita errores SQL cuando se registra un responsable nuevo sin datos obligatorios de persona.
             $this->validarResponsablesAntesDeGuardar($datos['responsables'] ?? []);
@@ -275,34 +328,27 @@ class PersonaController extends Controller
         try {
             DB::beginTransaction();
 
-            $passwordGeneradaCuenta = null;
-            $passwordCuenta = $datos['form_usuario_password'] ?: $this->generarPasswordTemporalCuenta();
-
-            if (empty($datos['form_usuario_password'])) {
-                $passwordGeneradaCuenta = $passwordCuenta;
-            }
-
             $responsableActivo = $datos['form_tipo_registro'] !== 'EMPRESA'
                 || strtoupper($datos['responsables'][0]['estado'] ?? 'ACTIVO') === 'ACTIVO';
 
-            // La cuenta se crea primero para enlazarla a personas.id_usuario.
-            $usuarioAcceso = User::create([
-                'name' => $datos['form_usuario_name'],
-                'email' => $datos['form_usuario_email'],
-                'password' => $passwordCuenta,
-                'estado' => strtoupper($datos['form_estado'] ?? 'ACTIVO') === 'ACTIVO' && $responsableActivo ? 1 : 0,
-            ]);
-
-            // Asigna el rol elegido para la cuenta de acceso de esta persona/empresa.
-            $usuarioAcceso->roles()->sync([$datos['form_id_role']]);
+            $usuarioAcceso = $datos['form_tipo_registro'] === 'EMPRESA'
+                ? ($usuarioResponsableExistente ?: new User)
+                : new User;
+            [$usuarioAcceso, $passwordGeneradaCuenta] = $this->guardarCuentaAcceso(
+                $usuarioAcceso,
+                $datos,
+                strtoupper($datos['form_estado'] ?? 'ACTIVO') === 'ACTIVO' && $responsableActivo
+            );
 
             $persona = Persona::create([
-                'id_usuario'          => $usuarioAcceso->id,
-                'domicilio'           => $datos['form_domicilio'] ?? null,
-                'nit'                 => $datos['form_nit'] ?? null,
-                'correo'              => $datos['form_correo'],
-                'id_territorio'       => $datos['form_id_territorio'],
-                'estado'              => $datos['form_estado'] ?? 'ACTIVO',
+                'id_usuario' => $datos['form_tipo_registro'] === 'NATURAL'
+                    ? $usuarioAcceso->id
+                    : null,
+                'domicilio' => $datos['form_domicilio'] ?? null,
+                'nit' => $datos['form_nit'] ?? null,
+                'correo' => $datos['form_correo'],
+                'id_territorio' => $datos['form_id_territorio'],
+                'estado' => $datos['form_estado'] ?? 'ACTIVO',
             ]);
 
             $this->registrarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
@@ -311,43 +357,48 @@ class PersonaController extends Controller
 
             if ($datos['form_tipo_registro'] === 'NATURAL') {
                 Natural::create([
-                    'id_persona'       => $persona->id,
-                    'id_ocupacion'     => $datos['form_id_ocupacion'] ?? null,
-                    'ci'               => $datos['form_ci'] ?? null,
-                    'complemento'      => $datos['form_complemento'] ?? null,
-                    'expedido'         => $datos['form_expedido'] ?? null,
-                    'nombres'          => $this->mayuscula($datos['form_nombres'] ?? null),
+                    'id_persona' => $persona->id,
+                    'id_ocupacion' => $datos['form_id_ocupacion'] ?? null,
+                    'ci' => $datos['form_ci'] ?? null,
+                    'complemento' => $datos['form_complemento'] ?? null,
+                    'expedido' => $datos['form_expedido'] ?? null,
+                    'nombres' => $this->mayuscula($datos['form_nombres'] ?? null),
                     'apellido_paterno' => $this->mayuscula($datos['form_apellido_paterno'] ?? null),
                     'apellido_materno' => $this->mayuscula($datos['form_apellido_materno'] ?? null),
-                    'apellido_casado'  => $this->mayuscula($datos['form_apellido_casado'] ?? null),
+                    'apellido_casado' => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                     'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
-                    'genero'           => $datos['form_genero'],
-                    'ocupacion'        => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
+                    'genero' => $datos['form_genero'],
+                    'ocupacion' => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                 ]);
             }
 
             if ($datos['form_tipo_registro'] === 'EMPRESA') {
                 $empresa = Empresa::create([
-                    'id_persona'      => $persona->id,
+                    'id_persona' => $persona->id,
                     'id_tipo_empresa' => $datos['form_id_tipo_empresa'],
-                    'razon_social'    => $datos['form_razon_social'],
-                    'matricula'       => $datos['form_matricula'],
-                    'latitud'         => $datos['form_latitud'] ?? null,
-                    'longitud'        => $datos['form_longitud'] ?? null,
-                    'estado'          => !empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO',
+                    'razon_social' => $datos['form_razon_social'],
+                    'matricula' => $datos['form_matricula'],
+                    'latitud' => $datos['form_latitud'] ?? null,
+                    'longitud' => $datos['form_longitud'] ?? null,
+                    'estado' => ! empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO',
                 ]);
 
-                $this->registrarResponsablesEmpresa($empresa->id, $datos['responsables'] ?? []);
+                $this->registrarResponsablesEmpresa(
+                    $empresa->id,
+                    $datos['responsables'] ?? [],
+                    [],
+                    $usuarioAcceso->id
+                );
             }
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => '¡Bien hecho!',
-                'text'  => $passwordGeneradaCuenta
-                    ? 'El registro se guardo correctamente. Contrasena generada: ' . $passwordGeneradaCuenta
+                'text' => $passwordGeneradaCuenta
+                    ? 'El registro se guardo correctamente. Contrasena generada: '.$passwordGeneradaCuenta
                     : 'El registro se guardo correctamente.',
-                'icon'  => 'success'
+                'icon' => 'success',
             ]);
 
             return redirect()->route('personas_index');
@@ -356,11 +407,10 @@ class PersonaController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo registrar. ' . $e->getMessage())
+                ->with('error', 'No se pudo registrar. '.$e->getMessage())
                 ->withInput();
         }
-    }   
-
+    }
 
     // Registra los teléfonos enviados al crear una persona o empresa.
     private function registrarTelefonosPersona($idPersona, array $telefonos): void
@@ -368,8 +418,8 @@ class PersonaController extends Controller
         foreach ($telefonos as $telefono) {
             Telefono::create([
                 'id_persona' => $idPersona,
-                'numero'     => $telefono['numero'],
-                'estado'     => $telefono['estado'] ?? 'ACTIVO',
+                'numero' => $telefono['numero'],
+                'estado' => $telefono['estado'] ?? 'ACTIVO',
             ]);
         }
     }
@@ -385,19 +435,19 @@ class PersonaController extends Controller
                 'estado' => $telefono['estado'] ?? 'ACTIVO',
             ];
 
-            $telefonoRegistrado = !empty($telefono['id'])
+            $telefonoRegistrado = ! empty($telefono['id'])
                 ? Telefono::where('id_persona', $idPersona)->find($telefono['id'])
                 : null;
 
             if ($telefonoRegistrado) {
                 $telefonoRegistrado->update($datosTelefono);
+
                 continue;
             }
 
             Telefono::create(['id_persona' => $idPersona] + $datosTelefono);
         }
     }
-
 
     // El selector usa el id interno, pero solo permite registros del catalogo CAEB activo.
     private function reglaRubroCaebActivo()
@@ -472,13 +522,12 @@ class PersonaController extends Controller
 
     private function descripcionOcupacionCob($idOcupacion): ?string
     {
-        if (!$idOcupacion) {
+        if (! $idOcupacion) {
             return null;
         }
 
         return OcupacionCob::find($idOcupacion)?->descripcion_ocupacion;
     }
-
 
     // FUNCION PARA CONSERVAR PDF DE RESPONSABLES SI FALLA LA VALIDACION DEL FORMULARIO
     private function preservarRespaldosResponsablesEnInput(Request $solicitud): void
@@ -489,7 +538,7 @@ class PersonaController extends Controller
         foreach ($archivosResponsables as $indice => $archivos) {
             $archivo = $archivos['archivo_respaldo'] ?? null;
 
-            if (!$archivo || !$archivo->isValid()) {
+            if (! $archivo || ! $archivo->isValid()) {
                 continue;
             }
 
@@ -498,7 +547,7 @@ class PersonaController extends Controller
             $esPdf = strtolower($archivo->getClientOriginalExtension()) === 'pdf';
             $pesoPermitido = $archivo->getSize() <= 5120 * 1024;
 
-            if (!$esPdf || !$pesoPermitido) {
+            if (! $esPdf || ! $pesoPermitido) {
                 continue;
             }
 
@@ -530,6 +579,19 @@ class PersonaController extends Controller
             if ($tipo === 'EXISTENTE' && empty($idPersonaResponsable)) {
                 $errores["responsables.$indice.id_persona"] = 'Seleccione la persona responsable.';
             } elseif ($tipo === 'EXISTENTE') {
+                $personaNaturalValida = Persona::query()
+                    ->whereKey($idPersonaResponsable)
+                    ->where('estado', 'ACTIVO')
+                    ->whereHas('natural', fn ($natural) => $natural
+                        ->whereNotNull('ci')
+                        ->where('ci', '<>', ''))
+                    ->exists();
+
+                if (! $personaNaturalValida) {
+                    $errores["responsables.$indice.id_persona"] =
+                        'Seleccione una persona natural activa como responsable.';
+                }
+
                 if (in_array($idPersonaResponsable, $personasExistentesAgregadas, true)) {
                     $errores["responsables.$indice.id_persona"] = 'Esta persona ya fue agregada como responsable.';
                 }
@@ -626,12 +688,41 @@ class PersonaController extends Controller
             ->firstOrFail();
     }
 
-    // Tanto la cuenta como la relacion del responsable utilizan el rol Solicitante.
-    private function fijarDatosAccesoSolicitanteEnSolicitud(Request $solicitud, Role $rolSolicitante): void
+    private function rolRepresentanteLegalActivo(): Role
     {
+        return Role::query()
+            ->where('slug', 'representante-legal')
+            ->where('estado', 1)
+            ->whereNull('deleted_at')
+            ->firstOrFail();
+    }
+
+    private function relacionesRepresentanteLegal(
+        Collection $relaciones,
+        Role $rolRepresentanteLegal,
+        Role $rolSolicitante
+    ): Collection {
+        $relacionesActuales = $relaciones
+            ->filter(fn ($responsable) => (int) $responsable->id_rol === (int) $rolRepresentanteLegal->id);
+
+        if ($relacionesActuales->isNotEmpty()) {
+            return $relacionesActuales;
+        }
+
+        // Los registros antiguos usaban Solicitante como rol de la relacion empresarial.
+        return $relaciones
+            ->filter(fn ($responsable) => (int) $responsable->id_rol === (int) $rolSolicitante->id);
+    }
+
+    // La cuenta accede como solicitante y la persona representa legalmente a la empresa.
+    private function fijarRolesEmpresaEnSolicitud(
+        Request $solicitud,
+        Role $rolSolicitante,
+        Role $rolRepresentanteLegal
+    ): void {
         $responsables = collect($solicitud->input('responsables', []))
             ->map(fn (array $responsable) => array_merge($responsable, [
-                'id_rol' => $rolSolicitante->id,
+                'id_rol' => $rolRepresentanteLegal->id,
             ]))
             ->all();
 
@@ -719,46 +810,56 @@ class PersonaController extends Controller
         }
     }
 
-
-    // FUNCION PARA REGISTRAR RESPONSABLES DE EMPRESAS
-    private function registrarResponsablesEmpresa($idEmpresa, array $responsables, array $fechasRegistroExistentes = [])
-    {
+    private function registrarResponsablesEmpresa(
+        int $idEmpresa,
+        array $responsables,
+        array $fechasRegistroExistentes = [],
+        ?int $idUsuarioAcceso = null
+    ): void {
         if (empty($responsables)) {
             return;
         }
 
         foreach ($responsables as $responsable) {
-
-            // RESPONSABLE EXISTENTE
             if ($responsable['tipo'] === 'EXISTENTE') {
-
                 $idPersonaResponsable = $responsable['id_persona'];
-                $personaResponsable = Persona::find($idPersonaResponsable);
+                $personaResponsable = $this->personaResponsableExistente($responsable);
 
-                // El responsable existente es otro registro de persona.
-                // Si se edita desde el modal, se actualiza su ficha propia y no la empresa.
                 if ($personaResponsable) {
-                    $personaResponsable->update([
-                        'domicilio'     => $responsable['domicilio'] ?? null,
-                        'nit'           => $responsable['nit'] ?? null,
-                        'correo'        => $responsable['correo'] ?? null,
+                    $this->validarRepresentanteDisponibleParaEmpresa(
+                        (int) $personaResponsable->id,
+                        $idEmpresa,
+                        (int) $responsable['id_rol'],
+                        (string) ($responsable['estado'] ?? 'ACTIVO')
+                    );
+
+                    $datosPersonaResponsable = [
+                        'domicilio' => $responsable['domicilio'] ?? null,
+                        'nit' => $responsable['nit'] ?? null,
+                        'correo' => $responsable['correo'] ?? null,
                         'id_territorio' => $responsable['id_territorio'] ?? null,
-                    ]);
+                    ];
+
+                    if ($idUsuarioAcceso) {
+                        $datosPersonaResponsable['id_usuario'] = $idUsuarioAcceso;
+                    }
+
+                    $personaResponsable->update($datosPersonaResponsable);
 
                     Natural::updateOrCreate(
                         ['id_persona' => $personaResponsable->id],
                         [
-                            'ci'               => $responsable['ci'] ?? null,
-                            'complemento'      => $responsable['complemento'] ?? null,
-                            'expedido'         => $responsable['expedido'] ?? null,
-                            'nombres'          => $this->mayuscula($responsable['nombres'] ?? null),
+                            'ci' => $responsable['ci'] ?? null,
+                            'complemento' => $responsable['complemento'] ?? null,
+                            'expedido' => $responsable['expedido'] ?? null,
+                            'nombres' => $this->mayuscula($responsable['nombres'] ?? null),
                             'apellido_paterno' => $this->mayuscula($responsable['apellido_paterno'] ?? null),
                             'apellido_materno' => $this->mayuscula($responsable['apellido_materno'] ?? null),
-                            'apellido_casado'  => $this->mayuscula($responsable['apellido_casado'] ?? null),
+                            'apellido_casado' => $this->mayuscula($responsable['apellido_casado'] ?? null),
                             'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
-                            'genero'           => $responsable['genero'] ?? null,
-                            'id_ocupacion'      => $responsable['id_ocupacion'] ?? null,
-                            'ocupacion'         => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
+                            'genero' => $responsable['genero'] ?? null,
+                            'id_ocupacion' => $responsable['id_ocupacion'] ?? null,
+                            'ocupacion' => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                         ]
                     );
 
@@ -769,32 +870,29 @@ class PersonaController extends Controller
 
                     $this->registrarRubrosPersona($personaResponsable->id, $responsable['rubros'] ?? []);
                 }
-
             } else {
-
-                // PERSONA
                 $personaResponsable = Persona::create([
-                    'domicilio'           => $responsable['domicilio'] ?? null,
-                    'nit'                 => $responsable['nit'] ?? null,
-                    'correo'              => $responsable['correo'] ?? null,
-                    'id_territorio'       => $responsable['id_territorio'] ?? null,
-                    'estado'              => 'ACTIVO',
+                    'id_usuario' => $idUsuarioAcceso,
+                    'domicilio' => $responsable['domicilio'] ?? null,
+                    'nit' => $responsable['nit'] ?? null,
+                    'correo' => $responsable['correo'] ?? null,
+                    'id_territorio' => $responsable['id_territorio'] ?? null,
+                    'estado' => 'ACTIVO',
                 ]);
 
-                // NATURAL
                 Natural::create([
-                    'id_persona'       => $personaResponsable->id,
-                    'ci'               => $responsable['ci'] ?? null,
-                    'complemento'      => $responsable['complemento'] ?? null,
-                    'expedido'         => $responsable['expedido'] ?? null,
-                    'nombres'          => $this->mayuscula($responsable['nombres'] ?? null),
+                    'id_persona' => $personaResponsable->id,
+                    'ci' => $responsable['ci'] ?? null,
+                    'complemento' => $responsable['complemento'] ?? null,
+                    'expedido' => $responsable['expedido'] ?? null,
+                    'nombres' => $this->mayuscula($responsable['nombres'] ?? null),
                     'apellido_paterno' => $this->mayuscula($responsable['apellido_paterno'] ?? null),
                     'apellido_materno' => $this->mayuscula($responsable['apellido_materno'] ?? null),
-                    'apellido_casado'  => $this->mayuscula($responsable['apellido_casado'] ?? null),
+                    'apellido_casado' => $this->mayuscula($responsable['apellido_casado'] ?? null),
                     'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
-                    'genero'           => $responsable['genero'] ?? null,
-                    'id_ocupacion'      => $responsable['id_ocupacion'] ?? null,
-                    'ocupacion'         => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
+                    'genero' => $responsable['genero'] ?? null,
+                    'id_ocupacion' => $responsable['id_ocupacion'] ?? null,
+                    'ocupacion' => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                 ]);
 
                 $this->registrarTelefonosPersona(
@@ -809,12 +907,12 @@ class PersonaController extends Controller
             // Guarda el PDF del respaldo en una ruta unica dentro del disco public.
             $urlRespaldo = $responsable['url_respaldo'] ?? null;
 
-            if (!empty($responsable['archivo_respaldo'])) {
+            if (! empty($responsable['archivo_respaldo'])) {
                 $urlRespaldo = $this->guardarRespaldoResponsable($responsable['archivo_respaldo']);
             }
 
             // La relacion existente se reutiliza para conservar su historial y evitar duplicados.
-            $claveResponsable = $idPersonaResponsable . ':' . $responsable['id_rol'];
+            $claveResponsable = $idPersonaResponsable.':'.$responsable['id_rol'];
             $estadoResponsable = strtoupper($responsable['estado'] ?? 'ACTIVO');
             $relacionResponsable = Responsable::withTrashed()
                 ->where('id_empresa', $idEmpresa)
@@ -828,16 +926,16 @@ class PersonaController extends Controller
             }
 
             $datosRelacion = [
-                'id_empresa'      => $idEmpresa,
-                'id_persona'      => $idPersonaResponsable,
-                'id_rol'          => $responsable['id_rol'],
-                'url_respaldo'    => $urlRespaldo,
+                'id_empresa' => $idEmpresa,
+                'id_persona' => $idPersonaResponsable,
+                'id_rol' => $responsable['id_rol'],
+                'url_respaldo' => $urlRespaldo,
                 // La fecha se define en el servidor y no depende de un valor enviado desde el modal.
-                'fecha_registro'  => $fechasRegistroExistentes[$claveResponsable]
+                'fecha_registro' => $fechasRegistroExistentes[$claveResponsable]
                     ?? $relacionResponsable?->fecha_registro
                     ?? now()->toDateString(),
-                'fecha_baja'      => $estadoResponsable === 'INACTIVO' ? now()->toDateString() : null,
-                'estado'          => $estadoResponsable,
+                'fecha_baja' => $estadoResponsable === 'INACTIVO' ? now()->toDateString() : null,
+                'estado' => $estadoResponsable,
             ];
 
             $relacionResponsable
@@ -846,10 +944,67 @@ class PersonaController extends Controller
         }
     }
 
+    // Una misma cuenta no se comparte entre empresas cuando actua como representante legal.
+    private function validarRepresentanteDisponibleParaEmpresa(
+        int $idPersona,
+        int $idEmpresa,
+        int $idRol,
+        string $estado
+    ): void {
+        if (mb_strtoupper($estado) !== 'ACTIVO') {
+            return;
+        }
+
+        $esRepresentanteLegal = Role::query()
+            ->whereKey($idRol)
+            ->where('slug', 'representante-legal')
+            ->where('estado', 1)
+            ->exists();
+
+        if (! $esRepresentanteLegal) {
+            return;
+        }
+
+        $otraRepresentacion = Responsable::query()
+            ->with('empresa:id,razon_social')
+            ->where('id_persona', $idPersona)
+            ->where('id_empresa', '!=', $idEmpresa)
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('rol', fn ($rol) => $rol
+                ->where('slug', 'representante-legal')
+                ->where('estado', 1))
+            ->first();
+
+        if (! $otraRepresentacion) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'responsables' => 'La persona seleccionada ya es representante legal de '
+                .($otraRepresentacion->empresa?->razon_social ?? 'otra empresa')
+                .'. Para otra empresa debe utilizar una cuenta separada.',
+        ]);
+    }
+
+    private function personaResponsableExistente(array $responsable): ?Persona
+    {
+        if (($responsable['tipo'] ?? null) !== 'EXISTENTE' || empty($responsable['id_persona'])) {
+            return null;
+        }
+
+        return Persona::query()
+            ->with('usuario')
+            ->where('estado', 'ACTIVO')
+            ->whereHas('natural', fn ($natural) => $natural
+                ->whereNotNull('ci')
+                ->where('ci', '<>', ''))
+            ->find($responsable['id_persona']);
+    }
+
     // Guarda el respaldo del responsable como documentos/responsables/nombre_unico.pdf.
     private function guardarRespaldoResponsable($archivo): string
     {
-        $nombreArchivo = now()->format('YmdHis') . '_' . uniqid() . '.pdf';
+        $nombreArchivo = now()->format('YmdHis').'_'.uniqid().'.pdf';
 
         $ruta = $archivo->storeAs('documentos/responsables', $nombreArchivo, 'public');
 
@@ -858,8 +1013,8 @@ class PersonaController extends Controller
         }
 
         // Si el servidor no tiene enlace public/storage, publicamos una copia para que el PDF se pueda visualizar.
-        $rutaStorage = storage_path('app/public/' . $ruta);
-        $rutaPublica = public_path('storage/' . $ruta);
+        $rutaStorage = storage_path('app/public/'.$ruta);
+        $rutaPublica = public_path('storage/'.$ruta);
 
         if (File::exists($rutaStorage) && ! File::exists($rutaPublica)) {
             File::ensureDirectoryExists(dirname($rutaPublica));
@@ -872,7 +1027,6 @@ class PersonaController extends Controller
         return $ruta;
     }
 
-
     // FUNCION PARA CONVERTIR TEXTO A MAYUSCULAS
     private function mayuscula(?string $texto): ?string
     {
@@ -882,7 +1036,6 @@ class PersonaController extends Controller
 
         return mb_strtoupper(trim($texto), 'UTF-8');
     }
-
 
     /**
      * Display the specified resource.
@@ -916,6 +1069,7 @@ class PersonaController extends Controller
             'empresa.tipoEmpresa',
             // Carga responsables con todos sus datos de persona para mostrar una ficha completa.
             'empresa.responsables.persona.natural',
+            'empresa.responsables.persona.usuario',
             'empresa.responsables.persona.territorio',
             'empresa.responsables.persona.telefonos',
             'empresa.responsables.persona.rubros',
@@ -926,7 +1080,7 @@ class PersonaController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Muestra el formulario con los datos actuales de la persona.
      */
     public function edit(Persona $persona)
     {
@@ -938,6 +1092,7 @@ class PersonaController extends Controller
             'usuario.roles',
             'empresa.tipoEmpresa',
             'empresa.responsables.persona.natural',
+            'empresa.responsables.persona.usuario',
             'empresa.responsables.persona.territorio',
             'empresa.responsables.persona.telefonos',
             'empresa.responsables.persona.rubros',
@@ -949,6 +1104,7 @@ class PersonaController extends Controller
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
         $rolSolicitante = $this->rolSolicitanteActivo();
+        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
         $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -979,10 +1135,23 @@ class PersonaController extends Controller
             ->pluck('id')
             ->values();
 
+        $relacionesEmpresa = $persona->empresa?->responsables ?? collect();
+        $relacionesRepresentante = $this->relacionesRepresentanteLegal(
+            $relacionesEmpresa,
+            $rolRepresentanteLegal,
+            $rolSolicitante
+        );
+
+        $relacionCuenta = $relacionesRepresentante
+            ->sortByDesc(fn ($responsable) => (strtoupper((string) $responsable->estado) === 'ACTIVO' ? 1000000000 : 0)
+                + (int) $responsable->id
+            )
+            ->first();
+        $usuarioCuentaAcceso = $relacionCuenta?->persona?->usuario ?: $persona->usuario;
+
         $responsablesRegistrados = $persona->empresa
-            ? $persona->empresa->responsables
-                ->sortByDesc(fn ($responsable) =>
-                    (strtoupper((string) $responsable->estado) === 'ACTIVO' ? 1000000000 : 0)
+            ? $relacionesRepresentante
+                ->sortByDesc(fn ($responsable) => (strtoupper((string) $responsable->estado) === 'ACTIVO' ? 1000000000 : 0)
                     + (int) $responsable->id
                 )
                 ->take(1)
@@ -1010,8 +1179,8 @@ class PersonaController extends Controller
                         $responsable->persona?->natural?->apellido_paterno,
                         $responsable->persona?->natural?->apellido_materno,
                     ]))),
-                    'id_rol' => $rolSolicitante->id,
-                    'rol_nombre' => $rolSolicitante->name,
+                    'id_rol' => $rolRepresentanteLegal->id,
+                    'rol_nombre' => $rolRepresentanteLegal->name,
                     'url_respaldo' => $responsable->url_respaldo,
                     'estado' => $responsable->estado,
                     'telefonos' => $responsable->persona?->telefonos
@@ -1025,10 +1194,10 @@ class PersonaController extends Controller
                         ? $responsable->persona->rubros
                             ->filter(fn ($rubro) => $rubro->nivel_caeb === 'SUBCLASE')
                             ->map(fn ($rubro) => [
-                            'id' => $rubro->id,
-                            'codigo_caeb' => $rubro->codigo_caeb,
-                            'nombre' => $rubro->nombre,
-                            'estado' => $rubro->estado,
+                                'id' => $rubro->id,
+                                'codigo_caeb' => $rubro->codigo_caeb,
+                                'nombre' => $rubro->nombre,
+                                'estado' => $rubro->estado,
                             ])->values()
                         : [],
                 ])
@@ -1046,6 +1215,8 @@ class PersonaController extends Controller
             'rubrosRegistrados',
             'responsablesRegistrados',
             'rolSolicitante',
+            'rolRepresentanteLegal',
+            'usuarioCuentaAcceso',
             'rubrosCatalogo',
             'ocupacionesCob',
             'expedidosNatural'
@@ -1053,158 +1224,46 @@ class PersonaController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Actualiza la persona y sus relaciones dentro de una sola transaccion.
      */
     public function update(Request $solicitud, Persona $persona)
     {
         $this->usarPaisComoTerritorioSiNoHayDepartamento($solicitud);
-        $persona->loadMissing(['natural', 'usuario.roles', 'empresa.responsables.persona.natural']);
+        $persona->loadMissing([
+            'natural',
+            'usuario.roles',
+            'empresa.responsables.persona.natural',
+            'empresa.responsables.persona.usuario',
+        ]);
         $rolSolicitante = $this->rolSolicitanteActivo();
-        $this->fijarDatosAccesoSolicitanteEnSolicitud($solicitud, $rolSolicitante);
-        $responsableActivoAnterior = $persona->empresa?->responsables
-            ->first(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO');
-        $usuarioCuentaId = $persona->usuario?->id;
-        $naturalId = $persona->natural?->id;
-        $reglaPasswordCuenta = 'nullable|string|min:8';
+        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
+        $this->fijarRolesEmpresaEnSolicitud($solicitud, $rolSolicitante, $rolRepresentanteLegal);
+        $relacionesEmpresa = $persona->empresa?->responsables ?? collect();
+        $responsableActivoAnterior = $this->relacionesRepresentanteLegal(
+            $relacionesEmpresa,
+            $rolRepresentanteLegal,
+            $rolSolicitante
+        )->first(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO');
+        $responsableSolicitado = $solicitud->input('responsables.0', []);
+        $personaResponsableSolicitada = $this->personaResponsableExistente($responsableSolicitado);
+        $usuarioCuentaAnterior = $responsableActivoAnterior?->persona?->usuario ?: $persona->usuario;
+        $mismoResponsable = $personaResponsableSolicitada
+            && (int) $personaResponsableSolicitada->id === (int) $responsableActivoAnterior?->id_persona;
+        $usuarioCuentaDestino = $solicitud->input('form_tipo_registro') === 'EMPRESA'
+            ? ($personaResponsableSolicitada?->usuario ?: ($mismoResponsable ? $usuarioCuentaAnterior : null))
+            : $persona->usuario;
 
         try {
-            $datos = $solicitud->validate([
-            'form_tipo_registro' => 'required|in:NATURAL,EMPRESA',
-
-            // PERSONA GENERAL
-            'form_domicilio'     => 'nullable|string|max:255',
-            'form_nit'           => [
-                'required_if:form_tipo_registro,EMPRESA',
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('personas', 'nit')->ignore($persona->id),
-            ],
-            'form_correo'        => [
-                'required',
-                'email',
-                'max:50',
-                Rule::unique('personas', 'correo')->ignore($persona->id),
-            ],
-            'form_id_pais'       => [
-                'required',
-                Rule::exists('territorios', 'id')->where(fn ($query) => $query->where('id_ambito', 1)),
-            ],
-            'form_id_territorio' => 'required|exists:territorios,id',
-            'form_estado'        => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
-
-            // NATURAL
-            'form_ci'               => [
-                'required_if:form_tipo_registro,NATURAL',
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('naturals', 'ci')->ignore($naturalId),
-            ],
-            'form_complemento'      => 'nullable|string|max:10',
-            'form_expedido'         => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
-            'form_nombres'          => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
-            'form_apellido_paterno' => 'required_if:form_tipo_registro,NATURAL|nullable|string|max:100',
-            'form_apellido_materno' => 'nullable|string|max:100',
-            'form_apellido_casado'  => 'nullable|string|max:100',
-            'form_fecha_nacimiento' => 'nullable|date',
-            'form_genero'           => 'required_if:form_tipo_registro,NATURAL|nullable',
-            'form_id_ocupacion'     => 'nullable|exists:ocupaciones_cob,id',
-
-            // EMPRESA
-            'form_id_tipo_empresa'  => 'required_if:form_tipo_registro,EMPRESA|nullable|exists:tipos_empresas,id',
-            'form_razon_social'     => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:255',
-            'form_matricula'        => 'required_if:form_tipo_registro,EMPRESA|nullable|string|max:50',
-            'form_latitud'          => 'nullable',
-            'form_longitud'         => 'nullable',
-            'form_estado_empresa'   => 'nullable|max:50',
-
-            // TELEFONOS PERSONA PRINCIPAL
-            'telefonos'          => 'nullable|array',
-            'telefonos.*.id'     => 'nullable|integer|exists:telefonos,id',
-            'telefonos.*.numero' => 'required|string|max:50',
-            'telefonos.*.estado' => 'required|in:ACTIVO,INACTIVO',
-
-            // RUBROS PERSONA / EMPRESA
-            'rubros'   => 'nullable|array',
-            'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
-
-            // RESPONSABLES EMPRESA
-            'responsables'                     => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
-            'responsables.*.tipo'              => 'required|in:NUEVO,EXISTENTE',
-            'responsables.*.id_persona'        => 'nullable|exists:personas,id',
-            'responsables.*.domicilio'         => 'nullable|string|max:255',
-            'responsables.*.nit'               => 'nullable|string|max:50',
-            'responsables.*.correo'            => 'nullable|email|max:50',
-            'responsables.*.id_territorio'     => 'nullable|exists:territorios,id',
-            'responsables.*.territorio_nombre' => 'nullable|string|max:255',
-            'responsables.*.nombres'           => 'nullable|string|max:100',
-            'responsables.*.apellido_paterno'  => 'nullable|string|max:100',
-            'responsables.*.apellido_materno'  => 'nullable|string|max:100',
-            'responsables.*.apellido_casado'   => 'nullable|string|max:100',
-            'responsables.*.ci'                => 'nullable|string|max:50',
-            'responsables.*.complemento'       => 'nullable|string|max:10',
-            'responsables.*.expedido'          => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
-            'responsables.*.fecha_nacimiento'  => 'nullable|date',
-            'responsables.*.genero'            => ['nullable', Rule::in(['0', '1', 0, 1])],
-            'responsables.*.id_ocupacion'      => 'nullable|exists:ocupaciones_cob,id',
-            'responsables.*.ocupacion'         => 'nullable|string|max:255',
-            'responsables.*.telefonos'         => 'nullable|array',
-            'responsables.*.telefonos.*.id'    => 'nullable|integer|exists:telefonos,id',
-            'responsables.*.telefonos.*.numero'=> 'required|string|max:50',
-            'responsables.*.telefonos.*.estado'=> 'required|in:ACTIVO,INACTIVO',
-            'responsables.*.rubros'            => 'nullable|array',
-            'responsables.*.rubros.*.id'       => ['required', 'integer', $this->reglaRubroCaebActivo()],
-            'responsables.*.rubros.*.nombre'   => 'nullable|string|max:255',
-            'responsables.*.rubros.*.estado'   => 'nullable|string|max:50',
-            'responsables.*.id_rol'            => [
-                'required_if:form_tipo_registro,EMPRESA',
-                'nullable',
-                Rule::in([$rolSolicitante->id]),
-            ],
-            'responsables.*.url_respaldo'      => 'nullable|string|max:255',
-            'responsables.*.archivo_respaldo'  => 'nullable|file|mimes:pdf|max:5120',
-            'responsables.*.estado'            => ['nullable', Rule::in(['ACTIVO', 'INACTIVO'])],
-
-            // CUENTA DE ACCESO RELACIONADA A LA PERSONA/EMPRESA
-            'form_usuario_name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('users', 'name')->ignore($usuarioCuentaId),
-            ],
-            'form_usuario_email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($usuarioCuentaId),
-            ],
-            'form_usuario_password' => $reglaPasswordCuenta,
-            'form_id_role' => [
-                'required',
-                Rule::in([$rolSolicitante->id]),
-            ],
-            ], $this->mensajesValidacionPersona(), [
-                // Nombres legibles: mantienen create y edit con mensajes entendibles.
-                'form_tipo_registro' => 'tipo de registro',
-                'form_correo' => 'correo electrónico',
-                'form_id_pais' => 'país',
-                'form_id_territorio' => 'territorio',
-                'form_ci' => 'CI',
-                'form_nombres' => 'nombres',
-                'form_apellido_paterno' => 'apellido paterno',
-                'form_genero' => 'género',
-                'form_id_tipo_empresa' => 'tipo de empresa',
-                'form_razon_social' => 'razón social',
-                'form_matricula' => 'matrícula',
-                'form_usuario_name' => 'nombre de usuario',
-                'form_usuario_email' => 'correo de acceso',
-                'form_usuario_password' => 'contraseña de acceso',
-                'form_id_role' => 'rol de acceso',
-                'responsables.*.id_rol' => 'rol del responsable',
-                'responsables.*.id_persona' => 'persona responsable',
-                'responsables' => 'responsable o representante legal',
-            ]);
+            $datos = $solicitud->validate(
+                $this->reglasValidacionPersona(
+                    $rolSolicitante,
+                    $rolRepresentanteLegal,
+                    personaEditada: $persona,
+                    usuarioCuenta: $usuarioCuentaDestino
+                ),
+                $this->mensajesValidacionPersona(),
+                $this->atributosValidacionPersona()
+            );
 
             // Evita errores SQL tambien al editar responsables nuevos de empresa.
             $this->validarResponsablesAntesDeGuardar($datos['responsables'] ?? []);
@@ -1217,7 +1276,7 @@ class PersonaController extends Controller
             if ($estadoPersona === 'INACTIVO' && strtoupper((string) $persona->estado) !== 'INACTIVO') {
                 $bloqueosInactivacion = $this->obtenerBloqueosEliminacionPersona($persona);
 
-                if (!empty($bloqueosInactivacion)) {
+                if (! empty($bloqueosInactivacion)) {
                     throw ValidationException::withMessages([
                         'form_estado' => 'No se puede cambiar el estado porque el registro está relacionado con otros datos.',
                     ]);
@@ -1234,52 +1293,32 @@ class PersonaController extends Controller
         $responsableEnviado = $datos['responsables'][0] ?? null;
         $responsableActivo = $datos['form_tipo_registro'] !== 'EMPRESA'
             || strtoupper($responsableEnviado['estado'] ?? 'ACTIVO') === 'ACTIVO';
-        $cambioResponsable = false;
-
-        if ($datos['form_tipo_registro'] === 'EMPRESA') {
-            $idResponsableEnviado = (int) ($responsableEnviado['id_persona'] ?? 0);
-            $ciResponsableEnviado = trim((string) ($responsableEnviado['ci'] ?? ''));
-            $ciResponsableAnterior = trim((string) ($responsableActivoAnterior?->persona?->natural?->ci ?? ''));
-
-            $cambioResponsable = ! $responsableActivoAnterior
-                || ($idResponsableEnviado > 0
-                    ? $idResponsableEnviado !== (int) $responsableActivoAnterior->id_persona
-                    : $ciResponsableEnviado === '' || $ciResponsableEnviado !== $ciResponsableAnterior);
-        }
 
         try {
             DB::beginTransaction();
 
-            // Actualiza o crea la cuenta vinculada a personas.id_usuario.
-            $usuarioAcceso = $persona->usuario ?: new User();
-            $usuarioAcceso->name = $datos['form_usuario_name'];
-            $usuarioAcceso->email = $datos['form_usuario_email'];
-            $usuarioAcceso->estado = $estadoPersona === 'ACTIVO' && $responsableActivo ? 1 : 0;
-            $passwordGeneradaCuenta = null;
+            $usuarioAcceso = $datos['form_tipo_registro'] === 'EMPRESA'
+                ? ($usuarioCuentaDestino ?: new User)
+                : ($persona->usuario ?: new User);
+            [$usuarioAcceso, $passwordGeneradaCuenta] = $this->guardarCuentaAcceso(
+                $usuarioAcceso,
+                $datos,
+                $estadoPersona === 'ACTIVO' && $responsableActivo
+            );
 
-            if (!empty($datos['form_usuario_password']) || ! $usuarioCuentaId || $cambioResponsable) {
-                $passwordCuenta = $datos['form_usuario_password'] ?: $this->generarPasswordTemporalCuenta();
-                $usuarioAcceso->password = $passwordCuenta;
-
-                if (empty($datos['form_usuario_password'])) {
-                    $passwordGeneradaCuenta = $passwordCuenta;
-                }
-            }
-
-            $usuarioAcceso->save();
-            $usuarioAcceso->roles()->sync([$datos['form_id_role']]);
-
-            if ($cambioResponsable || ! $responsableActivo || $estadoPersona === 'INACTIVO') {
+            if (! $responsableActivo || $estadoPersona === 'INACTIVO') {
                 $this->cerrarAccesosUsuario($usuarioAcceso);
             }
 
             $persona->update([
-                'id_usuario'     => $usuarioAcceso->id,
-                'domicilio'     => $datos['form_domicilio'] ?? null,
-                'nit'           => $datos['form_nit'] ?? null,
-                'correo'        => $datos['form_correo'],
+                'id_usuario' => $datos['form_tipo_registro'] === 'NATURAL'
+                    ? $usuarioAcceso->id
+                    : null,
+                'domicilio' => $datos['form_domicilio'] ?? null,
+                'nit' => $datos['form_nit'] ?? null,
+                'correo' => $datos['form_correo'],
                 'id_territorio' => $datos['form_id_territorio'],
-                'estado'        => $estadoPersona,
+                'estado' => $estadoPersona,
             ]);
 
             $this->sincronizarTelefonosPersona($persona->id, $datos['telefonos'] ?? []);
@@ -1290,22 +1329,27 @@ class PersonaController extends Controller
                 if ($persona->empresa) {
                     Responsable::where('id_empresa', $persona->empresa->id)->delete();
                     $persona->empresa->delete();
+
+                    if ($usuarioCuentaAnterior && $usuarioCuentaAnterior->isNot($usuarioAcceso)) {
+                        $usuarioCuentaAnterior->update(['estado' => 0]);
+                        $this->cerrarAccesosUsuario($usuarioCuentaAnterior);
+                    }
                 }
 
                 Natural::updateOrCreate(
                     ['id_persona' => $persona->id],
                     [
-                        'id_ocupacion'     => $datos['form_id_ocupacion'] ?? null,
-                        'ci'               => $datos['form_ci'] ?? null,
-                        'complemento'      => $datos['form_complemento'] ?? null,
-                        'expedido'         => $datos['form_expedido'] ?? null,
-                        'nombres'          => $this->mayuscula($datos['form_nombres'] ?? null),
+                        'id_ocupacion' => $datos['form_id_ocupacion'] ?? null,
+                        'ci' => $datos['form_ci'] ?? null,
+                        'complemento' => $datos['form_complemento'] ?? null,
+                        'expedido' => $datos['form_expedido'] ?? null,
+                        'nombres' => $this->mayuscula($datos['form_nombres'] ?? null),
                         'apellido_paterno' => $this->mayuscula($datos['form_apellido_paterno'] ?? null),
                         'apellido_materno' => $this->mayuscula($datos['form_apellido_materno'] ?? null),
-                        'apellido_casado'  => $this->mayuscula($datos['form_apellido_casado'] ?? null),
+                        'apellido_casado' => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                         'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
-                        'genero'           => $datos['form_genero'],
-                        'ocupacion'        => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
+                        'genero' => $datos['form_genero'],
+                        'ocupacion' => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                     ]
                 );
             }
@@ -1320,35 +1364,53 @@ class PersonaController extends Controller
                     ['id_persona' => $persona->id],
                     [
                         'id_tipo_empresa' => $datos['form_id_tipo_empresa'],
-                        'razon_social'    => $datos['form_razon_social'],
-                        'matricula'       => $datos['form_matricula'],
-                        'latitud'         => $datos['form_latitud'] ?? null,
-                        'longitud'        => $datos['form_longitud'] ?? null,
-                        'estado'          => $estadoPersona === 'INACTIVO'
+                        'razon_social' => $datos['form_razon_social'],
+                        'matricula' => $datos['form_matricula'],
+                        'latitud' => $datos['form_latitud'] ?? null,
+                        'longitud' => $datos['form_longitud'] ?? null,
+                        'estado' => $estadoPersona === 'INACTIVO'
                             ? 'INACTIVO'
-                            : (!empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO'),
+                            : (! empty($datos['form_estado_empresa']) ? $datos['form_estado_empresa'] : 'ACTIVO'),
                     ]
                 );
 
-                // Los anteriores quedan como historial; solo el enviado conserva su estado actual.
+                // Solo se reemplaza la representacion legal; los tramitadores conservan su estado.
                 Responsable::where('id_empresa', $empresa->id)
+                    ->whereIn('id_rol', [$rolRepresentanteLegal->id, $rolSolicitante->id])
                     ->where('estado', '!=', 'INACTIVO')
                     ->update([
                         'estado' => 'INACTIVO',
                         'fecha_baja' => now()->toDateString(),
                     ]);
 
-                $this->registrarResponsablesEmpresa($empresa->id, $datos['responsables'] ?? []);
+                $this->registrarResponsablesEmpresa(
+                    $empresa->id,
+                    $datos['responsables'] ?? [],
+                    [],
+                    $usuarioAcceso->id
+                );
+
+                if ($usuarioCuentaAnterior && $usuarioCuentaAnterior->isNot($usuarioAcceso)) {
+                    $mantieneOtraAutorizacion = $responsableActivoAnterior
+                        && Responsable::where('id_persona', $responsableActivoAnterior->id_persona)
+                            ->where('estado', 'ACTIVO')
+                            ->exists();
+
+                    if (! $mantieneOtraAutorizacion) {
+                        $usuarioCuentaAnterior->update(['estado' => 0]);
+                        $this->cerrarAccesosUsuario($usuarioCuentaAnterior);
+                    }
+                }
             }
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Actualizado',
-                'text'  => $passwordGeneradaCuenta
-                    ? 'El registro se actualizo correctamente. Contrasena generada: ' . $passwordGeneradaCuenta
+                'text' => $passwordGeneradaCuenta
+                    ? 'El registro se actualizo correctamente. Contrasena generada: '.$passwordGeneradaCuenta
                     : 'El registro se actualizo correctamente.',
-                'icon'  => 'success'
+                'icon' => 'success',
             ]);
 
             return redirect()->route('personas_index');
@@ -1357,14 +1419,38 @@ class PersonaController extends Controller
             DB::rollBack();
 
             return back()
-                ->with('error', 'No se pudo actualizar. ' . $e->getMessage())
+                ->with('error', 'No se pudo actualizar. '.$e->getMessage())
                 ->withInput();
         }
     }
 
     /**
-     * Genera una contrasena temporal cuando el usuario no escribe una manualmente.
+     * Crea o actualiza la cuenta que utilizara la persona solicitante.
+     *
+     * @return array{0: User, 1: ?string}
      */
+    private function guardarCuentaAcceso(User $usuario, array $datos, bool $activa): array
+    {
+        $usuario->name = $datos['form_usuario_name'];
+        $usuario->email = $datos['form_usuario_email'];
+        $usuario->estado = $activa ? 1 : 0;
+        $passwordGenerada = null;
+
+        if (! $usuario->exists || ! empty($datos['form_usuario_password'])) {
+            $password = $datos['form_usuario_password'] ?: $this->generarPasswordTemporalCuenta();
+            $usuario->password = $password;
+
+            if (empty($datos['form_usuario_password'])) {
+                $passwordGenerada = $password;
+            }
+        }
+
+        $usuario->save();
+        $usuario->roles()->sync([$datos['form_id_role']]);
+
+        return [$usuario, $passwordGenerada];
+    }
+
     private function generarPasswordTemporalCuenta(): string
     {
         return Str::random(10);
@@ -1386,7 +1472,7 @@ class PersonaController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Inactiva el registro sin borrar su historial.
      */
     public function destroy(Persona $persona)
     {
@@ -1398,8 +1484,8 @@ class PersonaController extends Controller
 
                 session()->flash('swal', [
                     'title' => 'Sin cambios',
-                    'text'  => 'El registro ya se encuentra inactivo.',
-                    'icon'  => 'info',
+                    'text' => 'El registro ya se encuentra inactivo.',
+                    'icon' => 'info',
                 ]);
 
                 return redirect()->route('personas_index');
@@ -1415,17 +1501,19 @@ class PersonaController extends Controller
             ]);
             $bloqueosEliminacion = $this->obtenerBloqueosEliminacionPersona($persona);
 
-            if (!empty($bloqueosEliminacion)) {
+            if (! empty($bloqueosEliminacion)) {
                 DB::rollBack();
 
                 session()->flash('swal', [
                     'title' => 'No se puede eliminar',
-                    'text'  => 'Este registro tiene relaciones activas: ' . implode(' ', $bloqueosEliminacion),
-                    'icon'  => 'warning',
+                    'text' => 'Este registro tiene relaciones activas: '.implode(' ', $bloqueosEliminacion),
+                    'icon' => 'warning',
                 ]);
 
                 return redirect()->route('personas_index');
             }
+
+            $usuarioAcceso = $persona->usuarioAcceso();
 
             // La ficha y sus datos relacionados se conservan para mantener el historial.
             $persona->estado = 'INACTIVO';
@@ -1436,17 +1524,18 @@ class PersonaController extends Controller
                 $persona->empresa->save();
             }
 
-            if ($persona->usuario) {
-                $persona->usuario->estado = 0;
-                $persona->usuario->save();
+            if ($usuarioAcceso) {
+                $usuarioAcceso->estado = 0;
+                $usuarioAcceso->save();
+                $this->cerrarAccesosUsuario($usuarioAcceso);
             }
 
             DB::commit();
 
             session()->flash('swal', [
                 'title' => 'Eliminado',
-                'text'  => 'El registro se eliminó correctamente.',
-                'icon'  => 'success'
+                'text' => 'El registro se eliminó correctamente.',
+                'icon' => 'success',
             ]);
 
             return redirect()->route('personas_index');
@@ -1454,7 +1543,7 @@ class PersonaController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo eliminar. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo eliminar. '.$e->getMessage());
         }
     }
 

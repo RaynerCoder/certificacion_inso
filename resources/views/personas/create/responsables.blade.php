@@ -418,14 +418,14 @@
 
                 <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                    {{-- El servidor vuelve a fijar este rol para impedir cambios desde el navegador. --}}
+                    {{-- La relacion empresarial se fija tambien en el servidor. --}}
                     <x-wire-native-select
-                        label="Rol de registro"
+                        label="Rol del responsable"
                         id="nuevo_id_rol"
                         disabled
                     >
-                        <option value="{{ $rolSolicitante->id }}" selected>
-                            {{ $rolSolicitante->name }}
+                        <option value="{{ $rolRepresentanteLegal->id }}" selected>
+                            {{ $rolRepresentanteLegal->name }}
                         </option>
                     </x-wire-native-select>
 

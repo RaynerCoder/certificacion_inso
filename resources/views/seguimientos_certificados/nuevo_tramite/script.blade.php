@@ -21,7 +21,13 @@
         const selectorTramitador = document.querySelector('[data-tramite-select="tramitador"]');
         const selectorTipoCertificado = document.querySelector('[data-tramite-select="tipo-certificado"]');
         const mismoBeneficiario = document.getElementById('mismoBeneficiario');
-        const tabla = document.getElementById('tablaDocumentosTramite');
+        const contenedorRequisitos = document.getElementById('contenedorDocumentosTramite');
+        const progresoTexto = document.getElementById('requisitosProgresoTexto');
+        const progresoBarra = document.getElementById('requisitosProgresoBar');
+        const progresoControl = progresoBarra?.closest('[role="progressbar"]');
+        const resumenDocumentos = document.getElementById('resumenDocumentosTramite');
+        const resumenDocumentosTexto = document.getElementById('resumenDocumentosTexto');
+        const resumenDocumentosBarra = document.getElementById('resumenDocumentosBarra');
         let idBeneficiarioAnterior = '';
 
         // La validacion final queda en Laravel. Aqui solo evitamos que el navegador bloquee filas creadas por JS.
@@ -30,11 +36,164 @@
             formTramite.noValidate = true;
 
             formTramite.addEventListener('submit', (evento) => {
+                if (formTramite.dataset.enviando === '1') {
+                    evento.preventDefault();
+                    evento.stopImmediatePropagation();
+                    return;
+                }
+
                 if (!validarArchivosAntesDeEnviar() || !validarTextosAntesDeEnviar()) {
                     evento.preventDefault();
                     evento.stopImmediatePropagation();
+                    return;
                 }
+
+                // El envio asincrono evita recargar la pagina cuando Laravel encuentra un error.
+                // De esta manera el navegador conserva los archivos que ya fueron seleccionados.
+                evento.preventDefault();
+                limpiarErroresServidor();
+                enviarTramiteSinRecargar(evento.submitter);
             }, true);
+        }
+
+        async function enviarTramiteSinRecargar(botonEnviado) {
+            const datos = new FormData(formTramite);
+
+            if (botonEnviado?.name) {
+                datos.set(botonEnviado.name, botonEnviado.value);
+            }
+
+            try {
+                const respuesta = await fetch(formTramite.action, {
+                    method: 'POST',
+                    body: datos,
+                    credentials: 'same-origin',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (respuesta.status === 422) {
+                    const resultado = await respuesta.json();
+                    restaurarFormularioTrasError();
+                    mostrarErroresServidor(resultado.errors || { formulario: [resultado.message] });
+                    return;
+                }
+
+                if (!respuesta.ok) {
+                    restaurarFormularioTrasError();
+                    mostrarErrorGeneral('No se pudo enviar el trámite. Revise la información e intente nuevamente.');
+                    return;
+                }
+
+                const resultado = await respuesta.json();
+
+                // Laravel entrega el destino únicamente cuando el trámite terminó correctamente.
+                window.location.assign(resultado.redirect);
+            } catch (error) {
+                restaurarFormularioTrasError();
+                mostrarErrorGeneral('No se pudo conectar con el servidor. Sus documentos continúan seleccionados.');
+            }
+        }
+
+        function restaurarFormularioTrasError() {
+            delete formTramite.dataset.enviando;
+
+            formTramite.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((boton) => {
+                boton.disabled = false;
+                boton.classList.remove('opacity-75', 'cursor-not-allowed');
+
+                if (!boton.dataset.textoOriginal) {
+                    return;
+                }
+
+                if (boton.tagName === 'BUTTON') {
+                    boton.innerHTML = boton.dataset.textoOriginal;
+                } else {
+                    boton.value = boton.dataset.textoOriginal;
+                }
+            });
+
+            window.Swal?.close();
+        }
+
+        function nombreInputDesdeError(campo) {
+            const partes = String(campo).split('.');
+            const nombreBase = partes.shift();
+
+            return nombreBase + partes.map((parte) => `[${parte}]`).join('');
+        }
+
+        function mostrarErroresServidor(errores) {
+            const mensajes = [];
+            let primerCampo = null;
+
+            Object.entries(errores || {}).forEach(([campo, listaMensajes]) => {
+                const mensaje = Array.isArray(listaMensajes) ? listaMensajes[0] : String(listaMensajes || '');
+                const nombreInput = nombreInputDesdeError(campo);
+                const input = Array.from(formTramite.elements)
+                    .find((elemento) => elemento.name === nombreInput);
+
+                if (mensaje) {
+                    mensajes.push(mensaje);
+                }
+
+                if (!input) {
+                    return;
+                }
+
+                primerCampo ||= input;
+
+                if (input.classList.contains('tramite-pdf-input')) {
+                    mostrarErrorArchivoCliente(input, mensaje);
+                    return;
+                }
+
+                if (input.classList.contains('tramite-texto-input')) {
+                    mostrarErrorTextoCliente(input, mensaje);
+                    return;
+                }
+
+                input.classList.add('is-invalid');
+                const contenedor = input.closest('.tramite-inicio-field') || input.parentElement;
+                if (contenedor) {
+                    const error = document.createElement('p');
+                    error.dataset.errorServidor = '1';
+                    error.className = 'mt-2 text-sm text-red-600';
+                    error.textContent = mensaje;
+                    contenedor.appendChild(error);
+                }
+            });
+
+            if (primerCampo) {
+                const destino = primerCampo.closest('.tramite-requisito-item, .tramite-inicio-field') || primerCampo;
+                destino.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                primerCampo.focus({ preventScroll: true });
+            }
+
+            mostrarErrorGeneral(mensajes[0] || 'Revise los campos señalados antes de volver a enviar.');
+        }
+
+        function limpiarErroresServidor() {
+            formTramite.querySelectorAll('[data-error-servidor]').forEach((error) => error.remove());
+            formTramite.querySelectorAll('.tramite-inicio-field .is-invalid').forEach((campo) => {
+                campo.classList.remove('is-invalid');
+            });
+        }
+
+        function mostrarErrorGeneral(mensaje) {
+            if (window.Swal) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Revise el formulario',
+                    text: mensaje,
+                    confirmButtonText: 'Entendido',
+                });
+                return;
+            }
+
+            window.alert(mensaje);
         }
 
         // Escapa texto antes de insertarlo en HTML generado.
@@ -62,7 +221,7 @@
             return String(anterior.valor_texto || '');
         }
 
-        // Muestra nombres largos sin romper la fila de la tabla.
+        // Acorta nombres largos para mantener alineado el control de archivo.
         function nombreArchivoCorto(nombre) {
             if (!nombre) {
                 return 'Sin archivo seleccionado';
@@ -76,15 +235,15 @@
             const codigo = String(codigoEvidencia || '').toUpperCase();
 
             if (codigo.includes('CERTIFICADO')) {
-                return 'Certificado vigente pendiente de revision.';
+                return 'El sistema verificará el certificado vigente durante la revisión del trámite.';
             }
 
             if (codigo === 'PAGO') {
-                return 'Se validara el pago registrado.';
+                return 'El pago registrado será validado durante la revisión del trámite.';
             }
 
             if (codigo === 'PRESENCIAL') {
-                return 'Revision presencial pendiente.';
+                return 'El personal del INSO realizará la validación presencial del requisito.';
             }
 
             if (codigo === 'TRAMITADOR') {
@@ -92,14 +251,14 @@
             }
 
             if (codigo === 'TEXTO') {
-                return 'Dato pendiente de revision.';
+                return 'Dato pendiente de revisión.';
             }
 
             if (codigo === 'IMAGEN') {
-                return 'Imagen pendiente de revision.';
+                return 'Imagen pendiente de revisión.';
             }
 
-            return 'Pendiente de revision.';
+            return 'Pendiente de revisión.';
         }
 
         // Define que archivo permite cada tipo de evidencia que se puede adjuntar.
@@ -144,11 +303,11 @@
             }
 
             return `
-                <div class="tramite-evidencia-certificados">
+                <span class="tramite-evidencia-certificados">
                     ${certificados.map((certificado) => `
                         <span>${escaparHtml(certificado.nombre)}</span>
                     `).join('')}
-                </div>
+                </span>
             `;
         }
 
@@ -476,6 +635,7 @@
                 botonQuitar.disabled = true;
                 control.classList.remove('is-invalid');
                 limpiarErrorArchivoCliente(inputArchivo);
+                actualizarProgresoDocumentos();
             }
 
             inputArchivo.addEventListener('change', () => {
@@ -505,6 +665,7 @@
                 botonQuitar.disabled = false;
                 control.classList.remove('is-invalid');
                 limpiarErrorArchivoCliente(inputArchivo);
+                actualizarProgresoDocumentos();
             });
 
             botonVer.addEventListener('click', () => {
@@ -514,6 +675,69 @@
             });
 
             botonQuitar.addEventListener('click', limpiarArchivo);
+        }
+
+        // Resume únicamente los archivos que el solicitante debe adjuntar en este formulario.
+        function actualizarProgresoDocumentos() {
+            const archivos = Array.from(contenedorRequisitos?.querySelectorAll('.tramite-pdf-input[required]') || []);
+            const total = archivos.length;
+            const completados = archivos.filter(input => input.files?.length > 0).length;
+            const porcentaje = total > 0 ? Math.round((completados / total) * 100) : 0;
+
+            if (progresoTexto) {
+                progresoTexto.textContent = `${completados} de ${total} documentos`;
+            }
+
+            if (progresoBarra) {
+                progresoBarra.style.width = `${porcentaje}%`;
+            }
+
+            if (progresoControl) {
+                progresoControl.setAttribute('aria-valuemax', String(total));
+                progresoControl.setAttribute('aria-valuenow', String(completados));
+            }
+
+            if (resumenDocumentos) {
+                resumenDocumentos.classList.toggle('is-hidden', total === 0);
+            }
+
+            if (resumenDocumentosTexto) {
+                const pendientes = total - completados;
+                resumenDocumentosTexto.textContent = pendientes === 1
+                    ? '1 documento pendiente'
+                    : `${pendientes} documentos pendientes`;
+            }
+
+            if (resumenDocumentosBarra) {
+                resumenDocumentosBarra.style.width = `${porcentaje}%`;
+            }
+
+            actualizarEstadosRequisitos();
+        }
+
+        // Actualiza solo la presentación; los valores enviados a Laravel no cambian.
+        function actualizarEstadosRequisitos() {
+            contenedorRequisitos?.querySelectorAll('.tramite-requisito-item').forEach((requisito) => {
+                const archivo = requisito.querySelector('.tramite-pdf-input[required]');
+                const texto = requisito.querySelector('.tramite-texto-input[required]');
+                const estado = requisito.querySelector('.tramite-requisito-status');
+
+                if (!archivo && !texto) {
+                    return;
+                }
+
+                const completado = archivo
+                    ? Boolean(archivo.files?.length)
+                    : texto.value.trim() !== '';
+
+                requisito.classList.toggle('is-complete', completado);
+
+                if (estado) {
+                    estado.innerHTML = completado
+                        ? '<i class="fa-solid fa-check"></i> Completado'
+                        : '<i class="fa-regular fa-clock"></i> Pendiente';
+                }
+            });
         }
 
         // Evita enviar el formulario si falta un archivo obligatorio. Asi no se pierden los archivos ya elegidos.
@@ -528,36 +752,39 @@
             }
 
             mostrarErrorArchivoCliente(primerFaltante, 'Seleccione la evidencia solicitada antes de enviar el tramite.');
-            primerFaltante.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const requisitoFaltante = primerFaltante.closest('.tramite-requisito-item');
+            if (requisitoFaltante) {
+                requisitoFaltante.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
 
             return false;
         }
 
         function mostrarErrorArchivoCliente(inputArchivo, mensaje) {
-            const celda = inputArchivo.closest('td');
+            const campo = inputArchivo.closest('.tramite-requisito-field');
             const control = inputArchivo.closest('.tramite-pdf-control');
 
-            if (!celda) {
+            if (!campo) {
                 return;
             }
 
             control?.classList.add('is-invalid');
 
-            let error = celda.querySelector('[data-error-archivo-cliente]');
+            let error = campo.querySelector('[data-error-archivo-cliente]');
             if (!error) {
                 error = document.createElement('p');
                 error.dataset.errorArchivoCliente = '1';
                 error.className = 'mt-2 text-sm text-red-600';
-                celda.appendChild(error);
+                campo.appendChild(error);
             }
 
             error.textContent = mensaje;
         }
 
         function limpiarErrorArchivoCliente(inputArchivo) {
-            const celda = inputArchivo.closest('td');
+            const campo = inputArchivo.closest('.tramite-requisito-field');
             const control = inputArchivo.closest('.tramite-pdf-control');
-            const error = celda?.querySelector('[data-error-archivo-cliente]');
+            const error = campo?.querySelector('[data-error-archivo-cliente]');
 
             control?.classList.remove('is-invalid');
             error?.remove();
@@ -576,7 +803,10 @@
             }
 
             mostrarErrorTextoCliente(primerFaltante, 'Ingrese el dato solicitado antes de enviar el tramite.');
-            primerFaltante.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const requisitoFaltante = primerFaltante.closest('.tramite-requisito-item');
+            if (requisitoFaltante) {
+                requisitoFaltante.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             primerFaltante.focus();
 
             return false;
@@ -589,20 +819,22 @@
                 if (inputTexto.value.trim() !== '') {
                     limpiarErrorTextoCliente(inputTexto);
                 }
+
+                actualizarEstadosRequisitos();
             });
         }
 
         function mostrarErrorTextoCliente(inputTexto, mensaje) {
-            const celda = inputTexto.closest('td');
+            const campo = inputTexto.closest('.tramite-requisito-field');
 
             inputTexto.classList.add('is-invalid');
 
-            let error = celda?.querySelector('[data-error-texto-cliente]');
-            if (!error && celda) {
+            let error = campo?.querySelector('[data-error-texto-cliente]');
+            if (!error && campo) {
                 error = document.createElement('p');
                 error.dataset.errorTextoCliente = '1';
                 error.className = 'mt-2 text-sm text-red-600';
-                celda.appendChild(error);
+                campo.appendChild(error);
             }
 
             if (error) {
@@ -611,10 +843,10 @@
         }
 
         function limpiarErrorTextoCliente(inputTexto) {
-            const celda = inputTexto.closest('td');
+            const campo = inputTexto.closest('.tramite-requisito-field');
 
             inputTexto.classList.remove('is-invalid');
-            celda?.querySelector('[data-error-texto-cliente]')?.remove();
+            campo?.querySelector('[data-error-texto-cliente]')?.remove();
         }
 
         // Valida visualmente contra el accept del input; la validacion definitiva queda en Laravel.
@@ -642,29 +874,29 @@
             });
         }
 
-        // Dibuja los requisitos del tipo de certificado elegido.
+        // Dibuja cada requisito como un campo del formulario, conservando los nombres que recibe Laravel.
         function renderRequisitos() {
             const requisitos = requisitosPorTipo[tipoSelect?.value] || [];
 
-            if (!tabla) {
+            if (!contenedorRequisitos) {
                 return;
             }
 
-            tabla.innerHTML = '';
+            contenedorRequisitos.innerHTML = '';
+            contenedorRequisitos.classList.toggle('is-empty', requisitos.length === 0);
 
             if (requisitos.length === 0) {
-                tabla.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center text-slate-500">
-                            Seleccione un tipo de certificado para cargar los requisitos.
-                        </td>
-                    </tr>
+                contenedorRequisitos.innerHTML = `
+                    <div class="tramite-requisitos-empty">
+                        Seleccione un tipo de certificado para cargar los requisitos.
+                    </div>
                 `;
+                actualizarProgresoDocumentos();
                 return;
             }
 
             requisitos.forEach((requisito, index) => {
-                const fila = document.createElement('tr');
+                const bloque = document.createElement('section');
                 const inputId = `documento_requisito_${index}`;
                 const errorRequisito = errorLaravel(`requisitos_certificados.${index}.id_requisito`);
                 const errorDocumento = errorLaravel(`documentos_requisitos.${index}`);
@@ -674,23 +906,31 @@
                 const configArchivo = configuracionArchivoEvidencia(codigoEvidencia, requisito.tipo_evidencia_tamanio_maximo_mb);
                 const certificadosHtml = certificadosRequeridosHtml(requisito.certificados_requeridos);
                 const textoAnterior = valorTextoAnterior(requisito, index);
+                const requiereRespuesta = codigoEvidencia === 'TEXTO' || configArchivo.permiteArchivo;
+                const estadoInicial = requiereRespuesta ? 'Pendiente' : 'En revisión';
+                const claseEstado = requiereRespuesta ? '' : 'is-review';
+                const iconoEstado = requiereRespuesta ? 'fa-regular fa-clock' : 'fa-regular fa-hourglass-half';
 
-                fila.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>
-                        <strong>${escaparHtml(requisito.descripcion)}</strong>
+                bloque.className = 'tramite-requisito-item';
+                bloque.innerHTML = `
+                    <span class="tramite-requisito-number">${index + 1}</span>
+
+                    <div class="tramite-requisito-description">
+                        <span class="tramite-requisito-title">${escaparHtml(requisito.descripcion)}</span>
+                        ${errorRequisito ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorRequisito)}</p>` : ''}
+                    </div>
+
+                    <div class="tramite-requisito-evidencia">
+                        <span class="tramite-evidencia-info">
+                            <span class="tramite-evidencia-chip">${escaparHtml(tipoEvidenciaNombre)}</span>
+                            ${certificadosHtml}
+                        </span>
+
                         <input type="hidden" name="requisitos_certificados[${index}][id_requisito_tipo_certificado]" value="${escaparHtml(requisito.id_requisito_tipo_certificado || '')}">
                         <input type="hidden" name="requisitos_certificados[${index}][id_requisito]" value="${requisito.id_requisito}">
                         <input type="hidden" name="requisitos_certificados[${index}][id_tipo_evidencia]" value="${escaparHtml(requisito.id_tipo_evidencia || '')}">
-                        ${errorRequisito ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorRequisito)}</p>` : ''}
-                    </td>
-                    <td>
-                        <div class="tramite-evidencia-info">
-                            <span class="tramite-evidencia-chip">${escaparHtml(tipoEvidenciaNombre)}</span>
-                            ${certificadosHtml}
-                        </div>
-                    </td>
-                    <td>
+
+                        <div class="tramite-requisito-field">
                         ${codigoEvidencia === 'TEXTO' ? `
                             <input
                                 type="text"
@@ -736,22 +976,32 @@
                             </div>
                         ` : `
                             <div class="tramite-evidencia-pendiente">
-                                ${escaparHtml(textoEvidenciaTramite(codigoEvidencia))}
+                                <span class="tramite-evidencia-pendiente-icon">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                </span>
+                                <span>${escaparHtml(textoEvidenciaTramite(codigoEvidencia))}</span>
                             </div>
                         `}
                         ${errorDocumento ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorDocumento)}</p>` : ''}
                         ${errorTexto ? `<p class="mt-2 text-sm text-red-600">${escaparHtml(errorTexto)}</p>` : ''}
-                    </td>
+                        </div>
+                    </div>
+
+                    <span class="tramite-requisito-status ${claseEstado}">
+                        <i class="${iconoEstado}"></i> ${estadoInicial}
+                    </span>
                 `;
 
                 if (codigoEvidencia === 'TEXTO') {
-                    prepararControlTexto(fila);
+                    prepararControlTexto(bloque);
                 } else if (configArchivo.permiteArchivo) {
-                    prepararControlPdf(fila);
+                    prepararControlPdf(bloque);
                 }
 
-                tabla.appendChild(fila);
+                contenedorRequisitos.appendChild(bloque);
             });
+
+            actualizarProgresoDocumentos();
         }
 
         inicializarSelectorTramite(selectorBeneficiario);

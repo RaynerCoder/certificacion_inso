@@ -31,7 +31,7 @@ class RoleSeeder extends Seeder
             1 => ['Administrador', 'administrador', 'Acceso completo para administrar usuarios, roles, permisos, catalogos y configuracion general.', 'ALL'],
             2 => ['Tecnico Evaluador', 'tecnico-evaluador', 'Funcionario que revisa tramites, requisitos, productos, pagos y observaciones.', 'SISTEMA'],
             3 => ['Caja Pagos', 'caja-pagos', 'Funcionario encargado de registrar y validar pagos relacionados a tramites.', 'SISTEMA'],
-            4 => ['Solicitante', 'solicitante', 'Persona natural o empresa que inicia y consulta tramites propios.', 'SISTEMA'],
+            4 => ['Solicitante', 'solicitante', 'Persona natural que inicia tramites propios o actua por una empresa autorizada.', 'SISTEMA'],
             5 => ['Representante Legal', 'representante-legal', 'Persona que representa legalmente a una empresa ante el sistema.', null],
             6 => ['Tramitador', 'tramitador', 'Persona autorizada por una empresa para presentar y seguir tramites.', null],
             8 => ['Super Administrador', 'super-administrador', 'Cuenta principal con acceso total al sistema.', 'ALL'],

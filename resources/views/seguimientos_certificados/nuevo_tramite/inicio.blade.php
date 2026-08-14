@@ -1,42 +1,4 @@
 @php
-    // Usuario que registra el tramite.
-    $usuarioRegistroTramite = auth()->user();
-    $usuarioRegistroTramite?->loadMissing('funcionario.cargos', 'persona.empresa', 'persona.natural', 'roles');
-    $funcionarioRegistroTramite = $usuarioRegistroTramite?->funcionario;
-    $rolesRegistroTramite = $usuarioRegistroTramite?->roles
-        ?->filter(fn ($rol) => (string) $rol->estado === '1')
-        ->pluck('name')
-        ->filter()
-        ->unique()
-        ->implode(', ');
-
-    if ($funcionarioRegistroTramite) {
-        $nombreRegistroTramite = trim(implode(' ', array_filter([
-            $funcionarioRegistroTramite->nombres,
-            $funcionarioRegistroTramite->apellido_paterno,
-            $funcionarioRegistroTramite->apellido_materno,
-        ])));
-
-        $detalleRegistroTramite = $funcionarioRegistroTramite->cargos?->pluck('nombre')->filter()->unique()->implode(', ')
-            ?: ($rolesRegistroTramite ?: 'Funcionario');
-    } elseif ($usuarioRegistroTramite?->persona?->empresa) {
-        $nombreRegistroTramite = $usuarioRegistroTramite->persona->empresa->razon_social ?: ($usuarioRegistroTramite->name ?? '');
-        $detalleRegistroTramite = $rolesRegistroTramite ?: 'Empresa';
-    } elseif ($usuarioRegistroTramite?->persona?->natural) {
-        $naturalRegistroTramite = $usuarioRegistroTramite->persona->natural;
-        $nombreRegistroTramite = trim(implode(' ', array_filter([
-            $naturalRegistroTramite->nombres,
-            $naturalRegistroTramite->apellido_paterno,
-            $naturalRegistroTramite->apellido_materno,
-            $naturalRegistroTramite->apellido_casado,
-        ])));
-
-        $detalleRegistroTramite = $rolesRegistroTramite ?: 'Persona natural';
-    } else {
-        $nombreRegistroTramite = $usuarioRegistroTramite?->name ?: 'Usuario del sistema';
-        $detalleRegistroTramite = $rolesRegistroTramite ?: 'Usuario del sistema';
-    }
-
     // Opciones iniciales para los selectores visuales del formulario.
     $opcionesBeneficiarios = collect($personasSelect ?? []);
     $opcionesTramitadores = collect($tramitadoresIniciales ?? []);
@@ -67,18 +29,6 @@
         </div>
 
         <div class="tramite-persona-body">
-            {{-- Identifica al usuario que registra el tramite sin mezclarlo con los datos del solicitante. --}}
-            <div class="tramite-registro-strip">
-                <span class="tramite-registro-icon">
-                    <i class="fa-regular fa-user"></i>
-                </span>
-
-                <span class="tramite-registro-label">Usuario que registra trámite</span>
-                <strong>{{ $nombreRegistroTramite ?: 'Usuario del sistema' }}</strong>
-                <span class="tramite-registro-separator"></span>
-                <span class="tramite-registro-role">{{ $detalleRegistroTramite }}</span>
-            </div>
-
             <div class="tramite-fields">
                 @unless ($mostrarTramitador)
                     <input type="hidden" name="form_id_persona_tramitador" value="{{ $tramitadorSeleccionado }}">
@@ -293,37 +243,45 @@
         <div class="tramite-persona-head is-documents">
             <div class="tramite-persona-head-left">
                 <div class="tramite-persona-icon is-documents">
-                    <i class="fa-regular fa-file-pdf"></i>
+                    <i class="fa-solid fa-file-lines"></i>
                 </div>
 
                 <div>
                     <h2 class="tramite-persona-title">Documentos requeridos</h2>
                     <p class="tramite-persona-subtitle">
-                        Adjunte la evidencia disponible. El funcionario asignado revisará si cumple.
+                        Adjunte la evidencia solicitada para continuar con el trámite.
                     </p>
+                </div>
+            </div>
+
+            <div class="tramite-documentos-progress" aria-live="polite">
+                <span id="requisitosProgresoTexto">0 de 0 documentos</span>
+                <div class="tramite-documentos-progress-track"
+                    role="progressbar"
+                    aria-label="Documentos completados"
+                    aria-valuemin="0"
+                    aria-valuemax="0"
+                    aria-valuenow="0">
+                    <span id="requisitosProgresoBar"></span>
                 </div>
             </div>
         </div>
 
-        <div class="tramite-persona-body">
-            <div class="tramite-table-wrap">
-                <table class="tramite-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 56px;">N&deg;</th>
-                            <th>Requisito</th>
-                            <th style="width: 210px;">Tipo de evidencia</th>
-                            <th style="width: 480px;">Subir evidencia</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaDocumentosTramite">
-                        <tr>
-                            <td colspan="4" class="text-center text-slate-500">
-                                Seleccione un tipo de certificado para cargar los requisitos.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <div class="tramite-persona-body is-documents">
+            <div id="contenedorDocumentosTramite" class="tramite-requisitos-form is-empty">
+                <div class="tramite-requisitos-empty">
+                    Seleccione un tipo de certificado para cargar los requisitos.
+                </div>
+            </div>
+
+            <div id="resumenDocumentosTramite" class="tramite-documentos-summary is-hidden" aria-live="polite">
+                <span class="tramite-documentos-summary-icon">
+                    <i class="fa-regular fa-file-lines"></i>
+                </span>
+                <strong id="resumenDocumentosTexto">0 documentos pendientes</strong>
+                <div class="tramite-documentos-summary-track" aria-hidden="true">
+                    <span id="resumenDocumentosBarra"></span>
+                </div>
             </div>
         </div>
     </section>

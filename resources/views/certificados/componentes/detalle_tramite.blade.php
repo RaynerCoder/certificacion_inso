@@ -30,6 +30,44 @@
             return $persona?->empresa ? 'Empresa' : 'Persona natural';
         };
 
+        // Identifica cómo actúa la persona dentro de la empresa beneficiaria del trámite.
+        $tipoRelacionTramitador = function ($personaTramitador, $personaBeneficiaria) {
+            $empresa = $personaBeneficiaria?->empresa;
+
+            if (! $empresa) {
+                return 'Solicitante';
+            }
+
+            if (! $personaTramitador) {
+                return 'Relación no identificada';
+            }
+
+            $roles = \App\Models\Responsable::query()
+                ->with('rol:id,slug')
+                ->where('id_empresa', $empresa->id)
+                ->where('id_persona', $personaTramitador->id)
+                ->whereIn('estado', ['1', 'ACTIVO'])
+                ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['representante-legal', 'tramitador']))
+                ->get()
+                ->pluck('rol.slug')
+                ->filter()
+                ->unique();
+
+            $esRepresentante = $roles->contains('representante-legal');
+            $esTramitador = $roles->contains('tramitador');
+
+            return match (true) {
+                $esRepresentante => 'Representante legal',
+                $esTramitador => 'Tramitador',
+                default => 'Relación no identificada',
+            };
+        };
+
+        $tipoRelacionTramitadorActual = $tipoRelacionTramitador(
+            $certificado->tramitador,
+            $certificado->beneficiario
+        );
+
         // Muestra CI cuando es persona natural y NIT cuando es empresa.
         $identificacionPersona = function ($persona) {
             if (!$persona) {
@@ -48,29 +86,15 @@
             return $persona?->telefonos?->first()?->numero ?? 'Sin teléfono';
         };
 
-        // Devuelve nombre completo de funcionario; evita mostrar el usuario corto de acceso.
+        // Muestra el nombre real vinculado a la cuenta, sea funcionario o solicitante.
         $nombreUsuario = function ($usuario, string $fallback = 'Sin usuario') {
             if (!$usuario) {
                 return $fallback;
             }
 
-            $usuario->loadMissing('funcionario');
+            $nombreCompleto = trim($usuario->nombreCompleto());
 
-            $funcionario = $usuario->funcionario;
-
-            if ($funcionario) {
-                $nombreCompleto = trim(implode(' ', array_filter([
-                    $funcionario->nombres,
-                    $funcionario->apellido_paterno,
-                    $funcionario->apellido_materno,
-                ])));
-
-                if ($nombreCompleto !== '') {
-                    return $nombreCompleto;
-                }
-            }
-
-            return $usuario->email ?: $fallback;
+            return $nombreCompleto !== '' ? $nombreCompleto : $fallback;
         };
 
         // Devuelve los cargos reales del funcionario relacionado al usuario.
@@ -85,6 +109,25 @@
             $cargos = $usuario->funcionario?->cargos?->pluck('nombre')->filter()->implode(', ');
 
             return $cargos ?: $fallback;
+        };
+
+        // Para el inicio del trámite distingue al personal INSO de quien actúa por la empresa.
+        $rolUsuarioEnTramite = function ($usuario) use ($cargoUsuario, $tipoRelacionTramitador, $certificado) {
+            if (!$usuario) {
+                return 'Sin rol identificado';
+            }
+
+            $usuario->loadMissing(['funcionario.cargos', 'persona.natural', 'persona.empresa']);
+
+            if ($usuario->funcionario) {
+                return $cargoUsuario($usuario);
+            }
+
+            if ($usuario->persona) {
+                return $tipoRelacionTramitador($usuario->persona, $certificado->beneficiario);
+            }
+
+            return 'Sin rol identificado';
         };
 
         // Normaliza enlaces de archivos guardados en storage o URLs externas.
@@ -127,6 +170,7 @@
             return match ($estado) {
                 'APROBADO', 'CUMPLE', 'ACTIVO' => 'tramite-pill-ok',
                 'OBSERVADO', 'REVISION_OBSERVADA' => 'tramite-pill-danger',
+                'PENDIENTE_REVISION' => 'tramite-pill-info',
                 default => 'tramite-pill-warn',
             };
         };
@@ -259,8 +303,9 @@
         $registrosPorProducto = $certificado->registros->groupBy(
             fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
         );
-        // Historial por requisito: usa revisiones_requisitos y observaciones_requisitos.
-        $historialRequisitos = $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario) {
+        // El historial tecnico no se envia al navegador del solicitante antes de notificar una correccion.
+        $historialRequisitos = $mostrarRevisionRequisitos
+            ? $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario) {
             $items = collect();
 
             $observacionesDeRequisito($requisitoCertificado)
@@ -330,7 +375,8 @@
                     'items' => $items->values(),
                 ],
             ];
-        });
+            })
+            : collect();
 
         // Pasos visuales del detalle/seguimiento. No guardan datos; solo orientan al usuario.
         $pasosSeguimiento = [
@@ -355,7 +401,7 @@
         // Estas banderas salen de la configuracion real del tipo de certificado.
         $requiereProductoTramite = $certificado->requiereEvidencia('PRODUCTO');
         $requierePagoTramite = $certificado->requiereEvidencia('PAGO');
-        // Pago del tramite: si ya existe, se muestra como registrado y no se permite modificar desde requisitos.
+        // El pago se registra una sola vez, pero el personal autorizado puede corregir sus datos.
         $pagoPrincipalTramite = $certificado->pagos->first();
         $tienePagoRegistrado = filled($pagoPrincipalTramite?->id);
         $puedeRegistrarPago = $requierePagoTramite
@@ -363,15 +409,26 @@
             && !$esSolicitante
             && (auth()->user()?->puede('pagos.validar') ?? false)
             && ($puedeAsignarTecnico || $puedeRevisarRequisitos);
-        $abrirModalPago = $puedeRegistrarPago
+        $puedeEditarPago = $tienePagoRegistrado
+            && !$esSolicitante
+            && (auth()->user()?->puede('pagos.validar') ?? false);
+        $idPagoSolicitado = old('form_id_pago', request('editar_pago'));
+        $pagoEditando = $puedeEditarPago && (int) $idPagoSolicitado === (int) $pagoPrincipalTramite?->id
+            ? $pagoPrincipalTramite
+            : null;
+        $modalPagoEnEdicion = filled($pagoEditando?->id);
+        $abrirModalPago = ($puedeRegistrarPago || $puedeEditarPago)
             && collect([
                 'form_id_procedencia_pago',
                 'form_tipo_pago',
                 'form_fecha_pago',
                 'form_monto_pago',
+                'form_factura_pago',
                 'form_comprobante_pago',
                 'form_id_certificado',
+                'form_id_pago',
             ])->contains(fn ($campo) => $errors->has($campo));
+        $abrirModalPago = $abrirModalPago || $modalPagoEnEdicion;
 
         // Accion tecnica: permite registrar productos para el importador/beneficiario del tramite.
         $puedeRegistrarProductoTramite = $requiereProductoTramite
@@ -431,6 +488,7 @@
                     <div>
                         <span class="tramite-summary-label">Tramitador</span>
                         <span class="tramite-summary-value">{{ $nombrePersona($certificado->tramitador) }}</span>
+                        <span class="tramite-summary-role">{{ $tipoRelacionTramitadorActual }}</span>
                     </div>
                 </article>
 
@@ -445,42 +503,117 @@
                 </article>
             </section>
 
-            {{-- SECCION 4: revision de requisitos. Aqui el tecnico marca SI/NO y registra observaciones. --}}
+            {{-- SECCION 4: revisión de requisitos. El formulario conserva los nombres que espera el controlador. --}}
+            @if ($mostrarRevisionRequisitos)
+            {{-- La revision interna permanece reservada hasta que el solicitante recibe una correccion. --}}
             <section class="tramite-grid-main tramite-section-review">
                 <div class="tramite-card">
-                    <div class="tramite-card-head">
-                        <h2 class="tramite-card-title">Revisión de requisitos</h2>
-                    </div>
-
                     <div class="tramite-card-body">
                         @if ($puedeRevisarRequisitos)
-                            <form action="{{ route('seguimientos_revision_tecnica', $seguimientoTecnicoActual) }}" method="POST">
+                            @php
+                                $requisitosParaRevision = $certificado->certificadoRequisitos->values();
+                                $totalRevision = $requisitosParaRevision->count();
+                                $totalCumple = $requisitosParaRevision->where('cumple', 'SI')->count();
+                                $totalNoCumple = $requisitosParaRevision->where('cumple', 'NO')->count();
+                                $totalRevisados = $totalCumple + $totalNoCumple;
+                                $totalPendientesRevision = max(0, $totalRevision - $totalRevisados);
+                                $avanceRevision = $totalRevision > 0 ? round(($totalRevisados / $totalRevision) * 100) : 0;
+                            @endphp
+
+                            <form action="{{ route('seguimientos_revision_tecnica', $seguimientoTecnicoActual) }}"
+                                method="POST"
+                                data-review-workbench
+                                data-review-storage-key="revision-tramite-{{ $certificado->id }}">
                                 @csrf
 
-                                <div class="cert-show-table-wrap tramite-table-wrap">
-                                    <table class="cert-show-table cert-review-table tramite-table tramite-requirements-table">
-                                        <thead>
-                                            <tr>
-                                                <th class="cert-review-col-number">#</th>
-                                                <th class="cert-review-col-requirement">Requisito</th>
-                                                <th class="cert-review-col-evidence-code">Código evidencia</th>
-                                                <th class="cert-review-col-evidence-description">Descripción evidencia</th>
-                                                <th class="cert-review-col-result">Cumple</th>
-                                                <th class="cert-review-col-status">Estado</th>
-                                                <th class="cert-review-col-document">Evidencia</th>
-                                                <th class="cert-review-col-observation">Observación</th>
-                                                <th class="cert-review-col-history">Acción</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
+                                <header class="review-workbench-heading">
+                                    <div class="review-workbench-title-row">
+                                        <h2>Revisión de requisitos</h2>
+                                        <span><strong data-review-count-reviewed>{{ $totalRevisados }}</strong> de <span data-review-count-total>{{ $totalRevision }}</span> revisados</span>
+                                        <div class="review-progress" role="progressbar" aria-label="Avance de revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $avanceRevision }}">
+                                            <span style="width: {{ $avanceRevision }}%" data-review-progress></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="review-workbench-tools">
+                                        <label class="review-search">
+                                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                            <span class="sr-only">Buscar requisito</span>
+                                            <input type="search" placeholder="Buscar requisito" autocomplete="off" data-review-search>
+                                        </label>
+
+                                        <div class="review-filters" aria-label="Filtrar requisitos">
+                                            <button type="button" class="is-active" data-review-filter="all">Todos <span data-review-filter-count="all">{{ $totalRevision }}</span></button>
+                                            <button type="button" data-review-filter="pending">Pendientes <span data-review-filter-count="pending">{{ $totalPendientesRevision }}</span></button>
+                                            <button type="button" data-review-filter="SI">Cumple <span data-review-filter-count="SI">{{ $totalCumple }}</span></button>
+                                            <button type="button" data-review-filter="NO">No cumple <span data-review-filter-count="NO">{{ $totalNoCumple }}</span></button>
+                                        </div>
+                                    </div>
+                                </header>
+
+                                @if ($requisitosParaRevision->isNotEmpty())
+                                    <div class="review-workbench-layout">
+                                        <aside class="review-requirement-list" aria-label="Requisitos del trámite">
+                                            <div class="review-requirement-list-head">
+                                                <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                                                <strong>Requisitos</strong>
+                                            </div>
+
+                                            <div class="review-requirement-list-body" data-review-list>
+                                                @foreach ($requisitosParaRevision as $requisitoCertificado)
+                                                    @php
+                                                        $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                        $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
+                                                        $decisionActual = old(
+                                                            "requisitos_revision.$loop->index.cumple",
+                                                            $requisitoCertificado->cumple === 'SI'
+                                                                ? 'SI'
+                                                                : ($requisitoCertificado->cumple === 'NO' ? 'NO' : '')
+                                                        );
+                                                        $tituloRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado';
+                                                        $estadoFiltro = $decisionActual ?: 'pending';
+                                                    @endphp
+
+                                                    <article class="review-requirement-item"
+                                                        data-review-record="{{ $requisitoCertificado->id }}"
+                                                        data-review-state="{{ $estadoFiltro }}"
+                                                        data-review-search-text="{{ \Illuminate\Support\Str::lower($tituloRequisito . ' ' . $codigoEvidencia) }}">
+                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][id]" value="{{ $requisitoCertificado->id }}">
+                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][tocado]" value="{{ old("requisitos_revision.$loop->index.tocado", '0') }}" data-review-touched>
+                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][cumple]" value="{{ $decisionActual }}" data-review-decision>
+
+                                                        <button type="button" class="review-requirement-select" data-review-select="{{ $requisitoCertificado->id }}">
+                                                            <span class="review-requirement-number">{{ $loop->iteration }}</span>
+                                                            <span class="review-requirement-copy">
+                                                                <span class="review-requirement-name">{{ $tituloRequisito }}</span>
+                                                                <span class="review-requirement-meta">
+                                                                    <span class="review-evidence-chip">{{ $codigoEvidencia }}</span>
+                                                                    <span class="review-state is-{{ strtolower($estadoFiltro) }}" data-review-list-state>
+                                                                        <i class="{{ $decisionActual === 'SI' ? 'fa-regular fa-circle-check' : ($decisionActual === 'NO' ? 'fa-regular fa-circle-xmark' : 'fa-solid fa-circle') }}" aria-hidden="true"></i>
+                                                                        <span>{{ $decisionActual === 'SI' ? 'Cumple' : ($decisionActual === 'NO' ? 'No cumple' : 'Pendiente') }}</span>
+                                                                    </span>
+                                                                </span>
+                                                            </span>
+                                                        </button>
+                                                    </article>
+                                                @endforeach
+
+                                                <p class="review-list-empty" data-review-empty hidden>No se encontraron requisitos.</p>
+                                            </div>
+                                        </aside>
+
+                                        <div class="review-requirement-detail">
+                                            @foreach ($requisitosParaRevision as $requisitoCertificado)
                                                 @php
                                                     $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
+                                                    $evidenciaPrincipal = $evidenciaPrincipalRequisito($requisitoCertificado);
                                                     $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
                                                     $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
                                                     $descripcionEvidencia = $descripcionEvidenciaRequisito($requisitoCertificado);
                                                     $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
-                                                    $comprobantePagoPrincipal = $urlArchivo($pagoPrincipalTramite?->comprobante);
+                                                    $comprobantePagoPrincipal = $pagoPrincipalTramite?->comprobante
+                                                        ? route('pagos_comprobante', $pagoPrincipalTramite)
+                                                        : null;
                                                     $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                     $decisionActual = old(
                                                         "requisitos_revision.$loop->index.cumple",
@@ -492,124 +625,125 @@
                                                         "requisitos_revision.$loop->index.observacion",
                                                         $ultimaObservacion?->observacion
                                                     );
-                                                    $observacionPropia = $ultimaObservacion
-                                                        && (int) ($ultimaObservacion->revisionRequisito?->id_usuario_revisor) === (int) auth()->id();
-                                                    $observacionDeOtro = $ultimaObservacion && !$observacionPropia;
+                                                    $observacionDeOtro = $ultimaObservacion
+                                                        && (int) ($ultimaObservacion->revisionRequisito?->id_usuario_revisor) !== (int) auth()->id();
                                                     $filaObservada = $decisionActual === 'NO' || $requisitoCertificado->estado === 'OBSERVADO';
-                                                    $claseEstadoActual = $claseEstadoRequisito($requisitoCertificado->estado);
+                                                    $tituloRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado';
                                                 @endphp
-                                                <tr class="cert-requirement-row {{ $filaObservada ? 'is-observed tramite-row-observed' : '' }}"
-                                                    data-requirement-title="{{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}">
-                                                    <td>{{ $loop->iteration }}</td>
-                                                    <td data-requirement-title-cell>
-                                                        {{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}
-                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][id]" value="{{ $requisitoCertificado->id }}">
-                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][tocado]" value="{{ old("requisitos_revision.$loop->index.tocado", '0') }}" data-review-touched>
-                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][cumple]" value="{{ $decisionActual }}" data-review-decision>
-                                                    </td>
-                                                    <td>
-                                                        <span class="tramite-pill tramite-pill-neutral cert-evidence-code-chip">
-                                                            {{ $codigoEvidencia }}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <span class="cert-evidence-description-text">{{ $descripcionEvidencia }}</span>
-                                                    </td>
-                                                    <td>
-                                                        {{-- Casillas visibles para que el revisor confirme si el requisito cumple o no cumple. --}}
-                                                        <div class="tramite-check-options" data-review-check-row>
-                                                            <label class="tramite-check-option is-yes {{ $decisionActual === 'SI' ? 'is-selected' : '' }}">
-                                                                <input type="checkbox" value="SI" data-review-check-option @checked($decisionActual === 'SI')>
-                                                                <span class="tramite-check-box">
-                                                                    <i class="fa-solid fa-check"></i>
-                                                                </span>
-                                                                SI
-                                                            </label>
 
-                                                            <label class="tramite-check-option is-no {{ $decisionActual === 'NO' ? 'is-selected' : '' }}">
-                                                                <input type="checkbox" value="NO" data-review-check-option @checked($decisionActual === 'NO')>
-                                                                <span class="tramite-check-box">
-                                                                    <i class="fa-solid fa-xmark"></i>
-                                                                </span>
-                                                                NO
-                                                            </label>
+                                                <section class="review-detail-panel {{ $filaObservada ? 'is-observed' : '' }}"
+                                                    data-review-panel="{{ $requisitoCertificado->id }}"
+                                                    @if (!$loop->first) hidden @endif>
+                                                    <header class="review-detail-head">
+                                                        <div>
+                                                            <span class="review-detail-label"><i class="fa-regular fa-file-lines"></i> Requisito</span>
+                                                            <h3>{{ $tituloRequisito }}</h3>
                                                         </div>
-                                                    </td>
-                                                    <td>
-                                                        {{-- Chip informativo: muestra el estado actual sin comportarse como boton. --}}
-                                                        <span class="tramite-pill tramite-status-chip {{ $claseEstadoActual }}"
-                                                            data-review-status-display>
-                                                            @if (in_array($requisitoCertificado->estado, ['APROBADO', 'CUMPLE', 'ACTIVO'], true))
-                                                                <i class="fa-solid fa-check" data-status-icon></i>
-                                                            @elseif (in_array($requisitoCertificado->estado, ['OBSERVADO', 'REVISION_OBSERVADA'], true))
-                                                                <i class="fa-solid fa-circle-exclamation" data-status-icon></i>
-                                                            @else
-                                                                <i class="fa-regular fa-clock" data-status-icon></i>
-                                                            @endif
-                                                            <span data-status-text>{{ $textoEstadoRequisito($requisitoCertificado->estado) }}</span>
-                                                        </span>
-
-                                                    </td>
-                                                    <td>
-                                                        @if ($esFilaPago && $tienePagoRegistrado)
-                                                            @if ($comprobantePagoPrincipal)
-                                                                <a href="{{ $comprobantePagoPrincipal }}" target="_blank" class="cert-show-pill cert-show-pill-ok tramite-doc-link">
-                                                                    <i class="{{ $iconoEvidencia }}"></i>
-                                                                    Ver comprobante
-                                                                </a>
-                                                            @else
-                                                                <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin comprobante</span>
-                                                            @endif
-                                                        @elseif ($esFilaPago && $puedeRegistrarPago)
-                                                            <button type="button" class="cert-show-pill cert-show-pill-warn tramite-payment-inline-btn" data-open-payment-modal>
-                                                                <i class="{{ $iconoEvidencia }}"></i>
-                                                                Registrar pago
-                                                            </button>
-                                                        @elseif ($documentoRequisito)
-                                                            <a href="{{ $documentoRequisito }}" target="_blank"
-                                                                class="cert-show-pill cert-show-pill-ok tramite-doc-link"
-                                                                data-document-link
-                                                                data-document-default="{{ $textoEvidenciaRequisito($codigoEvidencia, false) }}"
-                                                                data-document-observed="{{ $textoEvidenciaRequisito($codigoEvidencia, true) }}">
-                                                                <i class="{{ $iconoEvidencia }}"></i>
-                                                                <span data-document-text>{{ $textoEvidenciaRequisito($codigoEvidencia, $filaObservada) }}</span>
-                                                            </a>
-                                                        @else
-                                                            <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin evidencia</span>
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        <input type="hidden" name="requisitos_revision[{{ $loop->index }}][observacion]" value="{{ $observacionActual }}" data-observation-input>
-
-                                                        {{-- Observacion visual como el recuadro simple del boceto. --}}
-                                                        <span class="tramite-observation-box {{ $filaObservada && filled($observacionActual) ? 'is-danger' : '' }}"
-                                                            data-observation-display>
-                                                            {{ filled($observacionActual) ? $observacionActual : 'Sin observación' }}
-                                                        </span>
-
-                                                        <div class="cert-review-observation-box {{ $decisionActual === 'NO' && filled($observacionActual) ? 'is-visible' : '' }}" data-observation-box>
-                                                            <span class="cert-review-observation-text" data-observation-text>{{ $observacionActual }}</span>
-                                                            <button type="button" class="cert-review-edit" data-edit-observation data-observation-owner="{{ $observacionPropia ? '1' : '0' }}">
-                                                                <i class="fa-solid fa-pen"></i>
-                                                                {{ $observacionDeOtro ? 'Nueva observación' : 'Editar' }}
-                                                            </button>
+                                                        <div class="review-detail-head-actions">
+                                                            <span class="review-evidence-chip">{{ $codigoEvidencia }}</span>
+                                                            <span class="review-state is-{{ $decisionActual ? strtolower($decisionActual) : 'pending' }}" data-review-detail-state>
+                                                                <i class="{{ $decisionActual === 'SI' ? 'fa-regular fa-circle-check' : ($decisionActual === 'NO' ? 'fa-regular fa-circle-xmark' : 'fa-solid fa-circle') }}" aria-hidden="true"></i>
+                                                                <span>{{ $decisionActual === 'SI' ? 'Cumple' : ($decisionActual === 'NO' ? 'No cumple' : 'Pendiente') }}</span>
+                                                            </span>
                                                         </div>
-                                                    </td>
-                                                    <td>
-                                                        <button type="button" class="cert-history-button" data-requirement-history-button data-requirement-id="{{ $requisitoCertificado->id }}">
-                                                            <i class="fa-regular fa-clock"></i>
-                                                            Historial
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="9" class="text-center">Este trámite no tiene requisitos registrados.</td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                    </header>
+
+                                                    <div class="review-detail-content">
+                                                        <div class="review-evidence-column">
+                                                            <h4>Descripción de la evidencia</h4>
+                                                            <p>{{ $descripcionEvidencia }}</p>
+
+                                                            <div class="review-evidence-preview">
+                                                                @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
+                                                                    <iframe src="{{ $documentoRequisito }}#toolbar=0&navpanes=0" title="Evidencia PDF: {{ $tituloRequisito }}" loading="lazy"></iframe>
+                                                                    <div class="review-evidence-preview-actions">
+                                                                        <span><i class="fa-regular fa-file-pdf"></i> Evidencia presentada</span>
+                                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> Ampliar</a>
+                                                                    </div>
+                                                                @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
+                                                                    <img src="{{ $documentoRequisito }}" alt="Evidencia del requisito: {{ $tituloRequisito }}" loading="lazy">
+                                                                    <div class="review-evidence-preview-actions">
+                                                                        <span><i class="fa-regular fa-image"></i> Evidencia presentada</span>
+                                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> Ampliar</a>
+                                                                    </div>
+                                                                @elseif ($esFilaPago && $tienePagoRegistrado && $comprobantePagoPrincipal)
+                                                                    <iframe src="{{ $comprobantePagoPrincipal }}#toolbar=0&navpanes=0"
+                                                                        title="Comprobante de pago del trámite"
+                                                                        loading="lazy"></iframe>
+                                                                    <div class="review-evidence-preview-actions">
+                                                                        <span><i class="fa-regular fa-file-pdf"></i> Comprobante registrado</span>
+                                                                        <a href="{{ $comprobantePagoPrincipal }}" target="_blank" rel="noopener">
+                                                                            <i class="fa-solid fa-up-right-from-square"></i> Ampliar
+                                                                        </a>
+                                                                    </div>
+                                                                @elseif ($esFilaPago && $tienePagoRegistrado)
+                                                                    <div class="review-evidence-reference">
+                                                                        <i class="{{ $iconoEvidencia }}"></i>
+                                                                        <span>Pago registrado sin comprobante adjunto.</span>
+                                                                    </div>
+                                                                @elseif ($esFilaPago && $puedeRegistrarPago)
+                                                                    <button type="button" class="review-evidence-reference is-action" data-open-payment-modal>
+                                                                        <i class="{{ $iconoEvidencia }}"></i>
+                                                                        <span>Este requisito necesita un pago registrado.</span>
+                                                                        <strong>Registrar pago</strong>
+                                                                    </button>
+                                                                @elseif ($codigoEvidencia === 'TEXTO' && filled($evidenciaPrincipal?->valor))
+                                                                    <div class="review-evidence-text">{{ $evidenciaPrincipal->valor }}</div>
+                                                                @elseif ($documentoRequisito)
+                                                                    <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="review-evidence-reference is-action">
+                                                                        <i class="{{ $iconoEvidencia }}"></i>
+                                                                        <span>Evidencia registrada.</span>
+                                                                        <strong>{{ $textoEvidenciaRequisito($codigoEvidencia, $filaObservada) }}</strong>
+                                                                    </a>
+                                                                @else
+                                                                    <div class="review-evidence-reference is-empty">
+                                                                        <i class="{{ $iconoEvidencia }}"></i>
+                                                                        <span>Sin evidencia disponible.</span>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="review-decision-column">
+                                                            <h4>¿Cumple el requisito?</h4>
+                                                            <div class="review-decision-options">
+                                                                <button type="button" class="is-yes {{ $decisionActual === 'SI' ? 'is-selected' : '' }}" value="SI" data-review-choice><i class="fa-regular fa-circle-check"></i> Sí</button>
+                                                                <button type="button" class="is-no {{ $decisionActual === 'NO' ? 'is-selected' : '' }}" value="NO" data-review-choice><i class="fa-regular fa-circle-xmark"></i> No</button>
+                                                            </div>
+
+                                                            <p class="review-decision-help" data-review-decision-help>
+                                                                {{ $decisionActual === 'NO' ? 'Indique qué debe corregir el solicitante.' : 'Seleccione el resultado de la revisión.' }}
+                                                            </p>
+
+                                                            <div class="review-observation-field" data-review-observation @if ($decisionActual !== 'NO') hidden @endif>
+                                                                <label for="revision_observacion_{{ $requisitoCertificado->id }}">Motivo de incumplimiento <span>*</span></label>
+                                                                <textarea id="revision_observacion_{{ $requisitoCertificado->id }}"
+                                                                    name="requisitos_revision[{{ $loop->index }}][observacion]"
+                                                                    maxlength="1000"
+                                                                    placeholder="Explique qué debe corregir el solicitante."
+                                                                    data-observation-input
+                                                                    @if ($decisionActual !== 'NO') disabled @endif>{{ $observacionActual }}</textarea>
+                                                                @if ($observacionDeOtro)
+                                                                    <small>Al guardar se registrará una nueva observación.</small>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                    <div class="review-workbench-footer">
+                                        @if ($certificado->estado === 'OBSERVADO')
+                                            <button type="button" class="tramite-btn tramite-btn-primary" disabled><i class="fa-regular fa-floppy-disk"></i> Guardar revisión</button>
+                                        @else
+                                            <button type="submit" class="tramite-btn tramite-btn-primary" data-review-save-next><i class="fa-regular fa-floppy-disk"></i> Guardar revisión</button>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="review-workbench-empty">Este trámite no tiene requisitos registrados.</div>
+                                @endif
 
                                 <div class="tramite-actions-row">
                                     @if ($certificado->estado === 'OBSERVADO')
@@ -617,20 +751,11 @@
                                             <i class="fa-solid fa-arrow-right"></i>
                                             Derivar
                                         </button>
-                                        <button type="button" class="tramite-btn tramite-btn-muted" disabled>
-                                            <i class="fa-regular fa-floppy-disk"></i>
-                                            Guardar revisión
-                                        </button>
                                         <span class="tramite-warning-box">
                                             <i class="fa-solid fa-triangle-exclamation"></i>
                                             Trámite observado: no se puede derivar ni continuar revisión hasta que el solicitante corrija.
                                         </span>
                                     @else
-                                        <button type="submit" class="tramite-btn tramite-btn-primary">
-                                            <i class="fa-regular fa-floppy-disk"></i>
-                                            Guardar revisión
-                                        </button>
-
                                         @if ($puedeFinalizarTramite)
                                             <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
                                                 @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
@@ -657,7 +782,7 @@
 
                                 <div class="tramite-modal" data-correction-recipient-modal aria-hidden="true">
                                     <div class="tramite-modal-backdrop" data-close-correction-recipient-modal></div>
-                                    <section class="tramite-modal-panel" role="dialog" aria-modal="true" aria-labelledby="tituloDestinoCorreccion">
+                                    <section class="tramite-modal-panel tramite-modal-panel-correction" role="dialog" aria-modal="true" aria-labelledby="tituloDestinoCorreccion">
                                         <div class="tramite-modal-head">
                                             <div>
                                                 <h2 id="tituloDestinoCorreccion" class="tramite-card-title">
@@ -688,20 +813,22 @@
                                                 <i class="fa-solid fa-chevron-down cert-technical-chevron"></i>
                                             </button>
                                             <div class="cert-technical-dropdown" data-correction-recipient-menu hidden>
-                                                <div class="cert-technical-search">
-                                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                                    <input type="search" data-correction-recipient-search placeholder="Buscar beneficiario o tramitador">
-                                                </div>
-                                                <div class="cert-technical-options">
-                                                    @foreach ($destinatariosCorreccion as $destinatario)
-                                                        <button type="button" class="cert-technical-option" data-correction-recipient-option
-                                                            data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
-                                                            data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
-                                                            <span class="cert-technical-option-icon"><i class="fa-regular fa-user"></i></span>
-                                                            <span class="cert-technical-option-main">
-                                                                <strong>{{ $destinatario['nombre'] }}</strong>
-                                                                <span>{{ $destinatario['tipo'] }}</span>
-                                                            </span>
+                                            <div class="cert-technical-search">
+                                                <i class="fa-solid fa-magnifying-glass"></i>
+                                                <input type="search" data-correction-recipient-search placeholder="Buscar representante legal o tramitador">
+                                            </div>
+                                            <div class="cert-technical-options">
+                                                @foreach ($destinatariosCorreccion as $destinatario)
+                                                    <button type="button" class="cert-technical-option" data-correction-recipient-option
+                                                        data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
+                                                        data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
+                                                        <span class="cert-technical-option-icon">
+                                                            <i class="fa-solid {{ $destinatario['tipo'] === 'Representante legal' ? 'fa-user-tie' : 'fa-user-check' }}"></i>
+                                                        </span>
+                                                        <span class="cert-technical-option-main">
+                                                            <strong>{{ $destinatario['nombre'] }}</strong>
+                                                            <span>{{ $destinatario['tipo'] }}</span>
+                                                        </span>
                                                         </button>
                                                     @endforeach
                                                     <div class="cert-technical-empty is-hidden" data-correction-recipient-empty>No se encontraron resultados.</div>
@@ -888,7 +1015,7 @@
                             </form>
                         @else
                             <div class="cert-show-table-wrap tramite-table-wrap">
-                                <table class="cert-show-table cert-review-table tramite-table tramite-requirements-table">
+                                <table class="cert-show-table cert-review-table tramite-table tramite-requirements-table is-readonly">
                                     <thead>
                                         <tr>
                                             <th class="cert-review-col-number">#</th>
@@ -901,13 +1028,15 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                            @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
-                                                @php
-                                                    $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
-                                                    $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                    $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
-                                                    $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
-                                                    $comprobantePagoPrincipal = $urlArchivo($pagoPrincipalTramite?->comprobante);
+                                        @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
+                                            @php
+                                                $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
+                                                $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
+                                                $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
+                                                $comprobantePagoPrincipal = $pagoPrincipalTramite?->comprobante
+                                                    ? route('pagos_comprobante', $pagoPrincipalTramite)
+                                                    : null;
                                                 $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                 $observacionInterna = $esSolicitante && $requisitoCertificado->estado === 'REVISION_OBSERVADA';
                                                 $textoCumple = $observacionInterna || $requisitoCertificado->estado === 'PENDIENTE_REVISION'
@@ -918,6 +1047,7 @@
                                                     'Observado' => 'tramite-pill-danger',
                                                     default => 'tramite-pill-warn',
                                                 };
+                                                $claseEstadoActual = $claseEstadoRequisito($requisitoCertificado->estado);
                                                 $textoCumpleCorto = match ($textoCumple) {
                                                     'Cumple' => 'Sí',
                                                     'Observado' => 'No',
@@ -943,7 +1073,7 @@
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <span class="tramite-pill tramite-status-chip {{ $claseCumple }}">
+                                                    <span class="tramite-pill tramite-status-chip {{ $claseEstadoActual }}">
                                                         {{ $textoEstadoRequisito($requisitoCertificado->estado) }}
                                                     </span>
                                                 </td>
@@ -981,7 +1111,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center">Este trámite no tiene requisitos registrados.</td>
+                                                <td colspan="7" class="text-center">Este trámite no tiene requisitos registrados.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -1034,9 +1164,10 @@
                     </div>
                 </aside>
             </section>
+            @endif
 
-            @if ($requierePagoTramite && $puedeRegistrarPago)
-                {{-- Registro de pago: se abre en modal para no cargar el detalle del tramite. --}}
+            @if ($requierePagoTramite && ($puedeRegistrarPago || $puedeEditarPago))
+                {{-- El mismo formulario registra o corrige el pago sin duplicar campos ni reglas. --}}
                 <div id="modalRegistrarPagoTramite"
                     class="tramite-modal {{ $abrirModalPago ? 'is-open' : '' }}"
                     data-payment-modal
@@ -1048,27 +1179,34 @@
                             <div>
                                 <h2 id="tituloModalPagoTramite" class="tramite-card-title">
                                     <i class="fa-solid fa-credit-card"></i>
-                                    Registrar pago
+                                    <span data-payment-modal-title>{{ $modalPagoEnEdicion ? 'Editar pago' : 'Registrar pago' }}</span>
                                 </h2>
-                                <p>Complete el pago relacionado a este trámite.</p>
+                                <p data-payment-modal-description>{{ $modalPagoEnEdicion ? 'Corrija los datos del pago relacionado a este trámite.' : 'Complete el pago relacionado a este trámite.' }}</p>
                             </div>
                             <button type="button" class="tramite-modal-close" data-close-payment-modal aria-label="Cerrar modal de pago">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
 
-                        <form action="{{ route('pagos_store') }}" method="POST" enctype="multipart/form-data">
+                        <form action="{{ $modalPagoEnEdicion ? route('pagos_update', $pagoEditando) : route('pagos_store') }}"
+                            method="POST"
+                            enctype="multipart/form-data"
+                            data-payment-form
+                            data-store-url="{{ route('pagos_store') }}"
+                            data-current-pdf-url="{{ $pagoEditando?->comprobante ? route('pagos_comprobante', $pagoEditando) : '' }}">
                             @csrf
+                            <input type="hidden" data-payment-method @if ($modalPagoEnEdicion) name="_method" value="PUT" @endif>
+                            <input type="hidden" name="form_id_pago" data-payment-id value="{{ $pagoEditando?->id }}">
                             <input type="hidden" name="form_id_certificado" value="{{ $certificado->id }}">
                             <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'recibidas') }}">
 
                             <div class="tramite-payment-form-grid">
-                                <div class="tramite-payment-field-4">
+                                <div class="tramite-payment-field-6">
                                     <label class="cert-show-label" for="form_id_procedencia_pago">Procedencia</label>
                                     <select id="form_id_procedencia_pago" name="form_id_procedencia_pago" class="cert-review-select @error('form_id_procedencia_pago') is-invalid @enderror" required>
                                         <option value="">Seleccione procedencia</option>
                                         @foreach ($procedenciasPago as $procedencia)
-                                            <option value="{{ $procedencia->id }}" @selected(old('form_id_procedencia_pago') == $procedencia->id)>
+                                            <option value="{{ $procedencia->id }}" @selected(old('form_id_procedencia_pago', $pagoEditando?->id_procedencia) == $procedencia->id)>
                                                 {{ $procedencia->codigo }}{{ $procedencia->descripcion ? ' - ' . $procedencia->descripcion : '' }}
                                             </option>
                                         @endforeach
@@ -1078,12 +1216,12 @@
                                     @enderror
                                 </div>
 
-                                <div class="tramite-payment-field-4">
+                                <div class="tramite-payment-field-6">
                                     <label class="cert-show-label" for="form_tipo_pago">Tipo de pago</label>
                                     <select id="form_tipo_pago" name="form_tipo_pago" class="cert-review-select @error('form_tipo_pago') is-invalid @enderror" required>
                                         <option value="">Seleccione tipo</option>
                                         @foreach (\App\Models\Pago::TIPOS_PAGOS as $valor => $texto)
-                                            <option value="{{ $valor }}" @selected(old('form_tipo_pago') === $valor)>{{ $texto }}</option>
+                                            <option value="{{ $valor }}" @selected(old('form_tipo_pago', $pagoEditando?->tipo_pago) === $valor)>{{ $texto }}</option>
                                         @endforeach
                                     </select>
                                     @error('form_tipo_pago')
@@ -1093,38 +1231,46 @@
 
                                 <div class="tramite-payment-field-4">
                                     <label class="cert-show-label" for="form_fecha_pago">Fecha de pago</label>
-                                    <input id="form_fecha_pago" name="form_fecha_pago" type="date" class="cert-review-select @error('form_fecha_pago') is-invalid @enderror" value="{{ old('form_fecha_pago', now()->toDateString()) }}" required>
+                                    <input id="form_fecha_pago" name="form_fecha_pago" type="date" class="cert-review-select @error('form_fecha_pago') is-invalid @enderror" value="{{ old('form_fecha_pago', $pagoEditando?->fecha ?? now()->toDateString()) }}" required>
                                     @error('form_fecha_pago')
                                         <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
 
-                                <div class="tramite-payment-field-3">
+                                <div class="tramite-payment-field-4">
                                     <label class="cert-show-label" for="form_monto_pago">Monto</label>
-                                    <input id="form_monto_pago" name="form_monto_pago" type="number" min="0.01" step="0.01" class="cert-review-select @error('form_monto_pago') is-invalid @enderror" value="{{ old('form_monto_pago') }}" placeholder="0.00" required>
+                                    <input id="form_monto_pago" name="form_monto_pago" type="number" min="0.01" step="0.01" class="cert-review-select @error('form_monto_pago') is-invalid @enderror" value="{{ old('form_monto_pago', $pagoEditando?->monto) }}" placeholder="0.00" required>
                                     @error('form_monto_pago')
                                         <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
 
-                                <div class="tramite-payment-field-6">
+                                <div class="tramite-payment-field-4">
+                                    <label class="cert-show-label" for="form_factura_pago">Factura</label>
+                                    <input id="form_factura_pago" name="form_factura_pago" type="text" maxlength="100" class="cert-review-select @error('form_factura_pago') is-invalid @enderror" value="{{ old('form_factura_pago', $pagoEditando?->factura) }}" placeholder="Ingrese el número de factura">
+                                    @error('form_factura_pago')
+                                        <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <div class="tramite-payment-field-12">
                                     <label class="cert-show-label" for="form_comprobante_pago">Comprobante PDF</label>
                                     <div class="tramite-payment-pdf @error('form_comprobante_pago') is-invalid @enderror">
                                         <input id="form_comprobante_pago" name="form_comprobante_pago" type="file" accept="application/pdf,.pdf" class="hidden" data-payment-pdf-input>
                                         <span class="tramite-payment-pdf-icon"><i class="fa-regular fa-file-pdf"></i></span>
-                                        <span class="tramite-payment-pdf-name" data-payment-pdf-name>Sin PDF seleccionado</span>
+                                        <span class="tramite-payment-pdf-details">
+                                            <strong class="tramite-payment-pdf-name" data-payment-pdf-name>{{ $modalPagoEnEdicion && $pagoEditando?->comprobante ? 'Comprobante actual registrado' : 'Sin PDF seleccionado' }}</strong>
+                                            <small data-payment-pdf-help>{{ $modalPagoEnEdicion ? 'Seleccione otro PDF solo para reemplazarlo' : 'PDF opcional · Máximo 10 MB' }}</small>
+                                        </span>
                                         <span class="tramite-payment-pdf-actions">
-                                            <button type="button" class="tramite-payment-pdf-button is-select" data-payment-pdf-select>
-                                                <i class="fa-solid fa-upload"></i>
-                                                Seleccionar
+                                            <button type="button" class="tramite-payment-pdf-button is-select" data-payment-pdf-select aria-label="Seleccionar comprobante PDF" title="Seleccionar PDF">
+                                                <i class="fa-solid fa-upload" aria-hidden="true"></i>
                                             </button>
-                                            <button type="button" class="tramite-payment-pdf-button is-view" data-payment-pdf-view disabled>
-                                                <i class="fa-regular fa-eye"></i>
-                                                Ver
+                                            <button type="button" class="tramite-payment-pdf-button is-view" data-payment-pdf-view aria-label="Ver comprobante PDF" title="Ver PDF" disabled>
+                                                <i class="fa-regular fa-eye" aria-hidden="true"></i>
                                             </button>
-                                            <button type="button" class="tramite-payment-pdf-button is-remove" data-payment-pdf-remove disabled>
-                                                <i class="fa-solid fa-trash-can"></i>
-                                                Quitar
+                                            <button type="button" class="tramite-payment-pdf-button is-remove" data-payment-pdf-remove aria-label="Quitar comprobante PDF" title="Quitar PDF" disabled>
+                                                <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
                                             </button>
                                         </span>
                                     </div>
@@ -1140,7 +1286,7 @@
                                 </button>
                                 <button type="submit" class="tramite-btn tramite-btn-primary">
                                     <i class="fa-solid fa-floppy-disk"></i>
-                                    Registrar pago
+                                    <span data-payment-submit-label>{{ $modalPagoEnEdicion ? 'Actualizar pago' : 'Registrar pago' }}</span>
                                 </button>
                             </div>
                         </form>
@@ -1255,7 +1401,10 @@
                             <dl class="tramite-definition is-compact">
                                 <div class="tramite-definition-row">
                                     <dt>Tramitador</dt>
-                                    <dd>{{ $nombrePersona($certificado->tramitador) }}</dd>
+                                    <dd>
+                                        <span class="block">{{ $nombrePersona($certificado->tramitador) }}</span>
+                                        <span class="tramite-summary-role">{{ $tipoRelacionTramitadorActual }}</span>
+                                    </dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>CI / NIT</dt>
@@ -1295,12 +1444,12 @@
                                     <dd>{{ $seguimientoActualDetalle?->usuarioSiguiente?->funcionario?->cargos?->pluck('area.nombre')->filter()->implode(', ') ?: 'Sin area asignada' }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
-                                    <dt>Registrado por</dt>
+                                    <dt>Registrado inicialmente por</dt>
                                     <dd class="tramite-user-stack">
                                         <span class="tramite-user-name">{{ $nombreUsuario($seguimientoOrigenDetalle?->usuarioOrigen, 'Sin usuario de registro') }}</span>
                                         @if ($seguimientoOrigenDetalle?->usuarioOrigen)
                                             <span class="tramite-user-cargo">
-                                                {{ $cargoUsuario($seguimientoOrigenDetalle->usuarioOrigen) }}
+                                                {{ $rolUsuarioEnTramite($seguimientoOrigenDetalle->usuarioOrigen) }}
                                             </span>
                                         @endif
                                     </dd>
@@ -1539,58 +1688,94 @@
                                     </button>
                                 @endif
                             </div>
-                            <div class="tramite-table-wrap">
-                                <table class="tramite-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Procedencia</th>
-                                            <th>Tipo</th>
-                                            <th>Fecha pago</th>
-                                            <th>Monto</th>
-                                            <th>Cliente</th>
-                                            <th>Registrado por</th>
-                                            <th>Fecha registro</th>
-                                            <th>Comprobante</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($certificado->pagos as $pago)
-                                            @php
-                                                $comprobantePago = $urlArchivo($pago->comprobante);
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $pago->procedencia?->descripcion ?? 'Sin procedencia' }}</td>
-                                                <td>{{ $textoTipoPago($pago->tipo_pago) }}</td>
-                                                <td>{{ $fechaCorta($pago->fecha) }}</td>
-                                                <td>{{ number_format((float) $pago->monto, 2, ',', '.') }} Bs.</td>
-                                                <td>{{ $nombrePersona($pago->clientePersona) }}</td>
-                                                <td>
-                                                    <span class="block font-semibold text-slate-800">
-                                                        {{ $nombreUsuario($pago->funcionarioUsuario, 'Sin funcionario') }}
-                                                    </span>
-                                                    <span class="block text-xs font-semibold text-slate-500">
-                                                        {{ $cargoUsuario($pago->funcionarioUsuario) }}
-                                                    </span>
-                                                </td>
-                                                <td>{{ $fechaCorta($pago->fecha_validacion) }}</td>
-                                                <td>
-                                                    @if ($comprobantePago)
-                                                        <a href="{{ $comprobantePago }}" target="_blank" class="tramite-doc-link">
+                            <div class="tramite-payment-records">
+                                @forelse ($certificado->pagos as $pago)
+                                    <article class="tramite-payment-record">
+                                        <header class="tramite-payment-record-head">
+                                            <div class="tramite-payment-record-heading">
+                                                <div>
+                                                    <strong>Pago registrado</strong>
+                                                    <span>{{ $textoTipoPago($pago->tipo_pago) }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="tramite-payment-record-amount">
+                                                <small>Monto</small>
+                                                <strong>{{ number_format((float) $pago->monto, 2, ',', '.') }} Bs.</strong>
+                                            </div>
+                                        </header>
+
+                                        @if ($puedeEditarPago)
+                                            <div class="tramite-payment-record-actions">
+                                                <button type="button"
+                                                    class="tramite-btn tramite-btn-secondary"
+                                                    data-edit-payment
+                                                    data-update-url="{{ route('pagos_update', $pago) }}"
+                                                    data-payment-id="{{ $pago->id }}"
+                                                    data-procedencia="{{ $pago->id_procedencia }}"
+                                                    data-tipo="{{ $pago->tipo_pago }}"
+                                                    data-fecha="{{ $pago->fecha ? \Illuminate\Support\Carbon::parse($pago->fecha)->format('Y-m-d') : '' }}"
+                                                    data-monto="{{ $pago->monto }}"
+                                                    data-factura="{{ $pago->factura }}"
+                                                    data-comprobante="{{ $pago->comprobante ? route('pagos_comprobante', $pago) : '' }}">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                    Editar pago
+                                                </button>
+                                            </div>
+                                        @endif
+
+                                        <dl class="tramite-payment-record-grid">
+                                            <div>
+                                                <dt>Procedencia</dt>
+                                                <dd>{{ $pago->procedencia?->descripcion ?? 'Sin procedencia' }}</dd>
+                                            </div>
+                                            <div>
+                                                <dt>Fecha de pago</dt>
+                                                <dd>{{ $fechaCorta($pago->fecha) }}</dd>
+                                            </div>
+                                            <div>
+                                                <dt>Factura</dt>
+                                                <dd>{{ $pago->factura ?: 'Sin factura' }}</dd>
+                                            </div>
+                                            <div>
+                                                <dt>Fecha de validación</dt>
+                                                <dd>{{ $fechaCorta($pago->fecha_validacion) }}</dd>
+                                            </div>
+                                            <div class="is-wide">
+                                                <dt>Cliente</dt>
+                                                <dd>{{ $nombrePersona($pago->clientePersona) }}</dd>
+                                            </div>
+                                            <div class="is-wide">
+                                                <dt>Registrado por</dt>
+                                                <dd class="tramite-user-stack">
+                                                    <span class="tramite-user-name">{{ $nombreUsuario($pago->funcionarioUsuario, 'Sin funcionario') }}</span>
+                                                    <span class="tramite-user-cargo">{{ $cargoUsuario($pago->funcionarioUsuario) }}</span>
+                                                </dd>
+                                            </div>
+                                            <div class="is-full">
+                                                <dt>Comprobante</dt>
+                                                <dd>
+                                                    @php
+                                                        $rutaComprobantePago = preg_replace('#^/?storage/#', '', (string) $pago->comprobante);
+                                                        $comprobantePagoDisponible = filled($rutaComprobantePago)
+                                                            && \Illuminate\Support\Facades\Storage::disk('public')->exists($rutaComprobantePago);
+                                                    @endphp
+                                                    @if ($comprobantePagoDisponible)
+                                                        <a href="{{ route('pagos_comprobante', $pago) }}" target="_blank" class="tramite-doc-link tramite-payment-document-link">
                                                             <i class="fa-regular fa-file-pdf"></i>
-                                                            Ver comprobante
+                                                            Ver comprobante PDF
                                                         </a>
+                                                    @elseif ($pago->comprobante)
+                                                        <span class="tramite-pill tramite-pill-danger">Archivo no disponible</span>
                                                     @else
                                                         <span class="tramite-pill tramite-pill-warn">Sin PDF</span>
                                                     @endif
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="9" class="text-center">Este trámite no tiene pago registrado.</td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </article>
+                                @empty
+                                    <div class="tramite-payment-empty">Este trámite no tiene pago registrado.</div>
+                                @endforelse
                             </div>
                         </article>
                         @endif
@@ -1634,7 +1819,3 @@
             });
         </script>
     @endif
-
-
-
-

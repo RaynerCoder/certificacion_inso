@@ -16,7 +16,7 @@ class GestionTramitadoresService
 {
     /**
      * Devuelve las cuentas que pueden recibir una correccion del tramite.
-     * Para empresas incluye al beneficiario y a sus tramitadores activos.
+     * En empresas se muestra primero al representante legal y luego a sus tramitadores activos.
      */
     public function destinatariosCorreccion(Certificado $certificado): Collection
     {
@@ -29,13 +29,13 @@ class GestionTramitadoresService
         ]);
 
         $beneficiario = $certificado->beneficiario;
-        $usuarioBeneficiario = $this->usuarioActivo($beneficiario?->usuario);
-
         if (! $beneficiario) {
             return collect();
         }
 
         if (! $beneficiario->empresa) {
+            $usuarioBeneficiario = $this->usuarioActivo($beneficiario->usuarioAcceso());
+
             return $usuarioBeneficiario
                 ? collect([$this->opcionDestinatario($usuarioBeneficiario, $beneficiario, 'Beneficiario y tramitador')])
                 : collect();
@@ -43,8 +43,17 @@ class GestionTramitadoresService
 
         $destinatarios = collect();
 
-        if ($usuarioBeneficiario) {
-            $destinatarios->push($this->opcionDestinatario($usuarioBeneficiario, $beneficiario, 'Beneficiario'));
+        // La empresa no inicia sesion por si sola: la cuenta principal pertenece a su representante legal.
+        $representanteLegal = $beneficiario->empresa->responsables
+            ->filter(fn (Responsable $responsable) => $this->responsableTieneRolActivo($responsable, 'representante-legal'))
+            ->sortByDesc('id')
+            ->first();
+        $usuarioRepresentante = $this->usuarioActivo($representanteLegal?->persona?->usuario);
+
+        if ($usuarioRepresentante && $representanteLegal?->persona) {
+            $destinatarios->push(
+                $this->opcionDestinatario($usuarioRepresentante, $representanteLegal->persona, 'Representante legal')
+            );
         }
 
         $beneficiario->empresa->responsables
@@ -65,21 +74,26 @@ class GestionTramitadoresService
     }
 
     /**
-     * Prefiere al tramitador original cuando sigue habilitado; si no, usa al beneficiario.
+     * Para empresas propone primero al representante legal; en los demás casos conserva al tramitador original.
      */
     public function idDestinatarioPredeterminado(Certificado $certificado): ?int
     {
         $opciones = $this->destinatariosCorreccion($certificado);
+        $representanteLegal = $opciones->firstWhere('tipo', 'Representante legal');
+
+        if ($representanteLegal) {
+            return $representanteLegal['id'];
+        }
+
         $idTramitador = (int) ($certificado->tramitador?->id_usuario ?? 0);
 
         if ($idTramitador && $opciones->contains('id', $idTramitador)) {
             return $idTramitador;
         }
 
-        $beneficiario = $opciones->firstWhere('tipo', 'Beneficiario');
         $primeraOpcion = $opciones->first();
 
-        return $beneficiario['id'] ?? $primeraOpcion['id'] ?? null;
+        return $primeraOpcion['id'] ?? null;
     }
 
     /**
@@ -92,7 +106,7 @@ class GestionTramitadoresService
 
         if (! $destinatario) {
             throw ValidationException::withMessages([
-                'id_usuario_responsable_correccion' => 'Seleccione un beneficiario o tramitador activo de la empresa.',
+                'id_usuario_responsable_correccion' => 'Seleccione al representante legal o a un tramitador activo de la empresa.',
             ]);
         }
 
@@ -106,34 +120,22 @@ class GestionTramitadoresService
     {
         $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
 
-        if ((int) $certificado->beneficiario?->id_usuario === (int) $usuario->id) {
+        if ((int) $certificado->beneficiario?->usuarioAcceso()?->id === (int) $usuario->id) {
             return true;
         }
 
-        if (! $this->usuarioEsTramitadorActivoDelBeneficiario($usuario, $certificado)) {
-            return false;
-        }
-
-        if ((int) $certificado->tramitador?->id_usuario === (int) $usuario->id) {
-            return true;
-        }
-
-        return $certificado->seguimientos()
-            ->where('id_usuario_siguiente', $usuario->id)
-            ->where('estado', 'ACTIVO')
-            ->whereNull('fecha_derivacion')
-            ->exists();
+        return $this->usuarioTieneRelacionActivaConBeneficiario($usuario, $certificado);
     }
 
     /**
-     * Un tramitador puede responder solo mientras siga activo para la empresa beneficiaria.
+     * El representante legal o tramitador puede responder mientras su vinculo siga activo.
      */
     public function usuarioPuedeResponderCorreccion(User $usuario, Certificado $certificado): bool
     {
         return $this->usuarioPuedeConsultarTramite($usuario, $certificado)
             && (
-                (int) $certificado->beneficiario?->id_usuario === (int) $usuario->id
-                || $this->usuarioEsTramitadorActivoDelBeneficiario($usuario, $certificado)
+                (int) $certificado->beneficiario?->usuarioAcceso()?->id === (int) $usuario->id
+                || $this->usuarioTieneRelacionActivaConBeneficiario($usuario, $certificado)
             );
     }
 
@@ -155,7 +157,7 @@ class GestionTramitadoresService
 
         foreach ($pendientes as $seguimiento) {
             $certificado = $seguimiento->certificado;
-            $usuarioBeneficiario = $certificado->beneficiario?->usuario;
+            $usuarioBeneficiario = $certificado->beneficiario?->usuarioAcceso();
 
             // La etapa anterior se cierra y se abre otra para conservar el historial completo.
             $seguimiento->update(['fecha_derivacion' => now()->toDateString()]);
@@ -225,7 +227,7 @@ class GestionTramitadoresService
     private function validarBeneficiariosConAcceso(Collection $pendientes): void
     {
         $sinAcceso = $pendientes->first(function (Seguimiento $seguimiento) {
-            return ! $this->usuarioActivo($seguimiento->certificado?->beneficiario?->usuario);
+            return ! $this->usuarioActivo($seguimiento->certificado?->beneficiario?->usuarioAcceso());
         });
 
         if ($sinAcceso) {
@@ -235,38 +237,34 @@ class GestionTramitadoresService
         }
     }
 
-    private function usuarioEsTramitadorActivoDelBeneficiario(User $usuario, Certificado $certificado): bool
+    private function usuarioTieneRelacionActivaConBeneficiario(User $usuario, Certificado $certificado): bool
     {
-        $beneficiario = $certificado->beneficiario;
-        $empresa = $beneficiario?->empresa;
-        $personaUsuario = $usuario->persona;
+        $idEmpresaBeneficiaria = $certificado->beneficiario?->empresa?->id;
 
-        if (! $empresa || ! $personaUsuario) {
+        if (! $idEmpresaBeneficiaria) {
             return false;
         }
 
-        return Responsable::query()
-            ->where('id_empresa', $empresa->id)
-            ->where('id_persona', $personaUsuario->id)
-            ->whereIn('estado', ['1', 'ACTIVO'])
-            ->whereHas('rol', function ($query) {
-                $query->where('estado', 1)
-                    ->where(function ($rol) {
-                        $rol->where('slug', 'tramitador')
-                            ->orWhere('name', 'like', '%TRAMITADOR%');
-                    });
-            })
-            ->exists();
+        // Comparte la regla usada al iniciar el tramite: persona, empresa, relacion y rol activos.
+        return $usuario->relacionesEmpresarialesParaTramites()
+            ->contains(fn (Responsable $relacion) => (int) $relacion->id_empresa === (int) $idEmpresaBeneficiaria);
     }
 
     private function responsableEsTramitadorActivo(Responsable $responsable): bool
     {
+        return $this->responsableTieneRolActivo($responsable, 'tramitador');
+    }
+
+    private function responsableTieneRolActivo(Responsable $responsable, string $slug): bool
+    {
         $rol = $responsable->rol;
 
         return in_array((string) $responsable->estado, ['1', 'ACTIVO'], true)
+            && $responsable->persona
+            && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true)
             && $rol
             && (string) $rol->estado === '1'
-            && ($rol->slug === 'tramitador' || str_contains(mb_strtoupper((string) $rol->name), 'TRAMITADOR'));
+            && $rol->slug === $slug;
     }
 
     private function usuarioActivo(?User $usuario): ?User
@@ -282,7 +280,7 @@ class GestionTramitadoresService
             'id' => $usuario->id,
             'nombre' => $this->nombrePersona($persona),
             'tipo' => $tipo,
-            'busqueda' => mb_strtolower($this->nombrePersona($persona) . ' ' . $tipo),
+            'busqueda' => mb_strtolower($this->nombrePersona($persona).' '.$tipo),
         ];
     }
 

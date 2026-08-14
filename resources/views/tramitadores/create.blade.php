@@ -126,7 +126,7 @@
             </div>
 
             <div class="space-y-4 p-3 sm:space-y-6 sm:p-6">
-                <section class="relative z-50 overflow-visible rounded-xl border border-slate-200">
+                <section class="relative z-40 overflow-visible rounded-xl border border-slate-200">
                     <div class="border-b border-slate-200 bg-slate-100 px-4 py-2">
                         <h2 class="text-sm font-bold text-slate-700">1. Persona registrada</h2>
                     </div>
@@ -273,7 +273,7 @@
                         <h2 class="text-sm font-bold text-emerald-700">4. Teléfonos del tramitador</h2>
                     </div>
                     <div class="space-y-4 p-4">
-                        <div class="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-end">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
                             <div class="md:col-span-6"><x-wire-input label="Teléfono" id="telefonoTramitador" placeholder="Ejemplo: 70123456" /></div>
                             <div class="md:col-span-4">
                                 <x-wire-native-select label="Estado" id="estadoTelefonoTramitador">
@@ -281,7 +281,7 @@
                                     <option value="INACTIVO">Inactivo</option>
                                 </x-wire-native-select>
                             </div>
-                            <div class="md:col-span-2">
+                            <div class="md:col-span-2 md:flex md:h-full md:items-end">
                                 <button type="button" id="btnAgregarTelefono" class="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700">Agregar</button>
                             </div>
                         </div>

@@ -4,13 +4,13 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Sanctum\HasApiTokens;
-use App\Traits\Auditable;
 
 class User extends Authenticatable
 {
@@ -18,12 +18,11 @@ class User extends Authenticatable
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
+
     use HasProfilePhoto;
     use Notifiable;
-    // SoftDeletes mantiene la cuenta en historial y solo llena deleted_at al eliminar.
     use SoftDeletes;
     use TwoFactorAuthenticatable;
-    
 
     /**
      * The attributes that are mass assignable.
@@ -85,10 +84,91 @@ class User extends Authenticatable
         return $this->hasMany(RoleUser::class, 'id_user');
     }
 
-    // Relacion uno a uno (cuenta propia asignada a una persona o empresa)
+    // Persona natural propietaria de la cuenta.
     public function persona()
     {
         return $this->hasOne(Persona::class, 'id_usuario');
+    }
+
+    // Relaciones activas que permiten actuar por una empresa desde esta cuenta.
+    public function relacionesEmpresarialesActivas(): Collection
+    {
+        $persona = $this->persona;
+
+        if (! $persona || strtoupper((string) $persona->estado) !== 'ACTIVO') {
+            return collect();
+        }
+
+        return Responsable::query()
+            ->with(['empresa.persona', 'rol'])
+            ->where('id_persona', $persona->id)
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('empresa', fn ($empresa) => $empresa
+                ->whereIn('estado', ['1', 'ACTIVO'])
+                ->whereHas('persona', fn ($empresaPersona) => $empresaPersona
+                    ->whereIn('estado', ['1', 'ACTIVO'])))
+            ->whereHas('rol', fn ($rol) => $rol
+                ->where('estado', 1)
+                ->whereIn('slug', ['representante-legal', 'tramitador']))
+            ->get();
+    }
+
+    /**
+     * Relaciones que esta cuenta puede utilizar al iniciar tramites.
+     * Un representante legal trabaja con una sola empresa; una cuenta exclusivamente
+     * tramitadora puede operar con todas las empresas que la autorizaron.
+     */
+    public function relacionesEmpresarialesParaTramites(): Collection
+    {
+        $relaciones = $this->relacionesEmpresarialesActivas();
+        $representacionPrincipal = $relaciones
+            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'representante-legal')
+            ->sortByDesc('id')
+            ->take(1)
+            ->values();
+
+        if ($representacionPrincipal->isNotEmpty()) {
+            return $representacionPrincipal;
+        }
+
+        return $relaciones
+            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'tramitador')
+            ->sortBy(fn (Responsable $relacion) => $relacion->empresa?->razon_social)
+            ->values();
+    }
+
+    public function empresasRepresentadasActivas(): Collection
+    {
+        return $this->relacionesEmpresarialesParaTramites()
+            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'representante-legal')
+            ->pluck('empresa')
+            ->filter()
+            ->unique('id')
+            ->sortBy('razon_social')
+            ->values();
+    }
+
+    public function empresaRepresentadaActiva(): ?Empresa
+    {
+        return $this->empresasRepresentadasActivas()->first();
+    }
+
+    public function empresaDeAccesoActiva(): ?Empresa
+    {
+        $empresaRepresentada = $this->empresaRepresentadaActiva();
+
+        if ($empresaRepresentada) {
+            return $empresaRepresentada;
+        }
+
+        // Mantiene operativas las cuentas empresariales creadas antes del cambio de modelo.
+        $empresaAnterior = $this->persona?->empresa;
+
+        return $empresaAnterior
+            && strtoupper((string) $this->persona?->estado) === 'ACTIVO'
+            && strtoupper((string) $empresaAnterior->estado) === 'ACTIVO'
+            ? $empresaAnterior
+            : null;
     }
 
     // Relacion uno a uno: cuenta interna vinculada a su ficha de funcionario.

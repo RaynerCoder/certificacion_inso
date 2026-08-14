@@ -79,7 +79,7 @@
     {{-- Formulario principal: conserva la ruta actual y envia todo al controlador existente. --}}
     <form id="formPersonaWizard" action="{{ route('personas_update', $persona) }}" method="POST" enctype="multipart/form-data" novalidate
         class="persona-wizard" autocomplete="off" data-modo-formulario="edit" data-persona-id="{{ $persona->id }}"
-        data-cuenta-existente="{{ $persona->usuario ? '1' : '0' }}"
+        data-cuenta-existente="{{ $usuarioCuentaAcceso ? '1' : '0' }}"
         data-tiene-errores="{{ $errors->any() ? '1' : '0' }}">
         @csrf
         @method('PUT')

@@ -49,6 +49,39 @@
         return 'Persona registrada';
     };
 
+    // Determina la función real de la persona dentro de la empresa beneficiaria.
+    $tipoRelacionSolicitanteTimeline = function ($personaSolicitante, $personaBeneficiaria) {
+        $empresa = $personaBeneficiaria?->empresa;
+
+        if (! $empresa) {
+            return 'Solicitante';
+        }
+
+        if (! $personaSolicitante) {
+            return 'Relación no identificada';
+        }
+
+        $roles = \App\Models\Responsable::query()
+            ->with('rol:id,slug')
+            ->where('id_empresa', $empresa->id)
+            ->where('id_persona', $personaSolicitante->id)
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['representante-legal', 'tramitador']))
+            ->get()
+            ->pluck('rol.slug')
+            ->filter()
+            ->unique();
+
+        $esRepresentante = $roles->contains('representante-legal');
+        $esTramitador = $roles->contains('tramitador');
+
+        return match (true) {
+            $esRepresentante => 'Representante legal',
+            $esTramitador => 'Tramitador',
+            default => 'Relación no identificada',
+        };
+    };
+
     // Obtiene el nombre visible del usuario sin mostrar correo cuando existe persona vinculada.
     $usuarioTimeline = function ($usuario, string $fallback = 'No registrado', string $cargoFallback = 'Sin cargo') use ($nombrePersonaTimeline, $tipoPersonaTimeline) {
         if (!$usuario) {
@@ -170,6 +203,10 @@
     $primerSeguimientoTimeline = $seguimientosOrdenadosTimeline->first();
     $personaSolicitanteTimeline = $certificado->tramitador ?: $certificado->beneficiario;
     $nombreSolicitanteTimeline = $nombrePersonaTimeline($personaSolicitanteTimeline);
+    $tipoSolicitanteTimeline = $tipoRelacionSolicitanteTimeline(
+        $personaSolicitanteTimeline,
+        $certificado->beneficiario
+    );
     $fechaOrigenTimeline = $certificado->fecha_inicio
         ?: ($primerSeguimientoTimeline?->fecha_inicio ? \Illuminate\Support\Carbon::parse($primerSeguimientoTimeline->fecha_inicio) : null);
 @endphp
@@ -189,8 +226,9 @@
         </article>
 
         <article class="ruta-contexto-item">
-            <span class="ruta-label">Solicitante</span>
+            <span class="ruta-label">Tramitador</span>
             <span class="ruta-valor">{{ $nombreSolicitanteTimeline }}</span>
+            <span class="ruta-rol">{{ $tipoSolicitanteTimeline }}</span>
         </article>
 
         <article class="ruta-contexto-item">
@@ -206,7 +244,7 @@
         </article>
 
         <article class="ruta-contexto-item">
-            <span class="ruta-label">Fecha de inicio</span>
+            <span class="ruta-label">Fecha de solicitud</span>
             <span class="ruta-valor">{{ $fechaTimeline($fechaOrigenTimeline) }}</span>
         </article>
     </section>
@@ -215,7 +253,6 @@
     <section class="ruta-toolbar" aria-label="Filtros de seguimiento">
         <div>
             <h2 class="ruta-toolbar-title">Movimientos del trámite</h2>
-            <span class="ruta-mini">{{ $seguimientosOrdenadosTimeline->count() }} registros de seguimiento</span>
         </div>
 
         <div class="ruta-toolbar-actions">
@@ -241,10 +278,19 @@
     {{-- TABLA DE MOVIMIENTOS: cada fila corresponde a un registro real de seguimientos. --}}
     <section class="ruta-table-wrap" aria-label="Tabla de movimientos del trámite">
         <table class="ruta-table">
+            <colgroup>
+                <col class="ruta-col-id">
+                <col class="ruta-col-fecha">
+                <col class="ruta-col-persona">
+                <col class="ruta-col-persona">
+                <col class="ruta-col-anterior">
+                <col class="ruta-col-referencia">
+                <col class="ruta-col-descripcion">
+            </colgroup>
             <thead>
                 <tr>
-                    <th>Movimiento</th>
-                    <th>Fecha</th>
+                    <th>N.º / ID</th>
+                    <th>Fecha del movimiento</th>
                     <th>Quién envía</th>
                     <th>Quién recibe</th>
                     <th>Responsable anterior</th>
@@ -267,7 +313,8 @@
                             $loop->first ? 'Sin anterior' : 'Sin responsable anterior',
                             'Sin cargo'
                         );
-                        $fechaPrincipal = $seguimiento->fecha_derivacion ?: $seguimiento->fecha_inicio ?: $seguimiento->created_at;
+                        // created_at identifica cuándo quedó registrado este movimiento en el sistema.
+                        $fechaMovimiento = $seguimiento->created_at;
                         $estadoFiltro = strtolower($estadoVisual['filter']);
                         // Columnas reales de seguimientos: referencia y descripcion_final.
                         $referencia = $datoTimeline($seguimiento->referencia, 'Sin referencia');
@@ -289,17 +336,13 @@
                         data-status="{{ $estadoFiltro }}"
                         data-search="{{ $textoBusqueda }}">
                         <td>
-                            <span class="ruta-movimiento-num">#{{ $loop->iteration }}</span>
+                            <span class="ruta-movimiento-num">{{ $loop->iteration }}</span>
+                            <span class="ruta-movimiento-id">ID {{ $seguimiento->id }}</span>
                             <span class="ruta-chip {{ $estadoVisual['class'] }}">{{ $estadoVisual['label'] }}</span>
-                            <span class="ruta-mini">Seguimiento #{{ $seguimiento->id }}</span>
                         </td>
 
                         <td>
-                            <span class="ruta-valor">{{ $fechaTimeline($fechaPrincipal) }}</span>
-                            <span class="ruta-mini">Inicio: {{ $fechaTimeline($seguimiento->fecha_inicio) }}</span>
-                            @if ($seguimiento->fecha_final)
-                                <span class="ruta-mini">Cierre: {{ $fechaTimeline($seguimiento->fecha_final) }}</span>
-                            @endif
+                            <span class="ruta-valor">{{ $fechaTimeline($fechaMovimiento) }}</span>
                         </td>
 
                         <td>

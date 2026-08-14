@@ -51,6 +51,14 @@
                 'permiso' => 'seguimientos_tramite.consulta_general',
                 'ruta' => $ruta('seguimientos_todos'),
             ],
+            [
+                'titulo' => 'Pagos',
+                'detalle' => 'Consultar los pagos registrados y abrir el trámite relacionado.',
+                'icono' => 'fa-solid fa-credit-card',
+                'color' => 'verde',
+                'permiso' => ['pagos.ver', 'pagos.validar'],
+                'ruta' => $ruta('pagos_index'),
+            ],
         ];
 
         $catalogos = [
@@ -298,7 +306,7 @@
             @endforeach
         </div>
 
-        <div class="inicio-section">
+        {{-- <div class="inicio-section">
             <div class="inicio-section-head">
                 <div>
                     <h2 class="inicio-section-title">Accesos de trabajo</h2>
@@ -316,6 +324,6 @@
                     @endpermiso
                 @endforeach
             </div>
-        </div>
+        </div> --}}
     </section>
 </x-admin-layout>

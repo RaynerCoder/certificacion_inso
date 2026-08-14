@@ -1,7 +1,7 @@
 @php
     $registro = $tramitador ?? null;
     $usuarioActual = auth()->user()?->loadMissing('persona.empresa');
-    $esUsuarioEmpresa = filled($usuarioActual?->persona?->empresa);
+    $esUsuarioEmpresa = filled($usuarioActual?->empresaDeAccesoActiva());
     $puedeDarDeBaja = $registro
         && in_array((string) $registro->estado, ['1', 'ACTIVO'], true)
         && (
@@ -19,7 +19,7 @@
         @endif
 
         @permiso('tramitadores.validar')
-            @if (! auth()->user()?->persona?->empresa)
+            @if (! $esUsuarioEmpresa)
                 <x-wire-button href="{{ route('tramitadores_edit', $registro) }}" blue xs>
                     Validar
                 </x-wire-button>

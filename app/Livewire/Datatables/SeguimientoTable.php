@@ -60,6 +60,7 @@ class SeguimientoTable extends DataTableComponent
             'certificado.tipoCertificado.plantillaActiva',
             'certificado.beneficiario.natural',
             'certificado.beneficiario.empresa',
+            'certificado.beneficiario.empresa.responsables.rol',
             'certificado.tramitador.natural',
             'certificado.tramitador.empresa',
             'certificado.certificadoRequisitos',
@@ -155,7 +156,7 @@ class SeguimientoTable extends DataTableComponent
             $this->columnaCodigoTramite(),
             $this->columnaTipoTramite(),
             $this->columnaBeneficiario(),
-            $this->columnaTramitador(),
+            $this->columnaTramitadorConRelacion(),
             $this->columnaFechaHoraInicio(),
             $this->columnaDerivadoPor(),
             $this->columnaReferencia(),
@@ -205,6 +206,17 @@ class SeguimientoTable extends DataTableComponent
     {
         return Column::make('Tramitador', 'id_certificado')
             ->format(fn ($valor, $fila) => $this->nombrePersona($fila->certificado?->tramitador, 'Sin tramitador'))
+            ->searchable(function (Builder $query, string $search) {
+                $this->buscarPersonaRelacionada($query, 'tramitador', $search);
+            });
+    }
+
+    // En la bandeja de atención también se aclara cómo representa a la empresa beneficiaria.
+    private function columnaTramitadorConRelacion(): Column
+    {
+        return Column::make('Tramitador', 'id_certificado')
+            ->label(fn ($fila) => $this->htmlTramitadorConRelacion($fila))
+            ->html()
             ->searchable(function (Builder $query, string $search) {
                 $this->buscarPersonaRelacionada($query, 'tramitador', $search);
             });
@@ -334,25 +346,22 @@ class SeguimientoTable extends DataTableComponent
     |--------------------------------------------------------------------------
     */
 
-    // Bandeja del solicitante: muestra tramites donde su usuario es beneficiario o tramitador.
-    // Mis trámites:
-    // El usuario ve trámites donde es beneficiario, o donde actúa como tramitador activo de la empresa.
+    // Mis tramites incluye la solicitud propia y las empresas donde la cuenta tiene un vinculo activo.
+    // La misma regla autoriza a representantes legales y tramitadores.
     private function filtrarSolicitudesEnviadas(Builder $query): Builder
     {
-        $idPersonaActual = auth()->user()?->loadMissing('persona')?->persona?->id;
+        $usuario = auth()->user()?->loadMissing('persona');
+        $relacionesEmpresariales = $usuario?->relacionesEmpresarialesParaTramites() ?? collect();
+        $idsBeneficiarios = ($relacionesEmpresariales->isNotEmpty()
+            ? $relacionesEmpresariales->pluck('empresa.id_persona')
+            : collect([$usuario?->persona?->id]))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
-        return $query->where(function (Builder $consulta) use ($idPersonaActual) {
-            $consulta
-                ->whereHas('certificado.beneficiario', function (Builder $persona) {
-                    $persona->where('id_usuario', auth()->id());
-                })
-                ->orWhereHas('certificado.beneficiario.empresa.responsables', function (Builder $responsable) use ($idPersonaActual) {
-                    $responsable
-                        ->where('id_persona', $idPersonaActual)
-                        ->where('estado', 'ACTIVO')
-                        ->whereHas('rol', fn (Builder $rol) => $rol->where('slug', 'tramitador'));
-                });
-        });
+        return $query->whereHas('certificado', fn (Builder $certificado) => $certificado
+            ->whereIn('id_persona_beneficiario', $idsBeneficiarios));
     }
 
     // No muestra trámites de otros funcionarios, aunque el usuario conozca su código o URL.
@@ -492,6 +501,18 @@ class SeguimientoTable extends DataTableComponent
         );
     }
 
+    private function htmlTramitadorConRelacion(Seguimiento $seguimiento): string
+    {
+        $tramitador = $seguimiento->certificado?->tramitador;
+        $nombre = $this->nombrePersona($tramitador, 'Sin tramitador');
+        $tipoRelacion = $this->tipoRelacionDelTramitador($seguimiento);
+
+        return '<div class="min-w-[160px] leading-5">'
+            . '<strong class="block whitespace-normal text-slate-800">' . e($nombre) . '</strong>'
+            . '<div class="text-xs font-semibold text-emerald-700">' . e($tipoRelacion) . '</div>'
+            . '</div>';
+    }
+
     private function htmlUsuarioFuncionario($usuario, string $textoVacio): string
     {
         if (!$usuario) {
@@ -607,6 +628,26 @@ class SeguimientoTable extends DataTableComponent
         }
 
         return 'Persona #' . $persona->id;
+    }
+
+    private function tipoRelacionDelTramitador(Seguimiento $seguimiento): string
+    {
+        $certificado = $seguimiento->certificado;
+        $empresaBeneficiaria = $certificado?->beneficiario?->empresa;
+        $idTramitador = $certificado?->tramitador?->id;
+
+        if (! $empresaBeneficiaria) {
+            return 'Solicitante';
+        }
+
+        $esRepresentanteLegal = $empresaBeneficiaria->responsables->contains(function ($responsable) use ($idTramitador) {
+            return (int) $responsable->id_persona === (int) $idTramitador
+                && $this->estadoActivo($responsable->estado)
+                && $responsable->rol?->slug === 'representante-legal'
+                && $this->estadoActivo($responsable->rol?->estado);
+        });
+
+        return $esRepresentanteLegal ? 'Representante legal' : 'Tramitador';
     }
 
     private function buscarPersonaRelacionada(Builder $query, string $relacion, string $search): void

@@ -23,6 +23,12 @@ class PermisoRoleSeeder extends Seeder
             throw new \RuntimeException('Primero debe registrarse el permiso tramitadores.validar.');
         }
 
+        // Estos roles describen la relacion con una empresa; el acceso se concede con Solicitante.
+        $rolesDeRelacion = DB::table('roles')
+            ->whereIn('slug', ['representante-legal', 'tramitador'])
+            ->pluck('id');
+        DB::table('permisos_roles')->whereIn('id_role', $rolesDeRelacion)->delete();
+
         $permisosAdministrador = DB::table('permisos')
             ->where('estado', 1)
             ->orderBy('id')
@@ -44,14 +50,8 @@ class PermisoRoleSeeder extends Seeder
             // Caja Pagos: consulta tramites cuando corresponde y gestiona pagos.
             3 => [1, 5, 6, 10, 12, 30, 31],
 
-            // Solicitante: inicia, consulta sus tramites y, si es empresa, registra sus tramitadores.
+            // Solicitante: inicia tramites propios o actua por una empresa que lo autorizo.
             4 => [1, 8, 9, 12, 19, 36],
-
-            // Representante legal: puede iniciar y seguir tramites de su empresa.
-            5 => [1, 8, 9, 12, 19, 36],
-
-            // Tramitador: puede iniciar y seguir tramites de empresas donde este autorizado.
-            6 => [1, 8, 9, 12, 36],
 
             8 => $permisosAdministrador,
         ];

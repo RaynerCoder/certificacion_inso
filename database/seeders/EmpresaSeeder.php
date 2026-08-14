@@ -9,6 +9,9 @@ class EmpresaSeeder extends Seeder
 {
     use GuardaSeeders;
 
+    /**
+     * Las empresas son beneficiarias; el acceso pertenece a sus representantes.
+     */
     public function run(): void
     {
         foreach ([

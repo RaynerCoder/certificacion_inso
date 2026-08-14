@@ -12,8 +12,8 @@ use App\Models\Persona;
 use App\Models\RequisitoCertificado;
 use App\Models\RequisitoTipoCertificado;
 use App\Models\Responsable;
-use App\Models\Role;
 use App\Models\RevisionRequisito;
+use App\Models\Role;
 use App\Models\Seguimiento;
 use App\Models\TipoCertificado;
 use App\Models\TipoEvidencia;
@@ -29,14 +29,12 @@ use Illuminate\Validation\ValidationException;
 class SeguimientoController extends Controller
 {
     private const TOKENS_INICIO_TRAMITE = 'tokens_inicio_tramite';
+
     private const LONGITUD_MAXIMA_EVIDENCIA_TEXTO = 50;
 
     // Este servicio concentra reglas de beneficiario/tramitador.
     // Se usa para saber si un usuario puede ver, corregir o enviar tramites de una empresa.
-    public function __construct(private GestionTramitadoresService $gestionTramitadores)
-    {
-    }
-
+    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
 
     public function index(Request $request)
     {
@@ -44,7 +42,7 @@ class SeguimientoController extends Controller
         $bandeja = $configuracion['bandeja'];
 
         // Las vistas internas no deben abrirse para solicitantes externos.
-        if ($configuracion['requiere_funcionario'] && !$this->usuarioPuedeAtenderTramites()) {
+        if ($configuracion['requiere_funcionario'] && ! $this->usuarioPuedeAtenderTramites()) {
             return redirect()
                 ->route('seguimientos_mis_tramites_beneficiario')
                 ->with('error', 'Su usuario solo puede consultar las solicitudes que envio.');
@@ -165,7 +163,7 @@ class SeguimientoController extends Controller
 
             $areaDestino = $tipoCertificado->area;
 
-            if (!$areaDestino) {
+            if (! $areaDestino) {
                 throw new \Exception('El tipo de certificado no tiene un area configurada para iniciar el tramite.');
             }
 
@@ -176,7 +174,7 @@ class SeguimientoController extends Controller
             // El receptor inicial se calcula desde areas, cargos, funcionarios y usuarios activos.
             $usuarioDestino = $this->usuarioReceptorArea((int) $areaDestino->id);
 
-            if (!$usuarioDestino) {
+            if (! $usuarioDestino) {
                 throw new \Exception('No existe un funcionario activo para recibir solicitudes en el area seleccionada.');
             }
 
@@ -215,8 +213,9 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Solicitud enviada a ' . $areaDestino->nombre . ' para iniciar la tramitacion.',
-                'referencia' => 'Inicio de tramite ' . $codigo,
+                // La descripción final solo se registra cuando un usuario proporciona ese dato.
+                'descripcion_final' => null,
+                'referencia' => 'Inicio de tramite '.$codigo,
                 'id_usuario_anterior' => null,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $usuarioDestino->id,
@@ -227,6 +226,7 @@ class SeguimientoController extends Controller
             $this->notificarTramiteRecibido($certificado, $usuarioDestino, $areaDestino);
 
             DB::commit();
+            $this->consumirTokenEnvioTramite($solicitud);
 
             // Mensaje unico para evitar alertas duplicadas al volver a la bandeja.
             session()->flash('swal', [
@@ -237,12 +237,27 @@ class SeguimientoController extends Controller
 
             // Si el usuario autenticado es el solicitante real, va a su bandeja "Mis tramites".
             // Si un funcionario INSO cargo el tramite por primera vez, va a seguimiento general.
-            return redirect()->route($this->rutaDespuesDeRegistrarTramite($certificado, $solicitud->user()));
+            $rutaDestino = $this->rutaDespuesDeRegistrarTramite($solicitud->user());
+
+            if ($solicitud->expectsJson()) {
+                return response()->json(['redirect' => route($rutaDestino)]);
+            }
+
+            return redirect()->route($rutaDestino);
         } catch (\Exception $e) {
             DB::rollBack();
 
+            if ($solicitud->expectsJson()) {
+                return response()->json([
+                    'message' => 'No se pudo iniciar el tramite.',
+                    'errors' => [
+                        'formulario' => ['No se pudo iniciar el tramite. '.$e->getMessage()],
+                    ],
+                ], 422);
+            }
+
             return back()
-                ->with('error', 'No se pudo iniciar el tramite. ' . $e->getMessage())
+                ->with('error', 'No se pudo iniciar el tramite. '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -260,17 +275,25 @@ class SeguimientoController extends Controller
         return $token;
     }
 
-    // El token se consume antes de crear el tramite; si llega otra vez, no se vuelve a registrar.
+    // Comprueba que el formulario siga vigente, pero permite corregir errores sin generar otro token.
     private function validarTokenEnvioTramite(Request $request): void
     {
         $token = $request->input('form_token');
         $tokens = session(self::TOKENS_INICIO_TRAMITE, []);
 
-        if (!$token || !isset($tokens[$token])) {
+        if (! $token || ! isset($tokens[$token])) {
             throw ValidationException::withMessages([
                 'form_token' => 'La solicitud ya fue enviada o el formulario vencio. Actualice la pantalla e intente nuevamente.',
             ]);
         }
+
+    }
+
+    // Se elimina únicamente después de guardar el trámite para impedir un segundo envío exitoso.
+    private function consumirTokenEnvioTramite(Request $request): void
+    {
+        $token = $request->input('form_token');
+        $tokens = session(self::TOKENS_INICIO_TRAMITE, []);
 
         unset($tokens[$token]);
         session()->put(self::TOKENS_INICIO_TRAMITE, $tokens);
@@ -285,7 +308,7 @@ class SeguimientoController extends Controller
          * Ver tramite usa el detalle existente del certificado.
          * No se crea otra vista para mantener el flujo en los archivos ya existentes.
          */
-        if (!$seguimiento->certificado) {
+        if (! $seguimiento->certificado) {
             return redirect()
                 ->route('seguimientos_index')
                 ->with('error', 'No se encontro el certificado relacionado al tramite.');
@@ -300,7 +323,7 @@ class SeguimientoController extends Controller
     // Muestra el historial del tramite sin cargar la pantalla de revision tecnica.
     public function historial(Seguimiento $seguimiento, Request $request)
     {
-        if (!$seguimiento->certificado) {
+        if (! $seguimiento->certificado) {
             return redirect()
                 ->route('seguimientos_index')
                 ->with('error', 'No se encontro el certificado relacionado al tramite.');
@@ -321,7 +344,7 @@ class SeguimientoController extends Controller
         $puedeConsultaGeneral = $bandeja === 'todos' && $esUsuarioInterno;
         $participaEnSeguimiento = $this->usuarioParticipaEnHistorial($usuarioActual, $certificado, $esUsuarioInterno);
 
-        if (!$esSolicitante && !$participaEnSeguimiento && !$puedeConsultaGeneral) {
+        if (! $esSolicitante && ! $participaEnSeguimiento && ! $puedeConsultaGeneral) {
             abort(403, 'No tiene permiso para ver el historial de este tramite.');
         }
 
@@ -359,7 +382,7 @@ class SeguimientoController extends Controller
     // Usuario interno participante: quien registro, recibio o tuvo antes el tramite.
     private function usuarioParticipaEnHistorial(?User $usuario, Certificado $certificado, bool $esUsuarioInterno): bool
     {
-        if (!$usuario || !$esUsuarioInterno) {
+        if (! $usuario || ! $esUsuarioInterno) {
             return false;
         }
 
@@ -376,7 +399,7 @@ class SeguimientoController extends Controller
     // Devuelve las cinco notificaciones más recientes; el contador conserva solo las no leídas.
     public function notificacionesTramites(Request $request)
     {
-        if (!Schema::hasTable('notificaciones_tramites')) {
+        if (! Schema::hasTable('notificaciones_tramites')) {
             return response()->json([
                 'total' => 0,
                 'notificaciones' => [],
@@ -449,7 +472,7 @@ class SeguimientoController extends Controller
     // Marca una notificacion como vista cuando el usuario decide atenderla.
     public function marcarNotificacionTramite(Request $request, string $notificacion)
     {
-        if (!Schema::hasTable('notificaciones_tramites')) {
+        if (! Schema::hasTable('notificaciones_tramites')) {
             return response()->json(['ok' => true]);
         }
 
@@ -471,7 +494,7 @@ class SeguimientoController extends Controller
     // Marca todas como vistas desde la campana.
     public function marcarTodasNotificacionesTramite(Request $request)
     {
-        if (!Schema::hasTable('notificaciones_tramites')) {
+        if (! Schema::hasTable('notificaciones_tramites')) {
             return response()->json(['ok' => true]);
         }
 
@@ -493,7 +516,7 @@ class SeguimientoController extends Controller
     // Crea un nuevo tramite_seguimiento para dejar historial de quien recibira la revision tecnica.
     public function asignarTecnico(Request $request, Seguimiento $seguimiento)
     {
-        if (!$this->usuarioPuedeAsignarTecnico($seguimiento)) {
+        if (! $this->usuarioPuedeAsignarTecnico($seguimiento)) {
             abort(403, 'No tiene permiso para asignar tecnico a este tramite.');
         }
 
@@ -520,7 +543,7 @@ class SeguimientoController extends Controller
             })
             ->first();
 
-        if (!$tecnico) {
+        if (! $tecnico) {
             return back()->with('error', 'Seleccione un funcionario activo con cargo asignado.');
         }
 
@@ -532,7 +555,7 @@ class SeguimientoController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (!$this->usuarioPuedeAsignarTecnico($seguimientoBloqueado)) {
+            if (! $this->usuarioPuedeAsignarTecnico($seguimientoBloqueado)) {
                 DB::rollBack();
 
                 return redirect()
@@ -551,7 +574,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Funcionario asignado para revision.',
+                'descripcion_final' => null,
                 'referencia' => $datos['descripcion_derivacion'] ?: 'Asignacion de solicitud.',
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente ?: $seguimientoBloqueado->id_usuario_origen,
                 'id_usuario_origen' => auth()->id(),
@@ -581,7 +604,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo asignar el tecnico. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo asignar el tecnico. '.$e->getMessage());
         }
     }
 
@@ -597,7 +620,7 @@ class SeguimientoController extends Controller
             'motivo_derivacion' => 'motivo de derivacion',
         ]);
 
-        if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
+        if (! $this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'Solo el funcionario asignado puede derivar este tramite.');
         }
 
@@ -616,7 +639,7 @@ class SeguimientoController extends Controller
             })
             ->first();
 
-        if (!$funcionarioDestino) {
+        if (! $funcionarioDestino) {
             return back()->with('error', 'El usuario destino debe ser un funcionario activo con cargo asignado.');
         }
 
@@ -628,7 +651,7 @@ class SeguimientoController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (!$this->usuarioPuedeRevisarSeguimiento($seguimientoBloqueado)) {
+            if (! $this->usuarioPuedeRevisarSeguimiento($seguimientoBloqueado)) {
                 DB::rollBack();
 
                 return redirect()
@@ -645,7 +668,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Tramite derivado a otro tecnico.',
+                'descripcion_final' => null,
                 'referencia' => trim($datos['motivo_derivacion']),
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -676,7 +699,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo derivar el tramite. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo derivar el tramite. '.$e->getMessage());
         }
     }
 
@@ -697,7 +720,7 @@ class SeguimientoController extends Controller
             'requisitos_revision.*.observacion' => 'observacion tecnica',
         ]);
 
-        if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
+        if (! $this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
         }
 
@@ -784,7 +807,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo guardar la revision tecnica. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo guardar la revision tecnica. '.$e->getMessage());
         }
     }
 
@@ -792,7 +815,7 @@ class SeguimientoController extends Controller
     // Cierra la etapa tecnica solo cuando todos los requisitos ya fueron marcados como cumplidos.
     public function finalizarTramite(Request $request, Seguimiento $seguimiento)
     {
-        if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
+        if (! $this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
         }
 
@@ -807,7 +830,7 @@ class SeguimientoController extends Controller
                 ])
                 ->firstOrFail();
 
-            if (!$certificado->cumpleTodosLosRequisitos()) {
+            if (! $certificado->cumpleTodosLosRequisitos()) {
                 DB::rollBack();
 
                 return back()->with('error', 'No se puede finalizar el tramite porque aun existen requisitos pendientes u observados.');
@@ -839,7 +862,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => now()->toDateString(),
                 'fecha_final' => now()->toDateString(),
-                'descripcion_final' => 'Revision tecnica finalizada.',
+                'descripcion_final' => null,
                 'referencia' => 'Todos los requisitos cumplen.',
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -859,7 +882,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo finalizar el tramite. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo finalizar el tramite. '.$e->getMessage());
         }
     }
 
@@ -867,7 +890,7 @@ class SeguimientoController extends Controller
     // Devuelve el mismo tramite al solicitante para que corrija los requisitos observados.
     public function notificarCorreccionSolicitante(Request $request, Seguimiento $seguimiento)
     {
-        if (!$this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
+        if (! $this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'No puede notificar observaciones desde esta etapa.');
         }
 
@@ -904,8 +927,8 @@ class SeguimientoController extends Controller
                 ->map(function ($requisitoCertificado) {
                     $ultimaObservacion = $this->ultimaObservacionRequisito($requisitoCertificado);
 
-                    return ($requisitoCertificado->requisito?->descripcion ?? 'Requisito #' . $requisitoCertificado->id)
-                        . ': ' . ($ultimaObservacion?->observacion ?? 'Sin observacion');
+                    return ($requisitoCertificado->requisito?->descripcion ?? 'Requisito #'.$requisitoCertificado->id)
+                        .': '.($ultimaObservacion?->observacion ?? 'Sin observacion');
                 })
                 ->implode(PHP_EOL);
 
@@ -927,7 +950,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Solicitud observada para correccion del solicitante.',
+                'descripcion_final' => null,
                 'referencia' => $observaciones,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -954,7 +977,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo notificar al solicitante. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo notificar al solicitante. '.$e->getMessage());
         }
     }
 
@@ -962,7 +985,7 @@ class SeguimientoController extends Controller
     // Se usa cuando el solicitante corrige en INSO y no corresponde subir un PDF desde el sistema.
     public function registrarCorreccionRecibida(Seguimiento $seguimiento)
     {
-        if (!$this->usuarioPuedeRegistrarCorreccionRecibida($seguimiento)) {
+        if (! $this->usuarioPuedeRegistrarCorreccionRecibida($seguimiento)) {
             abort(403, 'No tiene permiso para registrar la correccion recibida.');
         }
 
@@ -1003,7 +1026,7 @@ class SeguimientoController extends Controller
                 ->where('estado', 1)
                 ->first();
 
-            if (!$tecnicoDestino) {
+            if (! $tecnicoDestino) {
                 DB::rollBack();
 
                 return back()->with('error', 'No se encontro el funcionario revisor para devolver el tramite.');
@@ -1044,7 +1067,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Correccion recibida presencialmente.',
+                'descripcion_final' => null,
                 'referencia' => 'Correccion presencial',
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -1071,7 +1094,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo registrar la correccion recibida. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo registrar la correccion recibida. '.$e->getMessage());
         }
     }
 
@@ -1079,7 +1102,7 @@ class SeguimientoController extends Controller
     // El usuario corrige documentos observados y devuelve el mismo tramite al tecnico que observo.
     public function reenviarCorreccion(Request $request, Seguimiento $seguimiento)
     {
-        if (!$this->usuarioPuedeReenviarCorreccion($seguimiento)) {
+        if (! $this->usuarioPuedeReenviarCorreccion($seguimiento)) {
             return back()->with('error', 'Este tramite no esta disponible para correccion del usuario actual.');
         }
 
@@ -1111,13 +1134,13 @@ class SeguimientoController extends Controller
             $soloGuardar = $datos['accion_correccion'] === 'guardar';
             $requisitosObservados = $certificado->certificadoRequisitos->where('cumple', 'NO');
 
-            if (!$tecnicoDestinoId) {
+            if (! $tecnicoDestinoId) {
                 DB::rollBack();
 
                 return back()->with('error', 'No se encontro el revisor que envio la observacion.');
             }
 
-            if (!$soloGuardar) {
+            if (! $soloGuardar) {
                 $this->validarCorreccionesAntesDeDevolver($certificado, $requisitosObservados, $archivos, $textos);
             }
 
@@ -1186,8 +1209,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now()->toDateString(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Correccion reenviada por el solicitante.',
-                // El solicitante solo corrige documentos; la descripcion queda automatica para no duplicar notas.
+                'descripcion_final' => null,
                 'referencia' => 'Documentos corregidos reenviados.',
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -1216,7 +1238,7 @@ class SeguimientoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'No se pudo reenviar la correccion. ' . $e->getMessage());
+            return back()->with('error', 'No se pudo reenviar la correccion. '.$e->getMessage());
         }
     }
 
@@ -1285,14 +1307,20 @@ class SeguimientoController extends Controller
         $tramitadorAutomatico = $personaUsuario ? $this->opcionPersonaTramite($personaUsuario) : null;
         $tramitadorBloqueado = (bool) $tramitadorAutomatico;
         $mostrarTramitador = $registroInterno
-            || $this->personaEsTramitadorVerificado($personaUsuario);
+            || $this->personaAutorizadaParaTramitar($personaUsuario);
+        $detallesEmpresasAutorizadas = $registroInterno
+            ? []
+            : $this->detallesEmpresasAutorizadasParaUsuario(auth()->user());
 
         // Personas que pueden iniciar un tramite como beneficiarias.
         // Se manda como arreglo simple para que la vista no haga consultas.
         $personas = $personasBase
-            ->map(fn (Persona $persona) => $this->opcionPersonaTramite($persona))
+            ->map(fn (Persona $persona) => $this->opcionPersonaTramite(
+                $persona,
+                $detallesEmpresasAutorizadas[$persona->id] ?? null
+            ))
             ->values();
-        $beneficiarioBloqueado = !$registroInterno && $personas->count() === 1;
+        $beneficiarioBloqueado = ! $registroInterno && $personas->count() === 1;
         $beneficiarioAutomatico = $beneficiarioBloqueado ? $personas->first() : null;
 
         // El solicitante externo no puede cambiar el tramitador desde la vista.
@@ -1304,7 +1332,7 @@ class SeguimientoController extends Controller
 
             if ($persona->empresa) {
                 $tramitadores = $persona->empresa->responsables
-                    ->filter(fn (Responsable $responsable) => $this->responsableEsTramitadorActivo($responsable))
+                    ->filter(fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable))
                     ->map(fn (Responsable $responsable) => $this->opcionPersonaTramite($responsable->persona))
                     ->filter(fn (array $opcion) => filled($opcion['id']))
                     ->unique('id')
@@ -1372,9 +1400,9 @@ class SeguimientoController extends Controller
 
     // OPCION DE PERSONA PARA SELECTS DEL INICIO DE TRAMITE
     // Centraliza id, nombre y tipo para que los selects muestren una descripcion debajo de cada item.
-    private function opcionPersonaTramite(?Persona $persona): array
+    private function opcionPersonaTramite(?Persona $persona, ?string $detalleEmpresa = null): array
     {
-        if (!$persona) {
+        if (! $persona) {
             return [
                 'id' => null,
                 'nombre' => 'Sin persona',
@@ -1388,42 +1416,65 @@ class SeguimientoController extends Controller
         return [
             'id' => $persona->id,
             'nombre' => $this->nombrePersona($persona),
-            'detalle' => $esEmpresa ? 'Empresa' : 'Persona natural',
+            'detalle' => $esEmpresa ? ($detalleEmpresa ?: 'Empresa') : 'Persona natural',
             'tipo' => $esEmpresa ? 'EMPRESA' : 'NATURAL',
         ];
     }
 
-    // FILTRO DE RESPONSABLES QUE PUEDEN SER TRAMITADORES
-    // Evita mostrar responsables inactivos o roles que no corresponden al tramite.
-    private function responsableEsTramitadorActivo(Responsable $responsable): bool
+    // Identifica por qué la cuenta puede iniciar trámites para cada empresa visible.
+    private function detallesEmpresasAutorizadasParaUsuario(?User $usuario): array
+    {
+        if (! $usuario) {
+            return [];
+        }
+
+        return $usuario->relacionesEmpresarialesParaTramites()
+            ->groupBy(fn (Responsable $relacion) => $relacion->empresa?->id_persona)
+            ->filter(fn ($relaciones, $idPersonaEmpresa) => filled($idPersonaEmpresa))
+            ->map(function ($relaciones) {
+                $roles = $relaciones->pluck('rol.slug')->filter()->unique();
+
+                return match (true) {
+                    $roles->contains('representante-legal') && $roles->contains('tramitador')
+                        => 'Empresa · Representante legal y tramitador',
+                    $roles->contains('representante-legal') => 'Empresa · Representante legal',
+                    default => 'Empresa · Tramitador',
+                };
+            })
+            ->all();
+    }
+
+    // Permite actuar al tramitador autorizado y al representante legal de la empresa.
+    private function responsableAutorizadoParaTramitar(Responsable $responsable): bool
     {
         $estadoActivo = in_array((string) $responsable->estado, ['1', 'ACTIVO'], true);
         $rol = $responsable->rol;
-        $esTramitador = $rol
-            && (
-                $rol->slug === 'tramitador'
-                || str_contains(mb_strtoupper($rol->name), 'TRAMITADOR')
-            );
+        $rolAutoriza = $rol
+            && (string) $rol->estado === '1'
+            && in_array($rol->slug, ['tramitador', 'representante-legal'], true);
+        $personaActiva = $responsable->persona
+            && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true);
 
-        return $estadoActivo && $esTramitador && $responsable->persona;
+        return $estadoActivo && $rolAutoriza && $personaActiva;
     }
 
-    // Una persona habilitada como tramitador puede iniciar trámites para las empresas donde está registrada.
-    private function personaEsTramitadorVerificado(?Persona $persona): bool
+    // Reconoce a la persona que puede actuar como representante legal o tramitador.
+    private function personaAutorizadaParaTramitar(?Persona $persona): bool
     {
-        if (!$persona?->natural) {
+        if (! $persona?->natural) {
             return false;
         }
 
         return Responsable::query()
             ->where('id_persona', $persona->id)
             ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('empresa', fn ($empresa) => $empresa
+                ->whereIn('estado', ['1', 'ACTIVO'])
+                ->whereHas('persona', fn ($empresaPersona) => $empresaPersona
+                    ->whereIn('estado', ['1', 'ACTIVO'])))
             ->whereHas('rol', function ($rol) {
                 $rol->where('estado', 1)
-                    ->where(function ($query) {
-                        $query->where('slug', 'tramitador')
-                            ->orWhere('name', 'like', '%TRAMITADOR%');
-                    });
+                    ->whereIn('slug', ['tramitador', 'representante-legal']);
             })
             ->exists();
     }
@@ -1504,7 +1555,7 @@ class SeguimientoController extends Controller
         }
 
         throw ValidationException::withMessages([
-            'form_id_tipo_certificado' => 'No puede solicitar este tramite. Primero debe contar con: ' . $faltantes->implode(', ') . '.',
+            'form_id_tipo_certificado' => 'No puede solicitar este tramite. Primero debe contar con: '.$faltantes->implode(', ').'.',
         ]);
     }
 
@@ -1524,7 +1575,7 @@ class SeguimientoController extends Controller
     // Evita que un usuario externo inicie tramites para personas o empresas ajenas.
     private function validarQueUsuarioPuedeRegistrarBeneficiario(?User $usuario, int $idBeneficiario): void
     {
-        if (!$usuario || !$this->usuarioPuedeIniciarTramiteParaBeneficiario($usuario, $idBeneficiario)) {
+        if (! $usuario || ! $this->usuarioPuedeIniciarTramiteParaBeneficiario($usuario, $idBeneficiario)) {
             throw ValidationException::withMessages([
                 'form_id_persona_beneficiario' => 'No puede iniciar tramites para el beneficiario seleccionado.',
             ]);
@@ -1542,7 +1593,7 @@ class SeguimientoController extends Controller
 
     private function idsBeneficiariosPermitidosParaUsuario(?User $usuario): array
     {
-        if (!$usuario) {
+        if (! $usuario) {
             return [];
         }
 
@@ -1551,31 +1602,25 @@ class SeguimientoController extends Controller
             ->where('estado', 'ACTIVO')
             ->first();
 
-        if (!$personaUsuario) {
+        if (! $personaUsuario) {
             return [];
         }
 
         $idsPermitidos = [(int) $personaUsuario->id];
 
-        // Un tramitador activo puede iniciar tramites para las empresas donde esta registrado.
-        $idsEmpresas = Persona::query()
-            ->where('estado', 'ACTIVO')
-            ->whereHas('empresa.responsables', function ($query) use ($personaUsuario) {
-                $query->where('id_persona', $personaUsuario->id)
-                    ->whereIn('estado', ['1', 'ACTIVO'])
-                    ->whereHas('rol', function ($rol) {
-                        $rol->where('estado', 1)
-                            ->where(function ($query) {
-                                $query->where('slug', 'tramitador')
-                                    ->orWhere('name', 'like', '%TRAMITADOR%');
-                            });
-                    });
-            })
-            ->pluck('id')
+        // Usa la misma regla del encabezado: relación, rol, persona y empresa deben estar activos.
+        $relacionesEmpresariales = $usuario->relacionesEmpresarialesParaTramites();
+        $idsEmpresas = $relacionesEmpresariales
+            ->pluck('empresa.id_persona')
+            ->filter()
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        return array_values(array_unique(array_merge($idsPermitidos, $idsEmpresas)));
+        // Si la cuenta actua por una empresa, inicia tramites solo para esa relacion empresarial.
+        // La persona natural se conserva como beneficiaria unicamente cuando no representa ni tramita empresas.
+        return $relacionesEmpresariales->isNotEmpty()
+            ? array_values(array_unique($idsEmpresas))
+            : $idsPermitidos;
     }
 
     // El servidor conserva al titular de la cuenta externa como tramitador para evitar cambios desde el navegador.
@@ -1585,19 +1630,27 @@ class SeguimientoController extends Controller
             ->with(['empresa.responsables.rol'])
             ->find($idBeneficiario);
 
-        if (!$beneficiario) {
+        if (! $beneficiario) {
             throw ValidationException::withMessages([
                 'form_id_persona_beneficiario' => 'El beneficiario seleccionado no es válido.',
             ]);
         }
 
-        if (!$this->usuarioPuedeVerBandejasInternas($usuario)) {
+        if (! $this->usuarioPuedeVerBandejasInternas($usuario)) {
+            // Segunda barrera de seguridad: aunque alteren el select o envien el POST manualmente,
+            // el beneficiario debe seguir perteneciendo a las relaciones autorizadas de la cuenta.
+            if (! $usuario || ! $this->usuarioPuedeIniciarTramiteParaBeneficiario($usuario, $idBeneficiario)) {
+                throw ValidationException::withMessages([
+                    'form_id_persona_beneficiario' => 'No puede iniciar tramites para la empresa seleccionada.',
+                ]);
+            }
+
             $personaUsuario = Persona::query()
                 ->where('id_usuario', $usuario?->id)
                 ->where('estado', 'ACTIVO')
                 ->first();
 
-            if (!$personaUsuario) {
+            if (! $personaUsuario) {
                 throw ValidationException::withMessages([
                     'form_id_persona_tramitador' => 'Su cuenta no está vinculada a una persona activa.',
                 ]);
@@ -1606,21 +1659,21 @@ class SeguimientoController extends Controller
             return $personaUsuario->id;
         }
 
-        if (!$beneficiario->empresa || $idBeneficiario === $idTramitador) {
+        if (! $beneficiario->empresa || $idBeneficiario === $idTramitador) {
             return $idBeneficiario;
         }
 
-        if (!$idTramitador) {
+        if (! $idTramitador) {
             throw ValidationException::withMessages([
                 'form_id_persona_tramitador' => 'Debe seleccionar un tramitador para la empresa.',
             ]);
         }
 
         $tramitadorValido = $beneficiario->empresa?->responsables
-            ->contains(fn (Responsable $responsable) => $this->responsableEsTramitadorActivo($responsable)
+            ->contains(fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable)
                 && (int) $responsable->id_persona === $idTramitador);
 
-        if (!$tramitadorValido) {
+        if (! $tramitadorValido) {
             throw ValidationException::withMessages([
                 'form_id_persona_tramitador' => 'El tramitador seleccionado no pertenece al beneficiario.',
             ]);
@@ -1649,7 +1702,7 @@ class SeguimientoController extends Controller
             ->where('estado', 1)
             ->value('id');
 
-        if (!$idRolTramitador) {
+        if (! $idRolTramitador) {
             throw new \Exception('No existe el rol tramitador activo.');
         }
 
@@ -1691,7 +1744,7 @@ class SeguimientoController extends Controller
             'requisitos_certificados.*.valor_texto' => [
                 'nullable',
                 'string',
-                'max:' . self::LONGITUD_MAXIMA_EVIDENCIA_TEXTO,
+                'max:'.self::LONGITUD_MAXIMA_EVIDENCIA_TEXTO,
             ],
             'documentos_requisitos' => ['nullable', 'array'],
             'documentos_requisitos.*' => ['nullable', 'file'],
@@ -1724,7 +1777,7 @@ class SeguimientoController extends Controller
             ->where('estado', 'ACTIVO')
             ->find($idTipoCertificado);
 
-        if (!$tipoCertificado) {
+        if (! $tipoCertificado) {
             throw ValidationException::withMessages([
                 'form_id_tipo_certificado' => 'El tipo de tramite seleccionado no esta disponible.',
             ]);
@@ -1801,8 +1854,7 @@ class SeguimientoController extends Controller
                 throw ValidationException::withMessages([
                     $indice === null
                         ? 'requisitos_certificados'
-                        : "requisitos_certificados.$indice.valor_texto" =>
-                        'Debe ingresar el dato solicitado para "' . ($asignacion->requisito?->descripcion ?? 'este requisito') . '".',
+                        : "requisitos_certificados.$indice.valor_texto" => 'Debe ingresar el dato solicitado para "'.($asignacion->requisito?->descripcion ?? 'este requisito').'".',
                 ]);
             }
         }
@@ -1819,22 +1871,21 @@ class SeguimientoController extends Controller
             $tipoEvidencia = $asignacion->tipoEvidencia;
             $codigo = mb_strtoupper((string) $tipoEvidencia?->codigo);
 
-            if (!$this->evidenciaRequiereArchivo($codigo)) {
+            if (! $this->evidenciaRequiereArchivo($codigo)) {
                 continue;
             }
 
             $indice = $indicesPorAsignacion[$asignacion->id] ?? null;
 
-            if ($indice === null || !$request->hasFile("documentos_requisitos.$indice")) {
+            if ($indice === null || ! $request->hasFile("documentos_requisitos.$indice")) {
                 throw ValidationException::withMessages([
-                    $indice === null ? 'documentos_requisitos' : "documentos_requisitos.$indice" =>
-                        'Debe adjuntar la evidencia solicitada para "' . ($asignacion->requisito?->descripcion ?? 'este requisito') . '".',
+                    $indice === null ? 'documentos_requisitos' : "documentos_requisitos.$indice" => 'Debe adjuntar la evidencia solicitada para "'.($asignacion->requisito?->descripcion ?? 'este requisito').'".',
                 ]);
             }
         }
 
         foreach ($archivos as $indice => $archivo) {
-            if (!$archivo) {
+            if (! $archivo) {
                 continue;
             }
 
@@ -1842,7 +1893,7 @@ class SeguimientoController extends Controller
             $asignacion = $idAsignacion ? $asignacionesPorId->get((int) $idAsignacion) : null;
             $tipoEvidencia = $asignacion?->tipoEvidencia;
 
-            if (!$tipoEvidencia) {
+            if (! $tipoEvidencia) {
                 throw ValidationException::withMessages([
                     "documentos_requisitos.$indice" => 'No se encontro la configuracion del requisito para validar el archivo.',
                 ]);
@@ -1860,8 +1911,8 @@ class SeguimientoController extends Controller
             }
 
             if (
-                !in_array($extension, $extensionesPermitidas, true)
-                || !$this->archivoTieneFormatoPermitidoPorEvidencia($codigo, $mime)
+                ! in_array($extension, $extensionesPermitidas, true)
+                || ! $this->archivoTieneFormatoPermitidoPorEvidencia($codigo, $mime)
             ) {
                 throw ValidationException::withMessages([
                     "documentos_requisitos.$indice" => 'El archivo no corresponde al tipo de evidencia seleccionado.',
@@ -1915,28 +1966,11 @@ class SeguimientoController extends Controller
 
     // Decide a qué bandeja volver después de registrar un trámite nuevo.
     // El solicitante ve Mis trámites; el personal INSO ve únicamente los trámites que registró.
-    private function rutaDespuesDeRegistrarTramite(Certificado $certificado, ?User $usuario): string
+    private function rutaDespuesDeRegistrarTramite(?User $usuario): string
     {
-        if ($this->usuarioEsBeneficiarioDelTramite($certificado, $usuario)) {
-            return 'seguimientos_mis_tramites_beneficiario';
-        }
-
         return $this->usuarioPuedeVerBandejasInternas($usuario)
             ? 'seguimientos_tramites_registrados_funcionario'
-            : 'seguimientos_index';
-    }
-
-    // Verifica si la cuenta autenticada pertenece al beneficiario real del tramite.
-    private function usuarioEsBeneficiarioDelTramite(Certificado $certificado, ?User $usuario): bool
-    {
-        if (!$usuario) {
-            return false;
-        }
-
-        return Persona::query()
-            ->where('id_usuario', $usuario->id)
-            ->where('id', $certificado->id_persona_beneficiario)
-            ->exists();
+            : 'seguimientos_mis_tramites_beneficiario';
     }
 
     // GUARDA LOS REQUISITOS DE LA SOLICITUD
@@ -1947,16 +1981,15 @@ class SeguimientoController extends Controller
         array $indicesDocumentos,
         array $documentos,
         array $valoresTexto
-    ): void
-    {
+    ): void {
         $procesados = [];
 
         foreach ($asignacionesRequisitos as $asignacion) {
             $idRequisito = $asignacion->id_requisito;
             $idTipoEvidencia = $asignacion->id_tipo_evidencia;
-            $claveProceso = 'asignacion_' . $asignacion->id;
+            $claveProceso = 'asignacion_'.$asignacion->id;
 
-            if (!$idRequisito || in_array($claveProceso, $procesados, true)) {
+            if (! $idRequisito || in_array($claveProceso, $procesados, true)) {
                 continue;
             }
 
@@ -1986,7 +2019,7 @@ class SeguimientoController extends Controller
 
             $indiceDocumento = $indicesDocumentos[$asignacion->id] ?? null;
 
-            if ($indiceDocumento !== null && !empty($documentos[$indiceDocumento])) {
+            if ($indiceDocumento !== null && ! empty($documentos[$indiceDocumento])) {
                 $this->guardarDocumentoRequisito(
                     $documentos[$indiceDocumento],
                     $requisitoCertificado,
@@ -2016,21 +2049,20 @@ class SeguimientoController extends Controller
         RequisitoCertificado $requisitoCertificado,
         ?int $idTipoEvidencia,
         bool $mantenerHistorial = false
-    ): void
-    {
+    ): void {
         $extension = mb_strtolower($archivo->getClientOriginalExtension() ?: 'pdf');
         $nombreArchivo = $mantenerHistorial
-            ? 'documento_' . now()->format('YmdHis') . '.' . $extension
-            : 'documento.' . $extension;
+            ? 'documento_'.now()->format('YmdHis').'.'.$extension
+            : 'documento.'.$extension;
 
         $ruta = $archivo->storeAs(
-            'tramites/' . $requisitoCertificado->id_certificado . '/requisitos/' . $requisitoCertificado->id,
+            'tramites/'.$requisitoCertificado->id_certificado.'/requisitos/'.$requisitoCertificado->id,
             $nombreArchivo,
             'public'
         );
 
-        $rutaStorage = storage_path('app/public/' . $ruta);
-        $rutaPublica = public_path('storage/' . $ruta);
+        $rutaStorage = storage_path('app/public/'.$ruta);
+        $rutaPublica = public_path('storage/'.$ruta);
         File::ensureDirectoryExists(dirname($rutaPublica));
 
         if (File::exists($rutaStorage)) {
@@ -2038,7 +2070,7 @@ class SeguimientoController extends Controller
         }
 
         $datosEvidencia = [
-            'valor' => 'storage/' . $ruta,
+            'valor' => 'storage/'.$ruta,
             'estado' => 'REGISTRADO',
             'id_usuario_registro' => auth()->id(),
             'id_usuario_modificacion' => auth()->id(),
@@ -2119,8 +2151,8 @@ class SeguimientoController extends Controller
         $mime = (string) $archivo->getMimeType();
 
         if (
-            !in_array($extension, $extensionesPermitidas, true)
-            || !$this->archivoTieneFormatoPermitidoPorEvidencia($codigo, $mime)
+            ! in_array($extension, $extensionesPermitidas, true)
+            || ! $this->archivoTieneFormatoPermitidoPorEvidencia($codigo, $mime)
         ) {
             throw ValidationException::withMessages([
                 $campo => 'El archivo no corresponde al tipo de evidencia solicitado.',
@@ -2145,17 +2177,17 @@ class SeguimientoController extends Controller
             $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
             $codigo = mb_strtoupper((string) ($evidencia?->tipoEvidencia?->codigo ?? 'PDF'));
             $nombreRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito observado';
-            $tieneArchivoNuevo = !empty($archivos[$requisitoCertificado->id]);
+            $tieneArchivoNuevo = ! empty($archivos[$requisitoCertificado->id]);
             $textoNuevo = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
             $ultimaObservacion = $this->ultimaObservacionRequisito($requisitoCertificado);
             $yaTieneCorreccionGuardada = $evidencia
-                && (!$ultimaObservacion || $evidencia->created_at?->gt($ultimaObservacion->created_at));
+                && (! $ultimaObservacion || $evidencia->created_at?->gt($ultimaObservacion->created_at));
 
-            if (in_array($codigo, ['PDF', 'IMAGEN'], true) && !$tieneArchivoNuevo && !$yaTieneCorreccionGuardada) {
+            if (in_array($codigo, ['PDF', 'IMAGEN'], true) && ! $tieneArchivoNuevo && ! $yaTieneCorreccionGuardada) {
                 $errores["documentos_correccion.{$requisitoCertificado->id}"] = "Debe adjuntar la evidencia corregida para: {$nombreRequisito}.";
             }
 
-            if ($codigo === 'TEXTO' && $textoNuevo === '' && !$yaTieneCorreccionGuardada) {
+            if ($codigo === 'TEXTO' && $textoNuevo === '' && ! $yaTieneCorreccionGuardada) {
                 $errores["textos_correccion.{$requisitoCertificado->id}"] = "Debe registrar el texto corregido para: {$nombreRequisito}.";
             }
 
@@ -2173,8 +2205,8 @@ class SeguimientoController extends Controller
             ->where('codigo', $codigo)
             ->value('id');
 
-        if (!$idTipoEvidencia) {
-            throw new \RuntimeException('No existe el tipo de evidencia ' . $codigo . '. Revise el seeder de tipos de evidencias.');
+        if (! $idTipoEvidencia) {
+            throw new \RuntimeException('No existe el tipo de evidencia '.$codigo.'. Revise el seeder de tipos de evidencias.');
         }
 
         return (int) $idTipoEvidencia;
@@ -2231,13 +2263,13 @@ class SeguimientoController extends Controller
     // No se muestra como codigo de solicitud; solo evita guardar certificados.codigo vacio.
     private function generarCodigoTramite(): string
     {
-        $prefijo = 'TRM-' . now()->format('Y') . '-';
+        $prefijo = 'TRM-'.now()->format('Y').'-';
         $numero = Certificado::withTrashed()
-            ->where('codigo', 'like', $prefijo . '%')
+            ->where('codigo', 'like', $prefijo.'%')
             ->count() + 1;
 
         do {
-            $codigo = $prefijo . str_pad((string) $numero, 6, '0', STR_PAD_LEFT);
+            $codigo = $prefijo.str_pad((string) $numero, 6, '0', STR_PAD_LEFT);
             $numero++;
         } while (Certificado::withTrashed()->where('codigo', $codigo)->exists());
 
@@ -2256,14 +2288,14 @@ class SeguimientoController extends Controller
 
         $observaciones = collect($requisitos)
             ->filter(fn ($item) => filled($item['observacion'] ?? null))
-            ->map(fn ($item) => 'Requisito ' . ($item['id_requisito'] ?? '-') . ': ' . trim($item['observacion']))
+            ->map(fn ($item) => 'Requisito '.($item['id_requisito'] ?? '-').': '.trim($item['observacion']))
             ->values();
 
         if ($observaciones->isNotEmpty()) {
-            $partes[] = 'Observaciones por requisito:' . PHP_EOL . $observaciones->implode(PHP_EOL);
+            $partes[] = 'Observaciones por requisito:'.PHP_EOL.$observaciones->implode(PHP_EOL);
         }
 
-        return $partes ? implode(PHP_EOL . PHP_EOL, $partes) : null;
+        return $partes ? implode(PHP_EOL.PHP_EOL, $partes) : null;
     }
 
     // LISTA DE FUNCIONARIOS PARA ASIGNACION / DERIVACION
@@ -2321,7 +2353,7 @@ class SeguimientoController extends Controller
                             default => 2,
                         };
 
-                        return $prioridadCargo . '-' . $ordenArea . '-' . $cargo->nombre;
+                        return $prioridadCargo.'-'.$ordenArea.'-'.$cargo->nombre;
                     })
                     ->first();
 
@@ -2338,9 +2370,9 @@ class SeguimientoController extends Controller
                 $nombreOrden = $nombreFuncionario ?: ($usuario->email ?: 'Sin funcionario');
 
                 return match (true) {
-                    str_contains($nombreCargo, 'JEFE') => '0-' . $ordenArea . '-' . $nombreOrden,
-                    str_contains($nombreCargo, 'DIRECTOR') => '1-' . $ordenArea . '-' . $nombreOrden,
-                    default => '2-' . $ordenArea . '-' . $nombreOrden,
+                    str_contains($nombreCargo, 'JEFE') => '0-'.$ordenArea.'-'.$nombreOrden,
+                    str_contains($nombreCargo, 'DIRECTOR') => '1-'.$ordenArea.'-'.$nombreOrden,
+                    default => '2-'.$ordenArea.'-'.$nombreOrden,
                 };
             })
             ->first();
@@ -2354,7 +2386,7 @@ class SeguimientoController extends Controller
             ->select('id', 'id_area_padre')
             ->find($idArea);
 
-        while ($areaActual && !in_array((int) $areaActual->id, $idsAreas, true)) {
+        while ($areaActual && ! in_array((int) $areaActual->id, $idsAreas, true)) {
             $idsAreas[] = (int) $areaActual->id;
 
             $areaActual = $areaActual->id_area_padre
@@ -2368,7 +2400,7 @@ class SeguimientoController extends Controller
     // Envia aviso al funcionario responsable del area inicial.
     private function notificarTramiteRecibido(Certificado $certificado, ?User $usuarioDestino, ?Area $areaDestino = null): void
     {
-        if (!$usuarioDestino || !Schema::hasTable('notificaciones_tramites')) {
+        if (! $usuarioDestino || ! Schema::hasTable('notificaciones_tramites')) {
             return;
         }
 
@@ -2376,7 +2408,7 @@ class SeguimientoController extends Controller
             'id_usuario_destino' => $usuarioDestino->id,
             'id_certificado' => $certificado->id,
             'titulo' => 'Nueva solicitud de tramite',
-            'mensaje' => 'Se registro una solicitud para atencion inicial en ' . ($areaDestino?->nombre ?? 'el area asignada') . '.',
+            'mensaje' => 'Se registro una solicitud para atencion inicial en '.($areaDestino?->nombre ?? 'el area asignada').'.',
             'estado' => 'ACTIVO',
         ];
 
@@ -2390,7 +2422,7 @@ class SeguimientoController extends Controller
     // Envia una notificacion puntual sin guardar datos JSON ni estructuras libres.
     private function notificarUsuarioTramite(?User $usuario, Certificado $certificado, string $titulo, string $mensaje): void
     {
-        if (!$usuario || !Schema::hasTable('notificaciones_tramites')) {
+        if (! $usuario || ! Schema::hasTable('notificaciones_tramites')) {
             return;
         }
 
@@ -2415,7 +2447,7 @@ class SeguimientoController extends Controller
     {
         $seguimiento->loadMissing('usuarioSiguiente.roles', 'usuarioSiguiente.funcionario.cargos');
 
-        if (!auth()->check() || $seguimiento->estado !== 'ACTIVO' || $seguimiento->fecha_derivacion) {
+        if (! auth()->check() || $seguimiento->estado !== 'ACTIVO' || $seguimiento->fecha_derivacion) {
             return false;
         }
 
@@ -2438,7 +2470,7 @@ class SeguimientoController extends Controller
             && auth()->user()->tieneRol('administrador')
             && (int) $seguimiento->id_usuario_siguiente === (int) auth()->id()
             && $seguimiento->estado === 'ACTIVO'
-            && !$seguimiento->fecha_derivacion;
+            && ! $seguimiento->fecha_derivacion;
     }
 
     // Define quien puede ver la bandeja de solicitudes recibidas.
@@ -2490,7 +2522,7 @@ class SeguimientoController extends Controller
     private function usuarioPuedeRegistrarCorreccionRecibida(Seguimiento $seguimiento): bool
     {
         if (
-            !auth()->check()
+            ! auth()->check()
             || $seguimiento->estado !== 'ACTIVO'
             || $seguimiento->fecha_derivacion
             || $seguimiento->certificado?->estado !== 'OBSERVADO'
@@ -2512,7 +2544,7 @@ class SeguimientoController extends Controller
     // Devuelve razon social si es empresa o nombre completo si es natural.
     private function nombrePersona(?Persona $persona): string
     {
-        if (!$persona) {
+        if (! $persona) {
             return 'Sin persona';
         }
 
@@ -2528,6 +2560,6 @@ class SeguimientoController extends Controller
             ])));
         }
 
-        return 'Persona #' . $persona->id;
+        return 'Persona #'.$persona->id;
     }
 }

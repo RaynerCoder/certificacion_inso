@@ -1,4 +1,4 @@
-<x-admin-layout :title="'Historial de seguimiento | Certificador'" :breadcrumbs="[
+<x-admin-layout :title="'Seguimiento del trámite | Certificador'" :breadcrumbs="[
     [
         'name' => 'Menu',
         'href' => route('admin_dashboard'),
@@ -10,7 +10,7 @@
             : ($bandeja === 'todos' ? route('seguimientos_todos') : route('seguimientos_index')),
     ],
     [
-        'name' => 'Historial de seguimiento',
+        'name' => 'Seguimiento del trámite',
         'href' => route('seguimientos_tramite_historial', ['seguimiento' => $seguimiento, 'bandeja' => $bandeja]),
     ],
 ]">
@@ -19,16 +19,13 @@
     <section class="timeline-page">
         <div class="timeline-page-head">
             <div>
-                <h1 class="timeline-page-title">Historial de seguimiento del tramite</h1>
-                <p class="timeline-page-description">
-                    Consulte la auditoría completa de movimientos, responsables, referencias y descripciones.
-                </p>
+                <h1 class="timeline-page-title">Seguimiento del trámite</h1>
             </div>
 
             <a href="{{ route('seguimientos_show', ['seguimiento' => $seguimiento, 'bandeja' => $bandeja]) }}"
                 class="timeline-page-action">
                 <i class="fa-solid fa-arrow-left"></i>
-                Volver al tramite
+                Volver al trámite
             </a>
         </div>
 

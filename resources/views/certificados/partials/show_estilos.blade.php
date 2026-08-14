@@ -770,48 +770,6 @@
             width: 82px;
         }
 
-        .cert-review-observation-box {
-            align-items: flex-start;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            display: none;
-            gap: 10px;
-            justify-content: space-between;
-            padding: 9px 10px;
-        }
-
-        .cert-review-observation-box.is-visible {
-            display: flex;
-        }
-
-        .cert-review-observation-text {
-            color: #475569;
-            font-size: 0.82rem;
-            font-weight: 650;
-            line-height: 1.35;
-            white-space: pre-line;
-        }
-
-        .cert-review-edit {
-            align-items: center;
-            border: 1px solid #cbd5e1;
-            border-radius: 7px;
-            color: #334155;
-            display: inline-flex;
-            flex: 0 0 auto;
-            font-size: 0.74rem;
-            font-weight: 900;
-            gap: 6px;
-            min-height: 30px;
-            padding: 0 9px;
-        }
-
-        .cert-review-edit:hover {
-            background: #f1f5f9;
-            color: #0f172a;
-        }
-
         .cert-review-observation-preview {
             margin-top: 7px;
             color: #92400e;
@@ -1485,6 +1443,16 @@
             overflow-wrap: anywhere;
         }
 
+        .tramite-summary-role {
+            color: #0369a1;
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 850;
+            line-height: 1.25;
+            margin-top: 3px;
+            overflow-wrap: anywhere;
+        }
+
         .tramite-grid-main {
             display: grid;
             gap: 16px;
@@ -1576,80 +1544,10 @@
             width: 132px;
         }
 
-        .tramite-requirements-table .cert-review-observation-box {
-            display: none !important;
-        }
-
         .tramite-section-review {
             grid-template-columns: minmax(0, 1fr);
         }
 
-        .tramite-check-options {
-            align-items: center;
-            display: inline-flex;
-            gap: 8px;
-            white-space: nowrap;
-        }
-
-        .tramite-check-option {
-            align-items: center;
-            background: transparent;
-            border: 0;
-            border-radius: 6px;
-            color: #475569;
-            cursor: pointer;
-            display: inline-flex;
-            font-size: 0.76rem;
-            font-weight: 900;
-            gap: 6px;
-            min-height: 24px;
-            padding: 0 2px;
-            transition: color 160ms ease;
-            user-select: none;
-        }
-
-        .tramite-check-option input {
-            appearance: none;
-            -webkit-appearance: none;
-            height: 0;
-            opacity: 0;
-            pointer-events: none;
-            position: absolute;
-            width: 0;
-        }
-
-        .tramite-check-box {
-            align-items: center;
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 5px;
-            color: transparent;
-            display: inline-flex;
-            height: 18px;
-            justify-content: center;
-            transition: all 160ms ease;
-            width: 18px;
-        }
-
-        .tramite-check-option.is-yes.is-selected .tramite-check-box {
-            background: #059669;
-            border-color: #047857;
-            color: #ffffff;
-        }
-
-        .tramite-check-option.is-yes.is-selected {
-            color: #047857;
-        }
-
-        .tramite-check-option.is-no.is-selected .tramite-check-box {
-            background: #dc2626;
-            border-color: #b91c1c;
-            color: #ffffff;
-        }
-
-        .tramite-check-option.is-no.is-selected {
-            color: #b91c1c;
-        }
 
         .tramite-payment-link {
             align-items: center;
@@ -1695,10 +1593,12 @@
             background: #ffffff;
             border: 1px solid #dbe4ef;
             border-radius: 10px;
+            box-sizing: border-box;
             box-shadow: 0 22px 70px rgba(15, 23, 42, .18);
             max-height: min(720px, calc(100vh - 36px));
             max-width: 980px;
             overflow: auto;
+            overscroll-behavior: contain;
             padding: 18px;
             position: relative;
             width: min(980px, 100%);
@@ -1748,16 +1648,30 @@
         .tramite-payment-field-3 { grid-column: span 3 / span 3; }
         .tramite-payment-field-4 { grid-column: span 4 / span 4; }
         .tramite-payment-field-6 { grid-column: span 6 / span 6; }
+        .tramite-payment-field-12 { grid-column: 1 / -1; }
+
+        .tramite-payment-form-grid > div {
+            min-width: 0;
+        }
+
+        .tramite-payment-form-grid .cert-review-select {
+            box-sizing: border-box;
+            min-height: 42px;
+            width: 100%;
+        }
 
         .tramite-payment-pdf {
             align-items: center;
-            border: 1px dashed #cbd5e1;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 9px;
-            min-height: 42px;
-            padding: 7px 8px;
+            box-sizing: border-box;
+            display: grid;
+            gap: 6px;
+            grid-template-columns: 26px minmax(120px, 1fr) auto;
+            max-width: 360px;
+            min-height: 40px;
+            padding: 5px 6px;
+            width: 100%;
         }
 
         .tramite-payment-pdf-icon {
@@ -1766,35 +1680,104 @@
             border-radius: 7px;
             color: #dc2626;
             display: inline-flex;
-            height: 30px;
+            height: 26px;
             justify-content: center;
-            width: 30px;
+            width: 26px;
         }
 
         .tramite-payment-pdf-name {
             color: #334155;
-            flex: 1 1 180px;
+            display: block;
             font-size: 0.82rem;
             font-weight: 850;
             min-width: 0;
-            overflow-wrap: anywhere;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tramite-payment-pdf-details {
+            min-width: 0;
+        }
+
+        .tramite-payment-pdf-details small {
+            color: #64748b;
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 2px;
         }
 
         .tramite-payment-pdf-actions {
             display: inline-flex;
-            flex-wrap: wrap;
-            gap: 7px;
+            flex-wrap: nowrap;
+            gap: 5px;
         }
 
+        /* Las acciones quedan en iconos para que el comprobante no ensanche el modal. */
         .tramite-payment-pdf-button {
             align-items: center;
             border-radius: 7px;
             display: inline-flex;
             font-size: 0.75rem;
             font-weight: 900;
-            gap: 6px;
-            min-height: 30px;
-            padding: 0 10px;
+            height: 28px;
+            justify-content: center;
+            min-height: 28px;
+            padding: 0;
+            width: 28px;
+        }
+
+        /* El modal no necesita un separador adicional debajo del comprobante. */
+        .tramite-modal-panel form > .tramite-actions-row {
+            border-top: 0;
+            padding-top: 12px;
+        }
+
+        /* Botones propios del pago: compactos y diferenciados sin afectar otras acciones. */
+        #modalRegistrarPagoTramite .tramite-actions-row {
+            gap: 8px;
+        }
+
+        #modalRegistrarPagoTramite .tramite-actions-row .tramite-btn {
+            border-radius: 8px;
+            box-shadow: none;
+            font-size: 0.78rem;
+            min-height: 36px;
+            padding: 0 14px;
+            transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease, transform .16s ease;
+            width: auto;
+        }
+
+        #modalRegistrarPagoTramite .tramite-btn-secondary {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+        }
+
+        #modalRegistrarPagoTramite .tramite-btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+
+        #modalRegistrarPagoTramite .tramite-btn-primary {
+            background: #059669;
+            border: 1px solid #047857;
+            box-shadow: 0 4px 10px rgba(5, 150, 105, .16);
+            color: #ffffff;
+        }
+
+        #modalRegistrarPagoTramite .tramite-btn-primary:hover {
+            background: #047857;
+            border-color: #065f46;
+            box-shadow: 0 6px 14px rgba(5, 150, 105, .2);
+            transform: translateY(-1px);
+        }
+
+        #modalRegistrarPagoTramite .tramite-actions-row .tramite-btn:focus-visible {
+            outline: 3px solid rgba(20, 184, 166, .22);
+            outline-offset: 2px;
         }
 
         .tramite-payment-pdf-button.is-select {
@@ -1822,10 +1805,24 @@
             cursor: not-allowed;
         }
 
+        /* En tableta se mantienen dos campos por fila para evitar un formulario demasiado alto. */
         @media (max-width: 900px) {
             .tramite-payment-field-3,
             .tramite-payment-field-4,
             .tramite-payment-field-6 {
+                grid-column: span 6 / span 6;
+            }
+
+            .tramite-payment-field-12 {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .tramite-payment-field-3,
+            .tramite-payment-field-4,
+            .tramite-payment-field-6,
+            .tramite-payment-field-12 {
                 grid-column: 1 / -1;
             }
         }
@@ -1883,6 +1880,12 @@
             background: #fef3c7;
             border-color: #fbbf24;
             color: #d97706;
+        }
+
+        .tramite-pill-info {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
         }
 
         .tramite-pill-neutral {
@@ -2185,16 +2188,16 @@
         }
 
         .tramite-btn-notify {
-            background: #fff7ed;
-            border: 1px solid #fdba74;
-            box-shadow: 0 8px 16px rgba(234, 88, 12, 0.12);
-            color: #9a3412;
+            background: #dc2626;
+            border: 1px solid #b91c1c;
+            box-shadow: 0 8px 16px rgba(220, 38, 38, 0.16);
+            color: #ffffff;
         }
 
         .tramite-btn-notify:hover {
-            background: #ffedd5;
-            border-color: #fb923c;
-            color: #7c2d12;
+            background: #b91c1c;
+            border-color: #991b1b;
+            color: #ffffff;
         }
 
         .tramite-btn-emit {
@@ -2343,6 +2346,149 @@
             font: inherit;
         }
 
+        .tramite-payment-records {
+            display: grid;
+            gap: 12px;
+        }
+
+        .tramite-payment-record {
+            border: 1px solid #dbe4ee;
+            border-radius: 9px;
+            overflow: hidden;
+        }
+
+        .tramite-payment-record-head {
+            align-items: center;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 16px;
+            justify-content: space-between;
+            padding: 11px 13px;
+        }
+
+        .tramite-payment-record-heading {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .tramite-payment-record-heading > div {
+            min-width: 0;
+        }
+
+        .tramite-payment-record-heading strong,
+        .tramite-payment-record-heading span,
+        .tramite-payment-record-amount small,
+        .tramite-payment-record-amount strong {
+            display: block;
+        }
+
+        .tramite-payment-record-heading strong {
+            color: #0f172a;
+            font-size: .85rem;
+            font-weight: 900;
+        }
+
+        .tramite-payment-record-heading span {
+            color: #64748b;
+            font-size: .74rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .tramite-payment-record-amount {
+            text-align: right;
+        }
+
+        .tramite-payment-record-amount small {
+            color: #64748b;
+            font-size: .68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .tramite-payment-record-amount strong {
+            color: #047857;
+            font-size: 1rem;
+            font-weight: 950;
+            margin-top: 1px;
+            white-space: nowrap;
+        }
+
+        .tramite-payment-record-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 8px 12px 0;
+        }
+
+        .tramite-payment-record-actions .tramite-btn {
+            min-height: 32px;
+            padding: 5px 10px;
+        }
+
+        .tramite-payment-record-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .tramite-payment-record-grid > div {
+            border-bottom: 1px solid #eef2f7;
+            border-right: 1px solid #eef2f7;
+            min-width: 0;
+            padding: 10px 12px;
+        }
+
+        .tramite-payment-record-grid > div:nth-child(4) {
+            border-right: 0;
+        }
+
+        .tramite-payment-record-grid > .is-wide {
+            grid-column: span 2;
+        }
+
+        .tramite-payment-record-grid > .is-wide:nth-of-type(6) {
+            border-right: 0;
+        }
+
+        .tramite-payment-record-grid > .is-full {
+            border-bottom: 0;
+            border-right: 0;
+            grid-column: 1 / -1;
+        }
+
+        .tramite-payment-record-grid dt {
+            color: #64748b;
+            font-size: .68rem;
+            font-weight: 850;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .tramite-payment-record-grid dd {
+            color: #0f172a;
+            font-size: .8rem;
+            font-weight: 750;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .tramite-payment-document-link {
+            min-height: 31px;
+            padding: 5px 9px;
+        }
+
+        .tramite-payment-empty {
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            color: #64748b;
+            font-size: .8rem;
+            font-weight: 700;
+            padding: 18px;
+            text-align: center;
+        }
+
         @media (max-width: 640px) {
             .tramite-section-title-row {
                 align-items: flex-start;
@@ -2352,6 +2498,115 @@
             .tramite-product-register-btn {
                 justify-content: center;
                 width: 100%;
+            }
+        }
+
+        /* En móvil, la ficha conserva el orden sin desplazamiento horizontal. */
+        @media (max-width: 760px) {
+            .tramite-payment-record-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .tramite-payment-record-grid > div,
+            .tramite-payment-record-grid > div:nth-child(4),
+            .tramite-payment-record-grid > .is-wide:nth-of-type(6) {
+                border-right: 1px solid #eef2f7;
+            }
+
+            .tramite-payment-record-grid > div:nth-child(even) {
+                border-right: 0;
+            }
+
+            .tramite-payment-record-grid > .is-wide {
+                grid-column: 1 / -1;
+            }
+
+            .tramite-payment-record-grid > .is-full {
+                border-right: 0;
+            }
+
+            .tramite-modal.is-open {
+                align-items: flex-end;
+                padding: 0;
+            }
+
+            .tramite-modal-panel {
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                max-height: calc(100vh - 12px);
+                max-height: calc(100dvh - 12px);
+                padding: 14px;
+                padding-bottom: max(14px, env(safe-area-inset-bottom));
+                width: 100%;
+            }
+
+            .tramite-modal-head {
+                gap: 10px;
+                margin-bottom: 13px;
+                padding-bottom: 10px;
+            }
+
+            .tramite-payment-form-grid {
+                gap: 11px;
+            }
+
+            .tramite-payment-pdf {
+                align-items: center;
+                grid-template-columns: 26px minmax(0, 1fr) auto;
+                max-width: 360px;
+            }
+
+            .tramite-payment-pdf-actions {
+                width: auto;
+            }
+
+            .tramite-payment-pdf-button {
+                justify-content: center;
+            }
+
+            .tramite-modal-panel .tramite-actions-row {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: 100%;
+            }
+
+            .tramite-modal-panel .tramite-actions-row .tramite-btn {
+                justify-content: center;
+                min-width: 0;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .tramite-payment-record-head {
+                align-items: flex-start;
+            }
+
+            .tramite-payment-record-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tramite-payment-record-grid > div,
+            .tramite-payment-record-grid > div:nth-child(even),
+            .tramite-payment-record-grid > div:nth-child(4),
+            .tramite-payment-record-grid > .is-wide:nth-of-type(6) {
+                border-right: 0;
+                grid-column: 1;
+            }
+
+            .tramite-payment-pdf-actions {
+                gap: 4px;
+                justify-self: end;
+            }
+
+            .tramite-payment-pdf-button {
+                font-size: 0.68rem;
+                padding: 0;
+                width: 28px;
+            }
+
+            .tramite-modal-panel .tramite-actions-row {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -2783,24 +3038,6 @@
             width: 136px;
         }
 
-        .tramite-check-options {
-            justify-content: center;
-            width: 100%;
-        }
-
-        .tramite-check-option {
-            background: #ffffff;
-            border: 1px solid #dbe4ee;
-            border-radius: 6px;
-            min-height: 28px;
-            padding: 0 8px;
-        }
-
-        .tramite-check-box {
-            height: 15px;
-            width: 15px;
-        }
-
         .tramite-pill,
         .tramite-status-chip {
             border-radius: 7px;
@@ -3069,24 +3306,6 @@
         .tramite-requirements-table td:last-child {
             text-align: center;
             width: 136px;
-        }
-
-        .tramite-check-options {
-            justify-content: center;
-            width: 100%;
-        }
-
-        .tramite-check-option {
-            background: #ffffff;
-            border: 1px solid #dbe4ee;
-            border-radius: 6px;
-            min-height: 28px;
-            padding: 0 8px;
-        }
-
-        .tramite-check-box {
-            height: 15px;
-            width: 15px;
         }
 
         .tramite-pill,
@@ -3780,6 +3999,94 @@
             text-align: center;
         }
 
+        /* El selector forma parte del contenido del modal para que la lista no quede recortada. */
+        .tramite-modal-panel-correction {
+            max-height: min(760px, calc(100dvh - 48px));
+            max-width: 820px;
+            overflow-x: hidden;
+            padding: 24px;
+            width: min(820px, calc(100vw - 36px));
+        }
+
+        .tramite-modal-panel-correction .tramite-modal-head {
+            margin-bottom: 22px;
+            padding-bottom: 16px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-control {
+            min-height: 48px;
+            padding: 8px 11px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-dropdown {
+            box-shadow: none;
+            margin-top: 2px;
+            position: static;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-options {
+            max-height: 260px;
+            padding: 8px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option {
+            padding: 10px;
+        }
+
+        /* La relacion con la empresa se lee como dato principal, no como una nota secundaria. */
+        .tramite-modal-panel-correction .cert-technical-option-main span {
+            color: #047857;
+            font-weight: 850;
+        }
+
+        .tramite-modal-panel-correction > .tramite-actions-row {
+            border-top: 1px solid #e2e8f0;
+            margin-top: 22px;
+            padding-top: 16px;
+        }
+
+        @media (max-width: 760px) {
+            .tramite-modal-panel-correction {
+                border-radius: 12px 12px 0 0;
+                max-height: calc(100dvh - 12px);
+                padding: 18px;
+                padding-bottom: max(18px, env(safe-area-inset-bottom));
+                width: 100%;
+            }
+
+            .tramite-modal-panel-correction .tramite-modal-head {
+                margin-bottom: 17px;
+                padding-bottom: 13px;
+            }
+
+            .tramite-modal-panel-correction .cert-technical-options {
+                max-height: min(300px, 38dvh);
+            }
+        }
+
+        @media (max-width: 420px) {
+            .tramite-modal-panel-correction {
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .tramite-modal-panel-correction .cert-technical-option {
+                align-items: flex-start;
+            }
+
+            .tramite-modal-panel-correction .cert-technical-option-main strong,
+            .tramite-modal-panel-correction .cert-technical-option-main span {
+                overflow: visible;
+                text-overflow: clip;
+                white-space: normal;
+            }
+        }
+
         .tramite-detail-v2 .tramite-section-technical {
             overflow: visible;
         }
@@ -3810,41 +4117,646 @@
             }
         }
 
-        /* SweetAlert de revision: muestra el requisito exacto que se esta calificando. */
-        .cert-swal-requirement {
+        /* Mesa de revisión: la lista permite recorrer muchos requisitos sin perder el detalle abierto. */
+        .review-workbench-heading {
             display: grid;
-            gap: 10px;
-            text-align: left;
+            gap: 16px;
+            margin-bottom: 16px;
         }
 
-        .cert-swal-requirement p {
+        .review-workbench-title-row {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+        }
+
+        .review-workbench-title-row h2 {
+            color: #0f172a;
+            font-size: 1.2rem;
+            font-weight: 950;
+            margin: 0;
+        }
+
+        .review-workbench-title-row > span {
             color: #475569;
-            font-size: 0.9rem;
+            font-size: 0.84rem;
+            font-weight: 750;
+        }
+
+        .review-progress {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 7px;
+            overflow: hidden;
+            width: 190px;
+        }
+
+        .review-progress span {
+            background: #0891b2;
+            border-radius: inherit;
+            display: block;
+            height: 100%;
+            transition: width 180ms ease;
+        }
+
+        .review-workbench-tools {
+            align-items: center;
+            display: flex;
+            gap: 14px;
+        }
+
+        .review-search {
+            align-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            color: #64748b;
+            display: flex;
+            flex: 0 1 310px;
+            gap: 9px;
+            min-height: 38px;
+            padding: 0 11px;
+        }
+
+        .review-search:focus-within {
+            border-color: #0d9488;
+            box-shadow: none;
+        }
+
+        .review-search input {
+            background: transparent;
+            border: 0 !important;
+            box-shadow: none !important;
+            color: #0f172a;
+            font-size: 0.82rem;
+            min-width: 0;
+            outline: 0 !important;
+            padding: 0;
+            width: 100%;
+        }
+
+        .review-filters {
+            display: flex;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .review-filters button {
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #dbe4ee;
+            border-radius: 8px;
+            color: #475569;
+            display: inline-flex;
+            font-size: 0.76rem;
+            font-weight: 850;
+            gap: 7px;
+            min-height: 38px;
+            padding: 0 11px;
+            white-space: nowrap;
+        }
+
+        .review-filters button span {
+            align-items: center;
+            background: #eef2f7;
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 0.68rem;
+            justify-content: center;
+            min-width: 21px;
+            padding: 2px 6px;
+        }
+
+        .review-filters button.is-active {
+            border-color: #2563eb;
+            color: #1d4ed8;
+        }
+
+        .review-filters button.is-active span {
+            background: #2563eb;
+            color: #ffffff;
+        }
+
+        .review-workbench-layout {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
+        }
+
+        .review-requirement-list,
+        .review-requirement-detail {
+            border: 1px solid #dbe4ee;
+            border-radius: 9px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .review-requirement-list-head {
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            color: #0f766e;
+            display: flex;
+            gap: 9px;
+            min-height: 48px;
+            padding: 0 15px;
+        }
+
+        .review-requirement-list-head strong {
+            font-size: 0.86rem;
+            font-weight: 900;
+        }
+
+        .review-requirement-list-body {
+            max-height: 650px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        .review-requirement-item {
+            border-bottom: 1px solid #eef2f7;
+            position: relative;
+        }
+
+        .review-requirement-item:last-of-type {
+            border-bottom: 0;
+        }
+
+        .review-requirement-item.is-active {
+            background: #fff7f7;
+        }
+
+        .review-requirement-item.is-active::before {
+            background: #ef4444;
+            bottom: 0;
+            content: "";
+            left: 0;
+            position: absolute;
+            top: 0;
+            width: 3px;
+        }
+
+        .review-requirement-select {
+            align-items: flex-start;
+            display: flex;
+            gap: 10px;
+            min-height: 68px;
+            padding: 10px 12px 10px 15px;
+            text-align: left;
+            width: 100%;
+        }
+
+        .review-requirement-number {
+            align-items: center;
+            border: 1px solid #dbe4ee;
+            border-radius: 50%;
+            color: #334155;
+            display: inline-flex;
+            flex: 0 0 26px;
+            font-size: 0.74rem;
+            font-weight: 900;
+            height: 26px;
+            justify-content: center;
+        }
+
+        .review-requirement-copy {
+            display: grid;
+            gap: 6px;
+            min-width: 0;
+            width: 100%;
+        }
+
+        .review-requirement-name {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            color: #0f172a;
+            display: -webkit-box;
+            font-size: 0.82rem;
+            font-weight: 800;
+            line-height: 1.4;
+            overflow: hidden;
+        }
+
+        .review-requirement-meta,
+        .review-detail-head-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .review-evidence-chip {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 6px;
+            color: #4338ca;
+            display: inline-flex;
+            font-size: 0.66rem;
+            font-weight: 900;
+            line-height: 1;
+            padding: 4px 8px;
+        }
+
+        .review-state {
+            align-items: center;
+            display: inline-flex;
+            font-size: 0.7rem;
+            font-weight: 850;
+            gap: 6px;
+        }
+
+        .review-state i {
+            font-size: 0.66rem;
+        }
+
+        .review-state.is-pending {
+            color: #d97706;
+        }
+
+        .review-state.is-si {
+            color: #047857;
+        }
+
+        .review-state.is-no {
+            color: #dc2626;
+        }
+
+        .review-list-empty,
+        .review-workbench-empty {
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .review-detail-panel {
+            min-height: 0;
+        }
+
+        .review-detail-panel[hidden] {
+            display: none;
+        }
+
+        .review-detail-head {
+            align-items: flex-start;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 18px;
+            justify-content: space-between;
+            padding: 13px 15px;
+        }
+
+        .review-detail-head > div:first-child {
+            min-width: 0;
+        }
+
+        .review-detail-label {
+            color: #6d28d9;
+            display: inline-flex;
+            font-size: 0.75rem;
+            font-weight: 900;
+            gap: 7px;
+            margin-bottom: 8px;
+        }
+
+        .review-detail-head h3 {
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 850;
+            line-height: 1.45;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .review-detail-head-actions {
+            flex: 0 0 auto;
+            justify-content: flex-end;
+        }
+
+        .review-history-link {
+            align-items: center;
+            color: #2563eb;
+            display: inline-flex;
+            font-size: 0.74rem;
+            font-weight: 850;
+            gap: 6px;
+            min-height: 27px;
+            padding: 2px 4px;
+        }
+
+        .review-history-link.is-active {
+            color: #047857;
+        }
+
+        .review-detail-content {
+            display: grid;
+            grid-template-columns: minmax(0, 1.18fr) minmax(250px, .82fr);
+            min-height: 0;
+        }
+
+        .review-evidence-column,
+        .review-decision-column {
+            min-width: 0;
+            padding: 14px;
+        }
+
+        .review-decision-column {
+            border-left: 1px solid #e2e8f0;
+        }
+
+        .review-evidence-column h4,
+        .review-decision-column h4 {
+            color: #0f172a;
+            font-size: 0.86rem;
+            font-weight: 900;
+            margin: 0 0 7px;
+        }
+
+        .review-evidence-column > p,
+        .review-decision-help {
+            color: #64748b;
+            font-size: 0.78rem;
             font-weight: 650;
             line-height: 1.45;
             margin: 0;
         }
 
-        .cert-swal-requirement-line {
-            border-top: 1px solid #e2e8f0;
-            margin-top: 2px !important;
-            padding-top: 9px;
+        .review-evidence-preview {
+            margin-top: 10px;
         }
 
-        .cert-swal-requirement-line span {
-            color: #64748b;
+        .review-evidence-preview iframe,
+        .review-evidence-preview img {
+            background: #f8fafc;
+            border: 1px solid #dbe4ee;
+            border-radius: 8px 8px 0 0;
             display: block;
-            font-size: 0.74rem;
-            font-weight: 900;
-            margin-bottom: 3px;
-            text-transform: uppercase;
+            height: 255px;
+            object-fit: contain;
+            width: 100%;
         }
 
-        .cert-swal-requirement-line strong {
-            color: #0f172a;
-            font-size: 0.92rem;
+        .review-evidence-preview-actions {
+            align-items: center;
+            border: 1px solid #dbe4ee;
+            border-radius: 0 0 8px 8px;
+            border-top: 0;
+            color: #64748b;
+            display: flex;
+            font-size: 0.7rem;
+            font-weight: 750;
+            justify-content: space-between;
+            min-height: 36px;
+            padding: 0 10px;
+        }
+
+        .review-evidence-preview-actions a,
+        .review-evidence-reference a,
+        .review-evidence-reference strong {
+            color: #0f766e;
             font-weight: 900;
-            line-height: 1.3;
+        }
+
+        .review-evidence-reference,
+        .review-evidence-text {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #dbe4ee;
+            border-radius: 8px;
+            color: #475569;
+            display: flex;
+            font-size: 0.78rem;
+            font-weight: 700;
+            gap: 10px;
+            line-height: 1.45;
+            min-height: 52px;
+            padding: 10px 12px;
+            width: 100%;
+        }
+
+        .review-evidence-reference > span {
+            flex: 1;
+        }
+
+        .review-evidence-reference > i {
+            color: #0d9488;
+            font-size: 1rem;
+        }
+
+        .review-evidence-reference.is-action {
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .review-evidence-reference.is-empty {
+            border-style: dashed;
+            color: #94a3b8;
+        }
+
+        .review-evidence-text {
+            align-items: flex-start;
+            white-space: pre-line;
+        }
+
+        .review-decision-options {
+            display: grid;
+            gap: 6px;
+            grid-template-columns: repeat(2, max-content);
+            margin-top: 12px;
+            width: fit-content;
+        }
+
+        .review-decision-options button {
+            align-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            color: #334155;
+            display: inline-flex;
+            font-size: 0.86rem;
+            font-weight: 900;
+            gap: 8px;
+            justify-content: center;
+            min-height: 34px;
+            min-width: 76px;
+            padding: 5px 10px;
+        }
+
+        .review-decision-options .is-yes.is-selected {
+            background: #ecfdf5;
+            border-color: #10b981;
+            color: #047857;
+        }
+
+        .review-decision-options .is-no.is-selected {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #dc2626;
+        }
+
+        .review-decision-help {
+            margin-top: 14px;
+        }
+
+        .review-observation-field {
+            display: grid;
+            gap: 7px;
+            margin-top: 18px;
+        }
+
+        .review-observation-field[hidden] {
+            display: none;
+        }
+
+        .review-observation-field label {
+            color: #0f172a;
+            font-size: 0.78rem;
+            font-weight: 900;
+        }
+
+        .review-observation-field label span {
+            color: #dc2626;
+        }
+
+        .review-observation-field textarea {
+            border: 1px solid #f87171;
+            border-radius: 8px;
+            color: #0f172a;
+            font-size: 0.8rem;
+            line-height: 1.45;
+            min-height: 130px;
+            padding: 10px 11px;
+            resize: vertical;
+            width: 100%;
+        }
+
+        .review-observation-field textarea:focus {
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+            outline: 0;
+        }
+
+        .review-observation-field textarea.is-invalid {
+            background: #fff7f7;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+        }
+
+        .review-observation-field small {
+            color: #64748b;
+            font-size: 0.7rem;
+        }
+
+        .review-workbench-footer {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        .review-workbench-footer .tramite-btn,
+        [data-review-workbench] > .tramite-actions-row .tramite-btn-notify {
+            font-size: 0.78rem;
+            min-height: 36px;
+            padding: 7px 12px;
+            width: 172px;
+        }
+
+        .review-workbench-footer .tramite-warning-box {
+            margin-right: auto;
+        }
+
+        @media (max-width: 1180px) {
+            .review-workbench-tools {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .review-search {
+                flex-basis: auto;
+                max-width: 420px;
+            }
+
+            .review-workbench-layout {
+                grid-template-columns: minmax(270px, 34%) minmax(0, 1fr);
+            }
+
+            .review-detail-content {
+                grid-template-columns: 1fr;
+            }
+
+            .review-decision-column {
+                border-left: 0;
+                border-top: 1px solid #e2e8f0;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .review-filters {
+                overflow-x: auto;
+                padding-bottom: 3px;
+            }
+
+            .review-workbench-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .review-requirement-list-body {
+                max-height: 340px;
+            }
+
+            .review-detail-panel {
+                min-height: 0;
+                scroll-margin-top: 76px;
+            }
+
+            .review-detail-content {
+                min-height: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .review-workbench-title-row {
+                gap: 9px 14px;
+            }
+
+            .review-progress {
+                flex-basis: 100%;
+                width: 100%;
+            }
+
+            .review-search {
+                max-width: none;
+            }
+
+            .review-detail-head {
+                flex-direction: column;
+                padding: 14px;
+            }
+
+            .review-detail-head-actions {
+                justify-content: flex-start;
+            }
+
+            .review-evidence-column,
+            .review-decision-column {
+                padding: 14px;
+            }
+
+            .review-evidence-preview iframe,
+            .review-evidence-preview img {
+                height: 230px;
+            }
+
+            .review-workbench-footer {
+                align-items: stretch;
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .review-workbench-footer .tramite-btn {
+                justify-content: center;
+                width: 100%;
+            }
         }
 
         /*
@@ -3913,7 +4825,7 @@
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table th:nth-child(4),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table td:nth-child(4) {
             width: 130px;
-            text-align: center;
+            text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table th:nth-child(5),
@@ -3943,21 +4855,6 @@
         .tramite-detail-v2 .tramite-section-review .cert-requirement-row.is-observed td {
             background: #fffafa;
             border-top-color: #fecaca;
-        }
-
-        .tramite-detail-v2 .tramite-section-review .tramite-check-options {
-            align-items: center;
-            display: inline-flex;
-            flex-wrap: nowrap;
-            gap: 8px;
-            justify-content: center;
-        }
-
-        .tramite-detail-v2 .tramite-section-review .tramite-check-option {
-            flex: 0 0 auto;
-            font-size: 0.84rem;
-            min-height: 28px;
-            padding: 0 4px;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-evidence-code-chip,
@@ -3996,14 +4893,6 @@
             border: 1px solid #fca5a5;
             color: #b91c1c;
         }
-        .tramite-detail-v2 .tramite-section-review .tramite-observation-box {
-            display: inline-block;
-            max-width: 100%;
-            overflow-wrap: break-word;
-            padding: 10px 12px;
-            white-space: normal;
-        }
-
         .tramite-detail-v2 .tramite-section-review .cert-history-button {
             max-width: 100%;
             padding-left: 10px;
@@ -4016,8 +4905,93 @@
             padding-top: 14px;
         }
 
+        /* La consulta del solicitante tiene siete columnas; cada una conserva un ancho útil. */
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
+            min-width: 1050px;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(1),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(1) {
+            width: 48px;
+            text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(2),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(2) {
+            width: 30%;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(3),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3) {
+            width: 105px;
+            text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(4),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(4) {
+            width: 150px;
+            text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(5),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5) {
+            width: 140px;
+            text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6) {
+            width: 22%;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7) {
+            width: 110px;
+            text-align: center;
+        }
+
+        @media (min-width: 761px) and (max-width: 1180px) {
+            .tramite-detail-v2 .tramite-summary-bar {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .tramite-detail-v2 .tramite-summary-item {
+                border-left: 0;
+                border-top: 1px solid #dbe4ee;
+            }
+
+            .tramite-detail-v2 .tramite-summary-item:nth-child(-n + 2) {
+                border-top: 0;
+            }
+
+            .tramite-detail-v2 .tramite-summary-item:nth-child(even) {
+                border-left: 1px solid #dbe4ee;
+            }
+
+            .tramite-detail-v2 .tramite-summary-item:last-child {
+                grid-column: 1 / -1;
+            }
+        }
+
         @media (max-width: 760px) {
+            .tramite-detail-v2 .tramite-summary-bar {
+                grid-template-columns: 1fr;
+            }
+
+            .tramite-detail-v2 .tramite-summary-item {
+                min-height: 62px;
+                padding: 11px 13px;
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-card-body {
+                padding: 10px;
+            }
+
             .tramite-detail-v2 .tramite-section-review .tramite-table-wrap {
+                background: transparent;
+                border: 0;
                 overflow-x: visible;
             }
 
@@ -4036,8 +5010,12 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table tr {
-                border-bottom: 1px solid #e2e8f0;
-                padding: 10px 0;
+                background: #ffffff;
+                border: 1px solid #dbe4ee;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                overflow: hidden;
+                padding: 4px 0;
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table td {
@@ -4085,6 +5063,45 @@
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table td:nth-child(8)::before {
                 content: "Acción";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
+                min-width: 0;
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3)::before {
+                content: "Cumple";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(4)::before {
+                content: "Estado";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5)::before {
+                content: "Documento";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {
+                content: "Observación";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7)::before {
+                content: "Acción";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td[colspan] {
+                display: block;
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td[colspan]::before {
+                display: none;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table td {
+                gap: 4px;
+                grid-template-columns: 1fr;
             }
         }
     </style>

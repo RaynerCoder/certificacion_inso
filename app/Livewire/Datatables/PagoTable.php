@@ -16,6 +16,7 @@ class PagoTable extends DataTableComponent
     public function configure(): void
     {
         $this->setPrimaryKey('id');
+        $this->setDefaultSort('id', 'desc');
     }
 
     // Carga las relaciones que se muestran en columnas para evitar consultas por cada fila.
@@ -23,25 +24,25 @@ class PagoTable extends DataTableComponent
     {
         return Pago::query()
             ->with([
-                'procedencia',
                 'clientePersona.natural',
                 'clientePersona.empresa',
-                'funcionarioUsuario.funcionario',
+                'certificados',
             ]);
     }
 
     public function columns(): array
     {
         return [
-            Column::make('Id', 'id')
+            Column::make('ID pago', 'id')
                 ->sortable(),
 
-            Column::make('Procedencia', 'id_procedencia')
-                ->format(fn ($valor, Pago $fila) => $fila->procedencia?->descripcion ?? 'Sin procedencia')
-                ->sortable(),
+            Column::make('Trámite')
+                ->label(fn (Pago $fila) => view('pagos.tramite', [
+                    'certificado' => $fila->certificados->first(),
+                ])),
 
-            Column::make('Tipo de pago', 'tipo_pago')
-                ->format(fn ($valor) => Pago::TIPOS_PAGOS[$valor] ?? ($valor ?: 'Sin tipo'))
+            Column::make('Beneficiario', 'id_cliente')
+                ->format(fn ($valor, Pago $fila) => $this->nombrePersona($fila->clientePersona))
                 ->sortable(),
 
             Column::make('Fecha pago', 'fecha')
@@ -52,21 +53,16 @@ class PagoTable extends DataTableComponent
                 ->format(fn ($valor) => number_format((float) $valor, 2, ',', '.') . ' Bs.')
                 ->sortable(),
 
-            Column::make('Cliente', 'id_cliente')
-                ->format(fn ($valor, Pago $fila) => $this->nombrePersona($fila->clientePersona))
-                ->sortable(),
+            Column::make('Número de factura', 'factura')
+                ->format(fn ($valor) => filled($valor) ? $valor : 'Sin factura')
+                ->sortable()
+                ->searchable(),
 
-            Column::make('Registrado por', 'id_funcionario')
-                ->format(fn ($valor, Pago $fila) => $this->nombreFuncionario($fila->funcionarioUsuario))
-                ->sortable(),
-
-            Column::make('Fecha registro', 'fecha_validacion')
-                ->format(fn ($valor) => $this->fechaCorta($valor))
-                ->sortable(),
-
-            Column::make('Comprobante', 'comprobante')
-                ->format(fn ($valor) => $valor ? 'Con PDF' : 'Sin PDF')
-                ->sortable(),
+            Column::make('Acciones')
+                ->label(fn (Pago $fila) => view('pagos.accion', [
+                    'pago' => $fila,
+                    'certificado' => $fila->certificados->first(),
+                ])),
         ];
     }
 
@@ -98,23 +94,4 @@ class PagoTable extends DataTableComponent
         return 'Persona #' . $persona->id;
     }
 
-    // Nombre completo del funcionario; evita mostrar solo el usuario corto del sistema.
-    private function nombreFuncionario($usuario): string
-    {
-        if (!$usuario) {
-            return 'Sin funcionario';
-        }
-
-        $funcionario = $usuario->funcionario;
-
-        if ($funcionario) {
-            return trim(implode(' ', array_filter([
-                $funcionario->nombres,
-                $funcionario->apellido_paterno,
-                $funcionario->apellido_materno,
-            ]))) ?: 'Sin funcionario';
-        }
-
-        return $usuario->email ?: ($usuario->name ?: 'Sin funcionario');
-    }
 }

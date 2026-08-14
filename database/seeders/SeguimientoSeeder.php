@@ -11,7 +11,7 @@ class SeguimientoSeeder extends Seeder
 
     /**
      * Primer movimiento del flujo:
-     * Mario Pedraza envía el trámite y este llega al jefe de Unidad UTHSI.
+     * Mario Pedraza envía el trámite como representante legal de AGROPARC.
      */
     public function run(): void
     {

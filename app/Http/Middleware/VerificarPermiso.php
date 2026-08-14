@@ -59,6 +59,18 @@ class VerificarPermiso
             ],
             // La vista de impresión se abre desde "Mis trámites"; el controlador valida que sea propio.
             'certificados_emitir' => ['certificados.emitir', 'seguimientos_tramite.enviados'],
+            // El controlador confirma además que el pago pertenece a un trámite visible para la cuenta.
+            'pagos_comprobante' => [
+                'pagos.ver',
+                'pagos.validar',
+                'certificados.ver',
+                'seguimientos_tramite.ver',
+                'seguimientos_tramite.enviados',
+                'seguimientos_tramite.registrados',
+                'seguimientos_tramite.atender',
+                'seguimientos_tramite.gestionar',
+                'seguimientos_tramite.consulta_general',
+            ],
         ];
 
         if (isset($rutasExactas[$ruta])) {

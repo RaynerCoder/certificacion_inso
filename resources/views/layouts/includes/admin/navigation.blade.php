@@ -4,7 +4,7 @@
     $usuarioCabecera?->loadMissing([
         'funcionario.cargos',
         'roles',
-        'persona.empresa.responsables.persona.natural',
+        'persona.empresa',
         'persona.natural',
     ]);
 
@@ -25,43 +25,75 @@
         ])))
         : '';
 
-    // En cuentas de empresa se identifica a la empresa y a la persona que utiliza sus credenciales.
-    $responsablesEmpresaCabecera = $usuarioCabecera?->persona?->empresa?->responsables ?? collect();
-    $responsableActivoCabecera = $responsablesEmpresaCabecera
-        ->filter(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO')
-        ->sortByDesc('id')
-        ->first();
-    $nombreResponsableCabecera = $responsableActivoCabecera?->persona?->natural
-        ? trim(implode(' ', array_filter([
-            $responsableActivoCabecera->persona->natural->nombres,
-            $responsableActivoCabecera->persona->natural->apellido_paterno,
-            $responsableActivoCabecera->persona->natural->apellido_materno,
-        ])))
-        : '';
+    $relacionesEmpresarialesCabecera = $usuarioCabecera?->relacionesEmpresarialesParaTramites() ?? collect();
+    $empresasVinculadasCabecera = $relacionesEmpresarialesCabecera
+        ->groupBy('id_empresa')
+        ->map(function ($relaciones) {
+            $empresa = $relaciones->first()?->empresa;
+            $roles = $relaciones->pluck('rol.slug')->filter()->unique()->values();
+            $rolVisible = match (true) {
+                $roles->contains('representante-legal') && $roles->contains('tramitador')
+                    => 'Representante legal y tramitador',
+                $roles->contains('representante-legal') => 'Representante legal',
+                default => 'Tramitador',
+            };
+
+            return $empresa ? ['empresa' => $empresa, 'rol' => $rolVisible] : null;
+        })
+        ->filter()
+        ->sortBy(fn ($vinculo) => $vinculo['empresa']->razon_social)
+        ->values();
+    $empresaVinculadaCabecera = $empresasVinculadasCabecera->first()['empresa'] ?? null;
+
+    // Conserva la presentación de cuentas empresariales creadas antes del modelo de representantes.
+    if (! $empresaVinculadaCabecera && ($empresaAnteriorCabecera = $usuarioCabecera?->empresaDeAccesoActiva())) {
+        $empresaVinculadaCabecera = $empresaAnteriorCabecera;
+        $empresasVinculadasCabecera = collect([[
+            'empresa' => $empresaAnteriorCabecera,
+            'rol' => 'Cuenta empresarial',
+        ]]);
+    }
+
+    $cantidadEmpresasCabecera = $empresasVinculadasCabecera->count();
+    $rolesEmpresarialesCabecera = $relacionesEmpresarialesCabecera
+        ->pluck('rol.slug')
+        ->filter()
+        ->unique();
+    $esRepresentanteLegalCabecera = $rolesEmpresarialesCabecera->contains('representante-legal');
+    $esTramitadorCabecera = ! $esRepresentanteLegalCabecera
+        && $rolesEmpresarialesCabecera->contains('tramitador');
 
     $tipoPersonaCabecera = match (true) {
-        (bool) $usuarioCabecera?->persona?->empresa => 'Empresa',
+        $esRepresentanteLegalCabecera => 'Representante legal',
+        $esTramitadorCabecera => 'Tramitador',
+        (bool) $empresaVinculadaCabecera => 'Cuenta empresarial',
         (bool) $usuarioCabecera?->persona?->natural => 'Persona natural',
         default => 'Usuario del sistema',
     };
 
     $nombrePerfilCabecera = $nombreFuncionarioCabecera !== ''
         ? $nombreFuncionarioCabecera
-        : ($usuarioCabecera?->persona?->empresa?->razon_social
-            ?: ($nombreNaturalCabecera !== '' ? $nombreNaturalCabecera : ($usuarioCabecera?->name ?? 'Usuario')));
+        : ($esRepresentanteLegalCabecera && $empresaVinculadaCabecera
+            ? $empresaVinculadaCabecera->razon_social
+            : ($nombreNaturalCabecera !== ''
+            ? $nombreNaturalCabecera
+            : ($empresaVinculadaCabecera?->razon_social ?: ($usuarioCabecera?->name ?? 'Usuario'))));
+
     $cargoPerfilCabecera = $funcionarioCabecera
         ? $funcionarioCabecera->cargos->pluck('nombre')->filter()->unique()->implode(', ')
         : '';
     $detallePerfilCabecera = match (true) {
         $cargoPerfilCabecera !== '' => $cargoPerfilCabecera,
-        (bool) $usuarioCabecera?->persona?->empresa && $nombreResponsableCabecera !== ''
-            => $nombreResponsableCabecera,
+        $esRepresentanteLegalCabecera && $nombreNaturalCabecera !== '' => $nombreNaturalCabecera,
+        $esTramitadorCabecera => sprintf(
+            'Tramitador · %d %s',
+            $cantidadEmpresasCabecera,
+            $cantidadEmpresasCabecera === 1 ? 'empresa' : 'empresas'
+        ),
         default => $tipoPersonaCabecera,
     };
-    $etiquetaDetallePerfilCabecera = (bool) $usuarioCabecera?->persona?->empresa
-        && $nombreResponsableCabecera !== ''
-            ? 'Representante legal'
-            : '';
+    $esDetalleRepresentacionCabecera = $esRepresentanteLegalCabecera || $esTramitadorCabecera;
+    $etiquetaDetallePerfilCabecera = $esRepresentanteLegalCabecera ? 'Representante legal' : '';
     $rolesPerfilCabecera = $usuarioCabecera?->roles->pluck('name')->filter()->unique()->implode(', ') ?? '';
     $rolesPerfilCabecera = $rolesPerfilCabecera !== '' ? $rolesPerfilCabecera : 'Sin rol asignado';
     $correoPerfilCabecera = $usuarioCabecera?->email ?? 'Sin correo registrado';
@@ -185,7 +217,7 @@
                                         : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')));
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
                                     $claseNotificacion = $esValidacionTramitador
-                                        ? 'border-l-4 border-l-blue-500 bg-blue-50/70'
+                                        ? 'notificacion-tramitador'
                                         : 'border-l-4 border-l-red-500 bg-red-50/70';
                                     $claseBotonNotificacion = $esValidacionTramitador
                                         ? 'bg-blue-600 hover:bg-blue-700'
@@ -252,13 +284,15 @@
                                     <span class="cert-topbar-profile-name" title="{{ $nombrePerfilCabecera }}">
                                         {{ $nombrePerfilCabecera }}
                                     </span>
-                                    <span class="cert-topbar-profile-detail-line" title="{{ $etiquetaDetallePerfilCabecera !== '' ? $etiquetaDetallePerfilCabecera . ': ' : '' }}{{ $detallePerfilCabecera }}">
+                                    <span class="cert-topbar-profile-detail-line" title="{{ $detallePerfilCabecera }}">
                                         @if ($etiquetaDetallePerfilCabecera !== '')
                                             <span class="cert-topbar-profile-detail-label">
                                                 {{ $etiquetaDetallePerfilCabecera }}:
                                             </span>
                                         @endif
-                                        <span class="cert-topbar-profile-detail">{{ $detallePerfilCabecera }}</span>
+                                        <span class="cert-topbar-profile-detail {{ $esDetalleRepresentacionCabecera ? 'is-representation' : '' }}">
+                                            {{ $detallePerfilCabecera }}
+                                        </span>
                                     </span>
                                     <span class="cert-topbar-profile-role" title="{{ $rolesPerfilCabecera }}">
                                         {{ $rolesPerfilCabecera }}
@@ -288,6 +322,29 @@
                                     {{ $correoPerfilCabecera }}
                                 </span>
                             </div>
+
+                            @if ($esTramitadorCabecera && $empresasVinculadasCabecera->isNotEmpty())
+                                <div class="cert-topbar-companies">
+                                    <span class="cert-topbar-companies-title">Empresas vinculadas</span>
+
+                                    <div class="cert-topbar-companies-list">
+                                        @foreach ($empresasVinculadasCabecera as $vinculoEmpresaCabecera)
+                                            @php($empresaCabecera = $vinculoEmpresaCabecera['empresa'])
+                                            <div class="cert-topbar-company-item">
+                                                <span class="cert-topbar-company-icon">
+                                                    <i class="fa-regular fa-building"></i>
+                                                </span>
+                                                <span class="cert-topbar-company-text">
+                                                    <strong title="{{ $empresaCabecera->razon_social }}">
+                                                        {{ $empresaCabecera->razon_social }}
+                                                    </strong>
+                                                    <small>{{ $vinculoEmpresaCabecera['rol'] }}</small>
+                                                </span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
 
                             <div class="block px-4 py-2 text-xs font-black uppercase tracking-wide text-gray-400">
                                 Cuenta del sistema
@@ -362,7 +419,7 @@
             const referencia = [notificacion.codigo, notificacion.tipo].filter(Boolean).join(' - ');
             const esValidacionTramitador = notificacion.categoria === 'tramitador';
             const claseNotificacion = esValidacionTramitador
-                ? 'border-l-4 border-l-blue-500 bg-blue-50/70'
+                ? 'notificacion-tramitador'
                 : 'border-l-4 border-l-red-500 bg-red-50/70';
             const claseBoton = esValidacionTramitador
                 ? 'bg-blue-600 hover:bg-blue-700'

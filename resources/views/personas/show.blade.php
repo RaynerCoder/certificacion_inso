@@ -35,8 +35,9 @@
         };
 
         $telefonoPrincipal = $persona->telefonos->first()?->numero ?: 'Sin telefono';
-        $rolesCuenta = $persona->usuario?->roles?->pluck('name')->filter()->join(', ') ?: 'Sin rol asignado';
-        $estadoCuenta = $persona->usuario ? ($persona->usuario->estado ? 'ACTIVO' : 'INACTIVO') : 'SIN CUENTA';
+        $usuarioAcceso = $persona->usuarioAcceso();
+        $rolesCuenta = $usuarioAcceso?->roles?->pluck('name')->filter()->join(', ') ?: 'Sin rol asignado';
+        $estadoCuenta = $usuarioAcceso ? ($usuarioAcceso->estado ? 'ACTIVO' : 'INACTIVO') : 'SIN CUENTA';
 
         // Agrupa certificados por id para no duplicar un tramite si la persona figura en dos roles.
         $tramitesAgrupados = collect();
@@ -824,11 +825,11 @@
                     <div class="persona-o3-account">
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Usuario</span>
-                            <span class="persona-o3-value">{{ $persona->usuario?->name ?? 'Sin usuario vinculado' }}</span>
+                            <span class="persona-o3-value">{{ $usuarioAcceso?->name ?? 'Sin usuario vinculado' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Correo de acceso</span>
-                            <span class="persona-o3-value">{{ $persona->usuario?->email ?? 'Sin correo de acceso' }}</span>
+                            <span class="persona-o3-value">{{ $usuarioAcceso?->email ?? 'Sin correo de acceso' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Rol</span>

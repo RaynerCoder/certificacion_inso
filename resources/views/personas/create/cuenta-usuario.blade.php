@@ -1,7 +1,7 @@
 {{-- CUENTA DE USUARIO --}}
 @php
     $esEdicionCuenta = ($modoCuenta ?? 'crear') === 'editar';
-    $usuarioCuenta = $persona->usuario ?? null;
+    $usuarioCuenta = ($usuarioCuentaAcceso ?? null) ?: ($persona->usuario ?? null);
     $cuentaExistente = (bool) $usuarioCuenta;
 @endphp
 
