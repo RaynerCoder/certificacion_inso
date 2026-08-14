@@ -249,8 +249,10 @@
                         @endforeach
                     </x-wire-native-select>
 
-                    <x-wire-datetime-picker label="Fecha de nacimiento" id="nuevo_fecha_nacimiento"
-                        name="nuevo_fecha_nacimiento" without-time />
+                    {{-- En este modal se usa un campo de fecha nativo porque tambien debe aceptar
+                         los valores cargados al editar un responsable existente. --}}
+                    <x-wire-input type="date" label="Fecha de nacimiento" id="nuevo_fecha_nacimiento"
+                        name="nuevo_fecha_nacimiento" />
 
                     <x-wire-native-select label="Género" id="nuevo_genero">
                         <option value="">Seleccione una opción</option>

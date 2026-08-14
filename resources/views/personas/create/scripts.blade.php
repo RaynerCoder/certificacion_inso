@@ -2663,6 +2663,7 @@
 
      function prepararModoPersonaNueva() {
          desbloquearDatosPersonaResponsable();
+         bloquearSelectorPersonaResponsable(false);
 
          document.getElementById('nuevo_id_persona_existente').value = '';
 
@@ -2677,6 +2678,11 @@
      }
 
      function prepararModoPersonaExistente() {
+         if (responsableEditandoElemento) {
+             prepararModoEdicionResponsable();
+             return;
+         }
+
          bloquearDatosPersonaResponsable();
 
          document.getElementById('formTelefonosResponsable').classList.remove('hidden');
@@ -2696,6 +2702,7 @@
 
      function prepararModoEdicionResponsable() {
          desbloquearDatosPersonaResponsable();
+         bloquearSelectorPersonaResponsable(true);
 
          document.getElementById('formTelefonosResponsable').classList.remove('hidden');
          document.getElementById('formRubrosResponsable').classList.remove('hidden');
@@ -2705,6 +2712,19 @@
 
          document.getElementById('textoModoRubrosResponsable').innerText =
              'Puede actualizar los rubros del responsable.';
+     }
+
+     // Al editar se conserva la persona vinculada y solo se habilitan sus datos.
+     // Esto evita reemplazarla accidentalmente desde el selector superior.
+     function bloquearSelectorPersonaResponsable(bloqueado) {
+         const selector = document.getElementById('modal_id_persona_responsable');
+         if (!selector) return;
+
+         selector.disabled = bloqueado;
+
+         if (selector.tomselect) {
+             bloqueado ? selector.tomselect.disable() : selector.tomselect.enable();
+         }
      }
 
      function bloquearDatosPersonaResponsable() {
@@ -2771,6 +2791,10 @@
      }
 
      function cargarPersonaResponsable() {
+         // El selector puede emitir un cambio al sincronizar su valor.
+         // Durante una edicion no debe limpiar ni bloquear los campos ya cargados.
+         if (responsableEditandoElemento) return;
+
          const select = document.getElementById('modal_id_persona_responsable');
          const valorSeleccionado = select.value;
          const opcion = select.querySelector(`option[value="${valorSeleccionado}"]`);
@@ -3319,17 +3343,6 @@
          campo.dispatchEvent(new InputEvent('input', { bubbles: true }));
          campo.dispatchEvent(new Event('change', { bubbles: true }));
          campo.dispatchEvent(new Event('blur', { bubbles: true }));
-
-         // El calendario de WireUI mantiene el valor visible en su estado interno.
-         const contenedorFecha = campo.closest('[x-data="wireui_date_picker"]');
-         const calendario = contenedorFecha && window.Alpine
-             ? window.Alpine.$data(contenedorFecha)
-             : null;
-
-         if (calendario?.features?.watchers && calendario?.entangleable) {
-             const fechaSeleccionada = calendario.features.watchers.toComponent(fecha || null);
-             calendario.entangleable.set(fechaSeleccionada);
-         }
      }
 
      // Encuentra si el responsable ya esta agregado en la lista temporal de la empresa.
@@ -3394,6 +3407,8 @@
          const idPersona = valorOcultoResumenPersonaWizard(item, 'id_persona');
          seleccionarPersonaResponsableModal(idPersona);
          document.getElementById('nuevo_id_persona_existente').value = idPersona;
+         const opcionPersona = Array.from(document.getElementById('modal_id_persona_responsable')?.options || [])
+             .find(opcion => String(opcion.value) === String(idPersona));
 
          document.getElementById('nuevo_domicilio').value = valorOcultoResumenPersonaWizard(item, 'domicilio');
          document.getElementById('nuevo_nit').value = valorOcultoResumenPersonaWizard(item, 'nit');
@@ -3407,12 +3422,18 @@
          document.getElementById('nuevo_complemento').value = valorOcultoResumenPersonaWizard(item, 'complemento');
          document.getElementById('nuevo_expedido').value = valorOcultoResumenPersonaWizard(item, 'expedido');
          const generoResponsable = document.getElementById('nuevo_genero');
-         generoResponsable.value = valorOcultoResumenPersonaWizard(item, 'genero');
+         const generoGuardado = valorOcultoResumenPersonaWizard(item, 'genero');
+         generoResponsable.value = generoGuardado !== ''
+             ? generoGuardado
+             : String(opcionPersona?.dataset?.genero ?? '');
          generoResponsable.dispatchEvent(new Event('change', { bubbles: true }));
          seleccionarOcupacionResponsableModal(valorOcultoResumenPersonaWizard(item, 'id_ocupacion'));
          document.getElementById('nuevo_estado_responsable').value = valorOcultoResumenPersonaWizard(item, 'estado') || 'ACTIVO';
 
-         asignarFechaResponsableModal('nuevo_fecha_nacimiento', valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento'));
+         const fechaNacimientoGuardada = valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento')
+             || opcionPersona?.dataset?.fecha
+             || '';
+         asignarFechaResponsableModal('nuevo_fecha_nacimiento', fechaNacimientoGuardada);
          telefonosResponsableTemporal = sublistaResponsableDesdeItem(item, 'telefonos');
          rubrosResponsableTemporal = sublistaResponsableDesdeItem(item, 'rubros');
 
