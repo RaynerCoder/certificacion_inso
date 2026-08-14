@@ -2694,6 +2694,19 @@
              'Persona existente: puede actualizar los rubros de su registro propio.';
      }
 
+     function prepararModoEdicionResponsable() {
+         desbloquearDatosPersonaResponsable();
+
+         document.getElementById('formTelefonosResponsable').classList.remove('hidden');
+         document.getElementById('formRubrosResponsable').classList.remove('hidden');
+
+         document.getElementById('textoModoTelefonosResponsable').innerText =
+             'Puede actualizar los telefonos del responsable.';
+
+         document.getElementById('textoModoRubrosResponsable').innerText =
+             'Puede actualizar los rubros del responsable.';
+     }
+
      function bloquearDatosPersonaResponsable() {
          const ids = [
              'nuevo_domicilio',
@@ -3180,7 +3193,7 @@
             <input type="hidden" name="responsables[${indiceFormulario}][complemento]" value="${datos.complemento || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][expedido]" value="${datos.expedido || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][fecha_nacimiento]" value="${datos.fechaNacimiento || ''}">
-            <input type="hidden" name="responsables[${indiceFormulario}][genero]" value="${datos.genero || ''}">
+            <input type="hidden" name="responsables[${indiceFormulario}][genero]" value="${datos.genero ?? ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][id_ocupacion]" value="${datos.idOcupacion || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][ocupacion]" value="${datos.ocupacion || ''}">
 
@@ -3306,6 +3319,17 @@
          campo.dispatchEvent(new InputEvent('input', { bubbles: true }));
          campo.dispatchEvent(new Event('change', { bubbles: true }));
          campo.dispatchEvent(new Event('blur', { bubbles: true }));
+
+         // El calendario de WireUI mantiene el valor visible en su estado interno.
+         const contenedorFecha = campo.closest('[x-data="wireui_date_picker"]');
+         const calendario = contenedorFecha && window.Alpine
+             ? window.Alpine.$data(contenedorFecha)
+             : null;
+
+         if (calendario?.features?.watchers && calendario?.entangleable) {
+             const fechaSeleccionada = calendario.features.watchers.toComponent(fecha || null);
+             calendario.entangleable.set(fechaSeleccionada);
+         }
      }
 
      // Encuentra si el responsable ya esta agregado en la lista temporal de la empresa.
@@ -3382,7 +3406,9 @@
          document.getElementById('nuevo_ci').value = valorOcultoResumenPersonaWizard(item, 'ci');
          document.getElementById('nuevo_complemento').value = valorOcultoResumenPersonaWizard(item, 'complemento');
          document.getElementById('nuevo_expedido').value = valorOcultoResumenPersonaWizard(item, 'expedido');
-         document.getElementById('nuevo_genero').value = valorOcultoResumenPersonaWizard(item, 'genero');
+         const generoResponsable = document.getElementById('nuevo_genero');
+         generoResponsable.value = valorOcultoResumenPersonaWizard(item, 'genero');
+         generoResponsable.dispatchEvent(new Event('change', { bubbles: true }));
          seleccionarOcupacionResponsableModal(valorOcultoResumenPersonaWizard(item, 'id_ocupacion'));
          document.getElementById('nuevo_estado_responsable').value = valorOcultoResumenPersonaWizard(item, 'estado') || 'ACTIVO';
 
@@ -3394,15 +3420,9 @@
              valorOcultoResumenPersonaWizard(item, 'url_respaldo');
          mostrarRespaldoGuardadoResponsableModal(valorOcultoResumenPersonaWizard(item, 'url_respaldo'));
 
-         if (idPersona) {
-             prepararModoPersonaExistente();
-             renderTelefonosResponsable(false);
-             renderRubrosResponsable(false);
-         } else {
-             prepararModoPersonaNueva();
-             renderTelefonosResponsable(false);
-             renderRubrosResponsable(false);
-         }
+         prepararModoEdicionResponsable();
+         renderTelefonosResponsable(false);
+         renderRubrosResponsable(false);
      }
 
      function agregarNuevoResponsableTemporal() {
@@ -3722,7 +3742,7 @@
             <input type="hidden" name="responsables[${indiceResponsable}][complemento]" value="${responsable.complemento || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][expedido]" value="${responsable.expedido || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][fecha_nacimiento]" value="${responsable.fecha_nacimiento || ''}">
-            <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${responsable.genero || ''}">
+            <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${responsable.genero ?? ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][id_ocupacion]" value="${responsable.id_ocupacion || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][ocupacion]" value="${responsable.ocupacion || ''}">
 
@@ -3750,7 +3770,7 @@
              complemento: responsable.complemento || '',
              expedido: responsable.expedido || '',
              fechaNacimiento: responsable.fecha_nacimiento || '',
-             genero: responsable.genero || '',
+             genero: responsable.genero ?? '',
              idOcupacion: responsable.id_ocupacion || '',
              ocupacion: responsable.ocupacion || '',
              idRol: responsable.id_rol || '',

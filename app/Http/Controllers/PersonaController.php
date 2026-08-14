@@ -812,6 +812,15 @@ class PersonaController extends Controller
                 $personaResponsable = $this->personaResponsableExistente($responsable);
 
                 if ($personaResponsable) {
+                    $naturalResponsable = $personaResponsable->natural;
+                    $generoResponsable = $responsable['genero'] ?? null;
+
+                    // Al seleccionar una persona existente, el formulario puede omitir este dato.
+                    // En ese caso se conserva el genero que ya tiene registrado.
+                    if ($generoResponsable === null || $generoResponsable === '') {
+                        $generoResponsable = $naturalResponsable?->genero;
+                    }
+
                     $this->validarRepresentanteDisponibleParaEmpresa(
                         (int) $personaResponsable->id,
                         $idEmpresa,
@@ -843,7 +852,7 @@ class PersonaController extends Controller
                             'apellido_materno' => $this->mayuscula($responsable['apellido_materno'] ?? null),
                             'apellido_casado' => $this->mayuscula($responsable['apellido_casado'] ?? null),
                             'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
-                            'genero' => $responsable['genero'] ?? null,
+                            'genero' => $generoResponsable,
                             'id_ocupacion' => $responsable['id_ocupacion'] ?? null,
                             'ocupacion' => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                         ]
