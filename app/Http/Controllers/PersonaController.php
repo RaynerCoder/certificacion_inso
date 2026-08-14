@@ -1470,28 +1470,16 @@ class PersonaController extends Controller
     }
 
     /**
-     * Inactiva el registro sin borrar su historial.
+     * Elimina logicamente al solicitante sin borrar su historial.
      */
     public function destroy(Persona $persona)
     {
         try {
             DB::beginTransaction();
 
-            if (strtoupper((string) $persona->estado) === 'INACTIVO') {
-                DB::rollBack();
-
-                session()->flash('swal', [
-                    'title' => 'Sin cambios',
-                    'text' => 'El registro ya se encuentra inactivo.',
-                    'icon' => 'info',
-                ]);
-
-                return redirect()->route('personas_index');
-            }
-
             $persona->load([
                 'natural',
-                'empresa.responsables',
+                'empresa.responsables.persona.usuario',
                 'telefonos',
                 'rubros',
                 'usuario.roles',
@@ -1511,22 +1499,7 @@ class PersonaController extends Controller
                 return redirect()->route('personas_index');
             }
 
-            $usuarioAcceso = $persona->usuarioAcceso();
-
-            // La ficha y sus datos relacionados se conservan para mantener el historial.
-            $persona->estado = 'INACTIVO';
-            $persona->save();
-
-            if ($persona->empresa) {
-                $persona->empresa->estado = 'INACTIVO';
-                $persona->empresa->save();
-            }
-
-            if ($usuarioAcceso) {
-                $usuarioAcceso->estado = 0;
-                $usuarioAcceso->save();
-                $this->cerrarAccesosUsuario($usuarioAcceso);
-            }
+            $this->eliminarSolicitanteLogicamente($persona);
 
             DB::commit();
 
@@ -1555,7 +1528,6 @@ class PersonaController extends Controller
     private function obtenerBloqueosEliminacionPersona(Persona $persona): array
     {
         $bloqueos = [];
-        $empresa = $persona->empresa;
 
         $productos = $persona->productos()->count();
         if ($productos > 0) {
@@ -1584,14 +1556,82 @@ class PersonaController extends Controller
             $bloqueos[] = "{$responsableEnEmpresas} relacion(es) como responsable de empresa.";
         }
 
-        if ($empresa) {
-            // responsables.id_empresa apunta a empresas.id, por eso se revisa solo si esta persona es empresa.
-            $responsablesEmpresa = Responsable::where('id_empresa', $empresa->id)->count();
-            if ($responsablesEmpresa > 0) {
-                $bloqueos[] = "{$responsablesEmpresa} responsable(s) registrados en la empresa.";
-            }
+        return $bloqueos;
+    }
+
+    /**
+     * Elimina la ficha completa mediante deleted_at y conserva sus datos para auditoria.
+     * Las cuentas de otras personas no se eliminan cuando pertenecen a la empresa.
+     */
+    private function eliminarSolicitanteLogicamente(Persona $persona): void
+    {
+        $usuarioPropio = $persona->usuario;
+        $empresa = $persona->empresa;
+        $usuariosRelacionados = $empresa
+            ? $empresa->responsables
+                ->pluck('persona.usuario')
+                ->filter()
+                ->unique('id')
+            : collect();
+
+        $persona->update(['estado' => 'INACTIVO']);
+
+        // Los telefonos son parte de la ficha y no deben quedar activos al eliminarla.
+        foreach ($persona->telefonos as $telefono) {
+            $telefono->update(['estado' => 'INACTIVO']);
+            $telefono->delete();
         }
 
-        return $bloqueos;
+        // La tabla pivote no usa deleted_at; se conserva y se marca como inactiva.
+        DB::table('personas_rubros')
+            ->where('id_persona', $persona->id)
+            ->update(['estado' => 'INACTIVO']);
+
+        if ($persona->natural) {
+            $persona->natural->delete();
+        }
+
+        if ($empresa) {
+            $empresa->update(['estado' => 'INACTIVO']);
+
+            foreach ($empresa->responsables as $responsable) {
+                $responsable->update([
+                    'estado' => 'INACTIVO',
+                    'fecha_baja' => now()->toDateString(),
+                    'id_usuario_baja' => auth()->id(),
+                ]);
+                $responsable->delete();
+            }
+
+            $empresa->delete();
+        }
+
+        $persona->delete();
+
+        // La cuenta propia desaparece con la persona natural o con una cuenta empresarial antigua.
+        if ($usuarioPropio) {
+            $usuarioPropio->update(['estado' => 0]);
+            $this->cerrarAccesosUsuario($usuarioPropio);
+            $usuarioPropio->delete();
+        }
+
+        // Un representante o tramitador conserva su cuenta si todavia representa otra empresa activa.
+        foreach ($usuariosRelacionados as $usuarioRelacionado) {
+            if ($usuarioPropio && $usuarioRelacionado->is($usuarioPropio)) {
+                continue;
+            }
+
+            $mantieneOtraEmpresa = Responsable::query()
+                ->where('id_persona', $usuarioRelacionado->persona?->id)
+                ->whereIn('estado', ['1', 'ACTIVO'])
+                ->whereHas('empresa', fn ($consulta) => $consulta
+                    ->whereIn('estado', ['1', 'ACTIVO']))
+                ->exists();
+
+            if (! $mantieneOtraEmpresa) {
+                $usuarioRelacionado->update(['estado' => 0]);
+                $this->cerrarAccesosUsuario($usuarioRelacionado);
+            }
+        }
     }
 }
