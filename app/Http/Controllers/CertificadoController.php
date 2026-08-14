@@ -346,7 +346,7 @@ class CertificadoController extends Controller
         $consultaGeneral = request('bandeja') === 'todos';
         $puedeConsultaGeneral = $consultaGeneral && $usuarioActual && (
             $usuarioActual->tieneRol('administrador')
-            || $usuarioActual->tieneRol('tecnico-evaluador')
+            || $usuarioActual->tieneRol('funcionario')
             || $this->usuarioTieneCargoActivo($usuarioActual)
         );
         // El solicitante dueño del tramite es el beneficiario vinculado a la cuenta.
@@ -355,7 +355,7 @@ class CertificadoController extends Controller
             && $this->gestionTramitadores->usuarioPuedeConsultarTramite($usuarioActual, $certificado);
         $esUsuarioInterno = $usuarioActual && (
             $usuarioActual->tieneRol('administrador')
-            || $usuarioActual->tieneRol('tecnico-evaluador')
+            || $usuarioActual->tieneRol('funcionario')
             || $this->usuarioTieneCargoActivo($usuarioActual)
         );
         // Un funcionario puede abrir desde esta bandeja solo los trámites que registró con su cuenta.
@@ -401,7 +401,7 @@ class CertificadoController extends Controller
                         )
                         || (
                             (
-                                $usuarioDestino?->tieneRol('tecnico-evaluador')
+                                $usuarioDestino?->tieneRol('funcionario')
                                 || $this->usuarioTieneCargoActivo($usuarioDestino)
                             )
                             && (int) $seguimiento->id_usuario_siguiente === (int) $usuarioActual?->id
@@ -1767,7 +1767,7 @@ class CertificadoController extends Controller
             && $certificado->puedeEmitirse()
             && (
                 $usuario->tieneRol('administrador')
-                || $usuario->tieneRol('tecnico-evaluador')
+                || $usuario->tieneRol('funcionario')
                 || $this->usuarioTieneCargoActivo($usuario)
             );
     }

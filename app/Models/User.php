@@ -109,7 +109,7 @@ class User extends Authenticatable
                     ->whereIn('estado', ['1', 'ACTIVO'])))
             ->whereHas('rol', fn ($rol) => $rol
                 ->where('estado', 1)
-                ->whereIn('slug', ['representante-legal', 'tramitador']))
+                ->whereIn('slug', ['solicitante', 'tramitador']))
             ->get();
     }
 
@@ -122,7 +122,7 @@ class User extends Authenticatable
     {
         $relaciones = $this->relacionesEmpresarialesActivas();
         $representacionPrincipal = $relaciones
-            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'representante-legal')
+            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'solicitante')
             ->sortByDesc('id')
             ->take(1)
             ->values();
@@ -140,7 +140,7 @@ class User extends Authenticatable
     public function empresasRepresentadasActivas(): Collection
     {
         return $this->relacionesEmpresarialesParaTramites()
-            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'representante-legal')
+            ->filter(fn (Responsable $relacion) => $relacion->rol?->slug === 'solicitante')
             ->pluck('empresa')
             ->filter()
             ->unique('id')

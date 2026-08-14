@@ -690,28 +690,14 @@ class PersonaController extends Controller
 
     private function rolRepresentanteLegalActivo(): Role
     {
-        return Role::query()
-            ->where('slug', 'representante-legal')
-            ->where('estado', 1)
-            ->whereNull('deleted_at')
-            ->firstOrFail();
+        // En responsables, Solicitante identifica a quien representa legalmente a la empresa.
+        return $this->rolSolicitanteActivo();
     }
 
-    private function relacionesRepresentanteLegal(
-        Collection $relaciones,
-        Role $rolRepresentanteLegal,
-        Role $rolSolicitante
-    ): Collection {
-        $relacionesActuales = $relaciones
-            ->filter(fn ($responsable) => (int) $responsable->id_rol === (int) $rolRepresentanteLegal->id);
-
-        if ($relacionesActuales->isNotEmpty()) {
-            return $relacionesActuales;
-        }
-
-        // Los registros antiguos usaban Solicitante como rol de la relacion empresarial.
+    private function relacionesRepresentanteLegal(Collection $relaciones): Collection
+    {
         return $relaciones
-            ->filter(fn ($responsable) => (int) $responsable->id_rol === (int) $rolSolicitante->id);
+            ->filter(fn ($responsable) => $responsable->rol?->slug === 'solicitante');
     }
 
     // La cuenta accede como solicitante y la persona representa legalmente a la empresa.
@@ -957,7 +943,7 @@ class PersonaController extends Controller
 
         $esRepresentanteLegal = Role::query()
             ->whereKey($idRol)
-            ->where('slug', 'representante-legal')
+            ->where('slug', 'solicitante')
             ->where('estado', 1)
             ->exists();
 
@@ -971,7 +957,7 @@ class PersonaController extends Controller
             ->where('id_empresa', '!=', $idEmpresa)
             ->whereIn('estado', ['1', 'ACTIVO'])
             ->whereHas('rol', fn ($rol) => $rol
-                ->where('slug', 'representante-legal')
+                ->where('slug', 'solicitante')
                 ->where('estado', 1))
             ->first();
 
@@ -1092,7 +1078,7 @@ class PersonaController extends Controller
             'usuario.roles',
             'empresa.tipoEmpresa',
             'empresa.responsables.persona.natural',
-            'empresa.responsables.persona.usuario',
+            'empresa.responsables.persona.usuario.roles',
             'empresa.responsables.persona.territorio',
             'empresa.responsables.persona.telefonos',
             'empresa.responsables.persona.rubros',
@@ -1103,8 +1089,6 @@ class PersonaController extends Controller
         $paises = Territorio::where('id_ambito', 1)->orderBy('nombre')->get();
         $departamentos = Territorio::where('id_ambito', 2)->orderBy('nombre')->get();
         $tiposEmpresas = TipoEmpresa::all();
-        $rolSolicitante = $this->rolSolicitanteActivo();
-        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
         $rubrosCatalogo = $this->catalogoRubrosCaeb();
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
@@ -1136,11 +1120,7 @@ class PersonaController extends Controller
             ->values();
 
         $relacionesEmpresa = $persona->empresa?->responsables ?? collect();
-        $relacionesRepresentante = $this->relacionesRepresentanteLegal(
-            $relacionesEmpresa,
-            $rolRepresentanteLegal,
-            $rolSolicitante
-        );
+        $relacionesRepresentante = $this->relacionesRepresentanteLegal($relacionesEmpresa);
 
         $relacionCuenta = $relacionesRepresentante
             ->sortByDesc(fn ($responsable) => (strtoupper((string) $responsable->estado) === 'ACTIVO' ? 1000000000 : 0)
@@ -1148,6 +1128,13 @@ class PersonaController extends Controller
             )
             ->first();
         $usuarioCuentaAcceso = $relacionCuenta?->persona?->usuario ?: $persona->usuario;
+        $rolSolicitante = $usuarioCuentaAcceso?->roles->first();
+        $rolRepresentanteLegal = $relacionCuenta?->rol
+            ?: Role::query()
+                ->where('slug', 'solicitante')
+                ->where('estado', 1)
+                ->whereNull('deleted_at')
+                ->first();
 
         $responsablesRegistrados = $persona->empresa
             ? $relacionesRepresentante
@@ -1179,8 +1166,8 @@ class PersonaController extends Controller
                         $responsable->persona?->natural?->apellido_paterno,
                         $responsable->persona?->natural?->apellido_materno,
                     ]))),
-                    'id_rol' => $rolRepresentanteLegal->id,
-                    'rol_nombre' => $rolRepresentanteLegal->name,
+                    'id_rol' => $responsable->id_rol,
+                    'rol_nombre' => $responsable->rol?->name,
                     'url_respaldo' => $responsable->url_respaldo,
                     'estado' => $responsable->estado,
                     'telefonos' => $responsable->persona?->telefonos
@@ -1233,20 +1220,31 @@ class PersonaController extends Controller
             'natural',
             'usuario.roles',
             'empresa.responsables.persona.natural',
-            'empresa.responsables.persona.usuario',
+            'empresa.responsables.persona.usuario.roles',
+            'empresa.responsables.rol',
         ]);
-        $rolSolicitante = $this->rolSolicitanteActivo();
-        $rolRepresentanteLegal = $this->rolRepresentanteLegalActivo();
-        $this->fijarRolesEmpresaEnSolicitud($solicitud, $rolSolicitante, $rolRepresentanteLegal);
         $relacionesEmpresa = $persona->empresa?->responsables ?? collect();
-        $responsableActivoAnterior = $this->relacionesRepresentanteLegal(
-            $relacionesEmpresa,
-            $rolRepresentanteLegal,
-            $rolSolicitante
-        )->first(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO');
+        $responsableActivoAnterior = $this->relacionesRepresentanteLegal($relacionesEmpresa)
+            ->first(fn ($responsable) => strtoupper((string) $responsable->estado) === 'ACTIVO');
+        $usuarioCuentaAnterior = $responsableActivoAnterior?->persona?->usuario ?: $persona->usuario;
+        $rolSolicitante = $usuarioCuentaAnterior?->roles->first()
+            ?: Role::query()
+                ->where('slug', 'solicitante')
+                ->where('estado', 1)
+                ->whereNull('deleted_at')
+                ->first();
+
+        if (! $rolSolicitante) {
+            throw ValidationException::withMessages([
+                'form_id_role' => 'La cuenta no tiene un rol de acceso disponible.',
+            ]);
+        }
+        $rolRepresentanteLegal = $solicitud->input('form_tipo_registro') === 'EMPRESA'
+            ? $this->rolRepresentanteLegalActivo()
+            : $rolSolicitante;
+        $this->fijarRolesEmpresaEnSolicitud($solicitud, $rolSolicitante, $rolRepresentanteLegal);
         $responsableSolicitado = $solicitud->input('responsables.0', []);
         $personaResponsableSolicitada = $this->personaResponsableExistente($responsableSolicitado);
-        $usuarioCuentaAnterior = $responsableActivoAnterior?->persona?->usuario ?: $persona->usuario;
         $mismoResponsable = $personaResponsableSolicitada
             && (int) $personaResponsableSolicitada->id === (int) $responsableActivoAnterior?->id_persona;
         $usuarioCuentaDestino = $solicitud->input('form_tipo_registro') === 'EMPRESA'

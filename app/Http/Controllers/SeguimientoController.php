@@ -1435,9 +1435,9 @@ class SeguimientoController extends Controller
                 $roles = $relaciones->pluck('rol.slug')->filter()->unique();
 
                 return match (true) {
-                    $roles->contains('representante-legal') && $roles->contains('tramitador')
+                    $roles->contains('solicitante') && $roles->contains('tramitador')
                         => 'Empresa · Representante legal y tramitador',
-                    $roles->contains('representante-legal') => 'Empresa · Representante legal',
+                    $roles->contains('solicitante') => 'Empresa · Representante legal',
                     default => 'Empresa · Tramitador',
                 };
             })
@@ -1451,7 +1451,7 @@ class SeguimientoController extends Controller
         $rol = $responsable->rol;
         $rolAutoriza = $rol
             && (string) $rol->estado === '1'
-            && in_array($rol->slug, ['tramitador', 'representante-legal'], true);
+            && in_array($rol->slug, ['tramitador', 'solicitante'], true);
         $personaActiva = $responsable->persona
             && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true);
 
@@ -1474,7 +1474,7 @@ class SeguimientoController extends Controller
                     ->whereIn('estado', ['1', 'ACTIVO'])))
             ->whereHas('rol', function ($rol) {
                 $rol->where('estado', 1)
-                    ->whereIn('slug', ['tramitador', 'representante-legal']);
+                    ->whereIn('slug', ['tramitador', 'solicitante']);
             })
             ->exists();
     }
@@ -2457,7 +2457,7 @@ class SeguimientoController extends Controller
 
         return (int) $seguimiento->id_usuario_siguiente === (int) auth()->id()
             && (
-                $seguimiento->usuarioSiguiente?->tieneRol('tecnico-evaluador')
+                $seguimiento->usuarioSiguiente?->tieneRol('funcionario')
                 || $this->usuarioTieneCargoActivo($seguimiento->usuarioSiguiente)
             );
     }
@@ -2487,7 +2487,7 @@ class SeguimientoController extends Controller
         return (bool) $usuario
             && (
                 $usuario->tieneRol('administrador')
-                || $usuario->tieneRol('tecnico-evaluador')
+                || $usuario->tieneRol('funcionario')
                 || $this->usuarioTieneCargoActivo($usuario)
             );
     }
@@ -2536,7 +2536,7 @@ class SeguimientoController extends Controller
         }
 
         return auth()->user()->tieneRol('administrador')
-            || auth()->user()->tieneRol('tecnico-evaluador')
+            || auth()->user()->tieneRol('funcionario')
             || $this->usuarioTieneCargoActivo(auth()->user());
     }
 

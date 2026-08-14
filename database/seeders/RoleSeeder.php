@@ -5,43 +5,38 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\GuardaSeeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class RoleSeeder extends Seeder
 {
     use GuardaSeeders;
 
     /**
-     * Roles base del sistema.
+     * Registra los roles mínimos de una instalación nueva.
+     * Los roles existentes y los que se agreguen después se conservan sin cambios.
      */
     public function run(): void
     {
-        // Importador queda como dato del producto/persona, no como rol de acceso al sistema.
-        DB::table('roles_users')->where('id_role', 7)->delete();
-        DB::table('permisos_roles')->where('id_role', 7)->delete();
+        $roles = [
+            ['Super Administrador', 'super-administrador', 'Cuenta principal con acceso total al sistema.', 'ALL'],
+            ['Funcionario', 'funcionario', 'Funcionario público que trabaja en el INSO.', 'INSO'],
+            ['Administrador', 'administrador', 'Usuario responsable de gestionar la configuración, los usuarios y el funcionamiento del sistema.', 'ADMIN'],
+            ['Solicitante', 'solicitante', 'Usuario autorizado para registrar y gestionar trámites propios o en representación de una empresa.', null],
+            ['Tramitador', 'tramitador', 'Persona autorizada para representar a una empresa.', null],
+        ];
 
-        if (Schema::hasColumn('roles', 'deleted_at')) {
-            DB::table('roles')->where('id', 7)->update([
-                'deleted_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
+        foreach ($roles as [$name, $slug, $descripcion, $especial]) {
+            if (DB::table('roles')->where('slug', $slug)->exists()) {
+                continue;
+            }
 
-        foreach ([
-            1 => ['Administrador', 'administrador', 'Acceso completo para administrar usuarios, roles, permisos, catalogos y configuracion general.', 'ALL'],
-            2 => ['Tecnico Evaluador', 'tecnico-evaluador', 'Funcionario que revisa tramites, requisitos, productos, pagos y observaciones.', 'SISTEMA'],
-            3 => ['Caja Pagos', 'caja-pagos', 'Funcionario encargado de registrar y validar pagos relacionados a tramites.', 'SISTEMA'],
-            4 => ['Solicitante', 'solicitante', 'Persona natural que inicia tramites propios o actua por una empresa autorizada.', 'SISTEMA'],
-            5 => ['Representante Legal', 'representante-legal', 'Persona que representa legalmente a una empresa ante el sistema.', null],
-            6 => ['Tramitador', 'tramitador', 'Persona autorizada por una empresa para presentar y seguir tramites.', null],
-            8 => ['Super Administrador', 'super-administrador', 'Cuenta principal con acceso total al sistema.', 'ALL'],
-        ] as $id => [$name, $slug, $descripcion, $especial]) {
-            $this->guardar('roles', $id, [
+            DB::table('roles')->insert([
                 'name' => $name,
                 'slug' => $slug,
                 'descripcion' => $descripcion,
                 'especial' => $especial,
                 'estado' => $this->estado('roles'),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
     }

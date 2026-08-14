@@ -47,13 +47,13 @@
                 ->where('id_empresa', $empresa->id)
                 ->where('id_persona', $personaTramitador->id)
                 ->whereIn('estado', ['1', 'ACTIVO'])
-                ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['representante-legal', 'tramitador']))
+                ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['solicitante', 'tramitador']))
                 ->get()
                 ->pluck('rol.slug')
                 ->filter()
                 ->unique();
 
-            $esRepresentante = $roles->contains('representante-legal');
+            $esRepresentante = $roles->contains('solicitante');
             $esTramitador = $roles->contains('tramitador');
 
             return match (true) {

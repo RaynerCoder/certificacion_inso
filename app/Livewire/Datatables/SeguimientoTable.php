@@ -424,7 +424,7 @@ class SeguimientoTable extends DataTableComponent
         return (bool) $usuario
             && (
                 $usuario->tieneRol('administrador')
-                || $usuario->tieneRol('tecnico-evaluador')
+                || $usuario->tieneRol('funcionario')
                 || $this->usuarioInternoActivo($usuario)
             );
     }
@@ -643,7 +643,7 @@ class SeguimientoTable extends DataTableComponent
         $esRepresentanteLegal = $empresaBeneficiaria->responsables->contains(function ($responsable) use ($idTramitador) {
             return (int) $responsable->id_persona === (int) $idTramitador
                 && $this->estadoActivo($responsable->estado)
-                && $responsable->rol?->slug === 'representante-legal'
+                && $responsable->rol?->slug === 'solicitante'
                 && $this->estadoActivo($responsable->rol?->estado);
         });
 

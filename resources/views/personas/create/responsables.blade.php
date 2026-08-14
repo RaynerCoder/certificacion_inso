@@ -424,8 +424,8 @@
                         id="nuevo_id_rol"
                         disabled
                     >
-                        <option value="{{ $rolRepresentanteLegal->id }}" selected>
-                            {{ $rolRepresentanteLegal->name }}
+                        <option value="{{ $rolRepresentanteLegal?->id }}" selected>
+                            {{ $rolRepresentanteLegal?->name }}
                         </option>
                     </x-wire-native-select>
 

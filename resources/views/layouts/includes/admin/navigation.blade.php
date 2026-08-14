@@ -32,9 +32,9 @@
             $empresa = $relaciones->first()?->empresa;
             $roles = $relaciones->pluck('rol.slug')->filter()->unique()->values();
             $rolVisible = match (true) {
-                $roles->contains('representante-legal') && $roles->contains('tramitador')
+                $roles->contains('solicitante') && $roles->contains('tramitador')
                     => 'Representante legal y tramitador',
-                $roles->contains('representante-legal') => 'Representante legal',
+                $roles->contains('solicitante') => 'Representante legal',
                 default => 'Tramitador',
             };
 
@@ -59,7 +59,7 @@
         ->pluck('rol.slug')
         ->filter()
         ->unique();
-    $esRepresentanteLegalCabecera = $rolesEmpresarialesCabecera->contains('representante-legal');
+    $esRepresentanteLegalCabecera = $rolesEmpresarialesCabecera->contains('solicitante');
     $esTramitadorCabecera = ! $esRepresentanteLegalCabecera
         && $rolesEmpresarialesCabecera->contains('tramitador');
 

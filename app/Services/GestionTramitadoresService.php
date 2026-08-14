@@ -45,7 +45,7 @@ class GestionTramitadoresService
 
         // La empresa no inicia sesion por si sola: la cuenta principal pertenece a su representante legal.
         $representanteLegal = $beneficiario->empresa->responsables
-            ->filter(fn (Responsable $responsable) => $this->responsableTieneRolActivo($responsable, 'representante-legal'))
+            ->filter(fn (Responsable $responsable) => $this->responsableTieneRolActivo($responsable, 'solicitante'))
             ->sortByDesc('id')
             ->first();
         $usuarioRepresentante = $this->usuarioActivo($representanteLegal?->persona?->usuario);

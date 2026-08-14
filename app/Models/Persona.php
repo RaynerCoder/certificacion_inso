@@ -58,7 +58,7 @@ class Persona extends Model
                 ->whereIn('estado', ['1', 'ACTIVO'])
                 ->whereHas('persona', fn ($persona) => $persona->where('estado', 'ACTIVO'))
                 ->whereHas('rol', fn ($rol) => $rol
-                    ->where('slug', 'representante-legal')
+                    ->where('slug', 'solicitante')
                     ->where('estado', 1))
                 ->with('persona.usuario')
                 ->latest('id')

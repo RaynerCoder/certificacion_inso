@@ -24,11 +24,11 @@ class ResponsableSeeder extends Seeder
 
         foreach ([
             // Mario representa legalmente a AGROPARC.
-            1 => [1, 2, 'representante-legal', 'documentos/responsables/agroparc-representante.pdf'],
+            1 => [1, 2, 'solicitante', 'documentos/responsables/agroparc-representante.pdf'],
             // Laura puede tramitar para AGROPARC, pero no es su representante legal.
             2 => [1, 4, 'tramitador', 'documentos/responsables/laura-agroparc-tramitadora.pdf'],
             // Laura representa legalmente a BIOCONTROL.
-            3 => [2, 4, 'representante-legal', 'documentos/responsables/biocontrol-representante.pdf'],
+            3 => [2, 4, 'solicitante', 'documentos/responsables/biocontrol-representante.pdf'],
         ] as $id => [$empresa, $persona, $slugRol, $respaldo]) {
             $this->guardar('responsables', $id, [
                 'id_empresa' => $empresa,

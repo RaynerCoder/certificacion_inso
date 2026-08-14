@@ -28,10 +28,12 @@
                 </label>
 
                 <select id="form_id_role" name="form_id_role" class="hidden">
-                    <option value="{{ $rolSolicitante->id }}" selected>{{ $rolSolicitante->name }}</option>
+                    <option value="{{ $rolSolicitante?->id }}" selected>
+                        {{ $rolSolicitante?->name }}
+                    </option>
                 </select>
 
-                <input id="form_id_role_visible" type="text" value="{{ $rolSolicitante->name }}" readonly
+                <input id="form_id_role_visible" type="text" value="{{ $rolSolicitante?->name }}" readonly
                     class="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 cursor-not-allowed">
 
                 @error('form_id_role')

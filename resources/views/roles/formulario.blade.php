@@ -35,7 +35,7 @@
 
             <div class="seg-col-6">
                 <x-wire-input label="Slug" id="form_slug" name="form_slug" type="text"
-                    placeholder="Ej: tecnico-evaluador" value="{{ old('form_slug', $rol->slug ?? '') }}" />
+                    placeholder="Ej: funcionario" value="{{ old('form_slug', $rol->slug ?? '') }}" />
             </div>
 
             <div class="seg-col-6">
