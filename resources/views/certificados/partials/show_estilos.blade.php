@@ -4355,7 +4355,7 @@
             color: #0f172a;
             display: -webkit-box;
             font-size: 0.82rem;
-            font-weight: 800;
+            font-weight: 400;
             line-height: 1.4;
             overflow: hidden;
         }
