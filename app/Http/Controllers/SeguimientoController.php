@@ -215,7 +215,8 @@ class SeguimientoController extends Controller
                 'fecha_final' => null,
                 // La descripción final solo se registra cuando un usuario proporciona ese dato.
                 'descripcion_final' => null,
-                'referencia' => 'Inicio de tramite '.$codigo,
+                // La referencia queda vacía porque el formulario inicial no solicita ese dato.
+                'referencia' => null,
                 'id_usuario_anterior' => null,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $usuarioDestino->id,
@@ -575,7 +576,10 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
-                'referencia' => $datos['descripcion_derivacion'] ?: 'Asignacion de solicitud.',
+                // La referencia solo se registra cuando fue escrita en el formulario de asignación.
+                'referencia' => filled($datos['descripcion_derivacion'] ?? null)
+                    ? trim($datos['descripcion_derivacion'])
+                    : null,
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente ?: $seguimientoBloqueado->id_usuario_origen,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $tecnico->id,
@@ -669,6 +673,7 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
+                // En una derivación, la referencia corresponde exactamente al texto ingresado.
                 'referencia' => trim($datos['motivo_derivacion']),
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -863,7 +868,7 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => now()->toDateString(),
                 'fecha_final' => now()->toDateString(),
                 'descripcion_final' => null,
-                'referencia' => 'Todos los requisitos cumplen.',
+                'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => null,
@@ -951,7 +956,8 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
-                'referencia' => $observaciones,
+                // Las observaciones ya tienen su propio historial y no se duplican como referencia.
+                'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $usuarioResponsableCorreccion->id,
@@ -1068,7 +1074,7 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
-                'referencia' => 'Correccion presencial',
+                'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $tecnicoDestino->id,
@@ -1210,7 +1216,7 @@ class SeguimientoController extends Controller
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
-                'referencia' => 'Documentos corregidos reenviados.',
+                'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
                 'id_usuario_siguiente' => $tecnicoDestinoId,

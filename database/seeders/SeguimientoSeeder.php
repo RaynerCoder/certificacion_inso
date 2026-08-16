@@ -22,7 +22,8 @@ class SeguimientoSeeder extends Seeder
             'fecha_derivacion' => null,
             'fecha_final' => null,
             'descripcion_final' => 'Solicitud recibida por jefatura UTHSI.',
-            'referencia' => 'Inicio del trámite',
+            // La referencia no se genera automáticamente al iniciar un trámite.
+            'referencia' => null,
             'id_usuario_anterior' => null,
             'id_usuario_origen' => 9,
             'id_usuario_siguiente' => 4,

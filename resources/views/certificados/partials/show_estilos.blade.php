@@ -517,24 +517,17 @@
         }
 
         .cert-correction-table th:nth-child(3),
-        .cert-correction-table td:nth-child(3),
+        .cert-correction-table td:nth-child(3) {
+            min-width: 170px;
+        }
+
         .cert-correction-table th:nth-child(4),
         .cert-correction-table td:nth-child(4) {
-            width: 132px;
+            min-width: 220px;
         }
 
         .cert-correction-table th:nth-child(5),
         .cert-correction-table td:nth-child(5) {
-            min-width: 170px;
-        }
-
-        .cert-correction-table th:nth-child(6),
-        .cert-correction-table td:nth-child(6) {
-            min-width: 220px;
-        }
-
-        .cert-correction-table th:nth-child(7),
-        .cert-correction-table td:nth-child(7) {
             min-width: 240px;
         }
 
@@ -2233,6 +2226,23 @@
             color: #ffffff;
         }
 
+        .tramite-btn-save-correction {
+            background: #2563eb;
+            border: 1px solid #1d4ed8;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.16);
+            color: #ffffff;
+        }
+
+        .tramite-btn-save-correction:hover {
+            background: #1d4ed8;
+            border-color: #1e40af;
+            color: #ffffff;
+        }
+
+        .tramite-correction-actions .tramite-btn {
+            text-decoration: none;
+        }
+
         .tramite-warning-box {
             align-items: center;
             border: 1px solid #fbbf24;
@@ -3712,6 +3722,10 @@
             gap: 14px;
         }
 
+        .tramite-grid-main.tramite-section-review.is-correction-mode {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
         .tramite-history-panel {
             margin-top: 0;
         }
@@ -4932,6 +4946,41 @@
             padding-top: 14px;
         }
 
+        /* La corrección del solicitante muestra solo la información necesaria para responder. */
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table {
+            min-width: 980px;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table th:nth-child(1),
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(1) {
+            width: 48px;
+            text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table th:nth-child(2),
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(2) {
+            width: 31%;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table th:nth-child(3),
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(3) {
+            width: 170px;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table th:nth-child(4),
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(4) {
+            width: 27%;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table th:nth-child(5),
+        .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(5) {
+            width: 250px;
+            text-align: left;
+        }
+
         /* La consulta del solicitante tiene siete columnas; cada una conserva un ancho útil. */
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
             min-width: 1050px;
@@ -5155,6 +5204,30 @@
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7)::before {
                 content: "Acción";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table {
+                min-width: 0;
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(3)::before {
+                content: "Evidencia actual";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(4)::before {
+                content: "Observación actual";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(5)::before {
+                content: "Corrección";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table td[colspan] {
+                display: block;
+            }
+
+            .tramite-detail-v2 .tramite-section-review .cert-correction-table td[colspan]::before {
+                display: none;
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td[colspan] {

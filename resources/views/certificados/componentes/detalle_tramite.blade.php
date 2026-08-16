@@ -315,7 +315,7 @@
             fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
         );
         // El historial tecnico no se envia al navegador del solicitante antes de notificar una correccion.
-        $historialRequisitos = $mostrarRevisionRequisitos
+        $historialRequisitos = $mostrarRevisionRequisitos && ! $seguimientoCorreccionActual
             ? $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario) {
             $items = collect();
 
@@ -517,7 +517,7 @@
             {{-- SECCION 4: revisión de requisitos. El formulario conserva los nombres que espera el controlador. --}}
             @if ($mostrarRevisionRequisitos)
             {{-- La revision interna permanece reservada hasta que el solicitante recibe una correccion. --}}
-            <section class="tramite-grid-main tramite-section-review">
+            <section class="tramite-grid-main tramite-section-review {{ $seguimientoCorreccionActual ? 'is-correction-mode' : '' }}">
                 <div class="tramite-card">
                     <div class="tramite-card-body">
                         @if ($puedeRevisarRequisitos)
@@ -882,12 +882,9 @@
                                             <tr>
                                                 <th class="cert-review-col-number">#</th>
                                                 <th>Requisito</th>
-                                                <th class="cert-review-col-result">Cumple</th>
-                                                <th>Estado</th>
                                                 <th>Evidencia actual</th>
-                                                <th>Observación del técnico</th>
+                                                <th>Observación actual</th>
                                                 <th>Corrección</th>
-                                                <th class="cert-review-col-history">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -905,24 +902,12 @@
                                                         'return_to' => request()->fullUrl(),
                                                     ]);
                                                 @endphp
-                                                <tr class="cert-requirement-row is-observed tramite-row-observed">
+                                                <tr class="cert-requirement-row">
                                                     <td>{{ $loop->iteration }}</td>
                                                     <td>
                                                         <strong class="block text-slate-800">
                                                             {{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}
                                                         </strong>
-                                                    </td>
-                                                    <td>
-                                                        <span class="tramite-pill tramite-status-chip tramite-pill-danger">
-                                                            <i class="fa-solid fa-xmark"></i>
-                                                            No
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <span class="tramite-pill tramite-pill-danger">
-                                                            <i class="fa-solid fa-circle-exclamation"></i>
-                                                            Observado
-                                                        </span>
                                                     </td>
                                                     <td>
                                                         <div class="cert-correction-document-cell">
@@ -995,24 +980,22 @@
                                                             </span>
                                                         @endif
                                                     </td>
-                                                    <td>
-                                                        <button type="button" class="cert-history-button" data-requirement-history-button data-requirement-id="{{ $requisitoCertificado->id }}">
-                                                            <i class="fa-regular fa-clock"></i>
-                                                            Historial
-                                                        </button>
-                                                    </td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="8" class="text-center">Sin requisitos pendientes.</td>
+                                                    <td colspan="5" class="text-center">Sin requisitos pendientes.</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
                                     </table>
                                 </div>
 
-                                <div class="tramite-actions-row mt-4">
-                                    <button type="submit" name="accion_correccion" value="guardar" class="tramite-btn tramite-btn-secondary">
+                                <div class="tramite-actions-row tramite-correction-actions mt-4">
+                                    <a href="{{ route('seguimientos_mis_tramites_beneficiario') }}" class="tramite-btn tramite-btn-muted">
+                                        <i class="fa-solid fa-xmark"></i>
+                                        Salir sin guardar
+                                    </a>
+                                    <button type="submit" name="accion_correccion" value="guardar" class="tramite-btn tramite-btn-save-correction">
                                         <i class="fa-solid fa-floppy-disk"></i>
                                         Guardar corrección
                                     </button>
@@ -1155,7 +1138,8 @@
                     </div>
                 </div>
 
-                {{-- SECCION 5: historial del requisito seleccionado. Se alimenta con observaciones y decisiones tecnicas. --}}
+                {{-- El historial técnico no se muestra durante la corrección del solicitante. --}}
+                @unless ($seguimientoCorreccionActual)
                 <aside class="tramite-card tramite-history-panel">
                     <div class="tramite-card-head">
                         <h2 class="tramite-card-title">Historial del requisito seleccionado</h2>
@@ -1169,6 +1153,7 @@
                         </div>
                     </div>
                 </aside>
+                @endunless
             </section>
             @endif
 
@@ -1321,8 +1306,8 @@
                                         'excluirIds' => [(int) $seguimientoAtencionActual?->id_usuario_siguiente],
                                     ])
                                     <div>
-                                        <label class="cert-show-label" for="descripcion_derivacion_v2">Descripción de derivación</label>
-                                        <textarea id="descripcion_derivacion_v2" class="cert-review-textarea" name="descripcion_derivacion" placeholder="Ingrese una descripción opcional">{{ old('descripcion_derivacion') }}</textarea>
+                                        <label class="cert-show-label" for="descripcion_derivacion_v2">Referencia de asignación</label>
+                                        <textarea id="descripcion_derivacion_v2" class="cert-review-textarea" name="descripcion_derivacion" placeholder="Ingrese una referencia opcional">{{ old('descripcion_derivacion') }}</textarea>
                                     </div>
                                     <button type="submit" class="tramite-btn tramite-btn-primary">
                                         <i class="fa-solid fa-user-check"></i>
@@ -1349,8 +1334,8 @@
                                         ],
                                     ])
                                     <div>
-                                        <label class="cert-show-label" for="motivo_derivacion_v2">Motivo de derivación</label>
-                                        <textarea id="motivo_derivacion_v2" class="cert-review-textarea" name="motivo_derivacion" placeholder="Explique por qué deriva este trámite." required>{{ old('motivo_derivacion') }}</textarea>
+                                        <label class="cert-show-label" for="motivo_derivacion_v2">Referencia de derivación</label>
+                                        <textarea id="motivo_derivacion_v2" class="cert-review-textarea" name="motivo_derivacion" placeholder="Ingrese la referencia de esta derivación." required>{{ old('motivo_derivacion') }}</textarea>
                                     </div>
                                     <button type="submit" class="tramite-btn tramite-btn-primary">
                                         <i class="fa-solid fa-share"></i>

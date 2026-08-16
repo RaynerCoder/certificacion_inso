@@ -169,7 +169,7 @@ class GestionTramitadoresService
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => 'Correccion transferida al beneficiario por baja del tramitador.',
-                'referencia' => 'Baja del tramitador',
+                'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => $usuarioResponsable->id,
                 'id_usuario_siguiente' => $usuarioBeneficiario->id,

@@ -254,7 +254,7 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaFechaUsuarioActual(): Column
     {
-        return Column::make('Desde')
+        return Column::make('Asignado desde')
             ->label(fn ($fila) => $this->fechaMovimientoActual($fila))
             ->sortable();
     }
