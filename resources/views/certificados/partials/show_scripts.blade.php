@@ -316,6 +316,15 @@
                     elemento.querySelector('i').className = visual.icono;
                 }
 
+                // El número resume el resultado sin recargar la lista con textos adicionales.
+                function pintarNumeroEstado(elemento, estado) {
+                    if (!elemento) return;
+
+                    const clase = estado === 'SI' ? 'is-si' : (estado === 'NO' ? 'is-no' : 'is-pending');
+                    elemento.classList.remove('is-si', 'is-no', 'is-pending');
+                    elemento.classList.add(clase);
+                }
+
                 function actualizarResumen() {
                     const conteos = { all: registros.length, pending: 0, SI: 0, NO: 0 };
 
@@ -389,8 +398,8 @@
                         ? 'Indique qué debe corregir el solicitante.'
                         : 'El requisito quedará marcado como cumplido.';
 
-                    pintarEstado(registro.querySelector('[data-review-list-state]'), estado);
                     pintarEstado(panel.querySelector('[data-review-detail-state]'), estado);
+                    pintarNumeroEstado(registro.querySelector('[data-review-number-state]'), estado);
                     actualizarResumen();
                     aplicarFiltro();
 

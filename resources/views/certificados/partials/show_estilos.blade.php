@@ -4238,17 +4238,24 @@
         }
 
         .review-workbench-layout {
+            border: 1px solid #dbe4ee;
+            border-radius: 9px;
             display: grid;
-            gap: 14px;
+            gap: 0;
             grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
+            overflow: hidden;
         }
 
         .review-requirement-list,
         .review-requirement-detail {
-            border: 1px solid #dbe4ee;
-            border-radius: 9px;
+            border: 0;
+            border-radius: 0;
             min-width: 0;
             overflow: hidden;
+        }
+
+        .review-requirement-list {
+            border-right: 1px solid #dbe4ee;
         }
 
         .review-requirement-list-head {
@@ -4282,11 +4289,11 @@
         }
 
         .review-requirement-item.is-active {
-            background: #fff7f7;
+            background: #f0fdfa;
         }
 
         .review-requirement-item.is-active::before {
-            background: #ef4444;
+            background: #0d9488;
             bottom: 0;
             content: "";
             left: 0;
@@ -4299,7 +4306,7 @@
             align-items: flex-start;
             display: flex;
             gap: 10px;
-            min-height: 68px;
+            min-height: 52px;
             padding: 10px 12px 10px 15px;
             text-align: left;
             width: 100%;
@@ -4318,9 +4325,26 @@
             justify-content: center;
         }
 
+        .review-requirement-number.is-pending {
+            background: #fffbeb;
+            border-color: #fbbf24;
+            color: #b45309;
+        }
+
+        .review-requirement-number.is-si {
+            background: #ecfdf5;
+            border-color: #34d399;
+            color: #047857;
+        }
+
+        .review-requirement-number.is-no {
+            background: #fef2f2;
+            border-color: #f87171;
+            color: #dc2626;
+        }
+
         .review-requirement-copy {
             display: grid;
-            gap: 6px;
             min-width: 0;
             width: 100%;
         }
@@ -4336,7 +4360,6 @@
             overflow: hidden;
         }
 
-        .review-requirement-meta,
         .review-detail-head-actions {
             align-items: center;
             display: flex;
@@ -4653,8 +4676,7 @@
             padding-top: 10px;
         }
 
-        .review-workbench-footer .tramite-btn,
-        [data-review-workbench] > .tramite-actions-row .tramite-btn-notify {
+        .review-workbench-footer .tramite-btn {
             font-size: 0.78rem;
             min-height: 36px;
             padding: 7px 12px;
@@ -4698,6 +4720,11 @@
 
             .review-workbench-layout {
                 grid-template-columns: 1fr;
+            }
+
+            .review-requirement-list {
+                border-bottom: 1px solid #dbe4ee;
+                border-right: 0;
             }
 
             .review-requirement-list-body {

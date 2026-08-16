@@ -281,7 +281,8 @@
             return $observacionesDeRequisito($requisitoCertificado)->sortByDesc('id')->first();
         };
 
-        // Localiza el PDF o imagen de cada requisito usando evidencias_requisitos.
+        // Localiza el PDF o imagen usando la misma dirección desde la que se abrió el sistema.
+        // Así el archivo no depende del dominio configurado en APP_URL.
         $urlDocumentoRequisito = function ($requisitoCertificado) {
             $evidencia = $requisitoCertificado->evidenciasRequisitos
                 ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN'], true))
@@ -289,9 +290,19 @@
                 ->first();
 
             if ($evidencia?->valor) {
-                return \Illuminate\Support\Str::startsWith($evidencia->valor, ['http://', 'https://'])
-                    ? $evidencia->valor
-                    : asset($evidencia->valor);
+                if (\Illuminate\Support\Str::startsWith($evidencia->valor, ['http://', 'https://'])) {
+                    return $evidencia->valor;
+                }
+
+                $rutaPublica = ltrim($evidencia->valor, '/');
+
+                if (! \Illuminate\Support\Str::startsWith($rutaPublica, 'storage/')) {
+                    $rutaPublica = 'storage/' . $rutaPublica;
+                }
+
+                return request()->getSchemeAndHttpHost()
+                    . request()->getBaseUrl()
+                    . '/' . $rutaPublica;
             }
 
             $rutaPublica = 'storage/documentos/requisitos_certificados/' . $requisitoCertificado->id . '/documento.pdf';
@@ -562,8 +573,6 @@
                                             <div class="review-requirement-list-body" data-review-list>
                                                 @foreach ($requisitosParaRevision as $requisitoCertificado)
                                                     @php
-                                                        $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                        $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                         $decisionActual = old(
                                                             "requisitos_revision.$loop->index.cumple",
                                                             $requisitoCertificado->cumple === 'SI'
@@ -577,22 +586,15 @@
                                                     <article class="review-requirement-item"
                                                         data-review-record="{{ $requisitoCertificado->id }}"
                                                         data-review-state="{{ $estadoFiltro }}"
-                                                        data-review-search-text="{{ \Illuminate\Support\Str::lower($tituloRequisito . ' ' . $codigoEvidencia) }}">
+                                                        data-review-search-text="{{ \Illuminate\Support\Str::lower($tituloRequisito) }}">
                                                         <input type="hidden" name="requisitos_revision[{{ $loop->index }}][id]" value="{{ $requisitoCertificado->id }}">
                                                         <input type="hidden" name="requisitos_revision[{{ $loop->index }}][tocado]" value="{{ old("requisitos_revision.$loop->index.tocado", '0') }}" data-review-touched>
                                                         <input type="hidden" name="requisitos_revision[{{ $loop->index }}][cumple]" value="{{ $decisionActual }}" data-review-decision>
 
                                                         <button type="button" class="review-requirement-select" data-review-select="{{ $requisitoCertificado->id }}">
-                                                            <span class="review-requirement-number">{{ $loop->iteration }}</span>
+                                                            <span class="review-requirement-number is-{{ strtolower($estadoFiltro) }}" data-review-number-state>{{ $loop->iteration }}</span>
                                                             <span class="review-requirement-copy">
                                                                 <span class="review-requirement-name">{{ $tituloRequisito }}</span>
-                                                                <span class="review-requirement-meta">
-                                                                    <span class="review-evidence-chip">{{ $codigoEvidencia }}</span>
-                                                                    <span class="review-state is-{{ strtolower($estadoFiltro) }}" data-review-list-state>
-                                                                        <i class="{{ $decisionActual === 'SI' ? 'fa-regular fa-circle-check' : ($decisionActual === 'NO' ? 'fa-regular fa-circle-xmark' : 'fa-solid fa-circle') }}" aria-hidden="true"></i>
-                                                                        <span>{{ $decisionActual === 'SI' ? 'Cumple' : ($decisionActual === 'NO' ? 'No cumple' : 'Pendiente') }}</span>
-                                                                    </span>
-                                                                </span>
                                                             </span>
                                                         </button>
                                                     </article>
@@ -735,45 +737,52 @@
                                     </div>
 
                                     <div class="review-workbench-footer">
+                                        <a href="{{ url()->previous() }}" class="tramite-btn tramite-btn-muted">
+                                            <i class="fa-solid fa-arrow-left"></i>
+                                            Salir sin guardar
+                                        </a>
+
                                         @if ($certificado->estado === 'OBSERVADO')
                                             <button type="button" class="tramite-btn tramite-btn-primary" disabled><i class="fa-regular fa-floppy-disk"></i> Guardar revisión</button>
                                         @else
                                             <button type="submit" class="tramite-btn tramite-btn-primary" data-review-save-next><i class="fa-regular fa-floppy-disk"></i> Guardar revisión</button>
+                                        @endif
+
+                                        @if ($certificado->estado !== 'OBSERVADO' && $puedeNotificarCorreccion)
+                                            <button type="button" class="tramite-btn tramite-btn-notify" data-open-correction-recipient-modal>
+                                                <i class="fa-solid fa-paper-plane"></i>
+                                                Notificar solicitante
+                                            </button>
                                         @endif
                                     </div>
                                 @else
                                     <div class="review-workbench-empty">Este trámite no tiene requisitos registrados.</div>
                                 @endif
 
-                                <div class="tramite-actions-row">
-                                    @if ($certificado->estado === 'OBSERVADO')
-                                        <button type="button" class="tramite-btn tramite-btn-muted" disabled>
-                                            <i class="fa-solid fa-arrow-right"></i>
-                                            Derivar
-                                        </button>
-                                        <span class="tramite-warning-box">
-                                            <i class="fa-solid fa-triangle-exclamation"></i>
-                                            Trámite observado: no se puede derivar ni continuar revisión hasta que el solicitante corrija.
-                                        </span>
-                                    @else
-                                        @if ($puedeFinalizarTramite)
-                                            <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
-                                                @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
-                                                class="tramite-btn tramite-btn-ok"
-                                                @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
-                                                <i class="fa-solid fa-circle-check"></i>
-                                                Finalizar trámite
+                                @if ($certificado->estado === 'OBSERVADO' || $puedeFinalizarTramite)
+                                    <div class="tramite-actions-row">
+                                        @if ($certificado->estado === 'OBSERVADO')
+                                            <button type="button" class="tramite-btn tramite-btn-muted" disabled>
+                                                <i class="fa-solid fa-arrow-right"></i>
+                                                Derivar
                                             </button>
+                                            <span class="tramite-warning-box">
+                                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                                Trámite observado: no se puede derivar ni continuar revisión hasta que el solicitante corrija.
+                                            </span>
+                                        @else
+                                            @if ($puedeFinalizarTramite)
+                                                <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
+                                                    @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
+                                                    class="tramite-btn tramite-btn-ok"
+                                                    @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    Finalizar trámite
+                                                </button>
+                                            @endif
                                         @endif
-
-                                        @if ($puedeNotificarCorreccion)
-                                            <button type="button" class="tramite-btn tramite-btn-notify" data-open-correction-recipient-modal>
-                                                <i class="fa-solid fa-paper-plane"></i>
-                                                Notificar solicitante
-                                            </button>
-                                        @endif
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </form>
                             @if ($puedeNotificarCorreccion)
                                 <form id="form-notificar-correccion-v2" action="{{ route('seguimientos_notificar_correccion', $seguimientoTecnicoActual) }}" method="POST" data-prevent-double-submit data-loading-button="Notificando...">
