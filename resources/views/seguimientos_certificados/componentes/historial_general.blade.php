@@ -316,14 +316,14 @@
                         // created_at identifica cuándo quedó registrado este movimiento en el sistema.
                         $fechaMovimiento = $seguimiento->created_at;
                         $estadoFiltro = strtolower($estadoVisual['filter']);
-                        // Columnas reales de seguimientos: referencia y descripcion_final.
+                        // La referencia pertenece al movimiento. La descripción final queda vacía
+                        // porque este flujo no solicita ese dato al usuario.
                         $referencia = $datoTimeline($seguimiento->referencia, 'Sin referencia');
-                        $descripcionFinal = $datoTimeline($seguimiento->descripcion_final, 'Sin descripción');
+                        $descripcionFinal = '';
                         $textoBusqueda = strtolower(implode(' ', array_filter([
                             $seguimiento->id,
                             $certificado->codigo,
                             $referencia,
-                            $descripcionFinal,
                             $seguimiento->estado,
                             $quienEnvia['busqueda'],
                             $quienRecibe['busqueda'],
@@ -373,7 +373,7 @@
                         </td>
 
                         <td>
-                            <div class="ruta-texto {{ $seguimiento->descripcion_final ? '' : 'ruta-dato-faltante' }}">
+                            <div class="ruta-texto ruta-dato-faltante">
                                 {{ $descripcionFinal }}
                             </div>
                         </td>

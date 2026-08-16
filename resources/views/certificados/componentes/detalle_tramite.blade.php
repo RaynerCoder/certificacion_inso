@@ -1071,13 +1071,6 @@
                                                 <td>{{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}</td>
                                                 <td>
                                                     <span class="tramite-pill tramite-status-chip {{ $claseCumple }}">
-                                                        @if ($textoCumple === 'Cumple')
-                                                            <i class="fa-solid fa-check"></i>
-                                                        @elseif ($textoCumple === 'Observado')
-                                                            <i class="fa-solid fa-circle-exclamation"></i>
-                                                        @else
-                                                            <i class="fa-regular fa-clock"></i>
-                                                        @endif
                                                         {{ $textoCumpleCorto }}
                                                     </span>
                                                 </td>
@@ -1112,8 +1105,12 @@
                                                 </td>
                                                 <td>{{ $textoObservacionRequisito }}</td>
                                                 <td>
-                                                    <button type="button" class="cert-history-button" data-requirement-history-button data-requirement-id="{{ $requisitoCertificado->id }}">
-                                                        <i class="fa-regular fa-clock"></i>
+                                                    <button type="button"
+                                                        class="cert-history-button"
+                                                        data-requirement-history-button
+                                                        data-requirement-id="{{ $requisitoCertificado->id }}"
+                                                        title="Ver historial"
+                                                        aria-label="Ver historial del requisito {{ $loop->iteration }}">
                                                         Historial
                                                     </button>
                                                 </td>

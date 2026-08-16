@@ -4937,6 +4937,43 @@
             min-width: 1050px;
         }
 
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th {
+            font-weight: 700;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td {
+            color: #000000;
+            font-weight: 400;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .tramite-status-chip,
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-show-pill,
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .tramite-payment-inline-btn {
+            font-size: 0.66rem;
+            gap: 4px;
+            min-height: 21px;
+            padding: 2px 7px;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-requirement-row.is-observed {
+            background: #ffffff;
+            box-shadow: none;
+            outline: 0;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-requirement-row.is-observed td {
+            background: #ffffff;
+            border-top-color: #e2e8f0;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-history-button {
+            font-size: 0.66rem;
+            font-weight: 600;
+            min-height: 26px;
+            padding: 4px 10px;
+            width: auto;
+        }
+
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(1),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(1) {
             width: 48px;
@@ -4975,8 +5012,12 @@
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7) {
-            width: 110px;
+            width: 86px;
             text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7) {
+            white-space: nowrap;
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
