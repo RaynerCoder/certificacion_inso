@@ -2677,8 +2677,14 @@
              'Persona nueva: puede agregar uno o varios rubros.';
      }
 
+     // Editar actualiza los datos del responsable vinculado. Cambiar permite
+     // buscar otra persona o registrar una nueva para reemplazarlo.
+     function estaEditandoDatosResponsable() {
+         return Boolean(responsableEditandoElemento && !responsableEnReemplazo);
+     }
+
      function prepararModoPersonaExistente() {
-         if (responsableEditandoElemento) {
+         if (estaEditandoDatosResponsable()) {
              prepararModoEdicionResponsable();
              return;
          }
@@ -2792,8 +2798,8 @@
 
      function cargarPersonaResponsable() {
          // El selector puede emitir un cambio al sincronizar su valor.
-         // Durante una edicion no debe limpiar ni bloquear los campos ya cargados.
-         if (responsableEditandoElemento) return;
+         // Solo la edicion del responsable actual conserva los datos ya cargados.
+         if (estaEditandoDatosResponsable()) return;
 
          const select = document.getElementById('modal_id_persona_responsable');
          const valorSeleccionado = select.value;
