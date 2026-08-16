@@ -175,7 +175,7 @@
                                 <strong class="block text-sm font-black text-slate-800">Notificaciones</strong>
                                 <span class="text-xs font-semibold text-slate-500">Últimas 5 notificaciones</span>
                                 <div class="mt-1 flex flex-wrap gap-2 text-[10px] font-bold">
-                                    <span class="rounded-full bg-red-100 px-2 py-0.5 text-red-700">Trámite</span>
+                                    <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-700">Trámite</span>
                                     <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Tramitador</span>
                                 </div>
                             </div>
