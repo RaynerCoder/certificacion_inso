@@ -218,10 +218,10 @@
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
                                     $claseNotificacion = $esValidacionTramitador
                                         ? 'notificacion-tramitador'
-                                        : 'border-l-4 border-l-red-500 bg-red-50/70';
+                                        : 'border-l-4 border-l-green-500 bg-green-50/70';
                                     $claseBotonNotificacion = $esValidacionTramitador
                                         ? 'bg-blue-600 hover:bg-blue-700'
-                                        : 'bg-red-600 hover:bg-red-700';
+                                        : 'bg-green-600 hover:bg-green-700';
                                 @endphp
                                 <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 {{ $claseNotificacion }}"
                                     data-id="{{ $notificacion->id }}"
@@ -420,10 +420,10 @@
             const esValidacionTramitador = notificacion.categoria === 'tramitador';
             const claseNotificacion = esValidacionTramitador
                 ? 'notificacion-tramitador'
-                : 'border-l-4 border-l-red-500 bg-red-50/70';
+                : 'border-l-4 border-l-green-500 bg-green-50/70';
             const claseBoton = esValidacionTramitador
                 ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-red-600 hover:bg-red-700';
+                : 'bg-green-600 hover:bg-green-700';
             const datosSolicitante = esValidacionTramitador
                 ? `<p class="text-xs text-slate-500">${escaparHtml(notificacion.etiqueta_relacion || 'Solicitud')}: ${escaparHtml(notificacion.beneficiario || 'Sin dato')}</p>`
                 : `
