@@ -106,15 +106,13 @@
                         <option value="{{ old('form_id_fabricante') }}" data-temporal="1"
                             data-nombre="{{ old('form_fabricante_temporal_nombre') }}"
                             data-razon-social="{{ old('form_fabricante_temporal_razon_social') }}" selected>
-                            {{-- {{ old('form_fabricante_temporal_razon_social') ? old('form_fabricante_temporal_razon_social') . ' - ' : '' }}{{ old('form_fabricante_temporal_nombre') }} --}}
-                            {{ old('form_fabricante_temporal_razon_social') }}
+                            {{ old('form_fabricante_temporal_razon_social') ? old('form_fabricante_temporal_razon_social') . ' - ' : '' }}{{ old('form_fabricante_temporal_nombre') }}
                         </option>
                     @endif
                     @foreach ($fabricantesCatalogo as $fabricante)
                         <option value="{{ $fabricante->id }}" data-nombre="{{ $fabricante->nombre }}"
                             data-razon-social="{{ $fabricante->razon_social }}" @selected(old('form_id_fabricante') == $fabricante->id)>
-                            {{-- {{ $fabricante->razon_social ? $fabricante->razon_social . ' - ' : '' }}{{ $fabricante->nombre }} --}}
-                            {{ $fabricante->razon_social }}
+                            {{ $fabricante->razon_social ? $fabricante->razon_social . ' - ' : '' }}{{ $fabricante->nombre }}
                         </option>
                     @endforeach
                 </select>
