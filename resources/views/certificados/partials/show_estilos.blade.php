@@ -5253,37 +5253,73 @@
             white-space: nowrap;
         }
 
+        /* Los valores de la última evidencia comparten una medida compacta para no ensanchar la tabla. */
+        .tramite-detail-v2 .tramite-section-review :is(
+            .cert-latest-evidence-text,
+            .cert-latest-evidence-link,
+            .cert-latest-evidence-status,
+            .cert-latest-evidence-empty
+        ) {
+            align-items: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1;
+            min-height: 20px;
+            max-width: 100%;
+            padding: 3px 7px;
+            vertical-align: middle;
+        }
+
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-text {
-            display: block;
-            overflow-wrap: anywhere;
+            background: #f1f5f9;
+            color: #334155;
+            max-width: 145px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link {
-            border-bottom: 1px solid #5eead4;
-            color: #0f766e;
-            display: inline-block;
-            font-weight: 700;
-            line-height: 1.25;
-            padding-bottom: 1px;
             text-decoration: none;
         }
 
-        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link:hover {
-            border-bottom-color: currentColor;
-            color: #115e59;
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link.is-pdf {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #4338ca;
         }
 
-        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status {
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link.is-image {
+            background: #ecfeff;
+            border-color: #a5f3fc;
+            color: #0e7490;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link:hover {
+            filter: brightness(0.96);
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status.is-payment {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
             color: #047857;
-            display: block;
-            font-weight: 600;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status.is-product {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #b45309;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status + .cert-latest-evidence-link {
-            margin-top: 3px;
+            margin-left: 4px;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-empty {
+            background: #f8fafc;
             color: #64748b;
         }
 

@@ -1112,18 +1112,18 @@
                                                 <td>{{ $textoObservacionRequisito }}</td>
                                                 <td>
                                                     @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
-                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link is-pdf">Ver PDF</a>
                                                     @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
-                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver imagen</a>
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link is-image">Ver imagen</a>
                                                     @elseif ($codigoEvidencia === 'TEXTO' && filled($evidenciaPrincipal?->valor))
-                                                        <span class="cert-latest-evidence-text">{{ $evidenciaPrincipal->valor }}</span>
+                                                        <span class="cert-latest-evidence-text" title="{{ $evidenciaPrincipal->valor }}">{{ $evidenciaPrincipal->valor }}</span>
                                                     @elseif ($codigoEvidencia === 'PAGO' && $tienePagoRegistrado)
-                                                        <span class="cert-latest-evidence-status">Pago registrado</span>
+                                                        <span class="cert-latest-evidence-status is-payment">Pago registrado</span>
                                                         @if ($comprobantePago)
-                                                            <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
+                                                            <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-latest-evidence-link is-pdf">Ver PDF</a>
                                                         @endif
                                                     @elseif ($codigoEvidencia === 'PRODUCTO' && $tieneProductoRegistrado)
-                                                        <span class="cert-latest-evidence-status">Producto registrado</span>
+                                                        <span class="cert-latest-evidence-status is-product">Producto registrado</span>
                                                     @else
                                                         <span class="cert-latest-evidence-empty">Sin evidencia</span>
                                                     @endif
