@@ -27,6 +27,13 @@ class Seguimiento extends Model
         'estado',
     ];
 
+    // Estas fechas registran el momento exacto de cada etapa del tramite.
+    protected $casts = [
+        'fecha_inicio' => 'datetime',
+        'fecha_derivacion' => 'datetime',
+        'fecha_final' => 'datetime',
+    ];
+
     // Relacion muchos a uno (un tramite seguimiento puede partir de un movimiento padre).
     public function seguimientoPadre()
     {

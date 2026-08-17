@@ -160,12 +160,12 @@ class GestionTramitadoresService
             $usuarioBeneficiario = $certificado->beneficiario?->usuarioAcceso();
 
             // La etapa anterior se cierra y se abre otra para conservar el historial completo.
-            $seguimiento->update(['fecha_derivacion' => now()->toDateString()]);
+            $seguimiento->update(['fecha_derivacion' => now()]);
 
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimiento->id,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => 'Correccion transferida al beneficiario por baja del tramitador.',

@@ -134,16 +134,13 @@
         return $texto !== '' ? $texto : $fallback;
     };
 
-    // Formatea fechas sin inventar datos cuando la fecha no existe.
+    // Los movimientos muestran fecha y hora; los registros antiguos conservan su valor disponible.
     $fechaTimeline = function ($fecha) {
         if (!$fecha) {
             return 'Sin fecha';
         }
 
-        $fechaTexto = (string) $fecha;
-        $formato = strlen($fechaTexto) <= 10 ? 'd/m/Y' : 'd/m/Y H:i';
-
-        return \Illuminate\Support\Carbon::parse($fecha)->format($formato);
+        return \Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y H:i');
     };
 
     // =========================
@@ -313,8 +310,8 @@
                             $loop->first ? 'Sin anterior' : 'Sin responsable anterior',
                             'Sin cargo'
                         );
-                        // created_at identifica cuándo quedó registrado este movimiento en el sistema.
-                        $fechaMovimiento = $seguimiento->created_at;
+                        // fecha_inicio registra cuándo comenzó el movimiento; created_at cubre datos antiguos.
+                        $fechaMovimiento = $seguimiento->fecha_inicio ?: $seguimiento->created_at;
                         $estadoFiltro = strtolower($estadoVisual['filter']);
                         // La referencia pertenece al movimiento. La descripción final queda vacía
                         // porque este flujo no solicita ese dato al usuario.

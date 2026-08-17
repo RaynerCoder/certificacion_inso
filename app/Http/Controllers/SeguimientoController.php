@@ -210,7 +210,7 @@ class SeguimientoController extends Controller
             Seguimiento::create([
                 'id_seguimiento_padre' => null,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 // La descripción final solo se registra cuando un usuario proporciona ese dato.
@@ -572,7 +572,7 @@ class SeguimientoController extends Controller
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimientoBloqueado->id,
                 'id_certificado' => $seguimientoBloqueado->id_certificado,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
@@ -669,7 +669,7 @@ class SeguimientoController extends Controller
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimientoBloqueado->id,
                 'id_certificado' => $seguimientoBloqueado->id_certificado,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
@@ -857,16 +857,16 @@ class SeguimientoController extends Controller
             ]);
 
             $seguimiento->update([
-                'fecha_derivacion' => now()->toDateString(),
-                'fecha_final' => now()->toDateString(),
+                'fecha_derivacion' => now(),
+                'fecha_final' => now(),
             ]);
 
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimiento->id,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
-                'fecha_derivacion' => now()->toDateString(),
-                'fecha_final' => now()->toDateString(),
+                'fecha_inicio' => now(),
+                'fecha_derivacion' => now(),
+                'fecha_final' => now(),
                 'descripcion_final' => null,
                 'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
@@ -944,7 +944,7 @@ class SeguimientoController extends Controller
 
             // Cierra la etapa del revisor y abre una etapa para que el solicitante corrija.
             $seguimiento->update([
-                'fecha_derivacion' => now()->toDateString(),
+                'fecha_derivacion' => now(),
             ]);
 
             $certificado->update(['estado' => 'OBSERVADO']);
@@ -952,7 +952,7 @@ class SeguimientoController extends Controller
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimiento->id,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
@@ -1063,14 +1063,14 @@ class SeguimientoController extends Controller
 
             // Cierra la etapa que estaba en manos del solicitante.
             $seguimiento->update([
-                'fecha_derivacion' => now()->toDateString(),
+                'fecha_derivacion' => now(),
             ]);
 
             // Abre una nueva etapa para el mismo tramite, devolviendolo al revisor.
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimiento->id,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
@@ -1206,13 +1206,13 @@ class SeguimientoController extends Controller
 
             // Cierra la etapa del solicitante y devuelve el tramite al mismo revisor que observo.
             $seguimiento->update([
-                'fecha_derivacion' => now()->toDateString(),
+                'fecha_derivacion' => now(),
             ]);
 
             Seguimiento::create([
                 'id_seguimiento_padre' => $seguimiento->id,
                 'id_certificado' => $certificado->id,
-                'fecha_inicio' => now()->toDateString(),
+                'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
                 'descripcion_final' => null,
@@ -2225,7 +2225,7 @@ class SeguimientoController extends Controller
             ->where('estado', 'ACTIVO')
             ->whereNull('fecha_derivacion')
             ->update([
-                'fecha_derivacion' => now()->toDateString(),
+                'fecha_derivacion' => now(),
                 'id_usuario_modificacion' => auth()->id(),
                 'updated_at' => now(),
             ]);

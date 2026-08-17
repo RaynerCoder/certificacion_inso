@@ -578,7 +578,7 @@ class SeguimientoTable extends DataTableComponent
     {
         $movimiento = $this->movimientoActualDelTramite($seguimiento);
 
-        return $this->formatearFechaHora($movimiento?->created_at ?: $movimiento?->fecha_inicio);
+        return $this->formatearFechaHora($movimiento?->fecha_inicio ?: $movimiento?->created_at);
     }
 
     private function fechaInicioConHora(Seguimiento $seguimiento): string
@@ -589,10 +589,7 @@ class SeguimientoTable extends DataTableComponent
             return 'Sin fecha';
         }
 
-        $fechaInicio = Carbon::parse($fecha)->format('d/m/Y');
-        $horaInicio = $seguimiento->created_at?->format('H:i');
-
-        return trim($fechaInicio . ' ' . $horaInicio);
+        return $this->formatearFechaHora($fecha);
     }
 
     private function movimientoActivoParaUsuario(Seguimiento $seguimiento): ?Seguimiento

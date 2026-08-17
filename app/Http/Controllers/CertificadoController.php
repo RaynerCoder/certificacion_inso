@@ -1684,8 +1684,8 @@ class CertificadoController extends Controller
             'pago.factura' => $primerPago?->factura ?: 'Sin factura',
             'pago.procedencia' => $primerPago?->procedencia?->descripcion ?: 'Sin procedencia',
 
-            'seguimiento.fecha_inicio' => $ultimoSeguimiento?->fecha_inicio ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_inicio)->format('d/m/Y') : 'Sin fecha',
-            'seguimiento.fecha_derivacion' => $ultimoSeguimiento?->fecha_derivacion ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_derivacion)->format('d/m/Y') : 'Sin fecha',
+            'seguimiento.fecha_inicio' => $ultimoSeguimiento?->fecha_inicio ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_inicio)->format('d/m/Y H:i') : 'Sin fecha',
+            'seguimiento.fecha_derivacion' => $ultimoSeguimiento?->fecha_derivacion ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_derivacion)->format('d/m/Y H:i') : 'Sin fecha',
             'seguimiento.referencia' => $ultimoSeguimiento?->referencia ?: 'Sin referencia',
             'seguimiento.descripcion_final' => $ultimoSeguimiento?->descripcion_final ?: 'Sin descripción',
             'seguimiento.estado' => $ultimoSeguimiento?->estado ?: 'Sin estado',
