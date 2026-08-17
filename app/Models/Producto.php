@@ -17,6 +17,7 @@ class Producto extends Model
         'id_clasificacion_toxicologica',
         'codigo',
         'nombre_comercial',
+        'tipo_producto',
         'nombre_tecnico',
         'id_clasificacion_quimica',
         'estado',

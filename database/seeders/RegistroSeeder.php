@@ -22,6 +22,7 @@ class RegistroSeeder extends Seeder
             $this->guardar('registros', $id, [
                 'id_producto' => $producto,
                 'codigo_autorizacion' => $codigo,
+                'numero_lote' => null,
                 'fecha_vigencia' => $vigencia,
                 'cantidad' => $cantidad,
                 'id_catalogo_unidad' => $unidad,

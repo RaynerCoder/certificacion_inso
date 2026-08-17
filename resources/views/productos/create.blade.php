@@ -40,10 +40,15 @@
          */
         $clasificacionesToxicologicasCatalogo =
             $clasificacionesToxicologicas ??
-            \App\Models\ClasificacionToxicologica::query()->where('estado', 'ACTIVO')->orderBy('descripcion')->get();
+            \App\Models\ClasificacionToxicologica::query()->where('estado', 'ACTIVO')->orderBy('codigo')->get();
 
         $fabricantesCatalogo =
-            $fabricantes ?? \App\Models\Fabricante::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
+            $fabricantes ?? \App\Models\Fabricante::query()
+                ->where('estado', 'ACTIVO')
+                ->orderByRaw('CASE WHEN razon_social IS NULL OR razon_social = ? THEN 1 ELSE 0 END', [''])
+                ->orderBy('razon_social')
+                ->orderBy('nombre')
+                ->get();
 
         /*
          * Para productos se guarda id_territorio_pais, por eso este catalogo
@@ -187,10 +192,10 @@
             value="{{ old('form_fabricante_temporal_razon_social') }}">
         <input type="hidden" id="form_fabricante_temporal_descripcion" name="form_fabricante_temporal_descripcion"
             value="{{ old('form_fabricante_temporal_descripcion') }}">
-        <input type="hidden" id="form_clasificacion_toxicologica_temporal_descripcion" name="form_clasificacion_toxicologica_temporal_descripcion"
-            value="{{ old('form_clasificacion_toxicologica_temporal_descripcion') }}">
         <input type="hidden" id="form_clasificacion_toxicologica_temporal_codigo" name="form_clasificacion_toxicologica_temporal_codigo"
             value="{{ old('form_clasificacion_toxicologica_temporal_codigo') }}">
+        <input type="hidden" id="form_clasificacion_toxicologica_temporal_descripcion" name="form_clasificacion_toxicologica_temporal_descripcion"
+            value="{{ old('form_clasificacion_toxicologica_temporal_descripcion') }}">
         <input type="hidden" id="form_clasificacion_quimica_temporal_nombre" name="form_clasificacion_quimica_temporal_nombre"
             value="{{ old('form_clasificacion_quimica_temporal_nombre') }}">
         <input type="hidden" id="form_clasificacion_quimica_temporal_descripcion" name="form_clasificacion_quimica_temporal_descripcion"
@@ -356,15 +361,15 @@
 
             <div class="producto-modal-body">
                 <div>
-                    <label class="producto-field-label" for="modal_fabricante_nombre">Nombre del fabricante</label>
-                    <input class="producto-input" id="modal_fabricante_nombre" type="text"
-                        placeholder="Ej: Agroquímica Andina">
-                </div>
-
-                <div>
                     <label class="producto-field-label" for="modal_fabricante_razon_social">Razón social</label>
                     <input class="producto-input" id="modal_fabricante_razon_social" type="text"
                         placeholder="Ej: Agroquímica Andina S.R.L.">
+                </div>
+
+                <div>
+                    <label class="producto-field-label" for="modal_fabricante_nombre">Nombre del fabricante</label>
+                    <input class="producto-input" id="modal_fabricante_nombre" type="text"
+                        placeholder="Ej: Agroquímica Andina">
                 </div>
 
                 <div>
@@ -402,15 +407,15 @@
 
             <div class="producto-modal-body">
                 <div>
-                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
-                    <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
-                        placeholder="Ej: Herbicida">
+                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_codigo">Código</label>
+                    <input class="producto-input" id="modal_clasificacion_toxicologica_codigo" type="text"
+                        placeholder="Ej: CLASE II">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_codigo">Código</label>
-                    <input class="producto-input" id="modal_clasificacion_toxicologica_codigo" type="text"
-                        placeholder="Ej: HERB">
+                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción <span class="font-normal text-slate-400">(opcional)</span></label>
+                    <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
+                        placeholder="Ej: Moderadamente peligroso">
                 </div>
             </div>
 
@@ -418,7 +423,7 @@
                 <button type="button" class="producto-btn producto-btn-secondary"
                     onclick="cerrarModalProducto('modalClasificacionToxicologica')">Cancelar</button>
                 <button type="button" class="producto-btn producto-btn-primary"
-                    onclick="agregarOpcionTemporalProducto('modalClasificacionToxicologica', 'form_id_clasificacion_toxicologica', 'modal_clasificacion_toxicologica_descripcion')">
+                    onclick="agregarOpcionTemporalProducto('modalClasificacionToxicologica', 'form_id_clasificacion_toxicologica', 'modal_clasificacion_toxicologica_codigo')">
                     Agregar a la lista
                 </button>
             </div>
@@ -534,11 +539,6 @@
                         placeholder="Ej: Sal isopropilamina">
                 </div>
 
-                <div>
-                    <label class="producto-field-label" for="modal_ingrediente_riesgo_salud">Riesgo de salud</label>
-                    <input class="producto-input" id="modal_ingrediente_riesgo_salud" type="text"
-                        placeholder="Ej: Moderado">
-                </div>
             </div>
 
             <div class="producto-modal-actions">
@@ -614,6 +614,7 @@
             },
             registro: {
                 codigoAutorizacion: 'form_registro_codigo_autorizacion',
+                numeroLote: 'form_registro_numero_lote',
                 fechaVigencia: 'form_registro_fecha_vigencia',
                 cantidad: 'form_registro_cantidad',
                 unidad: 'form_registro_unidad',
@@ -624,7 +625,7 @@
         const productoTitulos = [
             ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
             ['Ingredientes', 'Agregue los ingredientes y sus porcentajes.'],
-            ['Presentaciones y registros', 'Registre la presentacion y los datos del registro del producto.'],
+            ['Presentaciones y registros', 'Registre los datos de autorización y luego la presentación del producto.'],
             ['Revisión', 'Revise la información antes de guardar el producto.'],
         ];
 
@@ -889,6 +890,7 @@
             const reglas = [
                 ['form_codigo', 'Ingrese el codigo del producto.'],
                 ['form_nombre_comercial', 'Ingrese el nombre comercial.'],
+                ['form_tipo_producto', 'Ingrese el tipo de producto.'],
                 ['form_id_importador_persona', 'Seleccione el importador.'],
                 ['form_id_territorio_pais', 'Seleccione el pais.'],
                 ['form_id_fabricante', 'Seleccione el fabricante.'],
@@ -1179,10 +1181,11 @@
         }
 
         // Evita agregar dos veces el mismo registro para una misma presentacion.
-        function existeRegistroDuplicadoProducto(indicePresentacion, codigo, fechaVigencia, cantidad, idCatalogoUnidad) {
+        function existeRegistroDuplicadoProducto(indicePresentacion, codigo, numeroLote, fechaVigencia, cantidad, idCatalogoUnidad) {
             const claveNueva = [
                 String(indicePresentacion),
                 normalizarTextoProducto(codigo),
+                normalizarTextoProducto(numeroLote),
                 normalizarTextoProducto(fechaVigencia),
                 normalizarTextoProducto(cantidad),
                 normalizarTextoProducto(idCatalogoUnidad),
@@ -1193,6 +1196,7 @@
                     const claveFila = [
                         fila.dataset.presentacionIndice,
                         normalizarTextoProducto(fila.querySelector('input[name$="[codigo_autorizacion]"]')?.value),
+                        normalizarTextoProducto(fila.querySelector('input[name$="[numero_lote]"]')?.value),
                         normalizarTextoProducto(fila.querySelector('input[name$="[fecha_vigencia]"]')?.value),
                         normalizarTextoProducto(fila.querySelector('input[name$="[cantidad]"][name^="registros"]')?.value),
                         normalizarTextoProducto(fila.querySelector('input[name$="[id_catalogo_unidad]"][name^="registros"]')?.value),
@@ -1326,7 +1330,6 @@
             const opcionIngrediente = select.options[select.selectedIndex];
             const ingredienteNombre = opcionIngrediente?.dataset.nombre || opcionIngrediente?.text || 'Sin nombre';
             const ingredienteComposicion = opcionIngrediente?.dataset.composicion || 'Sin composición';
-            const ingredienteRiesgoSalud = opcionIngrediente?.dataset.riesgoSalud || 'Sin riesgo registrado';
             const productoNombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
             const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin código';
             const ingredienteValido = validarRequeridoProducto('form_ingrediente_select', 'Seleccione un ingrediente.');
@@ -1359,12 +1362,10 @@
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][id_ingrediente]" value="${ingredienteId}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][nombre]" value="${escaparHtmlProducto(ingredienteNombre)}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][composicion]" value="${escaparHtmlProducto(ingredienteComposicion)}">
-                    <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][riesgo_salud]" value="${escaparHtmlProducto(ingredienteRiesgoSalud)}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][porcentaje]" value="${porcentaje.value}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][estado]" value="${estado.value}">
                 </td>
                 <td>${escaparHtmlProducto(ingredienteComposicion)}</td>
-                <td>${escaparHtmlProducto(ingredienteRiesgoSalud)}</td>
                 <td>${porcentaje.value}%</td>
                 <td><span class="producto-pill">${estado.value}</span></td>
                 <td>
@@ -1415,6 +1416,7 @@
             const estadoPresentacion = document.getElementById('form_presentacion_estado');
             const origenPresentacion = document.getElementById('form_presentacion_origen_id');
             const codigo = document.getElementById('form_registro_codigo_autorizacion');
+            const numeroLote = document.getElementById('form_registro_numero_lote');
             const fechaVigencia = document.getElementById('form_registro_fecha_vigencia');
             const cantidadRegistro = document.getElementById('form_registro_cantidad');
             const unidadRegistro = document.getElementById('form_registro_unidad');
@@ -1478,6 +1480,7 @@
             if (existeRegistroDuplicadoProducto(
                 indicePresentacion,
                 codigo.value,
+                numeroLote.value,
                 fechaVigencia.value,
                 cantidadRegistro.value,
                 unidadRegistro.value
@@ -1576,6 +1579,10 @@
                             <strong>${escaparHtmlProducto(codigo.value)}</strong>
                         </div>
                         <div>
+                            <span>Nro. de lote</span>
+                            <strong>${escaparHtmlProducto(numeroLote.value || 'Sin lote')}</strong>
+                        </div>
+                        <div>
                             <span>Vigencia</span>
                             <strong>${escaparHtmlProducto(fechaVigencia.value || 'Sin fecha')}</strong>
                         </div>
@@ -1597,6 +1604,7 @@
                         </div>
                     </div>
                     <input type="hidden" name="registros[${indiceRegistro}][codigo_autorizacion]" value="${escaparHtmlProducto(codigo.value)}">
+                    <input type="hidden" name="registros[${indiceRegistro}][numero_lote]" value="${escaparHtmlProducto(numeroLote.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][fecha_vigencia]" value="${escaparHtmlProducto(fechaVigencia.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][cantidad]" value="${escaparHtmlProducto(cantidadRegistro.value)}">
                     <input type="hidden" name="registros[${indiceRegistro}][id_catalogo_unidad]" value="${escaparHtmlProducto(unidadRegistro.value)}">
@@ -1671,6 +1679,7 @@
             }
             bloquearCamposPresentacionProducto(false);
             codigo.value = '';
+            numeroLote.value = '';
             fechaVigencia.value = '';
             cantidadRegistro.value = '';
             unidadRegistro.value = '';
@@ -1753,6 +1762,7 @@
             document.getElementById('form_presentacion_origen_id').value = valorCampo(`input[name="presentaciones[${indicePresentacion}][id_presentacion_origen]"]`);
 
             document.getElementById('form_registro_codigo_autorizacion').value = valorCampo('input[name$="[codigo_autorizacion]"]');
+            document.getElementById('form_registro_numero_lote').value = valorCampo('input[name$="[numero_lote]"]');
             document.getElementById('form_registro_fecha_vigencia').value = valorCampo('input[name$="[fecha_vigencia]"]');
             document.getElementById('form_registro_cantidad').value = valorCampo('input[name$="[cantidad]"][name^="registros"]');
             document.getElementById('form_registro_unidad').value = valorCampo('input[name$="[id_catalogo_unidad]"][name^="registros"]');
@@ -1871,7 +1881,10 @@
             const textoBase = input?.value.trim() || '';
 
             if (!textoBase || !select) {
-                marcarErrorProducto(input, 'Ingrese un nombre para agregarlo.');
+                const mensaje = idSelect === 'form_id_clasificacion_toxicologica'
+                    ? 'Ingrese el código para agregarlo.'
+                    : 'Ingrese un nombre para agregarlo.';
+                marcarErrorProducto(input, mensaje);
                 return;
             }
 
@@ -1880,17 +1893,55 @@
             let textoUnidad = textoBase;
 
             if (idSelect === 'form_id_fabricante') {
+                const razonSocialInput = document.getElementById('modal_fabricante_razon_social');
+                const razonSocial = razonSocialInput?.value.trim() || '';
+                const normalizar = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
+                const opcionesRegistradas = Array.from(select.options).filter((opcion) => opcion.dataset.temporal !== '1');
+                const nombreRepetido = opcionesRegistradas.some((opcion) =>
+                    normalizar(opcion.dataset.nombre) === normalizar(textoBase)
+                );
+                const razonSocialRepetida = razonSocial !== '' && opcionesRegistradas.some((opcion) =>
+                    normalizar(opcion.dataset.razonSocial) === normalizar(razonSocial)
+                );
+
+                if (nombreRepetido) {
+                    marcarErrorProducto(input, 'Ya existe un fabricante con el mismo nombre. Selecciónelo del listado.');
+                    return;
+                }
+
+                if (razonSocialRepetida) {
+                    marcarErrorProducto(razonSocialInput, 'Ya existe un fabricante con la misma razón social. Selecciónelo del listado.');
+                    return;
+                }
+
                 document.getElementById('form_fabricante_temporal_nombre').value = textoBase;
-                document.getElementById('form_fabricante_temporal_razon_social').value =
-                    document.getElementById('modal_fabricante_razon_social')?.value.trim() || '';
+                document.getElementById('form_fabricante_temporal_razon_social').value = razonSocial;
                 document.getElementById('form_fabricante_temporal_descripcion').value =
                     document.getElementById('modal_fabricante_descripcion')?.value.trim() || '';
+                textoVisible = razonSocial ? `${razonSocial} - ${textoBase}` : textoBase;
             }
 
             if (idSelect === 'form_id_clasificacion_toxicologica') {
-                document.getElementById('form_clasificacion_toxicologica_temporal_descripcion').value = textoBase;
-                document.getElementById('form_clasificacion_toxicologica_temporal_codigo').value =
-                    document.getElementById('modal_clasificacion_toxicologica_codigo')?.value.trim() || '';
+                const descripcion = document.getElementById('modal_clasificacion_toxicologica_descripcion')?.value.trim() || '';
+                const normalizar = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
+                const opcionMismoCodigo = Array.from(select.options).find((opcion) =>
+                    opcion.dataset.temporal !== '1' &&
+                    normalizar(opcion.dataset.codigo) === normalizar(textoBase)
+                );
+
+                if (opcionMismoCodigo) {
+                    const mismaDescripcion = normalizar(opcionMismoCodigo.dataset.descripcion) === normalizar(descripcion);
+                    const mensaje = mismaDescripcion
+                        ? 'Ya existe una clasificación toxicológica con el mismo código y descripción. Selecciónela del listado.'
+                        : 'El código ya está registrado. Seleccione la clasificación toxicológica existente.';
+
+                    marcarErrorProducto(input, mensaje);
+                    return;
+                }
+
+                document.getElementById('form_clasificacion_toxicologica_temporal_codigo').value = textoBase;
+                document.getElementById('form_clasificacion_toxicologica_temporal_descripcion').value = descripcion;
+                textoVisible = descripcion ? `${textoBase} - ${descripcion}` : textoBase;
             }
 
             if (idSelect === 'form_id_clasificacion_quimica') {
@@ -1933,13 +1984,21 @@
             const opcion = new Option(textoVisible, valorTemporal, true, true);
             opcion.dataset.temporal = '1';
 
+            if (idSelect === 'form_id_fabricante') {
+                opcion.dataset.nombre = textoBase;
+                opcion.dataset.razonSocial = document.getElementById('modal_fabricante_razon_social')?.value.trim() || '';
+            }
+
+            if (idSelect === 'form_id_clasificacion_toxicologica') {
+                opcion.dataset.codigo = textoBase;
+                opcion.dataset.descripcion = document.getElementById('modal_clasificacion_toxicologica_descripcion')?.value.trim() || '';
+            }
+
             if (idSelect === 'form_ingrediente_select') {
                 const composicion = document.getElementById('modal_ingrediente_composicion')?.value.trim() || '';
-                const riesgoSalud = document.getElementById('modal_ingrediente_riesgo_salud')?.value.trim() || '';
 
                 opcion.dataset.nombre = textoBase;
                 opcion.dataset.composicion = composicion || 'Sin composición';
-                opcion.dataset.riesgoSalud = riesgoSalud || 'Sin riesgo registrado';
             }
 
             select.add(opcion);
@@ -1960,6 +2019,7 @@
             const totalRegistros = document.querySelectorAll(
                 '#tablaRegistrosPresentacionesProducto tr:not(#sinRegistrosPresentacionesProducto)').length;
             const productoCompleto = document.getElementById('form_nombre_comercial')?.value &&
+                document.getElementById('form_tipo_producto')?.value &&
                 document.getElementById('form_id_fabricante')?.value &&
                 document.getElementById('form_id_clasificacion_toxicologica')?.value;
 
@@ -2034,21 +2094,44 @@
         function cerrarSelectorIngredienteProducto() {
             const contenedor = document.querySelector('[data-ingrediente-combobox]');
             const disparador = document.querySelector('[data-ingrediente-trigger]');
+            const buscador = document.querySelector('[data-ingrediente-search]');
 
             contenedor?.classList.remove('is-open');
             disparador?.setAttribute('aria-expanded', 'false');
+
+            if (buscador) {
+                buscador.value = '';
+                renderizarOpcionesIngredienteProducto();
+            }
         }
 
         // Dibuja las opciones con nombre y composicion en dos lineas, algo que el select nativo no permite.
         function renderizarOpcionesIngredienteProducto() {
             const select = document.getElementById('form_ingrediente_select');
             const lista = document.getElementById('form_ingrediente_options');
+            const buscador = document.querySelector('[data-ingrediente-search]');
 
             if (!select || !lista) {
                 return;
             }
 
-            lista.innerHTML = Array.from(select.options).map((opcion) => {
+            const consulta = normalizarTextoProducto(buscador?.value || '');
+            const opciones = Array.from(select.options).filter((opcion) => {
+                if (!opcion.value) {
+                    return false;
+                }
+
+                const nombre = opcion.dataset.nombre || opcion.text.trim();
+                const composicion = opcion.dataset.composicion || '';
+                return normalizarTextoProducto(`${nombre} ${composicion}`).includes(consulta);
+            });
+
+            if (!opciones.length) {
+                lista.innerHTML = '<div class="producto-ingredient-empty">No se encontraron ingredientes.</div>';
+                return;
+            }
+
+            lista.innerHTML = opciones.map((opcion) => {
                 const nombre = opcion.dataset.nombre || opcion.text.trim();
                 const composicion = opcion.dataset.composicion?.trim();
                 const seleccionado = select.value === opcion.value && opcion.value !== '';
@@ -2059,8 +2142,11 @@
                         data-ingrediente-option="${escaparHtmlProducto(opcion.value)}"
                         role="option"
                         aria-selected="${seleccionado ? 'true' : 'false'}">
-                        <strong>${escaparHtmlProducto(nombre)}</strong>
-                        ${composicion ? `<small>Composición: ${escaparHtmlProducto(composicion)}</small>` : ''}
+                        <span class="producto-ingredient-option-copy">
+                            <strong>${escaparHtmlProducto(nombre)}</strong>
+                            ${composicion ? `<small>Composición: ${escaparHtmlProducto(composicion)}</small>` : ''}
+                        </span>
+                        ${seleccionado ? '<i class="fa-solid fa-check producto-ingredient-option-check" aria-hidden="true"></i>' : ''}
                     </button>
                 `;
             }).join('');
@@ -2273,6 +2359,7 @@
             const datosProducto = [
                 itemResumenProducto('Codigo', valorResumenProducto('#form_codigo')),
                 itemResumenProducto('Nombre comercial', valorResumenProducto('#form_nombre_comercial')),
+                itemResumenProducto('Tipo de producto', valorResumenProducto('#form_tipo_producto')),
                 itemResumenProducto('Nombre técnico', valorResumenProducto('#form_nombre_tecnico')),
                 itemResumenProducto('Clasificación química', textoSelectProducto('form_id_clasificacion_quimica')),
                 itemResumenProducto('Importador', textoSelectProducto('form_id_importador_persona')),
@@ -2289,15 +2376,17 @@
             }
 
             if (clasificacionToxicologicaNueva) {
-                datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - descripción', valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion')));
                 datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - código', valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo')));
+                const descripcionToxicologica = valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion');
+                if (descripcionToxicologica && descripcionToxicologica !== 'Sin dato') {
+                    datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - descripción', descripcionToxicologica));
+                }
             }
 
             const filasIngredientes = Object.entries(ingredientes).map(([indice, ingrediente]) => [
                 Number(indice) + 1,
                 ingrediente.nombre || textoResumenProducto(ingrediente.id_ingrediente),
                 ingrediente.composicion,
-                ingrediente.riesgo_salud,
                 ingrediente.porcentaje ? `${ingrediente.porcentaje}%` : '',
                 ingrediente.estado || 'ACTIVO',
             ]);
@@ -2315,6 +2404,7 @@
             const filasRegistros = Object.entries(registros).map(([indice, registro]) => [
                 Number(indice) + 1,
                 registro.codigo_autorizacion,
+                registro.numero_lote,
                 registro.fecha_vigencia,
                 registro.cantidad,
                 textoUnidadCatalogoProducto(registro.id_catalogo_unidad),
@@ -2330,9 +2420,9 @@
                 ),
                 grupoResumenProducto(
                     'Ingredientes del producto',
-                    'Composición, riesgo de salud, porcentaje y estado de cada ingrediente agregado.',
+                    'Composición, porcentaje y estado de cada ingrediente agregado.',
                     tablaResumenProducto(
-                        ['#', 'Ingrediente', 'Composición', 'Riesgo salud', 'Porcentaje', 'Estado'],
+                        ['#', 'Ingrediente', 'Composición', 'Porcentaje', 'Estado'],
                         filasIngredientes,
                         'No se agregaron ingredientes.'
                     )
@@ -2348,9 +2438,9 @@
                 ),
                 grupoResumenProducto(
                     'Registros del producto',
-                    'Codigos, vigencias, cantidades y unidades declaradas para cada presentacion.',
+                    'Codigos, lotes, vigencias, cantidades y unidades declaradas para cada presentacion.',
                     tablaResumenProducto(
-                        ['#', 'Codigo autorizacion', 'Fecha vigencia', 'Cantidad', 'Unidad', 'Presentacion seleccionada', 'Estado'],
+                        ['#', 'Codigo autorizacion', 'Nro. de lote', 'Fecha vigencia', 'Cantidad', 'Unidad', 'Presentacion seleccionada', 'Estado'],
                         filasRegistros,
                         'No se agregaron registros.'
                     )
@@ -2429,7 +2519,7 @@
                 });
             });
 
-            ['form_nombre_comercial', 'form_codigo', 'form_id_importador_persona', 'form_id_fabricante', 'form_id_clasificacion_toxicologica'].forEach((
+            ['form_nombre_comercial', 'form_tipo_producto', 'form_codigo', 'form_id_importador_persona', 'form_id_fabricante', 'form_id_clasificacion_toxicologica'].forEach((
                 id) => {
                 document.getElementById(id)?.addEventListener('input', () => {
                     filtrarPresentacionesCatalogoProducto();
@@ -2445,11 +2535,30 @@
             document.querySelector('[data-ingrediente-trigger]')?.addEventListener('click', () => {
                 const contenedor = document.querySelector('[data-ingrediente-combobox]');
                 const estaAbierto = contenedor?.classList.toggle('is-open');
+                const buscador = document.querySelector('[data-ingrediente-search]');
 
                 document.querySelector('[data-ingrediente-trigger]')?.setAttribute(
                     'aria-expanded',
                     estaAbierto ? 'true' : 'false'
                 );
+
+                if (estaAbierto) {
+                    renderizarOpcionesIngredienteProducto();
+                    requestAnimationFrame(() => buscador?.focus());
+                }
+            });
+
+            document.querySelector('[data-ingrediente-search]')?.addEventListener('input', () => {
+                renderizarOpcionesIngredienteProducto();
+            });
+
+            document.querySelector('[data-ingrediente-search]')?.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') {
+                    return;
+                }
+
+                cerrarSelectorIngredienteProducto();
+                document.querySelector('[data-ingrediente-trigger]')?.focus();
             });
 
             document.addEventListener('click', (event) => {

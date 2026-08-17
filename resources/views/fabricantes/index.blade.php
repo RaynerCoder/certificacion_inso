@@ -33,11 +33,11 @@
                 <input id="fabricanteMetodo" type="hidden" name="_method" value="POST" disabled>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <x-wire-input label="Razón social" id="fabricante_razon_social" name="form_razon_social" type="text"
+                        placeholder="Razón social" />
+
                     <x-wire-input label="Nombre" id="fabricante_nombre" name="form_nombre" type="text"
                         placeholder="Nombre del fabricante" />
-
-                    <x-wire-input label="Razon social" id="fabricante_razon_social" name="form_razon_social" type="text"
-                        placeholder="Razon social" />
                 </div>
 
                 <x-wire-textarea label="Descripcion" id="fabricante_descripcion" name="form_descripcion"

@@ -17,12 +17,11 @@
         <form action="{{ route('clasificaciones_toxicologicas_store') }}" method="POST" class="space-y-4">
             @csrf
 
-            <x-wire-textarea label="Descripción" id="descripcion" name="form_descripcion"
-                placeholder="Descripción de la clasificación toxicológica"> {{ old('form_descripcion') }}
-            </x-wire-textarea>
-
-            <x-wire-input label="Código" id="codigo" name="form_codigo" type="text" placeholder="Código de la clasificación toxicológica"
+            <x-wire-input label="Código" id="codigo" name="form_codigo" type="text" placeholder="Ej: CLASE II"
                 value="{{ old('form_codigo') }}" />
+
+            <x-wire-textarea label="Descripción (opcional)" id="descripcion" name="form_descripcion"
+                placeholder="Ej: Moderadamente peligroso">{{ old('form_descripcion') }}</x-wire-textarea>
                
             <x-wire-input label="Estado" id="estado" name="form_estado" type="text" placeholder="Estado de la clasificación toxicológica"
                 value="{{ old('form_estado') }}" />    

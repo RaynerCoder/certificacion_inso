@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ClasificacionToxicologica;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class ClasificacionToxicologicaController extends Controller
 {
@@ -134,22 +133,49 @@ class ClasificacionToxicologicaController extends Controller
     ): array
     {
         return $solicitud->validate([
-            'form_descripcion' => 'required|string|max:1000',
             'form_codigo' => [
-                'nullable',
+                'required',
+                'string',
                 'max:150',
-                Rule::unique((new ClasificacionToxicologica())->getTable(), 'codigo')
-                    ->ignore($clasificacionToxicologica?->id),
+                function (string $atributo, mixed $valor, \Closure $fallar) use ($solicitud, $clasificacionToxicologica) {
+                    $codigo = trim((string) $valor);
+                    $descripcion = trim((string) $solicitud->input('form_descripcion', ''));
+
+                    $consulta = ClasificacionToxicologica::withTrashed()->where('codigo', $codigo);
+
+                    if ($clasificacionToxicologica) {
+                        $consulta->whereKeyNot($clasificacionToxicologica->id);
+                    }
+
+                    $existente = $consulta->first();
+
+                    if (!$existente) {
+                        return;
+                    }
+
+                    $descripcionExistente = trim((string) $existente->descripcion);
+
+                    if (strcasecmp($descripcionExistente, $descripcion) === 0) {
+                        $fallar('Ya existe una clasificación toxicológica con el mismo código y descripción.');
+                        return;
+                    }
+
+                    // El código identifica de forma única a cada clasificación del catálogo.
+                    $fallar('El código ya está registrado en otra clasificación toxicológica.');
+                },
             ],
+            'form_descripcion' => 'nullable|string|max:1000',
             'form_estado' => 'nullable|max:50',
         ]);
     }
 
     private function datosClasificacionToxicologica(array $datos): array
     {
+        $descripcion = trim((string) ($datos['form_descripcion'] ?? ''));
+
         return [
-            'descripcion' => $datos['form_descripcion'],
-            'codigo' => $datos['form_codigo'] ?? null,
+            'codigo' => trim($datos['form_codigo']),
+            'descripcion' => $descripcion !== '' ? $descripcion : null,
             'estado' => $datos['form_estado'] ?? 'ACTIVO',
         ];
     }

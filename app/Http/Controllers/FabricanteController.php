@@ -130,6 +130,17 @@ class FabricanteController extends Controller
 
     private function validarFabricante(Request $solicitud, ?Fabricante $fabricante = null): array
     {
+        // Se limpian los espacios antes de validar para no admitir el mismo fabricante escrito con espacios extra.
+        $solicitud->merge([
+            'form_nombre' => trim((string) $solicitud->input('form_nombre')),
+            'form_razon_social' => filled($solicitud->input('form_razon_social'))
+                ? trim((string) $solicitud->input('form_razon_social'))
+                : null,
+            'form_descripcion' => filled($solicitud->input('form_descripcion'))
+                ? trim((string) $solicitud->input('form_descripcion'))
+                : null,
+        ]);
+
         return $solicitud->validate([
             'form_nombre' => [
                 'required',
@@ -138,17 +149,29 @@ class FabricanteController extends Controller
                 Rule::unique('fabricantes', 'nombre')->ignore($fabricante?->id),
             ],
             'form_descripcion' => 'nullable|string',
-            'form_razon_social' => 'nullable|string|max:255',
+            'form_razon_social' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('fabricantes', 'razon_social')->ignore($fabricante?->id),
+            ],
             'form_estado' => 'nullable|max:50',
+        ], [
+            'form_nombre.unique' => 'Ya existe un fabricante con el mismo nombre.',
+            'form_razon_social.unique' => 'Ya existe un fabricante con la misma razón social.',
         ]);
     }
 
     private function datosFabricante(array $datos): array
     {
         return [
-            'nombre' => $datos['form_nombre'],
-            'descripcion' => $datos['form_descripcion'] ?? null,
-            'razon_social' => $datos['form_razon_social'] ?? null,
+            'nombre' => trim($datos['form_nombre']),
+            'descripcion' => filled($datos['form_descripcion'] ?? null)
+                ? trim($datos['form_descripcion'])
+                : null,
+            'razon_social' => filled($datos['form_razon_social'] ?? null)
+                ? trim($datos['form_razon_social'])
+                : null,
             'estado' => $datos['form_estado'] ?? 'ACTIVO',
         ];
     }

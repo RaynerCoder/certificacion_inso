@@ -2,22 +2,19 @@
 <div class="producto-step" data-producto-step="2">
     <section class="producto-section">
         <div class="producto-step-compose">
-            <div class="producto-form-panel">
-                {{-- Bloque 1: datos que se guardaran en presentaciones. --}}
-                <div class="producto-inline-head is-amber">
-                    <span>
-                        <i class="fa-solid fa-box-open"></i>
-                    </span>
-                    <strong>Datos de la presentacion</strong>
+            <div class="producto-form-panel producto-form-panel-separated producto-panel-presentacion">
+                {{-- La presentación se completa después de registrar los datos de autorización. --}}
+                <div class="producto-inline-head is-teal">
+                    <strong>2. Registro de presentación</strong>
                 </div>
 
                 <div class="producto-registro-grid producto-registro-grid-presentacion">
                     <div class="md:col-span-12">
                         <label class="producto-field-label" for="form_presentacion_catalogo">
-                            Presentacion registrada para este importador y producto
+                            Presentación registrada para este importador y producto
                         </label>
                         <select class="producto-select" id="form_presentacion_catalogo">
-                            <option value="">Crear nueva presentacion o seleccionar una existente</option>
+                            <option value="">Crear nueva presentación o seleccionar una existente</option>
                             @foreach ($presentacionesCatalogo as $presentacionCatalogo)
                                 @php
                                     $productoCatalogo = $presentacionCatalogo->producto;
@@ -131,34 +128,47 @@
                     </div>
 
                     <div class="producto-campo-descripcion">
-                        <label class="producto-field-label" for="form_presentacion_descripcion">Descripcion</label>
+                        <label class="producto-field-label" for="form_presentacion_descripcion">Descripción</label>
                         <textarea class="producto-textarea producto-textarea-compact" id="form_presentacion_descripcion"
                             placeholder="Ej: Envase plastico con tapa de seguridad."></textarea>
+                    </div>
+
+                    <div class="producto-campo-acciones">
+                        <button type="button" class="producto-btn producto-btn-orange producto-btn-inline"
+                            onclick="agregarPresentacionRegistroProducto()">
+                            <i class="fa-solid fa-link"></i>
+                            Agregar presentación y registro
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="producto-form-panel producto-form-panel-separated">
-                {{-- Bloque 2: datos que se guardaran en registros y apuntaran a la presentacion anterior. --}}
+            <div class="producto-form-panel producto-panel-registro">
+                {{-- Los datos de autorización se presentan primero porque identifican el registro del producto. --}}
                 <div class="producto-inline-head is-teal">
-                    <span>
-                        <i class="fa-solid fa-clipboard-list"></i>
-                    </span>
-                    <strong>Datos del registro</strong>
+                    <strong>1. Datos del registro</strong>
                 </div>
 
                 <div class="producto-registro-grid producto-registro-grid-autorizacion">
                     <div class="producto-campo-codigo">
                         <label class="producto-field-label" for="form_registro_codigo_autorizacion">
-                            Codigo de autorizacion
+                            Código de autorización
                         </label>
                         <input class="producto-input" id="form_registro_codigo_autorizacion" type="text"
                             placeholder="Ej: INSO-RP-001">
                     </div>
 
+                    <div class="producto-campo-lote">
+                        <label class="producto-field-label" for="form_registro_numero_lote">
+                            Nro. de lote
+                        </label>
+                        <input class="producto-input" id="form_registro_numero_lote" type="text"
+                            maxlength="150" placeholder="Ej: LOTE-2026-001">
+                    </div>
+
                     <div class="producto-campo-fecha">
                         <label class="producto-field-label" for="form_registro_fecha_vigencia">
-                            Fecha vigencia
+                            Fecha de vigencia
                         </label>
                         <input class="producto-input" id="form_registro_fecha_vigencia" type="date">
                     </div>
@@ -202,13 +212,6 @@
                         </select>
                     </div>
 
-                    <div class="producto-campo-acciones">
-                        <button type="button" class="producto-btn producto-btn-orange producto-btn-inline"
-                            onclick="agregarPresentacionRegistroProducto()">
-                            <i class="fa-solid fa-link"></i>
-                            Agregar presentacion y registro
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -266,7 +269,17 @@
                                             <i class="fa-solid fa-flask"></i>
                                             <span>Clasificación toxicológica</span>
                                             <strong class="presentacion-producto-tipo">
-                                                {{ old('form_clasificacion_toxicologica_temporal_descripcion') ?: optional(collect($clasificacionesToxicologicasCatalogo)->firstWhere('id', old('form_id_clasificacion_toxicologica')))->descripcion ?: 'Sin clasificación toxicológica' }}
+                                                @php
+                                                    $clasificacionSeleccionada = collect($clasificacionesToxicologicasCatalogo)
+                                                        ->firstWhere('id', old('form_id_clasificacion_toxicologica'));
+                                                    $codigoToxicologico = old('form_clasificacion_toxicologica_temporal_codigo')
+                                                        ?: $clasificacionSeleccionada?->codigo;
+                                                    $descripcionToxicologica = old('form_clasificacion_toxicologica_temporal_descripcion')
+                                                        ?: $clasificacionSeleccionada?->descripcion;
+                                                @endphp
+                                                {{ $codigoToxicologico
+                                                    ? $codigoToxicologico . ($descripcionToxicologica ? ' - ' . $descripcionToxicologica : '')
+                                                    : 'Sin clasificación toxicológica' }}
                                             </strong>
                                         </div>
 
@@ -357,6 +370,10 @@
                                             <strong>{{ $registroOld['codigo_autorizacion'] ?? 'Sin codigo' }}</strong>
                                         </div>
                                         <div>
+                                            <span>Nro. de lote</span>
+                                            <strong>{{ $registroOld['numero_lote'] ?? 'Sin lote' }}</strong>
+                                        </div>
+                                        <div>
                                             <span>Vigencia</span>
                                             <strong>{{ $registroOld['fecha_vigencia'] ?? 'Sin fecha' }}</strong>
                                         </div>
@@ -379,6 +396,8 @@
                                     </div>
                                     <input type="hidden" name="registros[{{ $indice }}][codigo_autorizacion]"
                                         value="{{ $registroOld['codigo_autorizacion'] ?? '' }}">
+                                    <input type="hidden" name="registros[{{ $indice }}][numero_lote]"
+                                        value="{{ $registroOld['numero_lote'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][fecha_vigencia]"
                                         value="{{ $registroOld['fecha_vigencia'] ?? '' }}">
                                     <input type="hidden" name="registros[{{ $indice }}][cantidad]"

@@ -30,13 +30,16 @@
                     name="form_id_fabricante">
                     <option value="">Seleccione fabricante</option>
                     @if (str_starts_with((string) old('form_id_fabricante'), 'TEMP-') && old('form_fabricante_temporal_nombre'))
-                        <option value="{{ old('form_id_fabricante') }}" data-temporal="1" selected>
-                            {{ old('form_fabricante_temporal_nombre') }}
+                        <option value="{{ old('form_id_fabricante') }}" data-temporal="1"
+                            data-nombre="{{ old('form_fabricante_temporal_nombre') }}"
+                            data-razon-social="{{ old('form_fabricante_temporal_razon_social') }}" selected>
+                            {{ old('form_fabricante_temporal_razon_social') ? old('form_fabricante_temporal_razon_social') . ' - ' : '' }}{{ old('form_fabricante_temporal_nombre') }}
                         </option>
                     @endif
                     @foreach ($fabricantesCatalogo as $fabricante)
-                        <option value="{{ $fabricante->id }}" @selected(old('form_id_fabricante') == $fabricante->id)>
-                            {{ $fabricante->nombre }}{{ $fabricante->razon_social ? ' - ' . $fabricante->razon_social : '' }}
+                        <option value="{{ $fabricante->id }}" data-nombre="{{ $fabricante->nombre }}"
+                            data-razon-social="{{ $fabricante->razon_social }}" @selected(old('form_id_fabricante') == $fabricante->id)>
+                            {{ $fabricante->razon_social ? $fabricante->razon_social . ' - ' : '' }}{{ $fabricante->nombre }}
                         </option>
                     @endforeach
                 </select>
@@ -83,7 +86,17 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-4">
+            <div class="lg:col-span-6">
+                <label class="producto-field-label" for="form_tipo_producto">Tipo de producto</label>
+                <input class="producto-input{{ $claseErrorProducto('form_tipo_producto') }}"
+                    id="form_tipo_producto" name="form_tipo_producto" type="text"
+                    value="{{ old('form_tipo_producto') }}" placeholder="Ej: Herbicida">
+                @error('form_tipo_producto')
+                    <p class="producto-field-error">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="lg:col-span-6">
                 <label class="producto-field-label" for="form_nombre_tecnico">Nombre técnico</label>
                 <input class="producto-input{{ $claseErrorProducto('form_nombre_tecnico') }}"
                     id="form_nombre_tecnico" name="form_nombre_tecnico" type="text"
@@ -93,7 +106,7 @@
                 @enderror
             </div>
 
-            <div class="lg:col-span-4">
+            <div class="lg:col-span-6">
                 <div class="producto-field-head">
                     <label class="producto-field-label !mb-0" for="form_id_clasificacion_quimica">Clasificación química</label>
                     <button type="button" class="producto-field-link"
@@ -118,7 +131,7 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-4">
+            <div class="lg:col-span-6">
                 <div class="producto-field-head">
                     <label class="producto-field-label !mb-0" for="form_id_clasificacion_toxicologica">Clasificación toxicológica</label>
                     <button type="button" class="producto-field-link"
@@ -126,17 +139,23 @@
                         + Nueva clasificación
                     </button>
                 </div>
-                <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_toxicologica') }}"
-                    id="form_id_clasificacion_toxicologica" name="form_id_clasificacion_toxicologica">
+                <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_toxicologica') }} producto-select-search"
+                    id="form_id_clasificacion_toxicologica" name="form_id_clasificacion_toxicologica"
+                    data-producto-buscador="1">
                     <option value="">Seleccione clasificación toxicológica</option>
-                    @if (str_starts_with((string) old('form_id_clasificacion_toxicologica'), 'TEMP-') && old('form_clasificacion_toxicologica_temporal_descripcion'))
-                        <option value="{{ old('form_id_clasificacion_toxicologica') }}" data-temporal="1" selected>
-                            {{ old('form_clasificacion_toxicologica_temporal_descripcion') }}
+                    @if (str_starts_with((string) old('form_id_clasificacion_toxicologica'), 'TEMP-') && old('form_clasificacion_toxicologica_temporal_codigo'))
+                        <option value="{{ old('form_id_clasificacion_toxicologica') }}" data-temporal="1"
+                            data-codigo="{{ old('form_clasificacion_toxicologica_temporal_codigo') }}"
+                            data-descripcion="{{ old('form_clasificacion_toxicologica_temporal_descripcion') }}" selected>
+                            {{ old('form_clasificacion_toxicologica_temporal_codigo') }}{{ old('form_clasificacion_toxicologica_temporal_descripcion') ? ' - ' . old('form_clasificacion_toxicologica_temporal_descripcion') : '' }}
                         </option>
                     @endif
                     @foreach ($clasificacionesToxicologicasCatalogo as $clasificacionToxicologica)
-                        <option value="{{ $clasificacionToxicologica->id }}" @selected(old('form_id_clasificacion_toxicologica') == $clasificacionToxicologica->id)>
-                            {{ $clasificacionToxicologica->descripcion }}{{ $clasificacionToxicologica->codigo ? ' - ' . $clasificacionToxicologica->codigo : '' }}
+                        <option value="{{ $clasificacionToxicologica->id }}"
+                            data-codigo="{{ $clasificacionToxicologica->codigo }}"
+                            data-descripcion="{{ $clasificacionToxicologica->descripcion }}"
+                            @selected(old('form_id_clasificacion_toxicologica') == $clasificacionToxicologica->id)>
+                            {{ $clasificacionToxicologica->codigo }}{{ $clasificacionToxicologica->descripcion ? ' - ' . $clasificacionToxicologica->descripcion : '' }}
                         </option>
                     @endforeach
                 </select>

@@ -20,6 +20,9 @@ return new class extends Migration
             // Codigo de autorizacion del registro.
             $table->string('codigo_autorizacion', 255)->nullable();
 
+            // Lote especifico al que corresponde el registro.
+            $table->string('numero_lote', 150)->nullable();
+
             // Fecha de vigencia del registro.
             $table->date('fecha_vigencia')->nullable();
 

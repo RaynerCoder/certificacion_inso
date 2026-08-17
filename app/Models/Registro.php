@@ -15,6 +15,7 @@ class Registro extends Model
     protected $fillable = [
         'id_producto',
         'codigo_autorizacion',
+        'numero_lote',
         'fecha_vigencia',
         'cantidad',
         'id_catalogo_unidad',

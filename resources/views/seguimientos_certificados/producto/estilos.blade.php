@@ -340,6 +340,10 @@
         box-shadow: none;
     }
 
+    .producto-ingredient-select.is-open .producto-ingredient-trigger {
+        visibility: hidden;
+    }
+
     .producto-ingredient-select.is-invalid .producto-ingredient-trigger {
         border-color: #ef4444;
         box-shadow: 0 0 0 3px #fee2e2;
@@ -371,28 +375,72 @@
         font-size: 12px;
     }
 
-    .producto-ingredient-options {
+    .producto-ingredient-dropdown {
         position: absolute;
         z-index: 80;
-        top: calc(100% + 6px);
+        top: 0;
         left: 0;
         right: 0;
         display: none;
-        max-height: 270px;
-        overflow-y: auto;
-        border: 1px solid #cbd5e1;
+        overflow: hidden;
+        border: 1px solid #0d9488;
         border-radius: 10px;
         background: #ffffff;
         box-shadow: none;
     }
 
-    .producto-ingredient-select.is-open .producto-ingredient-options {
+    .producto-ingredient-select.is-open .producto-ingredient-dropdown {
         display: block;
     }
 
-    .producto-ingredient-option {
-        display: block;
+    .producto-ingredient-search {
+        display: flex;
+        min-height: 40px;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #64748b;
+        background: #ffffff;
+    }
+
+    .producto-ingredient-search input {
+        min-width: 0;
         width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #0f172a;
+        font-size: 12px;
+        box-shadow: none;
+    }
+
+    .producto-ingredient-search input:focus {
+        border: 0;
+        outline: 0;
+        box-shadow: none;
+    }
+
+    .producto-ingredient-search i {
+        flex: 0 0 auto;
+        font-size: 12px;
+    }
+
+    .producto-ingredient-options {
+        position: static;
+        display: block;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 0;
+        background: #ffffff;
+    }
+
+    .producto-ingredient-option {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
         border: 0;
         border-left: 4px solid transparent;
         border-bottom: 1px solid #e2e8f0;
@@ -427,6 +475,23 @@
         font-size: 10px;
         font-weight: 700;
         line-height: 1.25;
+    }
+
+    .producto-ingredient-option-copy {
+        min-width: 0;
+    }
+
+    .producto-ingredient-option-check {
+        flex: 0 0 auto;
+        color: #0d9488;
+        font-size: 13px;
+    }
+
+    .producto-ingredient-empty {
+        padding: 14px 12px;
+        color: #64748b;
+        font-size: 12px;
+        text-align: center;
     }
 
     .producto-input.is-invalid,

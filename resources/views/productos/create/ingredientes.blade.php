@@ -17,17 +17,16 @@
                         @foreach ($ingredientesCatalogo as $ingrediente)
                             <option value="{{ $ingrediente->id }}"
                                 data-nombre="{{ $ingrediente->nombre }}"
-                                data-composicion="{{ $ingrediente->composicion }}"
-                                data-riesgo-salud="{{ $ingrediente->riesgo_salud }}">
+                                data-composicion="{{ $ingrediente->composicion }}">
                                 {{ $ingrediente->nombre }}
                             </option>
                         @endforeach
                     </select>
 
-                    {{-- Selector visual: permite mostrar nombre y composición en dos líneas dentro del desplegable. --}}
+                    {{-- El buscador y los resultados comparten el mismo borde para evitar dos controles separados. --}}
                     <div class="producto-ingredient-select" data-ingrediente-combobox>
                         <button type="button" class="producto-ingredient-trigger" data-ingrediente-trigger
-                            aria-expanded="false" aria-controls="form_ingrediente_options">
+                            aria-expanded="false" aria-controls="form_ingrediente_dropdown">
                             <span class="producto-ingredient-trigger-text">
                                 <strong data-ingrediente-label>Seleccione un ingrediente</strong>
                                 <small data-ingrediente-detail>Composición como detalle</small>
@@ -35,7 +34,15 @@
                             <i class="fa-solid fa-chevron-down"></i>
                         </button>
 
-                        <div class="producto-ingredient-options" id="form_ingrediente_options" role="listbox"></div>
+                        <div class="producto-ingredient-dropdown" id="form_ingrediente_dropdown">
+                            <label class="producto-ingredient-search" for="form_ingrediente_search">
+                                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                <input id="form_ingrediente_search" type="search" placeholder="Buscar ingrediente"
+                                    autocomplete="off" data-ingrediente-search>
+                                <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+                            </label>
+                            <div class="producto-ingredient-options" id="form_ingrediente_options" role="listbox"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -70,7 +77,6 @@
                             <th>Producto</th>
                             <th>Nombre ingrediente</th>
                             <th>Composición</th>
-                            <th>Riesgo de salud</th>
                             <th>Porcentaje</th>
                             <th>Estado</th>
                             <th>Acción</th>
@@ -78,7 +84,7 @@
                     </thead>
                     <tbody id="tablaIngredientesProducto">
                         <tr id="sinIngredientesProducto">
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="producto-empty">Todavía no agregaste ingredientes.
                                 </div>
                             </td>
