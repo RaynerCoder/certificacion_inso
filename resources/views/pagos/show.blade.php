@@ -393,7 +393,7 @@
                     </div>
                     <div class="pago-dato">
                         <span class="pago-dato-label">Fecha de validación</span>
-                        <span class="pago-dato-valor">{{ $pago->fecha_validacion ? \Illuminate\Support\Carbon::parse($pago->fecha_validacion)->format('d/m/Y') : 'Sin fecha' }}</span>
+                        <span class="pago-dato-valor">{{ $pago->fecha_validacion ? $pago->fecha_validacion->format('d/m/Y H:i') : 'Sin fecha' }}</span>
                     </div>
                     <div class="pago-dato">
                         <span class="pago-dato-label">Comprobante</span>

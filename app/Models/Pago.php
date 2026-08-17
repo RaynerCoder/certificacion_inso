@@ -24,6 +24,10 @@ class Pago extends Model
         'factura',
     ];
 
+    protected $casts = [
+        'fecha_validacion' => 'datetime',
+    ];
+
     public const TIPOS_PAGOS = [
         'DEPOSITO'      => 'Depósito bancario',
         'TRANSFERENCIA' => 'Transferencia bancaria',

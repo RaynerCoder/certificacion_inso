@@ -93,7 +93,7 @@ class PagoController extends Controller
                 'monto' => $datos['form_monto_pago'],
                 'id_cliente' => $certificado->id_persona_beneficiario,
                 'id_funcionario' => auth()->id(),
-                'fecha_validacion' => now()->toDateString(),
+                'fecha_validacion' => now(),
                 'factura' => filled($datos['form_factura_pago'] ?? null)
                     ? trim($datos['form_factura_pago'])
                     : null,

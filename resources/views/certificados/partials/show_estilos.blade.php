@@ -4130,13 +4130,44 @@
             position: static;
         }
 
+        .tramite-modal-panel-correction .cert-technical-search input:focus,
+        .tramite-modal-panel-correction .cert-technical-search input:focus-visible {
+            border-color: transparent;
+            box-shadow: none;
+            outline: none;
+            --tw-ring-color: transparent;
+            --tw-ring-shadow: 0 0 #0000;
+        }
+
         .tramite-modal-panel-correction .cert-technical-options {
             max-height: 260px;
-            padding: 8px;
+            padding: 0;
         }
 
         .tramite-modal-panel-correction .cert-technical-option {
-            padding: 10px;
+            border: 0;
+            border-radius: 0;
+            gap: 8px;
+            padding: 7px 10px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option:not(:last-child) {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option:hover,
+        .tramite-modal-panel-correction .cert-technical-option.is-selected {
+            border-color: transparent;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option-icon {
+            height: 26px;
+            width: 26px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option-main strong,
+        .tramite-modal-panel-correction .cert-technical-option-main span {
+            line-height: 1.2;
         }
 
         /* La relacion con la empresa se lee como dato principal, no como una nota secundaria. */
