@@ -126,7 +126,7 @@
         justify-content: space-between;
         gap: 16px;
         border-bottom: 1px solid #e2e8f0;
-        padding: 18px 20px;
+        padding: 14px 18px;
         background: linear-gradient(90deg, #eff6ff, #f0f9ff);
     }
 
@@ -191,7 +191,7 @@
     }
 
     .producto-body {
-        padding: 20px;
+        padding: 0;
     }
 
     /* Los encabezados internos se ocultan porque el encabezado numerado ahora vive arriba, junto al Paso X de 5. */
@@ -203,7 +203,7 @@
     .producto-step-grid,
     .producto-step>.producto-section>.grid,
     .producto-step>.producto-section>.space-y-5 {
-        padding: 20px !important;
+        padding: 18px 20px !important;
     }
 
     .producto-step {
@@ -327,6 +327,30 @@
         color: #0f172a;
         font-size: 12px;
         font-weight: 800;
+    }
+
+    /* Mantiene juntos el nombre del campo y la acción para crear un registro del catálogo. */
+    .producto-field-head {
+        display: flex;
+        min-height: 20px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 5px;
+    }
+
+    .producto-field-link {
+        flex: 0 0 auto;
+        border: 0;
+        background: transparent;
+        color: #0f766e;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .producto-field-link:hover {
+        color: #134e4a;
     }
 
     .producto-input,
@@ -1111,7 +1135,7 @@
         justify-content: space-between;
         gap: 12px;
         border-top: 1px solid #e2e8f0;
-        padding: 16px 20px;
+        padding: 12px 20px;
     }
 
     /* Grupo inferior del wizard: permite que los botones respiren en pantallas medianas. */
@@ -1612,7 +1636,6 @@
 
     @media (max-width: 640px) {
 
-        .producto-body,
         .producto-action-bar,
         .producto-form-head {
             padding-inline: 14px;

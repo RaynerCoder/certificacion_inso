@@ -1,7 +1,7 @@
 {{-- Paso 1: datos principales de productos. --}}
 <div class="producto-step" data-producto-step="0">
     <section class="producto-section">
-        <div class="producto-step-grid grid grid-cols-1 gap-x-5 gap-y-4 lg:grid-cols-12">
+        <div class="producto-step-grid grid grid-cols-1 gap-x-4 gap-y-3 lg:grid-cols-12">
             <div class="lg:col-span-5">
                 <label class="producto-field-label" for="form_id_importador_persona">Importador</label>
                 <select class="producto-select{{ $claseErrorProducto('form_id_importador_persona') }}"
@@ -18,32 +18,31 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-4">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <label class="producto-field-label !mb-0" for="form_id_clasificacion_quimica">Clasificación química</label>
-                    <button type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900"
-                        onclick="abrirModalProducto('modalClasificacionQuimica')">
-                        + Nueva clasificación
+            <div class="lg:col-span-5">
+                <div class="producto-field-head">
+                    <label class="producto-field-label !mb-0" for="form_id_fabricante">Fabricante</label>
+                    <button type="button" class="producto-field-link"
+                        onclick="abrirModalProducto('modalFabricanteProducto')">
+                        + Nuevo fabricante
                     </button>
                 </div>
-                <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_quimica') }} producto-select-search"
-                    id="form_id_clasificacion_quimica" name="form_id_clasificacion_quimica" data-producto-buscador="1">
-                    <option value="">Seleccione clasificación química</option>
-                    @if (str_starts_with((string) old('form_id_clasificacion_quimica'), 'TEMP-') && old('form_clasificacion_quimica_temporal_nombre'))
-                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1" selected>
-                            {{ old('form_clasificacion_quimica_temporal_nombre') }}
+                <select class="producto-select{{ $claseErrorProducto('form_id_fabricante') }}" id="form_id_fabricante"
+                    name="form_id_fabricante">
+                    <option value="">Seleccione fabricante</option>
+                    @if (str_starts_with((string) old('form_id_fabricante'), 'TEMP-') && old('form_fabricante_temporal_nombre'))
+                        <option value="{{ old('form_id_fabricante') }}" data-temporal="1" selected>
+                            {{ old('form_fabricante_temporal_nombre') }}
                         </option>
                     @endif
-                    @foreach ($clasificacionesQuimicasCatalogo as $clasificacionQuimica)
-                        <option value="{{ $clasificacionQuimica->id }}"
-                            @selected((string) old('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
-                            {{ $clasificacionQuimica->nombre }}
+                    @foreach ($fabricantesCatalogo as $fabricante)
+                        <option value="{{ $fabricante->id }}" @selected(old('form_id_fabricante') == $fabricante->id)>
+                            {{ $fabricante->nombre }}{{ $fabricante->razon_social ? ' - ' . $fabricante->razon_social : '' }}
                         </option>
                     @endforeach
                 </select>
             </div>
 
-            <div class="lg:col-span-3">
+            <div class="lg:col-span-2">
                 <label class="producto-field-label" for="form_estado">Estado</label>
                 <select class="producto-select{{ $claseErrorProducto('form_estado') }}" id="form_estado"
                     name="form_estado">
@@ -84,30 +83,6 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-5">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <label class="producto-field-label !mb-0" for="form_id_fabricante">Fabricante</label>
-                    <button type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900"
-                        onclick="abrirModalProducto('modalFabricanteProducto')">
-                        + Nuevo fabricante
-                    </button>
-                </div>
-                <select class="producto-select{{ $claseErrorProducto('form_id_fabricante') }}" id="form_id_fabricante"
-                    name="form_id_fabricante">
-                    <option value="">Seleccione fabricante</option>
-                    @if (str_starts_with((string) old('form_id_fabricante'), 'TEMP-') && old('form_fabricante_temporal_nombre'))
-                        <option value="{{ old('form_id_fabricante') }}" data-temporal="1" selected>
-                            {{ old('form_fabricante_temporal_nombre') }}
-                        </option>
-                    @endif
-                    @foreach ($fabricantesCatalogo as $fabricante)
-                        <option value="{{ $fabricante->id }}" @selected(old('form_id_fabricante') == $fabricante->id)>
-                            {{ $fabricante->nombre }}{{ $fabricante->razon_social ? ' - ' . $fabricante->razon_social : '' }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
             <div class="lg:col-span-4">
                 <label class="producto-field-label" for="form_nombre_tecnico">Nombre técnico</label>
                 <input class="producto-input{{ $claseErrorProducto('form_nombre_tecnico') }}"
@@ -118,10 +93,35 @@
                 @enderror
             </div>
 
-            <div class="lg:col-span-3">
-                <div class="mb-2 flex items-center justify-between gap-2">
+            <div class="lg:col-span-4">
+                <div class="producto-field-head">
+                    <label class="producto-field-label !mb-0" for="form_id_clasificacion_quimica">Clasificación química</label>
+                    <button type="button" class="producto-field-link"
+                        onclick="abrirModalProducto('modalClasificacionQuimica')">
+                        + Nueva clasificación
+                    </button>
+                </div>
+                <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_quimica') }} producto-select-search"
+                    id="form_id_clasificacion_quimica" name="form_id_clasificacion_quimica" data-producto-buscador="1">
+                    <option value="">Seleccione clasificación química</option>
+                    @if (str_starts_with((string) old('form_id_clasificacion_quimica'), 'TEMP-') && old('form_clasificacion_quimica_temporal_nombre'))
+                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1" selected>
+                            {{ old('form_clasificacion_quimica_temporal_nombre') }}
+                        </option>
+                    @endif
+                    @foreach ($clasificacionesQuimicasCatalogo as $clasificacionQuimica)
+                        <option value="{{ $clasificacionQuimica->id }}"
+                            @selected((string) old('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
+                            {{ $clasificacionQuimica->nombre }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="lg:col-span-4">
+                <div class="producto-field-head">
                     <label class="producto-field-label !mb-0" for="form_id_clasificacion_toxicologica">Clasificación toxicológica</label>
-                    <button type="button" class="text-xs font-bold text-teal-700 hover:text-teal-900"
+                    <button type="button" class="producto-field-link"
                         onclick="abrirModalProducto('modalClasificacionToxicologica')">
                         + Nueva clasificación
                     </button>
