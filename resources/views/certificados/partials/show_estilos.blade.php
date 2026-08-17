@@ -5159,9 +5159,9 @@
             text-align: left;
         }
 
-        /* La consulta del solicitante tiene siete columnas; cada una conserva un ancho útil. */
+        /* La consulta general muestra solo el resultado; la evidencia aparece durante la corrección. */
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
-            min-width: 1050px;
+            min-width: 920px;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th {
@@ -5227,23 +5227,17 @@
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(5),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5) {
-            width: 140px;
-            text-align: center;
+            width: 28%;
+            text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6) {
-            width: 22%;
-            text-align: left;
-        }
-
-        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7),
-        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7) {
             width: 86px;
             text-align: center;
         }
 
-        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7) {
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6) {
             white-space: nowrap;
         }
 
@@ -5373,14 +5367,10 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5)::before {
-                content: "Tipo de evidencia";
-            }
-
-            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {
                 content: "Observación";
             }
 
-            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7)::before {
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {
                 content: "Acción";
             }
 
@@ -5389,7 +5379,7 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(3)::before {
-                content: "Evidencia actual";
+                content: "Tipo de evidencia";
             }
 
             .tramite-detail-v2 .tramite-section-review .cert-correction-table td:nth-child(4)::before {

@@ -896,7 +896,7 @@
                                             <tr>
                                                 <th class="cert-review-col-number">#</th>
                                                 <th>Requisito</th>
-                                                <th>Evidencia actual</th>
+                                                <th>Tipo de evidencia</th>
                                                 <th>Observación actual</th>
                                                 <th>Corrección</th>
                                             </tr>
@@ -904,7 +904,6 @@
                                         <tbody>
                                             @forelse ($certificado->certificadoRequisitos->where('cumple', 'NO') as $requisitoCertificado)
                                                 @php
-                                                    $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
                                                     $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
                                                     $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                                     $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
@@ -927,17 +926,10 @@
                                                     </td>
                                                     <td>
                                                         <div class="cert-correction-document-cell">
-                                                            @if ($documentoRequisito)
-                                                                <a href="{{ $documentoRequisito }}" target="_blank" class="cert-correction-evidence-chip tramite-doc-link" title="Abrir evidencia actual">
-                                                                    <i class="{{ $iconoEvidencia }}"></i>
-                                                                    {{ $nombreEvidencia }}
-                                                                </a>
-                                                            @else
-                                                                <span class="cert-correction-evidence-chip">
-                                                                    <i class="{{ $iconoEvidencia }}"></i>
-                                                                    {{ $nombreEvidencia }}
-                                                                </span>
-                                                            @endif
+                                                            <span class="cert-correction-evidence-chip">
+                                                                <i class="{{ $iconoEvidencia }}"></i>
+                                                                {{ $nombreEvidencia }}
+                                                            </span>
                                                         </div>
                                                     </td>
                                                     <td>
@@ -1058,7 +1050,6 @@
                                             <th>Requisito</th>
                                             <th class="cert-review-col-result">Cumple</th>
                                             <th>Estado</th>
-                                            <th>Tipo de evidencia</th>
                                             <th class="cert-review-col-observation">Observación</th>
                                             <th class="cert-review-col-history">Acción</th>
                                         </tr>
@@ -1066,8 +1057,6 @@
                                     <tbody>
                                         @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
                                             @php
-                                                $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                                 $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                 $observacionInterna = $esSolicitante && $requisitoCertificado->estado === 'REVISION_OBSERVADA';
                                                 $textoCumple = $observacionInterna || $requisitoCertificado->estado === 'PENDIENTE_REVISION'
@@ -1101,11 +1090,6 @@
                                                         {{ $textoEstadoRequisito($requisitoCertificado->estado) }}
                                                     </span>
                                                 </td>
-                                                <td>
-                                                    <span class="review-evidence-chip" title="Código: {{ $codigoEvidencia }}">
-                                                        {{ $nombreEvidencia }}
-                                                    </span>
-                                                </td>
                                                 <td>{{ $textoObservacionRequisito }}</td>
                                                 <td>
                                                     <button type="button"
@@ -1120,7 +1104,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="7" class="text-center">Este trámite no tiene requisitos registrados.</td>
+                                                <td colspan="6" class="text-center">Este trámite no tiene requisitos registrados.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
