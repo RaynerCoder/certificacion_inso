@@ -317,6 +317,8 @@
         $registrosPorProducto = $certificado->registros->groupBy(
             fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
         );
+        $tieneProductoRegistrado = $certificado->registros
+            ->contains(fn ($registro) => filled($registro->producto?->id));
         // El historial tecnico no se envia al navegador del solicitante antes de notificar una correccion.
         $historialRequisitos = $mostrarRevisionRequisitos && ! $seguimientoCorreccionActual
             ? $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario) {
@@ -1113,10 +1115,15 @@
                                                         <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
                                                     @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
                                                         <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver imagen</a>
-                                                    @elseif ($comprobantePago)
-                                                        <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
                                                     @elseif ($codigoEvidencia === 'TEXTO' && filled($evidenciaPrincipal?->valor))
                                                         <span class="cert-latest-evidence-text">{{ $evidenciaPrincipal->valor }}</span>
+                                                    @elseif ($codigoEvidencia === 'PAGO' && $tienePagoRegistrado)
+                                                        <span class="cert-latest-evidence-status">Pago registrado</span>
+                                                        @if ($comprobantePago)
+                                                            <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
+                                                        @endif
+                                                    @elseif ($codigoEvidencia === 'PRODUCTO' && $tieneProductoRegistrado)
+                                                        <span class="cert-latest-evidence-status">Producto registrado</span>
                                                     @else
                                                         <span class="cert-latest-evidence-empty">Sin evidencia</span>
                                                     @endif

@@ -5259,14 +5259,28 @@
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link {
-            color: #047857;
-            font-weight: 600;
-            text-decoration: underline;
-            text-underline-offset: 2px;
+            border-bottom: 1px solid #5eead4;
+            color: #0f766e;
+            display: inline-block;
+            font-weight: 700;
+            line-height: 1.25;
+            padding-bottom: 1px;
+            text-decoration: none;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link:hover {
-            color: #065f46;
+            border-bottom-color: currentColor;
+            color: #115e59;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status {
+            color: #047857;
+            display: block;
+            font-weight: 600;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status + .cert-latest-evidence-link {
+            margin-top: 3px;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-empty {
