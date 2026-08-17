@@ -1450,7 +1450,7 @@
                             <dl class="tramite-definition is-compact">
                                 <div class="tramite-definition-row">
                                     <dt>Fecha de solicitud</dt>
-                                    <dd>{{ $certificado->fecha_inicio?->format('d/m/Y') ?? 'Sin fecha' }}</dd>
+                                    <dd>{{ ($certificado->fecha_inicio ?? $certificado->created_at)?->format('d/m/Y H:i') ?? 'Sin fecha' }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>Codigo de solicitud</dt>

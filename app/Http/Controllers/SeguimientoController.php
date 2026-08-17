@@ -190,8 +190,8 @@ class SeguimientoController extends Controller
                 'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
                 'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
                 'codigo' => $codigo,
-                // La fecha no se solicita al usuario: se toma automaticamente al registrar el tramite.
-                'fecha_inicio' => now()->toDateString(),
+                // La fecha no se solicita al usuario: se registra el momento exacto de envío.
+                'fecha_inicio' => now(),
                 'fecha_fin' => null,
                 'descripcion' => $descripcion,
                 'url_documento' => null,
@@ -853,7 +853,7 @@ class SeguimientoController extends Controller
 
             $certificado->update([
                 'estado' => 'APROBADO',
-                'fecha_fin' => now()->toDateString(),
+                'fecha_fin' => now(),
             ]);
 
             $seguimiento->update([

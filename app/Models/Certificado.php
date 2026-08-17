@@ -22,10 +22,10 @@ class Certificado extends Model
         'estado',
     ];
 
-    // Convierte fechas a Carbon para mostrarlas y formatearlas sin repetir parseos.
+    // Estas columnas guardan fecha y hora; Carbon permite usarlas sin conversiones manuales.
     protected $casts = [
-        'fecha_inicio' => 'date',
-        'fecha_fin' => 'date',
+        'fecha_inicio' => 'datetime',
+        'fecha_fin' => 'datetime',
     ];
 
     public const ESTADOS_CERTIFICADO = [
