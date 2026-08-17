@@ -9,31 +9,6 @@
             const botonesHistorial = vistaDetalleActiva.querySelectorAll('[data-requirement-history-button]');
             const swalDisponible = () => Boolean(window.Swal);
 
-            // Muestra el archivo que el solicitante acaba de seleccionar antes de devolver la correccion.
-            vistaDetalleActiva.querySelectorAll('[data-correction-file-input]').forEach((input) => {
-                input.addEventListener('change', () => {
-                    const archivo = input.files && input.files[0];
-                    const contenedor = input.closest('td')?.querySelector('[data-correction-file-preview]');
-                    const nombre = contenedor?.querySelector('[data-correction-file-name]');
-                    const enlace = contenedor?.querySelector('[data-correction-file-link]');
-
-                    if (!contenedor || !nombre || !enlace) {
-                        return;
-                    }
-
-                    if (!archivo) {
-                        contenedor.hidden = true;
-                        nombre.textContent = '';
-                        enlace.removeAttribute('href');
-                        return;
-                    }
-
-                    nombre.textContent = archivo.name;
-                    enlace.href = URL.createObjectURL(archivo);
-                    contenedor.hidden = false;
-                });
-            });
-
             // Selector visual de funcionario: busca por nombre/cargo/area y sincroniza el select real del formulario.
             vistaDetalleActiva.querySelectorAll('[data-technical-selector]').forEach((selector) => {
                 const selectReal = selector.querySelector('[data-technical-native]');
@@ -133,35 +108,63 @@
                 pintarSeleccion(opciones.find((opcion) => opcion.dataset.value === selectReal.value));
             });
 
-            // Correccion del solicitante: muestra el nombre del PDF elegido sin enviarlo todavia.
+            // Permite revisar o quitar el archivo antes de enviar la correccion al tecnico.
             vistaDetalleActiva.querySelectorAll('[data-correction-file-input]').forEach((inputArchivo) => {
-                const contenedor = inputArchivo.closest('.cert-correction-document-cell');
-                const vistaPrevia = contenedor?.querySelector('[data-correction-file-preview]');
-                const nombreArchivo = contenedor?.querySelector('[data-correction-file-name]');
-                const botonQuitar = contenedor?.querySelector('[data-correction-file-clear]');
+                const control = inputArchivo.closest('[data-correction-file-control]');
+                const nombreArchivo = control?.querySelector('[data-correction-file-name]');
+                const estadoArchivo = control?.querySelector('[data-correction-file-status]');
+                const botonVer = control?.querySelector('[data-correction-file-view]');
+                const botonQuitar = control?.querySelector('[data-correction-file-clear]');
+                let urlTemporal = null;
 
-                if (!contenedor || !vistaPrevia || !nombreArchivo || !botonQuitar) {
+                if (!control || !nombreArchivo || !estadoArchivo || !botonVer || !botonQuitar) {
                     return;
                 }
+
+                const limpiarSeleccion = () => {
+                    if (urlTemporal) {
+                        URL.revokeObjectURL(urlTemporal);
+                        urlTemporal = null;
+                    }
+
+                    inputArchivo.value = '';
+                    nombreArchivo.textContent = nombreArchivo.dataset.emptyName || 'Sin archivo seleccionado';
+                    estadoArchivo.textContent = estadoArchivo.dataset.emptyStatus || '';
+                    botonVer.disabled = true;
+                    botonQuitar.disabled = true;
+                };
 
                 inputArchivo.addEventListener('change', () => {
                     const archivo = inputArchivo.files?.[0];
 
                     if (!archivo) {
-                        vistaPrevia.classList.remove('is-visible');
-                        nombreArchivo.textContent = '';
+                        limpiarSeleccion();
                         return;
                     }
 
-                    nombreArchivo.textContent = `Nuevo archivo seleccionado: ${archivo.name}`;
-                    vistaPrevia.classList.add('is-visible');
+                    if (urlTemporal) {
+                        URL.revokeObjectURL(urlTemporal);
+                    }
+
+                    urlTemporal = URL.createObjectURL(archivo);
+                    nombreArchivo.textContent = archivo.name;
+                    estadoArchivo.textContent = 'Archivo listo para enviar';
+                    botonVer.disabled = false;
+                    botonQuitar.disabled = false;
                 });
 
-                botonQuitar.addEventListener('click', () => {
-                    inputArchivo.value = '';
-                    nombreArchivo.textContent = '';
-                    vistaPrevia.classList.remove('is-visible');
+                botonVer.addEventListener('click', () => {
+                    if (!urlTemporal) {
+                        return;
+                    }
+
+                    const ventana = window.open(urlTemporal, '_blank');
+                    if (ventana) {
+                        ventana.opener = null;
+                    }
                 });
+
+                botonQuitar.addEventListener('click', limpiarSeleccion);
             });
 
             // Correccion presencial: confirma antes de devolver el tramite al revisor tecnico.

@@ -356,7 +356,7 @@
         align-items: center;
         gap: 8px 16px;
         border-bottom: 1px solid #e2e8f0;
-        padding: 8px 0;
+        padding: 12px 0;
         scroll-margin-top: 90px;
     }
 
@@ -748,7 +748,7 @@
             grid-template-columns: 30px minmax(0, 1fr) auto;
             align-items: start;
             gap: 6px 10px;
-            padding: 9px 0;
+            padding: 12px 0;
         }
 
         .tramite-requisito-number {

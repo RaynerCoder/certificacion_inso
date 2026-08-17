@@ -896,6 +896,7 @@
                                                     $ultimaObservacionCorreccion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                     $evidenciaPrincipalCorreccion = $requisitoCertificado->evidenciasRequisitos->sortByDesc('id')->first();
                                                     $valorEvidenciaCorreccion = $evidenciaPrincipalCorreccion?->valor;
+                                                    $tamanioMaximoCorreccion = (int) ($evidenciaPrincipalCorreccion?->tipoEvidencia?->tamanio_maximo_mb ?? 0);
                                                     $rutaProductoCorreccion = route('productos_create', [
                                                         'form_id_certificado' => $certificado->id,
                                                         'form_id_importador_persona' => $certificado->id_persona_beneficiario,
@@ -928,19 +929,48 @@
                                                     </td>
                                                     <td>
                                                         @if (in_array($codigoEvidencia, ['PDF', 'IMAGEN'], true))
-                                                            <label class="cert-correction-file">
-                                                                <input type="file"
+                                                            @php
+                                                                $idArchivoCorreccion = 'documento_correccion_'.$requisitoCertificado->id;
+                                                                $nombreArchivoVacio = $codigoEvidencia === 'IMAGEN'
+                                                                    ? 'Sin imagen seleccionada'
+                                                                    : 'Sin PDF seleccionado';
+                                                                $detalleArchivoVacio = $tamanioMaximoCorreccion > 0
+                                                                    ? 'Máximo '.$tamanioMaximoCorreccion.' MB'
+                                                                    : ($codigoEvidencia === 'IMAGEN' ? 'Archivo de imagen' : 'Archivo PDF');
+                                                            @endphp
+                                                            <div class="cert-correction-file-control @error("documentos_correccion.{$requisitoCertificado->id}") is-invalid @enderror"
+                                                                data-correction-file-control>
+                                                                <input id="{{ $idArchivoCorreccion }}"
+                                                                    class="cert-correction-file-input"
+                                                                    type="file"
                                                                     name="documentos_correccion[{{ $requisitoCertificado->id }}]"
                                                                     accept="{{ $codigoEvidencia === 'IMAGEN' ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf' }}"
                                                                     data-correction-file-input>
-                                                                <span>
-                                                                    <i class="fa-solid fa-upload"></i>
-                                                                    {{ $codigoEvidencia === 'IMAGEN' ? 'Seleccionar imagen' : 'Seleccionar PDF' }}
-                                                                </span>
-                                                            </label>
-                                                            <div class="cert-correction-file-preview" data-correction-file-preview hidden>
-                                                                <span data-correction-file-name></span>
-                                                                <a href="#" target="_blank" data-correction-file-link>Ver seleccionado</a>
+                                                                <div class="cert-correction-file-info">
+                                                                    <i class="{{ $codigoEvidencia === 'IMAGEN' ? 'fa-regular fa-image' : 'fa-regular fa-file-pdf' }}"></i>
+                                                                    <div>
+                                                                        <strong data-correction-file-name
+                                                                            data-empty-name="{{ $nombreArchivoVacio }}">{{ $nombreArchivoVacio }}</strong>
+                                                                        <span data-correction-file-status
+                                                                            data-empty-status="{{ $detalleArchivoVacio }}">{{ $detalleArchivoVacio }}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="cert-correction-file-actions">
+                                                                    <label for="{{ $idArchivoCorreccion }}" class="cert-correction-file-button is-select">
+                                                                        <i class="fa-solid fa-upload"></i>
+                                                                        Seleccionar
+                                                                    </label>
+                                                                    <button type="button" class="cert-correction-file-button is-view"
+                                                                        data-correction-file-view disabled>
+                                                                        <i class="fa-regular fa-eye"></i>
+                                                                        Ver
+                                                                    </button>
+                                                                    <button type="button" class="cert-correction-file-button is-remove"
+                                                                        data-correction-file-clear disabled>
+                                                                        <i class="fa-regular fa-trash-can"></i>
+                                                                        Quitar
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             @error("documentos_correccion.{$requisitoCertificado->id}")
                                                                 <p class="cert-correction-error">{{ $message }}</p>
@@ -995,13 +1025,9 @@
                                         <i class="fa-solid fa-xmark"></i>
                                         Salir sin guardar
                                     </a>
-                                    <button type="submit" name="accion_correccion" value="guardar" class="tramite-btn tramite-btn-save-correction">
-                                        <i class="fa-solid fa-floppy-disk"></i>
-                                        Guardar corrección
-                                    </button>
                                     <button type="submit" name="accion_correccion" value="enviar" class="tramite-btn tramite-btn-primary" onclick="return confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')">
                                         <i class="fa-solid fa-reply"></i>
-                                        Devolver al revisor
+                                        Enviar al revisor
                                     </button>
                                 </div>
                             </form>
