@@ -825,26 +825,37 @@
                                                 </span>
                                                 <i class="fa-solid fa-chevron-down cert-technical-chevron"></i>
                                             </button>
-                                            <div class="cert-technical-search cert-technical-search-control" data-correction-recipient-search-control hidden>
-                                                <i class="fa-solid fa-magnifying-glass"></i>
-                                                <input type="search" data-correction-recipient-search placeholder="Buscar representante legal o tramitador">
-                                            </div>
-                                            <div class="cert-technical-dropdown" data-correction-recipient-menu hidden>
-                                                <div class="cert-technical-options">
-                                                    @foreach ($destinatariosCorreccion as $destinatario)
-                                                        <button type="button" class="cert-technical-option" data-correction-recipient-option
-                                                            data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
-                                                            data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
-                                                            <span class="cert-technical-option-icon">
-                                                                <i class="fa-solid {{ $destinatario['tipo'] === 'Representante legal' ? 'fa-user-tie' : 'fa-user-check' }}"></i>
-                                                            </span>
-                                                            <span class="cert-technical-option-main">
-                                                                <strong>{{ $destinatario['nombre'] }}</strong>
-                                                                <span>{{ $destinatario['tipo'] }}</span>
-                                                            </span>
-                                                        </button>
-                                                    @endforeach
-                                                    <div class="cert-technical-empty is-hidden" data-correction-recipient-empty>No se encontraron resultados.</div>
+                                            <div class="cert-correction-combobox" data-correction-recipient-combobox hidden>
+                                                <div class="cert-technical-search cert-technical-search-control" data-correction-recipient-search-control>
+                                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                                    <input type="search" data-correction-recipient-search placeholder="Buscar representante legal o tramitador">
+                                                </div>
+                                                <div class="cert-technical-dropdown" data-correction-recipient-menu>
+                                                    <div class="cert-technical-options">
+                                                        @foreach ($destinatariosCorreccion as $destinatario)
+                                                            @php
+                                                                $esDestinatarioSeleccionado = (string) $destinatario['id'] === (string) $idDestinatarioCorreccion;
+                                                            @endphp
+                                                            <button type="button"
+                                                                @class(['cert-technical-option', 'is-selected' => $esDestinatarioSeleccionado])
+                                                                data-correction-recipient-option
+                                                                data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
+                                                                data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}"
+                                                                aria-selected="{{ $esDestinatarioSeleccionado ? 'true' : 'false' }}">
+                                                                <span class="cert-technical-option-icon">
+                                                                    <i class="fa-solid {{ $destinatario['tipo'] === 'Representante legal' ? 'fa-user-tie' : 'fa-user-check' }}"></i>
+                                                                </span>
+                                                                <span class="cert-technical-option-main">
+                                                                    <strong>{{ $destinatario['nombre'] }}</strong>
+                                                                    <span>{{ $destinatario['tipo'] }}</span>
+                                                                </span>
+                                                                <span class="cert-correction-option-check" aria-hidden="true">
+                                                                    <i class="fa-solid fa-check"></i>
+                                                                </span>
+                                                            </button>
+                                                        @endforeach
+                                                        <div class="cert-technical-empty is-hidden" data-correction-recipient-empty>No se encontraron resultados.</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

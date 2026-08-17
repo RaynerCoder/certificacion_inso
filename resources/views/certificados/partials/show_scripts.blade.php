@@ -658,6 +658,21 @@
             function cerrarModalDestinoCorreccion() {
                 if (!modalDestinoCorreccion) return;
 
+                modalDestinoCorreccion.querySelectorAll('[data-correction-recipient-selector]').forEach((selector) => {
+                    const boton = selector.querySelector('[data-correction-recipient-toggle]');
+                    const combobox = selector.querySelector('[data-correction-recipient-combobox]');
+                    const menu = selector.querySelector('[data-correction-recipient-menu]');
+                    const buscador = selector.querySelector('[data-correction-recipient-search]');
+
+                    if (boton) {
+                        boton.hidden = false;
+                        boton.setAttribute('aria-expanded', 'false');
+                    }
+                    if (combobox) combobox.hidden = true;
+                    if (menu) menu.hidden = false;
+                    if (buscador) buscador.value = '';
+                });
+
                 modalDestinoCorreccion.classList.remove('is-open');
                 modalDestinoCorreccion.setAttribute('aria-hidden', 'true');
             }
@@ -673,15 +688,15 @@
             document.querySelectorAll('[data-correction-recipient-selector]').forEach((selector) => {
                 const input = selector.querySelector('[data-correction-recipient-value]');
                 const boton = selector.querySelector('[data-correction-recipient-toggle]');
+                const combobox = selector.querySelector('[data-correction-recipient-combobox]');
                 const menu = selector.querySelector('[data-correction-recipient-menu]');
-                const controlBusqueda = selector.querySelector('[data-correction-recipient-search-control]');
                 const buscador = selector.querySelector('[data-correction-recipient-search]');
                 const nombre = selector.querySelector('[data-correction-recipient-name]');
                 const tipo = selector.querySelector('[data-correction-recipient-type]');
                 const opciones = Array.from(selector.querySelectorAll('[data-correction-recipient-option]'));
                 const mensajeVacio = selector.querySelector('[data-correction-recipient-empty]');
 
-                if (!input || !boton || !menu || !controlBusqueda || !buscador) return;
+                if (!input || !boton || !combobox || !menu || !buscador) return;
 
                 const filtrarOpciones = () => {
                     const criterio = buscador.value.trim().toLocaleLowerCase();
@@ -698,7 +713,7 @@
 
                 const cerrarMenu = () => {
                     menu.hidden = true;
-                    controlBusqueda.hidden = true;
+                    combobox.hidden = true;
                     boton.hidden = false;
                     boton.setAttribute('aria-expanded', 'false');
                     buscador.value = '';
@@ -707,7 +722,7 @@
 
                 boton.addEventListener('click', () => {
                     boton.hidden = true;
-                    controlBusqueda.hidden = false;
+                    combobox.hidden = false;
                     menu.hidden = false;
                     boton.setAttribute('aria-expanded', 'true');
                     buscador.focus();
@@ -718,6 +733,11 @@
                         input.value = opcion.dataset.value || '';
                         nombre.textContent = opcion.dataset.nombre || '';
                         tipo.textContent = opcion.dataset.tipo || '';
+                        opciones.forEach((item) => {
+                            const seleccionada = item === opcion;
+                            item.classList.toggle('is-selected', seleccionada);
+                            item.setAttribute('aria-selected', seleccionada ? 'true' : 'false');
+                        });
                         cerrarMenu();
                     });
                 });

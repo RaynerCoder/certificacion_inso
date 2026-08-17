@@ -4119,22 +4119,35 @@
             gap: 8px;
         }
 
+        /* El valor cerrado y el buscador abierto son dos estados del mismo selector. */
+        .tramite-modal-panel-correction [hidden] {
+            display: none !important;
+        }
+
         .tramite-modal-panel-correction .cert-technical-control {
             min-height: 48px;
             padding: 8px 11px;
         }
 
+        .tramite-modal-panel-correction .cert-correction-combobox {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 9px;
+            overflow: hidden;
+        }
+
         .tramite-modal-panel-correction .cert-technical-dropdown {
-            border-radius: 0 0 9px 9px;
-            border-top: 0;
+            border: 0;
+            border-radius: 0;
             box-shadow: none;
             margin-top: 0;
             position: static;
         }
 
         .tramite-modal-panel-correction .cert-technical-search-control {
-            border: 1px solid #cbd5e1;
-            border-radius: 9px 9px 0 0;
+            border: 0;
+            border-bottom: 1px solid #e2e8f0;
+            border-radius: 0;
             min-height: 48px;
             padding: 8px 11px;
         }
@@ -4166,6 +4179,7 @@
 
         .tramite-modal-panel-correction .cert-technical-option:hover,
         .tramite-modal-panel-correction .cert-technical-option.is-selected {
+            background: #f0fdf4;
             border-color: transparent;
         }
 
@@ -4183,6 +4197,20 @@
         .tramite-modal-panel-correction .cert-technical-option-main span {
             color: #047857;
             font-weight: 850;
+        }
+
+        .tramite-modal-panel-correction .cert-correction-option-check {
+            align-items: center;
+            color: #059669;
+            display: none;
+            flex: 0 0 auto;
+            font-size: 0.9rem;
+            justify-content: center;
+            width: 24px;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-option.is-selected .cert-correction-option-check {
+            display: inline-flex;
         }
 
         .tramite-modal-panel-correction > .tramite-actions-row {
