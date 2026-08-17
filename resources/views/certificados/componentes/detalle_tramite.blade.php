@@ -994,7 +994,7 @@
                                                             @enderror
                                                         @elseif ($codigoEvidencia === 'PAGO')
                                                             <span class="cert-correction-note">
-                                                                No requiere archivo en esta pantalla.
+                                                                No requiere archivo en este requisito.
                                                             </span>
                                                         @elseif ($codigoEvidencia === 'CERTIFICADO')
                                                             <span class="cert-correction-note">
