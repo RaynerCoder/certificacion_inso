@@ -5182,6 +5182,15 @@
             padding: 2px 7px;
         }
 
+        /* En esta tabla, tipo, cumplimiento y estado mantienen exactamente la misma altura. */
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-correction-evidence-chip {
+            font-size: 0.66rem;
+            font-weight: 600;
+            min-height: 21px;
+            padding: 2px 7px;
+            white-space: nowrap;
+        }
+
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly .cert-requirement-row.is-observed {
             background: #ffffff;
             box-shadow: none;
@@ -5215,7 +5224,7 @@
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(3),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3) {
-            width: 145px;
+            width: 175px;
             text-align: left;
         }
 
@@ -5253,13 +5262,8 @@
             white-space: nowrap;
         }
 
-        /* Los valores de la última evidencia comparten una medida compacta para no ensanchar la tabla. */
-        .tramite-detail-v2 .tramite-section-review :is(
-            .cert-latest-evidence-text,
-            .cert-latest-evidence-link,
-            .cert-latest-evidence-status,
-            .cert-latest-evidence-empty
-        ) {
+        /* Pago y producto son estados registrados; por eso se muestran como chips compactos. */
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status {
             align-items: center;
             border: 1px solid #cbd5e1;
             border-radius: 999px;
@@ -5273,33 +5277,43 @@
             vertical-align: middle;
         }
 
+        /* El texto capturado es contenido de la evidencia, no un estado. */
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-text {
-            background: #f1f5f9;
             color: #334155;
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 500;
+            line-height: 1.25;
             max-width: 145px;
             overflow: hidden;
             text-overflow: ellipsis;
+            vertical-align: middle;
             white-space: nowrap;
         }
 
+        /* PDF e imagen son acciones para abrir el respaldo, no chips informativos. */
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link {
+            border-bottom: 1px solid currentColor;
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.2;
+            padding-bottom: 1px;
             text-decoration: none;
+            vertical-align: middle;
+            white-space: nowrap;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link.is-pdf {
-            background: #eef2ff;
-            border-color: #c7d2fe;
             color: #4338ca;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link.is-image {
-            background: #ecfeff;
-            border-color: #a5f3fc;
             color: #0e7490;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link:hover {
-            filter: brightness(0.96);
+            color: #0f766e;
         }
 
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-status.is-payment {
@@ -5318,9 +5332,15 @@
             margin-left: 4px;
         }
 
+        /* La ausencia de evidencia es un dato neutro y no necesita forma de chip. */
         .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-empty {
-            background: #f8fafc;
             color: #64748b;
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 500;
+            line-height: 1.2;
+            vertical-align: middle;
+            white-space: nowrap;
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
