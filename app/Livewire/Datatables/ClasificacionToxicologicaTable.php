@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Datatables;
 
-use App\Models\TipoProducto;
+use App\Models\ClasificacionToxicologica;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 
-class TipoProductoTable extends DataTableComponent
+class ClasificacionToxicologicaTable extends DataTableComponent
 {
-    protected $model = TipoProducto::class;
+    protected $model = ClasificacionToxicologica::class;
 
     public function configure(): void
     {
@@ -38,7 +38,9 @@ class TipoProductoTable extends DataTableComponent
     private function columnaAcciones(): Column
     {
         return Column::make('Acciones')
-            ->label(fn ($tipoProducto) => view('tipos_productos.accion', ['tipo_producto' => $tipoProducto]))
+            ->label(fn ($clasificacionToxicologica) => view('clasificaciones_toxicologicas.accion', [
+                'clasificacion_toxicologica' => $clasificacionToxicologica,
+            ]))
             ->html();
     }
 

@@ -759,33 +759,31 @@
                                                 Notificar solicitante
                                             </button>
                                         @endif
+
+                                        @if ($puedeFinalizarTramite)
+                                            <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
+                                                @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
+                                                class="tramite-btn tramite-btn-finish"
+                                                @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
+                                                <i class="fa-solid fa-circle-check"></i>
+                                                Finalizar trámite
+                                            </button>
+                                        @endif
                                     </div>
                                 @else
                                     <div class="review-workbench-empty">Este trámite no tiene requisitos registrados.</div>
                                 @endif
 
-                                @if ($certificado->estado === 'OBSERVADO' || $puedeFinalizarTramite)
+                                @if ($certificado->estado === 'OBSERVADO')
                                     <div class="tramite-actions-row">
-                                        @if ($certificado->estado === 'OBSERVADO')
-                                            <button type="button" class="tramite-btn tramite-btn-muted" disabled>
-                                                <i class="fa-solid fa-arrow-right"></i>
-                                                Derivar
-                                            </button>
-                                            <span class="tramite-warning-box">
-                                                <i class="fa-solid fa-triangle-exclamation"></i>
-                                                Trámite observado: no se puede derivar ni continuar revisión hasta que el solicitante corrija.
-                                            </span>
-                                        @else
-                                            @if ($puedeFinalizarTramite)
-                                                <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
-                                                    @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
-                                                    class="tramite-btn tramite-btn-ok"
-                                                    @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
-                                                    <i class="fa-solid fa-circle-check"></i>
-                                                    Finalizar trámite
-                                                </button>
-                                            @endif
-                                        @endif
+                                        <button type="button" class="tramite-btn tramite-btn-muted" disabled>
+                                            <i class="fa-solid fa-arrow-right"></i>
+                                            Derivar
+                                        </button>
+                                        <span class="tramite-warning-box">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                            Trámite observado: no se puede derivar ni continuar revisión hasta que el solicitante corrija.
+                                        </span>
                                     </div>
                                 @endif
                             </form>
@@ -1543,16 +1541,16 @@
                                                 </h4>
                                                 <dl class="tramite-definition is-compact">
                                                     <div class="tramite-definition-row">
-                                                        <dt>Tipo</dt>
-                                                        <dd>{{ $producto?->tipoProducto?->descripcion ?? 'Sin tipo' }}</dd>
+                                                        <dt>Clasificación toxicológica</dt>
+                                                        <dd>{{ $producto?->clasificacionToxicologica?->descripcion ?? 'Sin clasificación toxicológica' }}</dd>
                                                     </div>
                                                     <div class="tramite-definition-row">
-                                                        <dt>Nombre científico</dt>
-                                                        <dd>{{ $producto?->nombre_cientifico ?: 'Sin dato' }}</dd>
+                                                        <dt>Nombre técnico</dt>
+                                                        <dd>{{ $producto?->nombre_tecnico ?: 'Sin dato' }}</dd>
                                                     </div>
                                                     <div class="tramite-definition-row">
-                                                        <dt>Clasificación</dt>
-                                                        <dd>{{ $producto?->clasificacionProducto?->nombre ?: 'Sin clasificación' }}</dd>
+                                                        <dt>Clasificación química</dt>
+                                                        <dd>{{ $producto?->clasificacionQuimica?->nombre ?: 'Sin clasificación química' }}</dd>
                                                     </div>
                                                     <div class="tramite-definition-row">
                                                         <dt>Fabricante</dt>

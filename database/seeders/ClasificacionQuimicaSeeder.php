@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\GuardaSeeders;
 use Illuminate\Database\Seeder;
 
-class ClasificacionProductoSeeder extends Seeder
+class ClasificacionQuimicaSeeder extends Seeder
 {
     use GuardaSeeders;
 
@@ -20,7 +20,7 @@ class ClasificacionProductoSeeder extends Seeder
             3 => ['DESINFECTANTE', 'Producto destinado a desinfección de superficies o ambientes.'],
             4 => ['REPELENTE', 'Producto destinado a repeler organismos no deseados.'],
         ] as $id => [$nombre, $descripcion]) {
-            $this->guardar('clasificaciones_productos', $id, [
+            $this->guardar('clasificaciones_quimicas', $id, [
                 'nombre' => $nombre,
                 'descripcion' => $descripcion,
                 'estado' => 'ACTIVO',

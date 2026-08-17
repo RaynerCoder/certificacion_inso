@@ -2,17 +2,17 @@
 
 namespace Database\Seeders;
 
-use App\Models\TipoProducto;
+use App\Models\ClasificacionToxicologica;
 use Illuminate\Database\Seeder;
 
-class TipoProductoSeeder extends Seeder
+class ClasificacionToxicologicaSeeder extends Seeder
 {
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $tiposProductos = [
+        $clasificacionesToxicologicas = [
             [
                 'descripcion' => 'INSECTICIDA',
                 'codigo' => 'TP-INSE',
@@ -76,9 +76,9 @@ class TipoProductoSeeder extends Seeder
 
         ];
 
-        foreach ($tiposProductos as $elemento) {
+        foreach ($clasificacionesToxicologicas as $elemento) {
             // El codigo es unico; se actualiza si ya existe.
-            TipoProducto::updateOrCreate(
+            ClasificacionToxicologica::updateOrCreate(
                 ['codigo' => $elemento['codigo']],
                 $elemento
             );

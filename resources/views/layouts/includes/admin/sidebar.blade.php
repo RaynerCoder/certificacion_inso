@@ -335,7 +335,7 @@
             'icon' => 'fa-solid fa-boxes-stacked',
             'active' => $activo([
                 'productos_',
-                'tipos_productos_',
+                'clasificaciones_toxicologicas_',
                 'fabricantes_',
                 'ingredientes_',
                 'presentaciones_',
@@ -344,7 +344,7 @@
             ]),
             'permission' => [
                 'productos.ver',
-                'tipos_productos.ver',
+                'clasificaciones_toxicologicas.ver',
                 'fabricantes.ver',
                 'ingredientes.ver',
                 'presentaciones.ver',
@@ -359,11 +359,11 @@
                     'permission' => 'productos.ver',
                 ],
                 [
-                    'name' => 'Tipos de Producto',
+                    'name' => 'Clasificaciones toxicológicas',
                     'icon' => 'fa-solid fa-tags',
-                    'href' => $href('tipos_productos_index'),
-                    'active' => $activo(['tipos_productos_']),
-                    'permission' => 'tipos_productos.ver',
+                    'href' => $href('clasificaciones_toxicologicas_index'),
+                    'active' => $activo(['clasificaciones_toxicologicas_']),
+                    'permission' => 'clasificaciones_toxicologicas.ver',
                 ],
                 [
                     'name' => 'Fabricantes',

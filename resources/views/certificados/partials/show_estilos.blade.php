@@ -2329,6 +2329,19 @@
             color: #14532d;
         }
 
+        .tramite-btn-finish {
+            background: #2563eb;
+            border: 1px solid #1d4ed8;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
+            color: #ffffff;
+        }
+
+        .tramite-btn-finish:hover {
+            background: #1d4ed8;
+            border-color: #1e40af;
+            color: #ffffff;
+        }
+
         .tramite-btn-primary {
             background: #059669;
             border: 1px solid #047857;
@@ -4060,6 +4073,17 @@
             font-weight: 750;
             outline: 0;
             padding: 0;
+        }
+
+        /* El buscador del selector de derivación conserva el foco sin dibujar un borde interno. */
+        [data-technical-menu] .cert-technical-search input:focus,
+        [data-technical-menu] .cert-technical-search input:focus-visible {
+            border-color: transparent;
+            box-shadow: none;
+            outline: none;
+            --tw-ring-color: transparent;
+            --tw-ring-offset-shadow: 0 0 #0000;
+            --tw-ring-shadow: 0 0 #0000;
         }
 
         .cert-technical-options {

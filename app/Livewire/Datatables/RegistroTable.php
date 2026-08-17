@@ -24,7 +24,7 @@ class RegistroTable extends DataTableComponent
         return Registro::query()
             ->with([
                 'producto.fabricante',
-                'producto.tipoProducto',
+                'producto.clasificacionToxicologica',
                 'presentacion.catalogoUnidad',
                 'catalogoUnidad',
             ]);
@@ -55,7 +55,7 @@ class RegistroTable extends DataTableComponent
                 $query->orWhereHas('producto', function (Builder $consulta) use ($search) {
                     $consulta->where('codigo', 'like', '%' . $search . '%')
                         ->orWhere('nombre_comercial', 'like', '%' . $search . '%')
-                        ->orWhere('nombre_cientifico', 'like', '%' . $search . '%');
+                        ->orWhere('nombre_tecnico', 'like', '%' . $search . '%');
                 });
             })
             ->sortable();
@@ -94,12 +94,12 @@ class RegistroTable extends DataTableComponent
 
         $nombre = $producto->nombre_comercial ?: 'Sin nombre comercial';
         $codigo = $producto->codigo ?: 'Sin codigo';
-        $tipo = $producto->tipoProducto?->descripcion ?: 'Sin tipo';
+        $clasificacionToxicologica = $producto->clasificacionToxicologica?->descripcion ?: 'Sin clasificación toxicológica';
         $fabricante = $producto->fabricante?->nombre ?: 'Sin fabricante';
 
         return '<div class="max-w-[260px] whitespace-normal break-words leading-snug">'
             . '<div class="font-bold text-slate-800">' . e($nombre) . '</div>'
-            . '<div class="text-xs font-semibold text-slate-500">' . e($codigo) . ' | ' . e($tipo) . '</div>'
+            . '<div class="text-xs font-semibold text-slate-500">' . e($codigo) . ' | ' . e($clasificacionToxicologica) . '</div>'
             . '<div class="text-xs text-slate-500">' . e($fabricante) . '</div>'
             . '</div>';
     }

@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\TerritorioController;
 use App\Http\Controllers\FabricanteController;
-use App\Http\Controllers\TipoProductoController;
+use App\Http\Controllers\ClasificacionToxicologicaController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\NaturalController;
 use App\Http\Controllers\TipoEmpresaController;
@@ -276,14 +276,14 @@ Route::delete('/fabricantes/{fabricante}', [FabricanteController::class, 'destro
 
 
 /* =========================
-   TIPOS DE PRODUCTOS
+   CLASIFICACIONES TOXICOLÓGICAS
 ========================= */
-Route::get('/tipos-productos', [TipoProductoController::class, 'index'])->name('tipos_productos_index');
-Route::get('/tipos-productos/create', [TipoProductoController::class, 'create'])->name('tipos_productos_create');
-Route::post('/tipos-productos', [TipoProductoController::class, 'store'])->name('tipos_productos_store');
-Route::get('/tipos-productos/{tipoProducto}/edit', [TipoProductoController::class, 'edit'])->name('tipos_productos_edit');
-Route::put('/tipos-productos/{tipoProducto}', [TipoProductoController::class, 'update'])->name('tipos_productos_update');
-Route::delete('/tipos-productos/{tipoProducto}', [TipoProductoController::class, 'destroy'])->name('tipos_productos_destroy');
+Route::get('/clasificaciones-toxicologicas', [ClasificacionToxicologicaController::class, 'index'])->name('clasificaciones_toxicologicas_index');
+Route::get('/clasificaciones-toxicologicas/create', [ClasificacionToxicologicaController::class, 'create'])->name('clasificaciones_toxicologicas_create');
+Route::post('/clasificaciones-toxicologicas', [ClasificacionToxicologicaController::class, 'store'])->name('clasificaciones_toxicologicas_store');
+Route::get('/clasificaciones-toxicologicas/{clasificacionToxicologica}/edit', [ClasificacionToxicologicaController::class, 'edit'])->name('clasificaciones_toxicologicas_edit');
+Route::put('/clasificaciones-toxicologicas/{clasificacionToxicologica}', [ClasificacionToxicologicaController::class, 'update'])->name('clasificaciones_toxicologicas_update');
+Route::delete('/clasificaciones-toxicologicas/{clasificacionToxicologica}', [ClasificacionToxicologicaController::class, 'destroy'])->name('clasificaciones_toxicologicas_destroy');
 
 
 

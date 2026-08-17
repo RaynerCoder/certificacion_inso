@@ -19,9 +19,9 @@ return new class extends Migration
             $table->foreignId('id_territorio_pais')->constrained('territorios');
             $table->foreignId('id_fabricante')->constrained('fabricantes');
             $table->string('nombre_comercial', 255)->nullable();
-            $table->string('nombre_cientifico', 255)->nullable();
-            $table->foreignId('id_clasificacion_producto')->nullable()->constrained('clasificaciones_productos');
-            $table->foreignId('id_tipo_producto')->constrained('tipos_productos');
+            $table->string('nombre_tecnico', 255)->nullable();
+            $table->foreignId('id_clasificacion_quimica')->nullable()->constrained('clasificaciones_quimicas');
+            $table->foreignId('id_clasificacion_toxicologica')->constrained('clasificaciones_toxicologicas');
             // Estados manejados por ahora: ACTIVO e INACTIVO.
             $table->string('estado', 50)->default('ACTIVO');
 

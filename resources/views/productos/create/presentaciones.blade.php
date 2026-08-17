@@ -264,9 +264,9 @@
 
                                         <div class="producto-table-product-line">
                                             <i class="fa-solid fa-flask"></i>
-                                            <span>Tipo de producto</span>
+                                            <span>Clasificación toxicológica</span>
                                             <strong class="presentacion-producto-tipo">
-                                                {{ old('form_tipo_producto_temporal_descripcion') ?: optional(collect($tiposProductosCatalogo)->firstWhere('id', old('form_id_tipo_producto')))->descripcion ?: 'Sin tipo' }}
+                                                {{ old('form_clasificacion_toxicologica_temporal_descripcion') ?: optional(collect($clasificacionesToxicologicasCatalogo)->firstWhere('id', old('form_id_clasificacion_toxicologica')))->descripcion ?: 'Sin clasificación toxicológica' }}
                                             </strong>
                                         </div>
 

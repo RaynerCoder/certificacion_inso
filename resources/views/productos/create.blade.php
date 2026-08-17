@@ -38,9 +38,9 @@
          * Catalogos para armar la vista.
          * Cuando se implemente el guardado se pueden mover estas consultas al controlador.
          */
-        $tiposProductosCatalogo =
-            $tiposProductos ??
-            \App\Models\TipoProducto::query()->where('estado', 'ACTIVO')->orderBy('descripcion')->get();
+        $clasificacionesToxicologicasCatalogo =
+            $clasificacionesToxicologicas ??
+            \App\Models\ClasificacionToxicologica::query()->where('estado', 'ACTIVO')->orderBy('descripcion')->get();
 
         $fabricantesCatalogo =
             $fabricantes ?? \App\Models\Fabricante::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
@@ -67,9 +67,9 @@
         $ingredientesCatalogo =
             $ingredientes ?? \App\Models\Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
 
-        $clasificacionesCatalogo =
-            $clasificacionesProductos ??
-            \App\Models\ClasificacionProducto::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
+        $clasificacionesQuimicasCatalogo =
+            $clasificacionesQuimicas ??
+            \App\Models\ClasificacionQuimica::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
 
         $catalogosMedidas =
             $catalogosMedidas ??
@@ -187,14 +187,14 @@
             value="{{ old('form_fabricante_temporal_razon_social') }}">
         <input type="hidden" id="form_fabricante_temporal_descripcion" name="form_fabricante_temporal_descripcion"
             value="{{ old('form_fabricante_temporal_descripcion') }}">
-        <input type="hidden" id="form_tipo_producto_temporal_descripcion" name="form_tipo_producto_temporal_descripcion"
-            value="{{ old('form_tipo_producto_temporal_descripcion') }}">
-        <input type="hidden" id="form_tipo_producto_temporal_codigo" name="form_tipo_producto_temporal_codigo"
-            value="{{ old('form_tipo_producto_temporal_codigo') }}">
-        <input type="hidden" id="form_clasificacion_temporal_nombre" name="form_clasificacion_temporal_nombre"
-            value="{{ old('form_clasificacion_temporal_nombre') }}">
-        <input type="hidden" id="form_clasificacion_temporal_descripcion" name="form_clasificacion_temporal_descripcion"
-            value="{{ old('form_clasificacion_temporal_descripcion') }}">
+        <input type="hidden" id="form_clasificacion_toxicologica_temporal_descripcion" name="form_clasificacion_toxicologica_temporal_descripcion"
+            value="{{ old('form_clasificacion_toxicologica_temporal_descripcion') }}">
+        <input type="hidden" id="form_clasificacion_toxicologica_temporal_codigo" name="form_clasificacion_toxicologica_temporal_codigo"
+            value="{{ old('form_clasificacion_toxicologica_temporal_codigo') }}">
+        <input type="hidden" id="form_clasificacion_quimica_temporal_nombre" name="form_clasificacion_quimica_temporal_nombre"
+            value="{{ old('form_clasificacion_quimica_temporal_nombre') }}">
+        <input type="hidden" id="form_clasificacion_quimica_temporal_descripcion" name="form_clasificacion_quimica_temporal_descripcion"
+            value="{{ old('form_clasificacion_quimica_temporal_descripcion') }}">
         <input type="hidden" id="form_unidad_temporal_id" name="form_unidad_temporal_id"
             value="{{ old('form_unidad_temporal_id') }}">
         <input type="hidden" id="form_unidad_temporal_nombre" name="form_unidad_temporal_nombre"
@@ -385,8 +385,8 @@
         </div>
     </div>
 
-    {{-- Modal visual para tipo de producto. --}}
-    <div class="producto-modal" id="modalTipoProducto">
+    {{-- Permite agregar una clasificación toxicológica sin salir del formulario. --}}
+    <div class="producto-modal" id="modalClasificacionToxicologica">
         <div class="producto-modal-card is-compact">
             <div class="producto-modal-head">
                 <div class="producto-modal-title-row">
@@ -394,39 +394,39 @@
                         <i class="fa-solid fa-tags"></i>
                     </span>
                     <div>
-                        <h3 class="producto-modal-title">Nuevo tipo de producto</h3>
-                        <p class="producto-modal-subtitle">Agregue un tipo temporal si no aparece en el catálogo.</p>
+                        <h3 class="producto-modal-title">Nueva clasificación toxicológica</h3>
+                        <p class="producto-modal-subtitle">Agregue una opción temporal si no aparece en el catálogo.</p>
                     </div>
                 </div>
             </div>
 
             <div class="producto-modal-body">
                 <div>
-                    <label class="producto-field-label" for="modal_tipo_producto_descripcion">Descripción del tipo</label>
-                    <input class="producto-input" id="modal_tipo_producto_descripcion" type="text"
+                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
+                    <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
                         placeholder="Ej: Herbicida">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_tipo_producto_codigo">Código</label>
-                    <input class="producto-input" id="modal_tipo_producto_codigo" type="text"
+                    <label class="producto-field-label" for="modal_clasificacion_toxicologica_codigo">Código</label>
+                    <input class="producto-input" id="modal_clasificacion_toxicologica_codigo" type="text"
                         placeholder="Ej: HERB">
                 </div>
             </div>
 
             <div class="producto-modal-actions">
                 <button type="button" class="producto-btn producto-btn-secondary"
-                    onclick="cerrarModalProducto('modalTipoProducto')">Cancelar</button>
+                    onclick="cerrarModalProducto('modalClasificacionToxicologica')">Cancelar</button>
                 <button type="button" class="producto-btn producto-btn-primary"
-                    onclick="agregarOpcionTemporalProducto('modalTipoProducto', 'form_id_tipo_producto', 'modal_tipo_producto_descripcion')">
+                    onclick="agregarOpcionTemporalProducto('modalClasificacionToxicologica', 'form_id_clasificacion_toxicologica', 'modal_clasificacion_toxicologica_descripcion')">
                     Agregar a la lista
                 </button>
             </div>
         </div>
     </div>
 
-    {{-- Modal visual para clasificación del producto. --}}
-    <div class="producto-modal" id="modalClasificacionProducto">
+    {{-- Permite agregar una clasificación química sin salir del formulario. --}}
+    <div class="producto-modal" id="modalClasificacionQuimica">
         <div class="producto-modal-card is-compact">
             <div class="producto-modal-head">
                 <div class="producto-modal-title-row">
@@ -434,31 +434,31 @@
                         <i class="fa-solid fa-layer-group"></i>
                     </span>
                     <div>
-                        <h3 class="producto-modal-title">Nueva clasificación</h3>
-                        <p class="producto-modal-subtitle">Agregue una clasificación si no aparece en la lista.</p>
+                        <h3 class="producto-modal-title">Nueva clasificación química</h3>
+                        <p class="producto-modal-subtitle">Agregue una clasificación química si no aparece en la lista.</p>
                     </div>
                 </div>
             </div>
 
             <div class="producto-modal-body">
                 <div>
-                    <label class="producto-field-label" for="modal_clasificacion_nombre">Nombre de la clasificación</label>
-                    <input class="producto-input" id="modal_clasificacion_nombre" type="text"
+                    <label class="producto-field-label" for="modal_clasificacion_quimica_nombre">Nombre de la clasificación química</label>
+                    <input class="producto-input" id="modal_clasificacion_quimica_nombre" type="text"
                         placeholder="Ej: Insecticida">
                 </div>
 
                 <div>
-                    <label class="producto-field-label" for="modal_clasificacion_descripcion">Descripción</label>
-                    <textarea class="producto-textarea" id="modal_clasificacion_descripcion"
-                        placeholder="Detalle corto de la clasificación"></textarea>
+                    <label class="producto-field-label" for="modal_clasificacion_quimica_descripcion">Descripción</label>
+                    <textarea class="producto-textarea" id="modal_clasificacion_quimica_descripcion"
+                        placeholder="Detalle corto de la clasificación química"></textarea>
                 </div>
             </div>
 
             <div class="producto-modal-actions">
                 <button type="button" class="producto-btn producto-btn-secondary"
-                    onclick="cerrarModalProducto('modalClasificacionProducto')">Cancelar</button>
+                    onclick="cerrarModalProducto('modalClasificacionQuimica')">Cancelar</button>
                 <button type="button" class="producto-btn producto-btn-primary"
-                    onclick="agregarOpcionTemporalProducto('modalClasificacionProducto', 'form_id_clasificacion_producto', 'modal_clasificacion_nombre')">
+                    onclick="agregarOpcionTemporalProducto('modalClasificacionQuimica', 'form_id_clasificacion_quimica', 'modal_clasificacion_quimica_nombre')">
                     Agregar a la lista
                 </button>
             </div>
@@ -598,7 +598,7 @@
                 codigo: 'form_codigo',
                 nombreComercial: 'form_nombre_comercial',
                 fabricante: 'form_id_fabricante',
-                tipoProducto: 'form_id_tipo_producto',
+                clasificacionToxicologica: 'form_id_clasificacion_toxicologica',
             },
             ingrediente: {
                 select: 'form_ingrediente_select',
@@ -892,7 +892,7 @@
                 ['form_id_importador_persona', 'Seleccione el importador.'],
                 ['form_id_territorio_pais', 'Seleccione el pais.'],
                 ['form_id_fabricante', 'Seleccione el fabricante.'],
-                ['form_id_tipo_producto', 'Seleccione el tipo de producto.'],
+                ['form_id_clasificacion_toxicologica', 'Seleccione la clasificación toxicológica.'],
             ];
 
             const resultados = reglas.map(([id, mensaje]) => validarRequeridoProducto(id, mensaje));
@@ -1437,10 +1437,10 @@
             const tieneEtiquetaTemporal = Boolean(reutilizaPresentacion && productoEtiquetaUrls[indiceExistente]?.url);
             const productoNombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
             const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin codigo';
-            const tipoProductoSelect = document.getElementById('form_id_tipo_producto');
-            const productoTipo = tipoProductoSelect?.value
-                ? (tipoProductoSelect.selectedOptions?.[0]?.textContent?.trim() || 'Sin tipo')
-                : 'Sin tipo';
+            const clasificacionToxicologicaSelect = document.getElementById('form_id_clasificacion_toxicologica');
+            const clasificacionToxicologica = clasificacionToxicologicaSelect?.value
+                ? (clasificacionToxicologicaSelect.selectedOptions?.[0]?.textContent?.trim() || 'Sin clasificación toxicológica')
+                : 'Sin clasificación toxicológica';
 
             const cantidadValida = validarNumeroProducto('form_presentacion_cantidad', 'Ingrese una cantidad valida.', 1);
             const unidadValida = validarRequeridoProducto('form_presentacion_unidad', 'Ingrese la unidad.');
@@ -1517,8 +1517,8 @@
                         </div>
                         <div class="producto-table-product-line">
                             <i class="fa-solid fa-flask"></i>
-                            <span>Tipo de producto</span>
-                            <strong class="presentacion-producto-tipo">${escaparHtmlProducto(productoTipo || 'Sin tipo')}</strong>
+                            <span>Clasificación toxicológica</span>
+                            <strong class="presentacion-producto-tipo">${escaparHtmlProducto(clasificacionToxicologica)}</strong>
                         </div>
                         <div class="producto-table-product-line">
                             <i class="fa-solid fa-tag"></i>
@@ -1887,16 +1887,16 @@
                     document.getElementById('modal_fabricante_descripcion')?.value.trim() || '';
             }
 
-            if (idSelect === 'form_id_tipo_producto') {
-                document.getElementById('form_tipo_producto_temporal_descripcion').value = textoBase;
-                document.getElementById('form_tipo_producto_temporal_codigo').value =
-                    document.getElementById('modal_tipo_producto_codigo')?.value.trim() || '';
+            if (idSelect === 'form_id_clasificacion_toxicologica') {
+                document.getElementById('form_clasificacion_toxicologica_temporal_descripcion').value = textoBase;
+                document.getElementById('form_clasificacion_toxicologica_temporal_codigo').value =
+                    document.getElementById('modal_clasificacion_toxicologica_codigo')?.value.trim() || '';
             }
 
-            if (idSelect === 'form_id_clasificacion_producto') {
-                document.getElementById('form_clasificacion_temporal_nombre').value = textoBase;
-                document.getElementById('form_clasificacion_temporal_descripcion').value =
-                    document.getElementById('modal_clasificacion_descripcion')?.value.trim() || '';
+            if (idSelect === 'form_id_clasificacion_quimica') {
+                document.getElementById('form_clasificacion_quimica_temporal_nombre').value = textoBase;
+                document.getElementById('form_clasificacion_quimica_temporal_descripcion').value =
+                    document.getElementById('modal_clasificacion_quimica_descripcion')?.value.trim() || '';
             }
 
             if (idSelect === 'form_presentacion_unidad' || idSelect === 'form_registro_unidad') {
@@ -1961,7 +1961,7 @@
                 '#tablaRegistrosPresentacionesProducto tr:not(#sinRegistrosPresentacionesProducto)').length;
             const productoCompleto = document.getElementById('form_nombre_comercial')?.value &&
                 document.getElementById('form_id_fabricante')?.value &&
-                document.getElementById('form_id_tipo_producto')?.value;
+                document.getElementById('form_id_clasificacion_toxicologica')?.value;
 
             ponerTextoProducto('resumenNombreProducto', nombre);
             ponerTextoProducto('resumenCodigoProducto', codigo);
@@ -1971,7 +1971,7 @@
             ponerTextoProducto('revisionProductoImportador', textoSelectProducto('form_id_importador_persona'));
             ponerTextoProducto('revisionProductoPais', textoSelectProducto('form_id_territorio_pais'));
             ponerTextoProducto('revisionProductoFabricante', textoSelectProducto('form_id_fabricante'));
-            ponerTextoProducto('revisionProductoTipo', textoSelectProducto('form_id_tipo_producto'));
+            ponerTextoProducto('revisionProductoTipo', textoSelectProducto('form_id_clasificacion_toxicologica'));
 
             if (document.getElementById('ingredienteProductoNombre')) {
                 document.getElementById('ingredienteProductoNombre').textContent = nombre;
@@ -2107,9 +2107,9 @@
                 document.getElementById('form_fabricante_temporal_descripcion').value = '';
             }
 
-            if (idSelect === 'form_id_tipo_producto') {
-                document.getElementById('form_tipo_producto_temporal_descripcion').value = '';
-                document.getElementById('form_tipo_producto_temporal_codigo').value = '';
+            if (idSelect === 'form_id_clasificacion_toxicologica') {
+                document.getElementById('form_clasificacion_toxicologica_temporal_descripcion').value = '';
+                document.getElementById('form_clasificacion_toxicologica_temporal_codigo').value = '';
             }
         }
 
@@ -2265,7 +2265,7 @@
             }
 
             const fabricanteNuevo = document.getElementById('form_id_fabricante')?.selectedOptions?.[0]?.dataset.temporal === '1';
-            const tipoNuevo = document.getElementById('form_id_tipo_producto')?.selectedOptions?.[0]?.dataset.temporal === '1';
+            const clasificacionToxicologicaNueva = document.getElementById('form_id_clasificacion_toxicologica')?.selectedOptions?.[0]?.dataset.temporal === '1';
             const ingredientes = gruposPorIndiceResumenProducto('ingredientes_productos');
             const presentaciones = gruposPorIndiceResumenProducto('presentaciones');
             const registros = gruposPorIndiceResumenProducto('registros');
@@ -2273,12 +2273,12 @@
             const datosProducto = [
                 itemResumenProducto('Codigo', valorResumenProducto('#form_codigo')),
                 itemResumenProducto('Nombre comercial', valorResumenProducto('#form_nombre_comercial')),
-                itemResumenProducto('Nombre cientifico', valorResumenProducto('#form_nombre_cientifico')),
-                itemResumenProducto('Clasificacion', textoSelectProducto('form_id_clasificacion_producto')),
+                itemResumenProducto('Nombre técnico', valorResumenProducto('#form_nombre_tecnico')),
+                itemResumenProducto('Clasificación química', textoSelectProducto('form_id_clasificacion_quimica')),
                 itemResumenProducto('Importador', textoSelectProducto('form_id_importador_persona')),
                 itemResumenProducto('Pais / territorio', textoSelectProducto('form_id_territorio_pais')),
                 itemResumenProducto('Fabricante', textoSelectProducto('form_id_fabricante')),
-                itemResumenProducto('Tipo de producto', textoSelectProducto('form_id_tipo_producto')),
+                itemResumenProducto('Clasificación toxicológica', textoSelectProducto('form_id_clasificacion_toxicologica')),
                 itemResumenProducto('Estado del producto', valorResumenProducto('#form_estado')),
             ];
 
@@ -2288,9 +2288,9 @@
                 datosProducto.push(itemResumenProducto('Fabricante nuevo - descripcion', valorResumenProducto('#form_fabricante_temporal_descripcion'), true));
             }
 
-            if (tipoNuevo) {
-                datosProducto.push(itemResumenProducto('Tipo nuevo - descripcion', valorResumenProducto('#form_tipo_producto_temporal_descripcion')));
-                datosProducto.push(itemResumenProducto('Tipo nuevo - codigo', valorResumenProducto('#form_tipo_producto_temporal_codigo')));
+            if (clasificacionToxicologicaNueva) {
+                datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - descripción', valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion')));
+                datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - código', valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo')));
             }
 
             const filasIngredientes = Object.entries(ingredientes).map(([indice, ingrediente]) => [
@@ -2429,7 +2429,7 @@
                 });
             });
 
-            ['form_nombre_comercial', 'form_codigo', 'form_id_importador_persona', 'form_id_fabricante', 'form_id_tipo_producto'].forEach((
+            ['form_nombre_comercial', 'form_codigo', 'form_id_importador_persona', 'form_id_fabricante', 'form_id_clasificacion_toxicologica'].forEach((
                 id) => {
                 document.getElementById(id)?.addEventListener('input', () => {
                     filtrarPresentacionesCatalogoProducto();

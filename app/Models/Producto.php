@@ -14,11 +14,11 @@ class Producto extends Model
         'id_importador_persona',
         'id_territorio_pais',
         'id_fabricante',
-        'id_tipo_producto',
+        'id_clasificacion_toxicologica',
         'codigo',
         'nombre_comercial',
-        'nombre_cientifico',
-        'id_clasificacion_producto',
+        'nombre_tecnico',
+        'id_clasificacion_quimica',
         'estado',
     ];
     
@@ -35,16 +35,16 @@ class Producto extends Model
         return $this->belongsTo(Fabricante::class, 'id_fabricante');
     }     
     
-    // Relación muchos a uno (muchos productos pertenecen a un tipo de producto)
-    public function tipoProducto()
+    // Clasificación toxicológica asignada al producto.
+    public function clasificacionToxicologica()
     {
-        return $this->belongsTo(TipoProducto::class, 'id_tipo_producto');
+        return $this->belongsTo(ClasificacionToxicologica::class, 'id_clasificacion_toxicologica');
     }
 
-    // Relación muchos a uno (muchos productos pertenecen a una clasificación)
-    public function clasificacionProducto()
+    // Clasificación química asignada al producto.
+    public function clasificacionQuimica()
     {
-        return $this->belongsTo(ClasificacionProducto::class, 'id_clasificacion_producto');
+        return $this->belongsTo(ClasificacionQuimica::class, 'id_clasificacion_quimica');
     }
     
     // Relación muchos a uno (muchos productos pertenecen a una persona que es el importador)
@@ -91,12 +91,3 @@ class Producto extends Model
             ->wherePivotNull('deleted_at');
     }
 }
-
-/*
-belongsToMany(
-    ModeloRelacionado,
-    tabla_pivote,
-    fk_modelo_actual,
-    fk_modelo_relacionado
-)
-*/

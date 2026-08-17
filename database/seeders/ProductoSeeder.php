@@ -17,16 +17,16 @@ class ProductoSeeder extends Seeder
         foreach ([
             1 => [1, 'PROD-SPM-001', 1, 1, 'SPIROMAT', 'Pralletrina + Permetrina', 1, 1],
             2 => [1, 'PROD-SAP-002', 1, 2, 'SAPOLIO INSECTICIDA MATA TODO', 'Imidacloprid', 1, 1],
-        ] as $id => [$importador, $codigo, $territorio, $fabricante, $comercial, $cientifico, $clasificacion, $tipo]) {
+        ] as $id => [$importador, $codigo, $territorio, $fabricante, $comercial, $nombreTecnico, $clasificacionQuimica, $clasificacionToxicologica]) {
             $this->guardar('productos', $id, [
                 'id_importador_persona' => $importador,
                 'codigo' => $codigo,
                 'id_territorio_pais' => $territorio,
                 'id_fabricante' => $fabricante,
                 'nombre_comercial' => $comercial,
-                'nombre_cientifico' => $cientifico,
-                'id_clasificacion_producto' => $clasificacion,
-                'id_tipo_producto' => $tipo,
+                'nombre_tecnico' => $nombreTecnico,
+                'id_clasificacion_quimica' => $clasificacionQuimica,
+                'id_clasificacion_toxicologica' => $clasificacionToxicologica,
                 'estado' => 'ACTIVO',
             ]);
         }

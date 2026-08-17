@@ -846,7 +846,7 @@
                                             <td>
                                                 <strong>{{ $registro->codigo_autorizacion ?? 'Sin registro' }}</strong>
                                                 <span class="block text-xs text-slate-500">
-                                                    {{ $registro->producto?->tipoProducto?->descripcion ?? 'Sin tipo' }}
+                                                    {{ $registro->producto?->clasificacionToxicologica?->descripcion ?? 'Sin clasificación toxicológica' }}
                                                 </span>
                                             </td>
                                             <td>

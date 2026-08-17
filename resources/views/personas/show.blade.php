@@ -1076,13 +1076,13 @@
                                         <td>
                                             <span class="persona-o3-strong">{{ $producto->nombre_comercial ?: 'Sin nombre comercial' }}</span>
                                             <span class="persona-o3-muted">Codigo: {{ $producto->codigo ?: 'Sin codigo' }}</span>
-                                            <span class="persona-o3-muted">Cientifico: {{ $producto->nombre_cientifico ?: 'Sin dato' }}</span>
+                                            <span class="persona-o3-muted">Nombre técnico: {{ $producto->nombre_tecnico ?: 'Sin dato' }}</span>
                                             <span class="persona-o3-muted">Pais: {{ $producto->territorio?->nombre ?? 'Sin pais' }}</span>
                                         </td>
                                         <td>
-                                            {{ $producto->tipoProducto?->descripcion ?? 'Sin tipo' }}
+                                            {{ $producto->clasificacionToxicologica?->descripcion ?? 'Sin clasificación toxicológica' }}
                                             <span class="persona-o3-muted">Fabricante: {{ $producto->fabricante?->nombre ?? 'Sin fabricante' }}</span>
-                                            <span class="persona-o3-muted">Clasificacion: {{ $producto->clasificacionProducto?->nombre ?: 'Sin clasificacion' }}</span>
+                                            <span class="persona-o3-muted">Clasificación química: {{ $producto->clasificacionQuimica?->nombre ?: 'Sin clasificación química' }}</span>
                                         </td>
                                         <td>{{ $ingredientesTexto ?: 'Sin ingredientes' }}</td>
                                         <td>

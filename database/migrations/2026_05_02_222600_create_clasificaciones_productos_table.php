@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('clasificaciones_productos', function (Blueprint $table) {
+        Schema::create('clasificaciones_quimicas', function (Blueprint $table) {
             $table->id();
             $table->string('nombre', 255);
             $table->text('descripcion')->nullable();
@@ -19,7 +19,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique('nombre', 'clasificaciones_productos_nombre_unique');
+            $table->unique('nombre', 'clasificaciones_quimicas_nombre_unique');
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('clasificaciones_productos');
+        Schema::dropIfExists('clasificaciones_quimicas');
     }
 };

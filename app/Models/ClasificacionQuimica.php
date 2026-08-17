@@ -6,11 +6,11 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ClasificacionProducto extends Model
+class ClasificacionQuimica extends Model
 {
     use SoftDeletes, Auditable;
 
-    protected $table = 'clasificaciones_productos';
+    protected $table = 'clasificaciones_quimicas';
 
     protected $fillable = [
         'nombre',
@@ -18,9 +18,9 @@ class ClasificacionProducto extends Model
         'estado',
     ];
 
-    // Relación uno a muchos (una clasificación puede pertenecer a muchos productos)
+    // Productos asociados a esta clasificación química.
     public function productos()
     {
-        return $this->hasMany(Producto::class, 'id_clasificacion_producto');
+        return $this->hasMany(Producto::class, 'id_clasificacion_quimica');
     }
 }

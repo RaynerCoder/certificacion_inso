@@ -24,7 +24,7 @@ class ProductoTable extends DataTableComponent
                 'importadorPersona.empresa',
                 'importadorPersona.natural',
                 'fabricante',
-                'tipoProducto',
+                'clasificacionToxicologica',
             ]);
     }
 
@@ -38,7 +38,7 @@ class ProductoTable extends DataTableComponent
             // En la base se guardan IDs; aqui se muestran nombres para que la tabla sea clara.
             $this->columnaImportador(),
             $this->columnaFabricante(),
-            $this->columnaTipoProducto(),
+            $this->columnaClasificacionToxicologica(),
 
             $this->columnaEstado(),
             $this->columnaAcciones(),
@@ -68,12 +68,12 @@ class ProductoTable extends DataTableComponent
             ->sortable();
     }
 
-    private function columnaTipoProducto(): Column
+    private function columnaClasificacionToxicologica(): Column
     {
-        return Column::make('Tipo producto', 'id_tipo_producto')
-            ->format(fn ($valor, $producto) => $producto->tipoProducto?->descripcion ?: 'Sin tipo')
+        return Column::make('Clasificación toxicológica', 'id_clasificacion_toxicologica')
+            ->format(fn ($valor, $producto) => $producto->clasificacionToxicologica?->descripcion ?: 'Sin clasificación toxicológica')
             ->searchable(function (Builder $query, string $search) {
-                $query->orWhereHas('tipoProducto', function (Builder $consulta) use ($search) {
+                $query->orWhereHas('clasificacionToxicologica', function (Builder $consulta) use ($search) {
                     $consulta->where('descripcion', 'like', '%' . $search . '%')
                         ->orWhere('codigo', 'like', '%' . $search . '%');
                 });

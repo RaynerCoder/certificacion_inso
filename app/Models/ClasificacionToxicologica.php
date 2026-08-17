@@ -6,11 +6,11 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class TipoProducto extends Model
+class ClasificacionToxicologica extends Model
 {
     use SoftDeletes, Auditable;
 
-    protected $table = 'tipos_productos';
+    protected $table = 'clasificaciones_toxicologicas';
 
     protected $fillable = [
         'descripcion',
@@ -18,9 +18,9 @@ class TipoProducto extends Model
         'estado',
     ];
 
-    // Relación uno a muchos (un tipo de producto esta relacionado con muchos productos)
+    // Productos asociados a esta clasificación toxicológica.
     public function productos()
     {
-        return $this->hasMany(Producto::class, 'id_tipo_producto');
+        return $this->hasMany(Producto::class, 'id_clasificacion_toxicologica');
     }
 }

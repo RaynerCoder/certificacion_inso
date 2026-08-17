@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tipos_productos', function (Blueprint $table) {
+        Schema::create('clasificaciones_toxicologicas', function (Blueprint $table) {
             $table->id();
 
             $table->text('descripcion')->nullable();
@@ -33,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tipos_productos');
+        Schema::dropIfExists('clasificaciones_toxicologicas');
     }
 };

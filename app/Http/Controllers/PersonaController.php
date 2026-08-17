@@ -1051,7 +1051,7 @@ class PersonaController extends Controller
             'usuario.roles',
             // Carga productos cuando la persona actua como importador.
             // Esto ayuda a que el boton Ver muestre tambien la informacion relacionada del modulo productos.
-            'productos.tipoProducto',
+            'productos.clasificacionToxicologica',
             'productos.fabricante',
             'productos.territorio',
             'productos.ingredientes',

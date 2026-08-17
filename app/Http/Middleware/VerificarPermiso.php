@@ -103,7 +103,7 @@ class VerificarPermiso
             'certificados_emitir' => 'certificados.emitir',
             'certificados_' => 'certificados.ver',
             'fabricantes_' => 'fabricantes.ver',
-            'tipos_productos_' => 'tipos_productos.ver',
+            'clasificaciones_toxicologicas_' => 'clasificaciones_toxicologicas.ver',
             'ingredientes_' => 'ingredientes.ver',
             'productos_' => 'productos.ver',
             'presentaciones_' => 'presentaciones.ver',

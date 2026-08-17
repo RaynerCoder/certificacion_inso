@@ -40,7 +40,7 @@ class PermisoSeeder extends Seeder
             23 => 'tipos_evidencias.ver',
             24 => 'plantillas_certificados.ver',
             25 => 'fabricantes.ver',
-            26 => 'tipos_productos.ver',
+            26 => 'clasificaciones_toxicologicas.ver',
             27 => 'ingredientes.ver',
             28 => 'presentaciones.ver',
             29 => 'registros.ver',

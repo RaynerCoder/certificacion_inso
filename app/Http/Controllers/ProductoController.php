@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatalogoMedida;
-use App\Models\ClasificacionProducto;
+use App\Models\ClasificacionQuimica;
+use App\Models\ClasificacionToxicologica;
 use App\Models\IngredienteProducto;
 use App\Models\Certificado;
 use App\Models\Fabricante;
@@ -11,7 +12,6 @@ use App\Models\Ingrediente;
 use App\Models\Presentacion;
 use App\Models\Producto;
 use App\Models\Registro;
-use App\Models\TipoProducto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -60,19 +60,25 @@ class ProductoController extends Controller
              * Aqui se resuelven antes de guardar productos para mantener las relaciones limpias.
              */
             $idFabricante = $this->resolverFabricante($request, $datos['form_id_fabricante']);
-            $idTipoProducto = $this->resolverTipoProducto($request, $datos['form_id_tipo_producto']);
-            $idClasificacion = $this->resolverClasificacionProducto($request, $datos['form_id_clasificacion_producto'] ?? null);
+            $idClasificacionToxicologica = $this->resolverClasificacionToxicologica(
+                $request,
+                $datos['form_id_clasificacion_toxicologica'],
+            );
+            $idClasificacionQuimica = $this->resolverClasificacionQuimica(
+                $request,
+                $datos['form_id_clasificacion_quimica'] ?? null,
+            );
 
             // Primero se guarda productos porque las demas tablas dependen de su id.
             $producto = Producto::create([
                 'id_importador_persona' => $datos['form_id_importador_persona'],
                 'id_territorio_pais' => $datos['form_id_territorio_pais'],
                 'id_fabricante' => $idFabricante,
-                'id_tipo_producto' => $idTipoProducto,
+                'id_clasificacion_toxicologica' => $idClasificacionToxicologica,
                 'codigo' => $datos['form_codigo'],
                 'nombre_comercial' => $datos['form_nombre_comercial'],
-                'nombre_cientifico' => $datos['form_nombre_cientifico'] ?? null,
-                'id_clasificacion_producto' => $idClasificacion,
+                'nombre_tecnico' => $datos['form_nombre_tecnico'] ?? null,
+                'id_clasificacion_quimica' => $idClasificacionQuimica,
                 'estado' => $datos['form_estado'],
             ]);
 
@@ -196,20 +202,20 @@ class ProductoController extends Controller
             [
                 'form_codigo' => ['required', 'string', 'max:150'],
                 'form_nombre_comercial' => ['required', 'string', 'max:255'],
-                'form_nombre_cientifico' => ['nullable', 'string', 'max:255'],
-                'form_id_clasificacion_producto' => ['nullable', 'string', 'max:50'],
+                'form_nombre_tecnico' => ['nullable', 'string', 'max:255'],
+                'form_id_clasificacion_quimica' => ['nullable', 'string', 'max:50'],
                 'form_id_importador_persona' => ['required', 'integer', 'exists:personas,id'],
                 'form_id_territorio_pais' => ['required', 'integer', 'exists:territorios,id'],
                 'form_id_fabricante' => ['required', 'string', 'max:50'],
-                'form_id_tipo_producto' => ['required', 'string', 'max:50'],
+                'form_id_clasificacion_toxicologica' => ['required', 'string', 'max:50'],
                 'form_estado' => ['required', 'in:ACTIVO,INACTIVO'],
                 'form_fabricante_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_fabricante_temporal_razon_social' => ['nullable', 'string', 'max:255'],
                 'form_fabricante_temporal_descripcion' => ['nullable', 'string'],
-                'form_tipo_producto_temporal_descripcion' => ['nullable', 'string', 'max:255'],
-                'form_tipo_producto_temporal_codigo' => ['nullable', 'string', 'max:150'],
-                'form_clasificacion_temporal_nombre' => ['nullable', 'string', 'max:255'],
-                'form_clasificacion_temporal_descripcion' => ['nullable', 'string'],
+                'form_clasificacion_toxicologica_temporal_descripcion' => ['nullable', 'string', 'max:255'],
+                'form_clasificacion_toxicologica_temporal_codigo' => ['nullable', 'string', 'max:150'],
+                'form_clasificacion_quimica_temporal_nombre' => ['nullable', 'string', 'max:255'],
+                'form_clasificacion_quimica_temporal_descripcion' => ['nullable', 'string'],
                 'form_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
                 'form_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
@@ -258,7 +264,7 @@ class ProductoController extends Controller
                 'form_id_importador_persona' => 'importador',
                 'form_id_territorio_pais' => 'pais',
                 'form_id_fabricante' => 'fabricante',
-                'form_id_tipo_producto' => 'tipo de producto',
+                'form_id_clasificacion_toxicologica' => 'clasificación toxicológica',
                 'ingredientes_productos.*.id_ingrediente' => 'ingrediente',
                 'ingredientes_productos.*.porcentaje' => 'porcentaje',
                 'presentaciones.*.cantidad' => 'cantidad',
@@ -294,15 +300,15 @@ class ProductoController extends Controller
                 }
             }
 
-            if ($request->filled('form_id_tipo_producto') && !$this->esIdExistente($request->input('form_id_tipo_producto'), TipoProducto::class)) {
-                if (!$this->esTemporal($request->input('form_id_tipo_producto')) || !$request->filled('form_tipo_producto_temporal_descripcion')) {
-                    $validador->errors()->add('form_id_tipo_producto', 'Seleccione un tipo de producto valido o registre uno nuevo.');
+            if ($request->filled('form_id_clasificacion_toxicologica') && !$this->esIdExistente($request->input('form_id_clasificacion_toxicologica'), ClasificacionToxicologica::class)) {
+                if (!$this->esTemporal($request->input('form_id_clasificacion_toxicologica')) || !$request->filled('form_clasificacion_toxicologica_temporal_descripcion')) {
+                    $validador->errors()->add('form_id_clasificacion_toxicologica', 'Seleccione una clasificación toxicológica válida o registre una nueva.');
                 }
             }
 
-            if ($request->filled('form_id_clasificacion_producto') && !$this->esIdExistente($request->input('form_id_clasificacion_producto'), ClasificacionProducto::class)) {
-                if (!$this->esTemporal($request->input('form_id_clasificacion_producto')) || !$request->filled('form_clasificacion_temporal_nombre')) {
-                    $validador->errors()->add('form_id_clasificacion_producto', 'Seleccione una clasificación válida o registre una nueva.');
+            if ($request->filled('form_id_clasificacion_quimica') && !$this->esIdExistente($request->input('form_id_clasificacion_quimica'), ClasificacionQuimica::class)) {
+                if (!$this->esTemporal($request->input('form_id_clasificacion_quimica')) || !$request->filled('form_clasificacion_quimica_temporal_nombre')) {
+                    $validador->errors()->add('form_id_clasificacion_quimica', 'Seleccione una clasificación química válida o registre una nueva.');
                 }
             }
             $presentaciones = $request->input('presentaciones', []);
@@ -509,33 +515,33 @@ class ProductoController extends Controller
         return $fabricante->id;
     }
 
-    // Devuelve el id de tipo existente o crea el nuevo tipo de producto temporal.
-    private function resolverTipoProducto(Request $request, string $valor): int
+    // Devuelve la clasificación toxicológica existente o crea la opción temporal.
+    private function resolverClasificacionToxicologica(Request $request, string $valor): int
     {
         if (ctype_digit($valor)) {
             return (int) $valor;
         }
 
-        $codigo = $request->input('form_tipo_producto_temporal_codigo') ?: null;
+        $codigo = $request->input('form_clasificacion_toxicologica_temporal_codigo') ?: null;
 
         if ($codigo) {
-            $tipoProducto = TipoProducto::firstOrCreate(
+            $clasificacionToxicologica = ClasificacionToxicologica::firstOrCreate(
                 ['codigo' => $codigo],
                 [
-                    'descripcion' => $request->input('form_tipo_producto_temporal_descripcion'),
+                    'descripcion' => $request->input('form_clasificacion_toxicologica_temporal_descripcion'),
                     'estado' => 'ACTIVO',
                 ],
             );
 
-            return $tipoProducto->id;
+            return $clasificacionToxicologica->id;
         }
 
-        $tipoProducto = TipoProducto::create([
-            'descripcion' => $request->input('form_tipo_producto_temporal_descripcion'),
+        $clasificacionToxicologica = ClasificacionToxicologica::create([
+            'descripcion' => $request->input('form_clasificacion_toxicologica_temporal_descripcion'),
             'estado' => 'ACTIVO',
         ]);
 
-        return $tipoProducto->id;
+        return $clasificacionToxicologica->id;
     }
 
     private function catalogoUnidadValido(Request $request, $valor): bool
@@ -571,7 +577,7 @@ class ProductoController extends Controller
             ->exists();
     }
 
-    private function resolverClasificacionProducto(Request $request, $valor): ?int
+    private function resolverClasificacionQuimica(Request $request, $valor): ?int
     {
         if (blank($valor)) {
             return null;
@@ -581,23 +587,23 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $clasificacion = ClasificacionProducto::withTrashed()->firstOrNew(
-            ['nombre' => trim((string) $request->input('form_clasificacion_temporal_nombre'))],
+        $clasificacionQuimica = ClasificacionQuimica::withTrashed()->firstOrNew(
+            ['nombre' => trim((string) $request->input('form_clasificacion_quimica_temporal_nombre'))],
         );
 
-        if (!$clasificacion->exists) {
-            $clasificacion->fill([
-                'descripcion' => $request->input('form_clasificacion_temporal_descripcion'),
+        if (!$clasificacionQuimica->exists) {
+            $clasificacionQuimica->fill([
+                'descripcion' => $request->input('form_clasificacion_quimica_temporal_descripcion'),
                 'estado' => 'ACTIVO',
             ]);
-            $clasificacion->save();
-        } elseif ($clasificacion->trashed()) {
-            $clasificacion->restore();
-            $clasificacion->estado = 'ACTIVO';
-            $clasificacion->save();
+            $clasificacionQuimica->save();
+        } elseif ($clasificacionQuimica->trashed()) {
+            $clasificacionQuimica->restore();
+            $clasificacionQuimica->estado = 'ACTIVO';
+            $clasificacionQuimica->save();
         }
 
-        return $clasificacion->id;
+        return $clasificacionQuimica->id;
     }
 
     private function resolverCatalogoUnidad(Request $request, $valor): int
