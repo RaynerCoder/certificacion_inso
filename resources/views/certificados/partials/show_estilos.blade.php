@@ -4125,9 +4125,18 @@
         }
 
         .tramite-modal-panel-correction .cert-technical-dropdown {
+            border-radius: 0 0 9px 9px;
+            border-top: 0;
             box-shadow: none;
-            margin-top: 2px;
+            margin-top: 0;
             position: static;
+        }
+
+        .tramite-modal-panel-correction .cert-technical-search-control {
+            border: 1px solid #cbd5e1;
+            border-radius: 9px 9px 0 0;
+            min-height: 48px;
+            padding: 8px 11px;
         }
 
         .tramite-modal-panel-correction .cert-technical-search input:focus,

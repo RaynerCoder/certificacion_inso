@@ -674,26 +674,43 @@
                 const input = selector.querySelector('[data-correction-recipient-value]');
                 const boton = selector.querySelector('[data-correction-recipient-toggle]');
                 const menu = selector.querySelector('[data-correction-recipient-menu]');
+                const controlBusqueda = selector.querySelector('[data-correction-recipient-search-control]');
                 const buscador = selector.querySelector('[data-correction-recipient-search]');
                 const nombre = selector.querySelector('[data-correction-recipient-name]');
                 const tipo = selector.querySelector('[data-correction-recipient-type]');
                 const opciones = Array.from(selector.querySelectorAll('[data-correction-recipient-option]'));
                 const mensajeVacio = selector.querySelector('[data-correction-recipient-empty]');
 
-                if (!input || !boton || !menu || !buscador) return;
+                if (!input || !boton || !menu || !controlBusqueda || !buscador) return;
+
+                const filtrarOpciones = () => {
+                    const criterio = buscador.value.trim().toLocaleLowerCase();
+                    let visibles = 0;
+
+                    opciones.forEach((opcion) => {
+                        const mostrar = (opcion.dataset.busqueda || '').includes(criterio);
+                        opcion.hidden = !mostrar;
+                        visibles += mostrar ? 1 : 0;
+                    });
+
+                    mensajeVacio?.classList.toggle('is-hidden', visibles > 0);
+                };
 
                 const cerrarMenu = () => {
                     menu.hidden = true;
+                    controlBusqueda.hidden = true;
+                    boton.hidden = false;
                     boton.setAttribute('aria-expanded', 'false');
+                    buscador.value = '';
+                    filtrarOpciones();
                 };
 
                 boton.addEventListener('click', () => {
-                    menu.hidden = !menu.hidden;
-                    boton.setAttribute('aria-expanded', String(!menu.hidden));
-
-                    if (!menu.hidden) {
-                        buscador.focus();
-                    }
+                    boton.hidden = true;
+                    controlBusqueda.hidden = false;
+                    menu.hidden = false;
+                    boton.setAttribute('aria-expanded', 'true');
+                    buscador.focus();
                 });
 
                 opciones.forEach((opcion) => {
@@ -705,17 +722,12 @@
                     });
                 });
 
-                buscador.addEventListener('input', () => {
-                    const criterio = buscador.value.trim().toLocaleLowerCase();
-                    let visibles = 0;
-
-                    opciones.forEach((opcion) => {
-                        const mostrar = (opcion.dataset.busqueda || '').includes(criterio);
-                        opcion.hidden = !mostrar;
-                        visibles += mostrar ? 1 : 0;
-                    });
-
-                    mensajeVacio?.classList.toggle('is-hidden', visibles > 0);
+                buscador.addEventListener('input', filtrarOpciones);
+                buscador.addEventListener('keydown', (evento) => {
+                    if (evento.key === 'Escape') {
+                        cerrarMenu();
+                        boton.focus();
+                    }
                 });
             });
         });

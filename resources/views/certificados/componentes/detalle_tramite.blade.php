@@ -150,6 +150,10 @@
             return $fecha ? \Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y') : $fallback;
         };
 
+        $fechaHora = function ($fecha, string $fallback = 'Sin fecha') {
+            return $fecha ? \Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y H:i') : $fallback;
+        };
+
         // Muestra el texto legible del tipo de pago guardado en la base de datos.
         $textoTipoPago = function (?string $tipoPago) {
             return \App\Models\Pago::TIPOS_PAGOS[$tipoPago] ?? ($tipoPago ?: 'Sin tipo');
@@ -821,23 +825,23 @@
                                                 </span>
                                                 <i class="fa-solid fa-chevron-down cert-technical-chevron"></i>
                                             </button>
-                                            <div class="cert-technical-dropdown" data-correction-recipient-menu hidden>
-                                            <div class="cert-technical-search">
+                                            <div class="cert-technical-search cert-technical-search-control" data-correction-recipient-search-control hidden>
                                                 <i class="fa-solid fa-magnifying-glass"></i>
                                                 <input type="search" data-correction-recipient-search placeholder="Buscar representante legal o tramitador">
                                             </div>
-                                            <div class="cert-technical-options">
-                                                @foreach ($destinatariosCorreccion as $destinatario)
-                                                    <button type="button" class="cert-technical-option" data-correction-recipient-option
-                                                        data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
-                                                        data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
-                                                        <span class="cert-technical-option-icon">
-                                                            <i class="fa-solid {{ $destinatario['tipo'] === 'Representante legal' ? 'fa-user-tie' : 'fa-user-check' }}"></i>
-                                                        </span>
-                                                        <span class="cert-technical-option-main">
-                                                            <strong>{{ $destinatario['nombre'] }}</strong>
-                                                            <span>{{ $destinatario['tipo'] }}</span>
-                                                        </span>
+                                            <div class="cert-technical-dropdown" data-correction-recipient-menu hidden>
+                                                <div class="cert-technical-options">
+                                                    @foreach ($destinatariosCorreccion as $destinatario)
+                                                        <button type="button" class="cert-technical-option" data-correction-recipient-option
+                                                            data-value="{{ $destinatario['id'] }}" data-nombre="{{ $destinatario['nombre'] }}"
+                                                            data-tipo="{{ $destinatario['tipo'] }}" data-busqueda="{{ $destinatario['busqueda'] }}">
+                                                            <span class="cert-technical-option-icon">
+                                                                <i class="fa-solid {{ $destinatario['tipo'] === 'Representante legal' ? 'fa-user-tie' : 'fa-user-check' }}"></i>
+                                                            </span>
+                                                            <span class="cert-technical-option-main">
+                                                                <strong>{{ $destinatario['nombre'] }}</strong>
+                                                                <span>{{ $destinatario['tipo'] }}</span>
+                                                            </span>
                                                         </button>
                                                     @endforeach
                                                     <div class="cert-technical-empty is-hidden" data-correction-recipient-empty>No se encontraron resultados.</div>
@@ -1755,7 +1759,7 @@
                                             </div>
                                             <div>
                                                 <dt>Fecha de validación</dt>
-                                                <dd>{{ $fechaCorta($pago->fecha_validacion) }}</dd>
+                                                <dd>{{ $fechaHora($pago->fecha_validacion) }}</dd>
                                             </div>
                                             <div class="is-wide">
                                                 <dt>Cliente</dt>
