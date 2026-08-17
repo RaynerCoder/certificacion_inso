@@ -1732,6 +1732,14 @@
             width: 100%;
         }
 
+        /* Mantiene el foco del formulario de pago en el color principal del sistema. */
+        #modalRegistrarPagoTramite .cert-review-select:focus,
+        #modalRegistrarPagoTramite .cert-review-select:focus-visible {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, .12);
+            outline: none;
+        }
+
         .tramite-payment-pdf {
             align-items: center;
             border: 1px solid #e2e8f0;
