@@ -23,6 +23,11 @@ class SeguimientoTable extends DataTableComponent
     {
         $this->setPrimaryKey('id');
         $this->setTableName('seguimientos_' . $this->bandeja);
+
+        // En "Mis trámites" la solicitud recién enviada debe quedar al inicio de la lista.
+        if ($this->bandeja === 'enviadas') {
+            $this->setDefaultSort('created_at', 'desc');
+        }
     }
 
     /*
