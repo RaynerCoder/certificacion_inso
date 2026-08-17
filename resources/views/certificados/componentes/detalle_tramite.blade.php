@@ -1110,24 +1110,15 @@
                                                 <td>{{ $textoObservacionRequisito }}</td>
                                                 <td>
                                                     @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
-                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
-                                                            <i class="fa-regular fa-file-pdf"></i>
-                                                            Ver PDF
-                                                        </a>
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
                                                     @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
-                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
-                                                            <i class="fa-regular fa-image"></i>
-                                                            Ver imagen
-                                                        </a>
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver imagen</a>
                                                     @elseif ($comprobantePago)
-                                                        <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
-                                                            <i class="fa-solid fa-credit-card"></i>
-                                                            Ver comprobante
-                                                        </a>
+                                                        <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-latest-evidence-link">Ver PDF</a>
                                                     @elseif ($codigoEvidencia === 'TEXTO' && filled($evidenciaPrincipal?->valor))
                                                         <span class="cert-latest-evidence-text">{{ $evidenciaPrincipal->valor }}</span>
                                                     @else
-                                                        <span aria-label="Sin evidencia registrada">—</span>
+                                                        <span class="cert-latest-evidence-empty">Sin evidencia</span>
                                                     @endif
                                                 </td>
                                                 <td>

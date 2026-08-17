@@ -5258,6 +5258,21 @@
             overflow-wrap: anywhere;
         }
 
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link {
+            color: #047857;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-link:hover {
+            color: #065f46;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-empty {
+            color: #64748b;
+        }
+
         @media (min-width: 761px) and (max-width: 1180px) {
             .tramite-detail-v2 .tramite-summary-bar {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
