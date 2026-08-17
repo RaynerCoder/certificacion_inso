@@ -206,6 +206,12 @@
         padding: 18px 20px !important;
     }
 
+    /* Separación interna del formulario: evita que los campos y sus etiquetas se unan entre columnas. */
+    .producto-step-grid {
+        column-gap: 18px !important;
+        row-gap: 14px !important;
+    }
+
     .producto-step {
         display: none;
     }
@@ -1646,6 +1652,10 @@
         .producto-step>.producto-section>.grid,
         .producto-step>.producto-section>.space-y-5 {
             padding: 14px !important;
+        }
+
+        .producto-step-grid {
+            row-gap: 12px !important;
         }
 
         .producto-action-bar {
