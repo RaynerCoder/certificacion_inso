@@ -403,6 +403,10 @@ class SeguimientoController extends Controller
         if (! Schema::hasTable('notificaciones_tramites')) {
             return response()->json([
                 'total' => 0,
+                'resumen' => [
+                    'pendientes' => 0,
+                    'atendidas' => 0,
+                ],
                 'notificaciones' => [],
             ]);
         }
@@ -412,6 +416,9 @@ class SeguimientoController extends Controller
                 'usuarioEmisor.funcionario.cargos',
                 'usuarioEmisor.persona.empresa',
                 'usuarioEmisor.persona.natural',
+                'usuarioDestino.funcionario.cargos',
+                'usuarioDestino.persona.empresa',
+                'usuarioDestino.persona.natural',
                 'certificado.tipoCertificado',
                 'certificado.beneficiario.natural',
                 'certificado.beneficiario.empresa',
@@ -432,6 +439,9 @@ class SeguimientoController extends Controller
                 $presentacion = $notificacion->datosPresentacion();
                 $esSolicitante = $certificado
                     && $this->gestionTramitadores->usuarioPuedeConsultarTramite($request->user(), $certificado);
+                $estadoNotificacion = mb_strtoupper((string) $notificacion->estado);
+                $esAtendida = $estadoNotificacion === 'ATENDIDA';
+                $datosAtencion = $esAtendida ? $notificacion->datosAtencion() : null;
 
                 return [
                     'id' => $notificacion->id,
@@ -445,9 +455,22 @@ class SeguimientoController extends Controller
                         : $presentacion['solicitante'],
                     'etiqueta_relacion' => $esValidacionTramitador ? 'Solicitud' : 'Solicitante',
                     'tipo_solicitante' => $presentacion['tipo_solicitante'],
-                    'accion' => $esValidacionTramitador ? 'Ver tramitadores' : 'Atender solicitud',
+                    'estado_notificacion' => mb_strtolower($estadoNotificacion ?: 'ACTIVO'),
+                    'etiqueta_estado' => match ($estadoNotificacion) {
+                        'ATENDIDA' => 'Atendida',
+                        'VISTO' => 'Pendiente',
+                        default => 'Nueva',
+                    },
+                    'accion' => $esValidacionTramitador
+                        ? 'Ver tramitadores'
+                        : ($esAtendida ? 'Ver trámite' : 'Atender solicitud'),
                     'quien_envia' => $presentacion['enviado_por'],
                     'quien_envia_detalle' => $presentacion['actua_como'],
+                    'atendida_por' => $datosAtencion['nombre'] ?? null,
+                    'fecha_atencion' => $esAtendida
+                        ? ($notificacion->updated_at?->format('d/m/Y H:i') ?? 'Sin fecha')
+                        : null,
+                    'fecha_visto' => $notificacion->fecha_visto?->format('d/m/Y H:i'),
                     'url' => $esValidacionTramitador
                         ? route('tramitadores_index')
                         : ($certificado
@@ -466,6 +489,14 @@ class SeguimientoController extends Controller
                 ->whereNull('fecha_visto')
                 ->where('estado', 'ACTIVO')
                 ->count(),
+            'resumen' => [
+                'pendientes' => $notificaciones
+                    ->whereIn('estado_notificacion', ['activo', 'visto'])
+                    ->count(),
+                'atendidas' => $notificaciones
+                    ->where('estado_notificacion', 'atendida')
+                    ->count(),
+            ],
             'notificaciones' => $notificaciones,
         ]);
     }
@@ -482,7 +513,8 @@ class SeguimientoController extends Controller
             ->whereKey($notificacion)
             ->firstOrFail();
 
-        if (! $notificacion->fecha_visto) {
+        if (! $notificacion->fecha_visto
+            && mb_strtoupper((string) $notificacion->estado) !== 'ATENDIDA') {
             $notificacion->update([
                 'fecha_visto' => now(),
                 'estado' => 'VISTO',
@@ -596,6 +628,8 @@ class SeguimientoController extends Controller
                 'Tiene una solicitud pendiente para revision.'
             );
 
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
+
             DB::commit();
 
             session()->flash('swal', [
@@ -691,6 +725,8 @@ class SeguimientoController extends Controller
                     'Tramite derivado',
                     'Recibio una solicitud derivada para su revision.'
                 );
+
+                $this->marcarNotificacionesAtendidas((int) $seguimientoBloqueado->certificado->id);
             }
             DB::commit();
 
@@ -796,6 +832,8 @@ class SeguimientoController extends Controller
             // Guardar revision no cierra el tramite. El cierre se hace con el boton "Finalizar tramite".
             $certificado->update(['estado' => 'EN_REVISION']);
 
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
+
             DB::commit();
 
             session()->flash('swal', [
@@ -874,6 +912,8 @@ class SeguimientoController extends Controller
                 'id_usuario_siguiente' => null,
                 'estado' => 'FINALIZADO',
             ]);
+
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
 
             DB::commit();
 
@@ -970,6 +1010,8 @@ class SeguimientoController extends Controller
                 'Tramite observado',
                 'Tiene requisitos observados para corregir en el mismo tramite.'
             );
+
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
 
             DB::commit();
 
@@ -1087,6 +1129,8 @@ class SeguimientoController extends Controller
                 'Correccion recibida',
                 'La correccion presencial fue registrada y el tramite vuelve a revision tecnica.'
             );
+
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
 
             DB::commit();
 
@@ -1231,6 +1275,8 @@ class SeguimientoController extends Controller
                     'El solicitante envio documentos corregidos para nueva revision.'
                 );
             }
+
+            $this->marcarNotificacionesAtendidas((int) $certificado->id);
 
             DB::commit();
 
@@ -2445,6 +2491,40 @@ class SeguimientoController extends Controller
         }
 
         NotificacionTramite::create($datos);
+    }
+
+    // Una notificacion queda atendida solo despues de ejecutar una accion real sobre el tramite.
+    private function marcarNotificacionesAtendidas(int $idCertificado, ?int $idUsuario = null): void
+    {
+        if (! Schema::hasTable('notificaciones_tramites')) {
+            return;
+        }
+
+        $idUsuario = $idUsuario ?: auth()->id();
+
+        if (! $idUsuario) {
+            return;
+        }
+
+        $consulta = NotificacionTramite::query()
+            ->where('id_certificado', $idCertificado)
+            ->where('id_usuario_destino', $idUsuario)
+            ->whereIn('estado', ['ACTIVO', 'VISTO']);
+
+        // Si se atendio directamente desde la bandeja, tambien queda registrada como vista.
+        (clone $consulta)
+            ->whereNull('fecha_visto')
+            ->update([
+                'fecha_visto' => now(),
+                'id_usuario_modificacion' => $idUsuario,
+                'updated_at' => now(),
+            ]);
+
+        $consulta->update([
+            'estado' => 'ATENDIDA',
+            'id_usuario_modificacion' => $idUsuario,
+            'updated_at' => now(),
+        ]);
     }
 
     // Verifica que el tecnico actual pueda revisar esta etapa.

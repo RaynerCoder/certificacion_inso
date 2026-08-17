@@ -105,6 +105,21 @@ class NotificacionTramite extends Model
     }
 
     /**
+     * Identifica a la persona que atendio la notificacion.
+     * El destinatario es quien puede realizar la accion dentro del tramite.
+     */
+    public function datosAtencion(): array
+    {
+        $this->loadMissing(
+            'usuarioDestino.funcionario.cargos',
+            'usuarioDestino.persona.empresa',
+            'usuarioDestino.persona.natural'
+        );
+
+        return $this->datosRemitente($this->usuarioDestino);
+    }
+
+    /**
      * Obtiene el nombre y el cargo cuando el aviso fue generado por un usuario interno.
      */
     private function datosRemitente(?User $usuario): array

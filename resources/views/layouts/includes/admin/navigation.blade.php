@@ -132,6 +132,9 @@
                                 'usuarioEmisor.funcionario.cargos',
                                 'usuarioEmisor.persona.empresa',
                                 'usuarioEmisor.persona.natural',
+                                'usuarioDestino.funcionario.cargos',
+                                'usuarioDestino.persona.empresa',
+                                'usuarioDestino.persona.natural',
                                 'certificado.tipoCertificado',
                                 'certificado.beneficiario.natural',
                                 'certificado.beneficiario.empresa',
@@ -151,6 +154,16 @@
                             ->where('estado', 'ACTIVO')
                             ->count()
                         : 0;
+                    $notificacionesPendientes = $notificacionesTramites
+                        ->filter(fn ($notificacion) => in_array(
+                            mb_strtoupper((string) $notificacion->estado),
+                            ['ACTIVO', 'VISTO'],
+                            true
+                        ))
+                        ->count();
+                    $notificacionesAtendidas = $notificacionesTramites
+                        ->filter(fn ($notificacion) => mb_strtoupper((string) $notificacion->estado) === 'ATENDIDA')
+                        ->count();
 
                 @endphp
 
@@ -178,6 +191,9 @@
                                     <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-700">Trámite</span>
                                     <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Tramitador</span>
                                 </div>
+                                <span id="tramiteNotificationSummary" class="mt-1 block text-[11px] font-semibold text-slate-500">
+                                    {{ $notificacionesPendientes }} pendientes · {{ $notificacionesAtendidas }} atendidas
+                                </span>
                             </div>
                             <div class="cert-notification-actions flex shrink-0 items-center gap-2">
                                 <button type="button" id="btnLeerTodasTramites"
@@ -198,6 +214,16 @@
                                     $certificadoNotificacion = $notificacion->certificado;
                                     $esValidacionTramitador = ! $certificadoNotificacion;
                                     $presentacionNotificacion = $notificacion->datosPresentacion();
+                                    $estadoNotificacion = mb_strtoupper((string) $notificacion->estado);
+                                    $esNotificacionAtendida = $estadoNotificacion === 'ATENDIDA';
+                                    $datosAtencionNotificacion = $esNotificacionAtendida
+                                        ? $notificacion->datosAtencion()
+                                        : null;
+                                    $etiquetaEstadoNotificacion = match ($estadoNotificacion) {
+                                        'ATENDIDA' => 'Atendida',
+                                        'VISTO' => 'Pendiente',
+                                        default => 'Nueva',
+                                    };
 
                                     // El boton abre el detalle correcto segun quien recibe la notificacion.
                                     // Solicitante/tramitador no debe ir a la bandeja interna de atencion.
@@ -216,19 +242,37 @@
                                         ])
                                         : ($esNotificacionSolicitante ? route('seguimientos_mis_tramites_beneficiario') : route('seguimientos_index')));
                                     $fechaNotificacion = $notificacion->created_at?->format('d/m/Y H:i') ?? 'Sin fecha';
-                                    $claseNotificacion = $esValidacionTramitador
-                                        ? 'notificacion-tramitador'
-                                        : 'border-l-4 border-l-green-500 bg-green-50/70';
-                                    $claseBotonNotificacion = $esValidacionTramitador
-                                        ? 'bg-blue-600 hover:bg-blue-700'
-                                        : 'bg-green-600 hover:bg-green-700';
+                                    $claseEstadoNotificacion = match ($estadoNotificacion) {
+                                        'ATENDIDA' => 'notificacion-atendida',
+                                        'VISTO' => 'notificacion-pendiente',
+                                        default => 'notificacion-nueva',
+                                    };
+                                    $claseNotificacion = trim(($esValidacionTramitador ? 'notificacion-tramitador ' : '').$claseEstadoNotificacion);
+                                    $claseBotonNotificacion = $esNotificacionAtendida
+                                        ? 'notificacion-boton-atendida'
+                                        : ($esValidacionTramitador
+                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                            : 'bg-green-600 hover:bg-green-700 text-white');
+                                    $claseChipEstadoNotificacion = match ($estadoNotificacion) {
+                                        'ATENDIDA' => 'bg-emerald-100 text-emerald-700',
+                                        'VISTO' => 'bg-amber-100 text-amber-700',
+                                        default => 'bg-green-100 text-green-700',
+                                    };
                                 @endphp
                                 <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 {{ $claseNotificacion }}"
                                     data-id="{{ $notificacion->id }}"
                                     data-url="{{ $urlNotificacionTramite }}">
-                                    <strong class="block text-sm font-black text-slate-800">
-                                        {{ $notificacion->titulo }}
-                                    </strong>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <strong class="min-w-0 text-sm font-black text-slate-800">
+                                            {{ $notificacion->titulo }}
+                                        </strong>
+                                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold {{ $claseChipEstadoNotificacion }}">
+                                            @if ($esNotificacionAtendida)
+                                                <i class="fa-solid fa-check mr-1" aria-hidden="true"></i>
+                                            @endif
+                                            {{ $etiquetaEstadoNotificacion }}
+                                        </span>
+                                    </div>
                                     @if ($esValidacionTramitador)
                                         <p class="mt-1 text-xs font-semibold text-slate-600">Validación de tramitador</p>
                                         <p class="text-xs text-slate-500">{{ $notificacion->mensaje }}</p>
@@ -244,17 +288,31 @@
                                             Solicitante: <span class="font-semibold text-slate-700">{{ $presentacionNotificacion['solicitante'] }}</span>
                                         </p>
                                     @endif
-                                    <p class="mt-1 text-xs font-semibold text-slate-600">
-                                        Fecha: {{ $fechaNotificacion }}
-                                    </p>
-                                    <p class="text-xs text-slate-500">
-                                        Envía: <span class="font-semibold text-slate-700">{{ $presentacionNotificacion['enviado_por'] }}</span>
-                                        <span class="block">Actúa como: {{ $presentacionNotificacion['actua_como'] }}</span>
-                                    </p>
+                                    @if ($esNotificacionAtendida)
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            Atendida por: <span class="font-semibold text-slate-700">{{ $datosAtencionNotificacion['nombre'] ?? 'Sin dato' }}</span>
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            Fecha de atención: {{ $notificacion->updated_at?->format('d/m/Y H:i') ?? 'Sin fecha' }}
+                                        </p>
+                                    @else
+                                        <p class="mt-1 text-xs font-semibold text-slate-600">
+                                            Fecha: {{ $fechaNotificacion }}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            Envía: <span class="font-semibold text-slate-700">{{ $presentacionNotificacion['enviado_por'] }}</span>
+                                            <span class="block">Actúa como: {{ $presentacionNotificacion['actua_como'] }}</span>
+                                        </p>
+                                        @if ($estadoNotificacion === 'VISTO' && $notificacion->fecha_visto)
+                                            <p class="mt-1 text-[11px] font-semibold text-amber-700">
+                                                Vista: {{ $notificacion->fecha_visto->format('d/m/Y H:i') }}
+                                            </p>
+                                        @endif
+                                    @endif
                                     <button type="button"
-                                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black text-white {{ $claseBotonNotificacion }}">
+                                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black {{ $claseBotonNotificacion }}">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                        {{ $esValidacionTramitador ? 'Ver tramitadores' : 'Atender solicitud' }}
+                                        {{ $esValidacionTramitador ? 'Ver tramitadores' : ($esNotificacionAtendida ? 'Ver trámite' : 'Atender solicitud') }}
                                     </button>
                                 </div>
                             @empty
@@ -400,6 +458,7 @@
         const panel = document.getElementById('tramiteNotificationPanel');
         const lista = document.getElementById('tramiteNotificationList');
         const badge = document.getElementById('tramiteNotificationBadge');
+        const resumen = document.getElementById('tramiteNotificationSummary');
         const botonLeerTodas = document.getElementById('btnLeerTodasTramites');
         const botonCerrar = document.getElementById('btnCerrarNotificaciones');
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -418,32 +477,57 @@
         function plantillaNotificacion(notificacion) {
             const referencia = [notificacion.codigo, notificacion.tipo].filter(Boolean).join(' - ');
             const esValidacionTramitador = notificacion.categoria === 'tramitador';
-            const claseNotificacion = esValidacionTramitador
-                ? 'notificacion-tramitador'
-                : 'border-l-4 border-l-green-500 bg-green-50/70';
-            const claseBoton = esValidacionTramitador
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-green-600 hover:bg-green-700';
+            const estado = String(notificacion.estado_notificacion || 'activo').toLowerCase();
+            const esAtendida = estado === 'atendida';
+            const claseEstado = estado === 'atendida'
+                ? 'notificacion-atendida'
+                : (estado === 'visto' ? 'notificacion-pendiente' : 'notificacion-nueva');
+            const claseNotificacion = `${esValidacionTramitador ? 'notificacion-tramitador ' : ''}${claseEstado}`;
+            const claseChip = estado === 'atendida'
+                ? 'bg-emerald-100 text-emerald-700'
+                : (estado === 'visto' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700');
+            const claseBoton = esAtendida
+                ? 'notificacion-boton-atendida'
+                : (esValidacionTramitador
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-green-600 hover:bg-green-700 text-white');
             const datosSolicitante = esValidacionTramitador
                 ? `<p class="text-xs text-slate-500">${escaparHtml(notificacion.etiqueta_relacion || 'Solicitud')}: ${escaparHtml(notificacion.beneficiario || 'Sin dato')}</p>`
                 : `
                     <p class="text-xs text-slate-500">Tipo: <span class="font-semibold text-slate-700">${escaparHtml(notificacion.tipo_solicitante || 'Sin dato')}</span></p>
                     <p class="text-xs text-slate-500">Solicitante: <span class="font-semibold text-slate-700">${escaparHtml(notificacion.beneficiario || 'Sin dato')}</span></p>
                 `;
-
-            return `
-                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 ${claseNotificacion}"
-                    data-id="${escaparHtml(notificacion.id)}" data-url="${escaparHtml(notificacion.url || caja.dataset.indexUrl)}">
-                    <strong class="block text-sm font-black text-slate-800">${escaparHtml(notificacion.titulo)}</strong>
-                    <p class="mt-1 text-xs font-semibold text-slate-600">${escaparHtml(referencia || 'Notificación')}</p>
-                    ${datosSolicitante}
+            const detalleEstado = esAtendida
+                ? `
+                    <p class="mt-1 text-xs text-slate-500">Atendida por: <span class="font-semibold text-slate-700">${escaparHtml(notificacion.atendida_por || 'Sin dato')}</span></p>
+                    <p class="text-xs text-slate-500">Fecha de atención: ${escaparHtml(notificacion.fecha_atencion || 'Sin fecha')}</p>
+                `
+                : `
                     <p class="mt-1 text-xs font-semibold text-slate-600">Fecha: ${escaparHtml(notificacion.fecha || 'Sin fecha')}</p>
                     <p class="text-xs text-slate-500">
                         Envía: <span class="font-semibold text-slate-700">${escaparHtml(notificacion.quien_envia || 'Sin remitente')}</span>
                         <span class="block">Actúa como: ${escaparHtml(notificacion.quien_envia_detalle || 'Sin dato')}</span>
                     </p>
+                    ${estado === 'visto' && notificacion.fecha_visto
+                        ? `<p class="mt-1 text-[11px] font-semibold text-amber-700">Vista: ${escaparHtml(notificacion.fecha_visto)}</p>`
+                        : ''}
+                `;
+
+            return `
+                <div class="tramite-notification-item border-b border-gray-100 px-4 py-3 ${claseNotificacion}"
+                    data-id="${escaparHtml(notificacion.id)}" data-url="${escaparHtml(notificacion.url || caja.dataset.indexUrl)}">
+                    <div class="flex items-start justify-between gap-2">
+                        <strong class="min-w-0 text-sm font-black text-slate-800">${escaparHtml(notificacion.titulo)}</strong>
+                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${claseChip}">
+                            ${esAtendida ? '<i class="fa-solid fa-check mr-1" aria-hidden="true"></i>' : ''}
+                            ${escaparHtml(notificacion.etiqueta_estado || 'Nueva')}
+                        </span>
+                    </div>
+                    <p class="mt-1 text-xs font-semibold text-slate-600">${escaparHtml(referencia || 'Notificación')}</p>
+                    ${datosSolicitante}
+                    ${detalleEstado}
                     <button type="button"
-                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black text-white ${claseBoton}">
+                        class="tramite-notification-open mt-2 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-black ${claseBoton}">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                         ${escaparHtml(notificacion.accion || 'Atender solicitud')}
                     </button>
@@ -466,6 +550,10 @@
             const datos = await respuesta.json();
             badge.textContent = datos.total;
             badge.classList.toggle('hidden', datos.total === 0);
+
+            if (resumen) {
+                resumen.textContent = `${datos.resumen?.pendientes ?? 0} pendientes · ${datos.resumen?.atendidas ?? 0} atendidas`;
+            }
 
             lista.innerHTML = datos.notificaciones.length
                 ? datos.notificaciones.map(plantillaNotificacion).join('')

@@ -210,7 +210,43 @@
     /* El borde azul permite reconocer de inmediato las solicitudes de tramitadores. */
     .tramite-notification-item.notificacion-tramitador {
         border-left: 4px solid #3b82f6;
-        background-color: rgba(239, 246, 255, .7);
+    }
+
+    /* El estado se reconoce sin depender solo del texto del boton. */
+    .tramite-notification-item.notificacion-nueva {
+        background-color: rgba(236, 253, 245, .72);
+    }
+
+    .tramite-notification-item.notificacion-nueva:not(.notificacion-tramitador) {
+        border-left: 4px solid #22c55e;
+    }
+
+    .tramite-notification-item.notificacion-pendiente {
+        background-color: #ffffff;
+    }
+
+    .tramite-notification-item.notificacion-pendiente:not(.notificacion-tramitador) {
+        border-left: 4px solid #f59e0b;
+    }
+
+    .tramite-notification-item.notificacion-atendida {
+        background-color: #f8fafc;
+    }
+
+    .tramite-notification-item.notificacion-atendida:not(.notificacion-tramitador) {
+        border-left: 4px solid #94a3b8;
+    }
+
+    .notificacion-boton-atendida {
+        border: 1px solid #cbd5e1;
+        background-color: #ffffff;
+        color: #475569;
+    }
+
+    .notificacion-boton-atendida:hover {
+        border-color: #94a3b8;
+        background-color: #f1f5f9;
+        color: #0f172a;
     }
 
     @media (max-width: 1024px) {
