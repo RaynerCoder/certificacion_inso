@@ -2042,6 +2042,29 @@
             min-width: 190px;
         }
 
+        /* Conserva el mismo aspecto del tipo de evidencia usado al iniciar el trámite. */
+        .cert-correction-evidence-chip {
+            align-items: center;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 999px;
+            color: #047857;
+            display: inline-flex;
+            font-size: 9px;
+            font-weight: 900;
+            gap: 5px;
+            line-height: 1;
+            max-width: 100%;
+            padding: 3px 7px;
+            text-decoration: none;
+            text-transform: uppercase;
+        }
+
+        a.cert-correction-evidence-chip:hover {
+            background: #dcfce7;
+            color: #047857;
+        }
+
         .cert-correction-upload {
             align-items: center;
             background: #f8fafc;
@@ -5350,7 +5373,7 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5)::before {
-                content: "Documento";
+                content: "Tipo de evidencia";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {

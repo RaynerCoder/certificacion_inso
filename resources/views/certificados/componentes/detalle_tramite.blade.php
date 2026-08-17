@@ -221,6 +221,14 @@
             return strtoupper((string) ($evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->codigo ?? 'SIN_EVIDENCIA'));
         };
 
+        // Nombre registrado en el catálogo para identificar el tipo solicitado en cada requisito.
+        $nombreEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
+            $tipoEvidencia = $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia;
+
+            return $tipoEvidencia?->nombre
+                ?: ($tipoEvidencia?->codigo ?: 'Sin tipo definido');
+        };
+
         $descripcionEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
             return $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->descripcion
                 ?: 'Sin descripción registrada.';
@@ -235,15 +243,6 @@
                 'TEXTO' => 'fa-regular fa-keyboard',
                 'PRESENCIAL' => 'fa-solid fa-person',
                 default => 'fa-regular fa-file',
-            };
-        };
-
-        $textoEvidenciaRequisito = function (string $codigo, bool $observado = false) {
-            return match (strtoupper($codigo)) {
-                'PDF' => $observado ? 'PDF observado' : 'Ver PDF',
-                'IMAGEN' => $observado ? 'Imagen observada' : 'Ver imagen',
-                'PAGO' => 'Ver comprobante',
-                default => 'Ver evidencia',
             };
         };
 
@@ -614,6 +613,7 @@
                                                     $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
                                                     $evidenciaPrincipal = $evidenciaPrincipalRequisito($requisitoCertificado);
                                                     $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                    $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                                     $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
                                                     $descripcionEvidencia = $descripcionEvidenciaRequisito($requisitoCertificado);
                                                     $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
@@ -646,7 +646,7 @@
                                                             <h3>{{ $tituloRequisito }}</h3>
                                                         </div>
                                                         <div class="review-detail-head-actions">
-                                                            <span class="review-evidence-chip">{{ $codigoEvidencia }}</span>
+                                                            <span class="review-evidence-chip">{{ $nombreEvidencia }}</span>
                                                             <span class="review-state is-{{ $decisionActual ? strtolower($decisionActual) : 'pending' }}" data-review-detail-state>
                                                                 <i class="{{ $decisionActual === 'SI' ? 'fa-regular fa-circle-check' : ($decisionActual === 'NO' ? 'fa-regular fa-circle-xmark' : 'fa-solid fa-circle') }}" aria-hidden="true"></i>
                                                                 <span>{{ $decisionActual === 'SI' ? 'Cumple' : ($decisionActual === 'NO' ? 'No cumple' : 'Pendiente') }}</span>
@@ -685,7 +685,7 @@
                                                                 @elseif ($esFilaPago && $tienePagoRegistrado)
                                                                     <div class="review-evidence-reference">
                                                                         <i class="{{ $iconoEvidencia }}"></i>
-                                                                        <span>Pago registrado sin comprobante adjunto.</span>
+                                                                        <span>{{ $nombreEvidencia }}</span>
                                                                     </div>
                                                                 @elseif ($esFilaPago && $puedeRegistrarPago)
                                                                     <button type="button" class="review-evidence-reference is-action" data-open-payment-modal>
@@ -698,13 +698,12 @@
                                                                 @elseif ($documentoRequisito)
                                                                     <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="review-evidence-reference is-action">
                                                                         <i class="{{ $iconoEvidencia }}"></i>
-                                                                        <span>Evidencia registrada.</span>
-                                                                        <strong>{{ $textoEvidenciaRequisito($codigoEvidencia, $filaObservada) }}</strong>
+                                                                        <strong>{{ $nombreEvidencia }}</strong>
                                                                     </a>
                                                                 @else
                                                                     <div class="review-evidence-reference is-empty">
                                                                         <i class="{{ $iconoEvidencia }}"></i>
-                                                                        <span>Sin evidencia disponible.</span>
+                                                                        <span>{{ $nombreEvidencia }}</span>
                                                                     </div>
                                                                 @endif
                                                             </div>
@@ -907,6 +906,7 @@
                                                 @php
                                                     $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
                                                     $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                    $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                                     $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
                                                     $ultimaObservacionCorreccion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                     $evidenciaPrincipalCorreccion = $requisitoCertificado->evidenciasRequisitos->sortByDesc('id')->first();
@@ -928,12 +928,15 @@
                                                     <td>
                                                         <div class="cert-correction-document-cell">
                                                             @if ($documentoRequisito)
-                                                                <a href="{{ $documentoRequisito }}" target="_blank" class="cert-show-pill cert-show-pill-danger tramite-doc-link">
+                                                                <a href="{{ $documentoRequisito }}" target="_blank" class="cert-correction-evidence-chip tramite-doc-link" title="Abrir evidencia actual">
                                                                     <i class="{{ $iconoEvidencia }}"></i>
-                                                                    {{ $textoEvidenciaRequisito($codigoEvidencia, true) }}
+                                                                    {{ $nombreEvidencia }}
                                                                 </a>
                                                             @else
-                                                                <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin evidencia</span>
+                                                                <span class="cert-correction-evidence-chip">
+                                                                    <i class="{{ $iconoEvidencia }}"></i>
+                                                                    {{ $nombreEvidencia }}
+                                                                </span>
                                                             @endif
                                                         </div>
                                                     </td>
@@ -1055,7 +1058,7 @@
                                             <th>Requisito</th>
                                             <th class="cert-review-col-result">Cumple</th>
                                             <th>Estado</th>
-                                            <th>Documento</th>
+                                            <th>Tipo de evidencia</th>
                                             <th class="cert-review-col-observation">Observación</th>
                                             <th class="cert-review-col-history">Acción</th>
                                         </tr>
@@ -1063,13 +1066,8 @@
                                     <tbody>
                                         @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
                                             @php
-                                                $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
                                                 $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
-                                                $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
-                                                $comprobantePagoPrincipal = $pagoPrincipalTramite?->comprobante
-                                                    ? route('pagos_comprobante', $pagoPrincipalTramite)
-                                                    : null;
+                                                $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                                 $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                                 $observacionInterna = $esSolicitante && $requisitoCertificado->estado === 'REVISION_OBSERVADA';
                                                 $textoCumple = $observacionInterna || $requisitoCertificado->estado === 'PENDIENTE_REVISION'
@@ -1104,28 +1102,9 @@
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    @if ($esFilaPago && $tienePagoRegistrado)
-                                                        @if ($comprobantePagoPrincipal)
-                                                            <a href="{{ $comprobantePagoPrincipal }}" target="_blank" class="cert-show-pill cert-show-pill-ok tramite-doc-link">
-                                                                <i class="{{ $iconoEvidencia }}"></i>
-                                                                Ver comprobante
-                                                            </a>
-                                                        @else
-                                                            <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin comprobante</span>
-                                                        @endif
-                                                    @elseif ($esFilaPago && $puedeRegistrarPago)
-                                                        <button type="button" class="cert-show-pill cert-show-pill-warn tramite-payment-inline-btn" data-open-payment-modal>
-                                                            <i class="{{ $iconoEvidencia }}"></i>
-                                                            Registrar pago
-                                                        </button>
-                                                    @elseif ($documentoRequisito)
-                                                        <a href="{{ $documentoRequisito }}" target="_blank" class="cert-show-pill cert-show-pill-ok tramite-doc-link">
-                                                            <i class="{{ $iconoEvidencia }}"></i>
-                                                            {{ $textoEvidenciaRequisito($codigoEvidencia, $textoCumple === 'Observado') }}
-                                                        </a>
-                                                    @else
-                                                        <span class="cert-show-pill cert-show-pill-warn tramite-pill tramite-pill-warn">Sin evidencia</span>
-                                                    @endif
+                                                    <span class="review-evidence-chip" title="Código: {{ $codigoEvidencia }}">
+                                                        {{ $nombreEvidencia }}
+                                                    </span>
                                                 </td>
                                                 <td>{{ $textoObservacionRequisito }}</td>
                                                 <td>
