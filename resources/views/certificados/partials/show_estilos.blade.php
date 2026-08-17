@@ -5159,9 +5159,9 @@
             text-align: left;
         }
 
-        /* La consulta general muestra solo el resultado; la evidencia aparece durante la corrección. */
+        /* En seguimiento se identifica el tipo y se conserva el acceso al último respaldo disponible. */
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
-            min-width: 920px;
+            min-width: 1160px;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th {
@@ -5209,36 +5209,53 @@
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(2),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(2) {
-            width: 30%;
+            width: 24%;
             text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(3),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3) {
-            width: 105px;
-            text-align: center;
+            width: 145px;
+            text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(4),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(4) {
-            width: 150px;
+            width: 100px;
             text-align: center;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(5),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5) {
-            width: 28%;
-            text-align: left;
+            width: 140px;
+            text-align: center;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6) {
+            width: 20%;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7) {
+            width: 155px;
+            text-align: left;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(8),
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(8) {
             width: 86px;
             text-align: center;
         }
 
-        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6) {
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(8) {
             white-space: nowrap;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .cert-latest-evidence-text {
+            display: block;
+            overflow-wrap: anywhere;
         }
 
         @media (min-width: 761px) and (max-width: 1180px) {
@@ -5359,18 +5376,26 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3)::before {
-                content: "Cumple";
+                content: "Tipo de evidencia";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(4)::before {
-                content: "Estado";
+                content: "Cumple";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5)::before {
-                content: "Observación";
+                content: "Estado";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {
+                content: "Observación";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7)::before {
+                content: "Última evidencia";
+            }
+
+            .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(8)::before {
                 content: "Acción";
             }
 

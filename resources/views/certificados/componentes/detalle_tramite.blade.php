@@ -1048,9 +1048,11 @@
                                         <tr>
                                             <th class="cert-review-col-number">#</th>
                                             <th>Requisito</th>
+                                            <th>Tipo de evidencia</th>
                                             <th class="cert-review-col-result">Cumple</th>
                                             <th>Estado</th>
                                             <th class="cert-review-col-observation">Observación</th>
+                                            <th>Última evidencia</th>
                                             <th class="cert-review-col-history">Acción</th>
                                         </tr>
                                     </thead>
@@ -1058,6 +1060,15 @@
                                         @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
                                             @php
                                                 $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
+                                                $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
+                                                $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
+                                                $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
+                                                $evidenciaPrincipal = $evidenciaPrincipalRequisito($requisitoCertificado);
+                                                $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
+                                                $esEvidenciaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
+                                                $comprobantePago = $esEvidenciaPago && $pagoPrincipalTramite?->comprobante
+                                                    ? route('pagos_comprobante', $pagoPrincipalTramite)
+                                                    : null;
                                                 $observacionInterna = $esSolicitante && $requisitoCertificado->estado === 'REVISION_OBSERVADA';
                                                 $textoCumple = $observacionInterna || $requisitoCertificado->estado === 'PENDIENTE_REVISION'
                                                     ? 'Pendiente'
@@ -1081,6 +1092,12 @@
                                                 <td>{{ $loop->iteration }}</td>
                                                 <td>{{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}</td>
                                                 <td>
+                                                    <span class="cert-correction-evidence-chip">
+                                                        <i class="{{ $iconoEvidencia }}"></i>
+                                                        {{ $nombreEvidencia }}
+                                                    </span>
+                                                </td>
+                                                <td>
                                                     <span class="tramite-pill tramite-status-chip {{ $claseCumple }}">
                                                         {{ $textoCumpleCorto }}
                                                     </span>
@@ -1091,6 +1108,28 @@
                                                     </span>
                                                 </td>
                                                 <td>{{ $textoObservacionRequisito }}</td>
+                                                <td>
+                                                    @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
+                                                            <i class="fa-regular fa-file-pdf"></i>
+                                                            Ver PDF
+                                                        </a>
+                                                    @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
+                                                        <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
+                                                            <i class="fa-regular fa-image"></i>
+                                                            Ver imagen
+                                                        </a>
+                                                    @elseif ($comprobantePago)
+                                                        <a href="{{ $comprobantePago }}" target="_blank" rel="noopener" class="cert-show-pill cert-show-pill-ok">
+                                                            <i class="fa-solid fa-credit-card"></i>
+                                                            Ver comprobante
+                                                        </a>
+                                                    @elseif ($codigoEvidencia === 'TEXTO' && filled($evidenciaPrincipal?->valor))
+                                                        <span class="cert-latest-evidence-text">{{ $evidenciaPrincipal->valor }}</span>
+                                                    @else
+                                                        <span aria-label="Sin evidencia registrada">—</span>
+                                                    @endif
+                                                </td>
                                                 <td>
                                                     <button type="button"
                                                         class="cert-history-button"
@@ -1104,7 +1143,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="6" class="text-center">Este trámite no tiene requisitos registrados.</td>
+                                                <td colspan="8" class="text-center">Este trámite no tiene requisitos registrados.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
