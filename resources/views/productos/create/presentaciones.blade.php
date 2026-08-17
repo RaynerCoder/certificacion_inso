@@ -215,32 +215,37 @@
                 </div>
             </div>
 
-            <div class="producto-table-wrap overflow-x-auto rounded-lg border border-slate-200">
-                {{-- Presentaciones temporales reales que se enviaran al controlador.
-                    Se separan de la tabla para que varios registros puedan reutilizar la misma presentacion sin duplicarla. --}}
-                <div id="presentacionesOcultasProducto" class="hidden"></div>
+            <div class="producto-listado-presentaciones">
+                <div class="producto-inline-head is-teal">
+                    <strong>Presentaciones agregadas</strong>
+                </div>
 
-                <table class="producto-table producto-table-registros-presentaciones">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Producto</th>
-                            <th>
-                                <span class="producto-table-head-icon">
-                                    <i class="fa-solid fa-cube"></i>
-                                    Datos de presentacion
-                                </span>
-                            </th>
-                            <th>
-                                <span class="producto-table-head-icon">
-                                    <i class="fa-solid fa-shield-halved"></i>
-                                    Datos de registro
-                                </span>
-                            </th>
-                            <th>Accion</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaRegistrosPresentacionesProducto">
+                <div class="producto-table-wrap overflow-x-auto rounded-lg border border-slate-200">
+                    {{-- Presentaciones temporales reales que se enviaran al controlador.
+                        Se separan de la tabla para que varios registros puedan reutilizar la misma presentacion sin duplicarla. --}}
+                    <div id="presentacionesOcultasProducto" class="hidden"></div>
+
+                    <table class="producto-table producto-table-registros-presentaciones">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Producto</th>
+                                <th>
+                                    <span class="producto-table-head-icon">
+                                        <i class="fa-solid fa-cube"></i>
+                                        Datos de presentacion
+                                    </span>
+                                </th>
+                                <th>
+                                    <span class="producto-table-head-icon">
+                                        <i class="fa-solid fa-shield-halved"></i>
+                                        Datos de registro
+                                    </span>
+                                </th>
+                                <th>Accion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaRegistrosPresentacionesProducto">
                         @forelse ($registrosOld as $indice => $registroOld)
                             @php
                                 $indicePresentacion = $registroOld['id_presentacion_temporal'] ?? $indice;
@@ -436,8 +441,9 @@
                                 </td>
                             </tr>
                         @endforelse
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </section>

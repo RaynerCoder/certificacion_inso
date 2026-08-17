@@ -223,7 +223,7 @@
     .producto-step-compose {
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 20px;
         padding: 20px;
     }
 
@@ -238,8 +238,8 @@
     }
 
     .producto-form-panel-separated {
-        margin-top: 2px;
-        padding-top: 10px;
+        margin-top: 0;
+        padding-top: 18px;
         border-top: 1px solid #e2e8f0;
     }
 
@@ -252,8 +252,13 @@
         order: 2;
     }
 
-    .producto-step-compose>.producto-table-wrap {
+    .producto-listado-presentaciones {
         order: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-top: 18px;
+        border-top: 1px solid #e2e8f0;
     }
 
     .producto-registro-grid {
@@ -261,10 +266,7 @@
         grid-template-columns: repeat(12, minmax(0, 1fr));
         align-items: start;
         gap: 16px;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        background: #ffffff;
-        padding: 14px;
+        padding: 0;
     }
 
     .producto-registro-grid .md\:col-span-12 {
