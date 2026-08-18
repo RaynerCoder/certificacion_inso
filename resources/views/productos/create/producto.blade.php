@@ -90,7 +90,7 @@
                 <label class="producto-field-label" for="form_tipo_producto">Tipo de producto</label>
                 <input class="producto-input{{ $claseErrorProducto('form_tipo_producto') }}"
                     id="form_tipo_producto" name="form_tipo_producto" type="text"
-                    value="{{ old('form_tipo_producto') }}" placeholder="Ej: Herbicida">
+                    value="{{ old('form_tipo_producto') }}" placeholder="Ej: Plaguicida o Materia Prima" oninput="this.value = this.value.toUpperCase()">
                 @error('form_tipo_producto')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
