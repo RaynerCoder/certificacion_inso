@@ -220,73 +220,102 @@
         display: block;
     }
 
-    .producto-step-compose {
-        display: flex;
-        flex-direction: column;
+    /* Distribución principal del paso Registro y presentación. */
+    .producto-registro-presentacion {
+        container: producto-registro / inline-size;
+        display: grid;
         gap: 20px;
         padding: 20px;
+        background: #f8fafc;
     }
 
-    .producto-form-panel {
+    .producto-rp-layout {
+        display: grid;
+        grid-template-columns: minmax(650px, 1.55fr) minmax(320px, 0.75fr);
+        align-items: stretch;
+        gap: 20px;
+    }
+
+    .producto-rp-formularios {
+        display: grid;
+        gap: 20px;
+        min-width: 0;
+    }
+
+    .producto-rp-card {
+        min-width: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .producto-rp-card-head {
         display: flex;
-        flex-direction: column;
-        gap: 14px;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        padding: 0;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 16px;
     }
 
-    .producto-form-panel-separated {
-        margin-top: 0;
-        padding-top: 18px;
-        border-top: 1px solid #e2e8f0;
+    .producto-rp-card-head h3,
+    .producto-rp-listado-head h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 900;
+        line-height: 1.25;
     }
 
-    /* En este paso el registro antecede visualmente a la presentación, sin alterar los campos ni su guardado. */
-    .producto-panel-registro {
-        order: 1;
+    .producto-rp-card-head p,
+    .producto-rp-listado-head p {
+        margin: 3px 0 0;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.35;
     }
 
-    .producto-panel-presentacion {
-        order: 2;
-    }
-
-    .producto-listado-presentaciones {
-        order: 3;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding-top: 18px;
-        border-top: 1px solid #e2e8f0;
+    .producto-rp-card-number,
+    .producto-rp-card-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 900;
     }
 
     .producto-registro-grid {
         display: grid;
         grid-template-columns: repeat(12, minmax(0, 1fr));
         align-items: start;
-        gap: 16px;
+        column-gap: 18px;
+        row-gap: 16px;
         padding: 0;
     }
 
-    .producto-registro-grid .md\:col-span-12 {
+    .producto-registro-grid .md\:col-span-12,
+    .producto-registro-grid .producto-campo-catalogo {
         grid-column: 1 / -1;
     }
 
     .producto-registro-grid-presentacion .producto-campo-cantidad {
-        grid-column: span 2;
-    }
-
-    .producto-registro-grid-presentacion .producto-campo-unidad {
         grid-column: span 3;
     }
 
-    .producto-registro-grid-presentacion .producto-campo-estado {
-        grid-column: span 2;
+    .producto-registro-grid-presentacion .producto-campo-unidad {
+        grid-column: span 5;
     }
 
-    .producto-registro-grid-presentacion .producto-campo-etiqueta {
-        grid-column: span 5;
+    .producto-registro-grid-presentacion .producto-campo-estado {
+        grid-column: span 4;
     }
 
     .producto-registro-grid .producto-campo-descripcion,
@@ -294,28 +323,61 @@
         grid-column: 1 / -1;
     }
 
-    /* El registro tiene seis datos; catorce columnas permiten mantenerlos en una sola fila. */
+    /* El registro se divide en dos filas para conservar un ancho cómodo en cada control. */
     .producto-registro-grid-autorizacion {
-        grid-template-columns: repeat(14, minmax(0, 1fr));
+        grid-template-columns: repeat(12, minmax(0, 1fr));
     }
 
     .producto-registro-grid-autorizacion .producto-campo-codigo,
-    .producto-registro-grid-autorizacion .producto-campo-lote {
+    .producto-registro-grid-autorizacion .producto-campo-lote,
+    .producto-registro-grid-autorizacion .producto-campo-fecha {
+        grid-column: span 4;
+    }
+
+    .producto-registro-grid-autorizacion .producto-campo-cantidad {
         grid-column: span 3;
     }
 
-    .producto-registro-grid-autorizacion .producto-campo-fecha,
-    .producto-registro-grid-autorizacion .producto-campo-cantidad,
-    .producto-registro-grid-autorizacion .producto-campo-unidad,
+    .producto-registro-grid-autorizacion .producto-campo-unidad {
+        grid-column: span 5;
+    }
+
     .producto-registro-grid-autorizacion .producto-campo-estado {
-        grid-column: span 2;
+        grid-column: span 4;
     }
 
     .producto-campo-acciones {
         display: flex;
         align-items: flex-end;
         justify-content: flex-end;
-        min-height: 64px;
+        min-height: 44px;
+    }
+
+    .producto-field-label-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+
+    .producto-field-label-row .producto-field-label {
+        margin-bottom: 0;
+    }
+
+    .producto-field-link {
+        flex: 0 0 auto;
+        margin-left: auto;
+        color: #1d4ed8;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .producto-field-link:hover {
+        color: #1e40af;
+        text-decoration: underline;
     }
 
     .producto-inline-head {
@@ -475,13 +537,6 @@
         line-height: 1.15;
     }
 
-    .producto-ingredient-trigger-text small {
-        color: #64748b;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1.2;
-    }
-
     .producto-ingredient-trigger i {
         color: #64748b;
         font-size: 12px;
@@ -554,12 +609,11 @@
         justify-content: space-between;
         gap: 12px;
         border: 0;
-        border-left: 4px solid transparent;
         border-bottom: 1px solid #e2e8f0;
         background: #ffffff;
-        padding: 7px 11px 7px 8px;
+        padding: 7px 11px;
         text-align: left;
-        transition: background 160ms ease, border-color 160ms ease;
+        transition: background 160ms ease;
     }
 
     .producto-ingredient-option:last-child {
@@ -569,24 +623,17 @@
     .producto-ingredient-option:hover,
     .producto-ingredient-option.is-selected {
         background: #f0fdfa;
-        border-left-color: #10b981;
     }
 
     .producto-ingredient-option strong {
         display: block;
+        overflow: hidden;
         color: #0f172a;
         font-size: 12px;
         font-weight: 900;
         line-height: 1.2;
-    }
-
-    .producto-ingredient-option small {
-        display: block;
-        margin-top: 2px;
-        color: #64748b;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .producto-ingredient-option-copy {
@@ -609,7 +656,8 @@
     .producto-input.is-invalid,
     .producto-select.is-invalid,
     .producto-textarea.is-invalid,
-    .producto-upload-card.is-invalid {
+    .producto-table-etiqueta-cell.is-invalid,
+    .producto-etiqueta-preview.is-invalid {
         border-color: #dc2626;
         box-shadow: none;
     }
@@ -723,6 +771,116 @@
         vertical-align: top;
     }
 
+    /* La tabla de ingredientes es compacta porque cada fila contiene un solo dato por columna. */
+    .producto-table-ingredientes {
+        min-width: 640px;
+        table-layout: fixed;
+    }
+
+    .producto-table-ingredientes th,
+    .producto-table-ingredientes td {
+        padding: 9px 12px;
+        vertical-align: middle;
+    }
+
+    .producto-table-ingredientes th:first-child,
+    .producto-table-ingredientes td:first-child {
+        width: 58px;
+        text-align: center;
+    }
+
+    .producto-table-ingredientes th:nth-child(2) {
+        width: 44%;
+    }
+
+    .producto-table-ingredientes th:nth-child(3),
+    .producto-table-ingredientes td:nth-child(3) {
+        width: 150px;
+        text-align: center;
+    }
+
+    .producto-table-ingredientes th:nth-child(4),
+    .producto-table-ingredientes td:nth-child(4) {
+        width: 130px;
+        text-align: center;
+    }
+
+    .producto-table-ingredientes th:last-child,
+    .producto-table-ingredientes td:last-child {
+        width: 120px;
+        text-align: center;
+    }
+
+    .producto-table-ingredientes .producto-ingredient-name {
+        font-weight: 700;
+    }
+
+    .producto-table-ingredientes .producto-ingredient-percentage {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .producto-table-ingredientes .producto-pill {
+        padding: 3px 8px;
+        font-size: 10px;
+    }
+
+    .producto-table-ingredientes .producto-btn-danger {
+        min-height: 26px;
+        padding: 4px 8px;
+    }
+
+    .producto-table-ingredientes tfoot td {
+        width: auto !important;
+        border-top: 1px solid #cbd5e1;
+        background: #f8fafc;
+        padding: 11px 14px;
+        text-align: left;
+    }
+
+    .producto-ingredientes-total-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .producto-ingredientes-total-head strong {
+        color: #0f172a;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .producto-ingredientes-progress {
+        height: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #e2e8f0;
+    }
+
+    .producto-ingredientes-progress span {
+        display: block;
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: #10b981;
+        transition: width 180ms ease;
+    }
+
+    .producto-ingredientes-progress span.is-over-limit {
+        background: #ef4444;
+    }
+
+    .producto-ingredientes-alert {
+        margin: 7px 0 0;
+        color: #b91c1c;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
     .producto-field-help {
         margin: 6px 0 0;
         color: #64748b;
@@ -731,26 +889,69 @@
         line-height: 1.35;
     }
 
-    .producto-table-registros-presentaciones {
-        width: 100%;
-        min-width: 0;
-        table-layout: fixed;
+    .producto-rp-listado {
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .producto-rp-listado-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .producto-rp-listado-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .producto-table-filter,
+    .producto-table-search {
+        display: flex;
+        min-height: 36px;
+        align-items: center;
+        gap: 7px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        overflow: hidden;
+        background: #ffffff;
+        padding: 0 10px;
+        color: #475569;
+    }
+
+    .producto-table-filter select,
+    .producto-table-search input {
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #334155;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .producto-table-search {
+        width: min(230px, 30vw);
+    }
+
+    .producto-table-search input {
+        width: 100%;
+    }
+
+    .producto-table-registros-presentaciones {
+        width: 100%;
+        min-width: 1120px;
+        table-layout: auto;
+        border: 0;
     }
 
     .producto-table-registros-presentaciones th,
     .producto-table-registros-presentaciones td {
+        border-right: 1px solid #e2e8f0;
         white-space: normal;
-    }
-
-    .producto-table-registros-presentaciones th {
-        border-right: 1px solid #cbd5e1;
-        background: linear-gradient(180deg, #fbfefd, #f7fbfa);
-        color: #065f46;
-        font-size: 12px;
-        text-transform: none;
     }
 
     .producto-table-registros-presentaciones th:last-child,
@@ -758,152 +959,70 @@
         border-right: 0;
     }
 
+    .producto-table-registros-presentaciones th {
+        background: #f8fafc;
+        color: #334155;
+        padding: 10px 9px;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: none;
+    }
+
     .producto-table-registros-presentaciones td {
-        border-right: 1px solid #cbd5e1;
-        padding: 14px 14px;
+        padding: 10px 9px;
+        color: #334155;
+        font-size: 11px;
+        vertical-align: middle;
     }
 
     .producto-table-registros-presentaciones tbody tr:hover td {
-        background: #fbfefd;
+        background: #f8fbff;
     }
 
     .producto-table-registros-presentaciones th:first-child,
     .producto-table-registros-presentaciones td:first-child {
-        width: 48px;
+        width: 40px;
+        text-align: center;
+    }
+
+    .producto-table-registros-presentaciones th:nth-child(7),
+    .producto-table-registros-presentaciones td:nth-child(7) {
+        min-width: 230px;
+    }
+
+    .producto-table-registros-presentaciones th:nth-child(8),
+    .producto-table-registros-presentaciones td:nth-child(8) {
+        width: 112px;
+        text-align: center;
+    }
+
+    .producto-table-registros-presentaciones th:nth-child(9),
+    .producto-table-registros-presentaciones td:nth-child(9) {
+        width: 86px;
+        text-align: center;
+    }
+
+    .producto-table-registros-presentaciones th:nth-child(10),
+    .producto-table-registros-presentaciones td:nth-child(10) {
+        min-width: 205px;
+        text-align: center;
+    }
+
+    .producto-table-presentacion {
+        display: grid;
+        gap: 3px;
+    }
+
+    .producto-table-presentacion strong {
         color: #0f172a;
-        font-size: 14px;
-        font-weight: 900;
-        text-align: center;
-        vertical-align: middle;
-    }
-
-    .producto-table-registros-presentaciones th:nth-child(2),
-    .producto-table-registros-presentaciones td:nth-child(2) {
-        width: 20%;
-    }
-
-    .producto-table-registros-presentaciones th:nth-child(3),
-    .producto-table-registros-presentaciones td:nth-child(3) {
-        width: 31%;
-    }
-
-    .producto-table-registros-presentaciones th:nth-child(4),
-    .producto-table-registros-presentaciones td:nth-child(4) {
-        width: 30%;
-    }
-
-    .producto-table-registros-presentaciones th:nth-child(5),
-    .producto-table-registros-presentaciones td:nth-child(5) {
-        width: 118px;
-        text-align: center;
-        vertical-align: middle;
-    }
-
-    .producto-table-head-icon {
-        display: inline-flex;
-        align-items: center;
-        gap: 9px;
-        color: #065f46;
-        font-weight: 900;
-    }
-
-    .producto-table-head-icon i {
-        display: inline-flex;
-        width: 22px;
-        height: 22px;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #a7f3d0;
-        border-radius: 6px;
-        background: #ecfdf5;
-        color: #047857;
         font-size: 11px;
+        line-height: 1.35;
     }
 
-    .producto-table-product {
-        display: grid;
-        gap: 12px;
-        min-width: 0;
-    }
-
-    .producto-table-product-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .producto-table-product-title strong {
-        color: #0f172a;
-        font-size: 14px;
-        font-weight: 900;
-        line-height: 1.15;
-    }
-
-    .producto-table-product-line {
-        display: grid;
-        grid-template-columns: 22px minmax(0, 1fr);
-        gap: 3px 10px;
-        color: #334155;
-    }
-
-    .producto-table-product-line i {
-        grid-row: span 2;
-        color: #0f766e;
-        font-size: 13px;
-        line-height: 1.2;
-        padding-top: 1px;
-    }
-
-    .producto-table-product-line span {
-        color: #475569;
-        font-size: 12px;
-        line-height: 1.2;
-    }
-
-    .producto-table-product-line strong {
-        color: #0f172a;
-        font-size: 13px;
-        font-weight: 900;
-        line-height: 1.25;
-        white-space: normal;
-        word-break: break-word;
-    }
-
-    .producto-table-detail {
-        display: grid;
-        gap: 10px;
-    }
-
-    .producto-table-detail>div {
-        display: grid;
-        grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
-        align-items: start;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .producto-table-detail .is-wide {
-        grid-column: auto;
-    }
-
-    .producto-table-detail span {
-        display: block;
-        color: #334155;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.25;
-        text-transform: none;
-    }
-
-    .producto-table-detail strong {
-        display: block;
-        margin-top: 0;
-        color: #0f172a;
-        font-size: 12px;
-        font-weight: 900;
-        line-height: 1.25;
-        white-space: normal;
-        word-break: break-word;
+    .producto-table-presentacion small {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 800;
     }
 
     .producto-table-status {
@@ -918,38 +1037,60 @@
         font-size: 12px !important;
         font-weight: 900 !important;
         line-height: 1 !important;
-        text-transform: uppercase;
+        text-transform: none;
+    }
+
+    .producto-table-status::before {
+        width: 6px;
+        height: 6px;
+        margin-right: 5px;
+        border-radius: 999px;
+        background: currentColor;
+        content: '';
+    }
+
+    .producto-table-status.is-inactive {
+        border-color: #e2e8f0;
+        background: #f1f5f9;
+        color: #64748b !important;
     }
 
     .producto-row-actions {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        gap: 6px;
     }
 
     .producto-action-icon {
         display: inline-flex;
-        width: 78px;
-        min-height: 32px;
+        width: auto;
+        min-height: 30px;
         align-items: center;
         justify-content: center;
+        gap: 5px;
+        border: 1px solid #bfdbfe;
         border-radius: 7px;
         background: #ffffff;
-        padding: 7px 10px;
-        font-size: 12px;
-        font-weight: 900;
+        color: #1d4ed8;
+        padding: 5px 8px;
+        font-size: 10px;
+        font-weight: 800;
         transition: all 160ms ease;
     }
 
+    .producto-action-icon.is-view:hover {
+        background: #eff6ff;
+    }
+
     .producto-action-icon.is-edit {
-        border: 1px solid #0f766e;
-        color: #0f766e;
+        border-color: #bfdbfe;
+        color: #1d4ed8;
     }
 
     .producto-action-icon.is-edit:hover {
-        background: #ecfdf5;
-        box-shadow: 0 2px 8px rgba(15, 118, 110, 0.12);
+        background: #eff6ff;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
     }
 
     .producto-action-icon.is-delete {
@@ -960,16 +1101,6 @@
     .producto-action-icon.is-delete:hover {
         background: #fff1f2;
         box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
-    }
-
-    /* En presentaciones el PDF debe verse como archivo, no como boton/cuadro rosado. */
-    #presentacionEtiquetaWrapper .producto-upload-icon {
-        width: auto;
-        height: auto;
-        border-radius: 0;
-        background: transparent;
-        color: #ef4444;
-        font-size: 18px;
     }
 
     .producto-table-review {
@@ -1423,7 +1554,7 @@
         border: 1px solid #e2e8f0;
     }
 
-    .producto-modal-card.is-pdf {
+    .producto-modal-card.is-image {
         width: min(100%, 920px);
         overflow: hidden;
         border: 1px solid #e2e8f0;
@@ -1457,84 +1588,8 @@
         color: #0f766e;
     }
 
-    .producto-pdf-button {
-        display: inline-flex;
-        min-height: 28px;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        border: 1px solid #99f6e4;
-        border-radius: 7px;
-        background: #f0fdfa;
-        color: #0f766e;
-        padding: 5px 9px;
-        font-size: 11px;
-        font-weight: 900;
-        transition: all 160ms ease;
-    }
-
-    .producto-pdf-button:hover {
-        border-color: #0d9488;
-        background: #ccfbf1;
-        color: #115e59;
-    }
-
-    .producto-upload-card {
-        display: flex;
-        width: 100%;
-        min-height: 42px;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        background: linear-gradient(180deg, #ffffff, #f8fafc);
-        padding: 5px 8px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-
     .producto-upload-input {
         display: none;
-    }
-
-    .producto-upload-icon {
-        display: inline-flex;
-        width: 30px;
-        height: 30px;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        background: #fee2e2;
-        color: #b91c1c;
-        font-size: 13px;
-    }
-
-    .producto-upload-title {
-        margin: 0;
-        color: #0f172a;
-        font-size: 11px;
-        font-weight: 900;
-        line-height: 1.1;
-    }
-
-    .producto-upload-name {
-        display: block;
-        max-width: 100%;
-        overflow: hidden;
-        color: #64748b;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1.2;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .producto-upload-actions {
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: row;
-        gap: 6px;
     }
 
     .producto-upload-button {
@@ -1566,9 +1621,9 @@
     }
 
     .producto-upload-button.is-select {
-        border-color: #99f6e4;
-        background: #f0fdfa;
-        color: #0f766e;
+        border-color: #bfdbfe;
+        background: #ffffff;
+        color: #1d4ed8;
     }
 
     .producto-upload-button.is-view {
@@ -1589,78 +1644,185 @@
         box-shadow: 0 2px 6px rgba(190, 18, 60, 0.10);
     }
 
-    .producto-upload-card-compact {
-        height: 42px;
-        min-height: 42px;
-        gap: 7px;
-        background: #ffffff;
-        padding: 4px 6px;
-    }
-
-    .producto-upload-card-compact .producto-upload-icon {
-        width: 28px;
-        height: 28px;
-        border-radius: 7px;
-        font-size: 12px;
-    }
-
-    .producto-upload-card-compact .producto-upload-name {
-        flex: 1 1 auto;
-        min-width: 0;
-        color: #475569;
-        font-size: 11px;
-    }
-
-    .producto-upload-card-compact .producto-upload-button {
-        min-height: 28px;
-        padding-inline: 7px;
-    }
-
-    .producto-table-file {
-        display: inline-flex;
-        max-width: 100%;
-        align-items: center;
-        gap: 8px;
-        padding: 0;
-        flex-wrap: wrap;
-    }
-
-    .producto-table-file-input {
-        display: flex;
-        max-width: 100%;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .producto-table-file-icon {
-        display: inline-flex;
-        width: 22px;
-        height: 22px;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0;
-        background: transparent;
-        color: #ef4444;
-        font-size: 15px;
-    }
-
     .producto-table-file-name {
+        display: block;
         max-width: 150px;
+        margin: 5px auto 0;
         overflow: hidden;
-        color: #334155;
-        font-size: 11px;
-        font-weight: 800;
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 700;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .producto-pdf-frame {
+    .producto-rp-preview {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .producto-etiqueta-workspace {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .producto-etiqueta-sidebar {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .producto-etiqueta-sidebar .producto-etiqueta-info {
+        margin-top: 0;
+    }
+
+    .producto-etiqueta-controls {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .producto-etiqueta-controls .producto-upload-button {
         width: 100%;
-        height: min(72vh, 720px);
-        border: 0;
+        min-height: 36px;
+        justify-content: center;
+    }
+
+    .producto-etiqueta-preview,
+    .producto-table-image-preview {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 1px dashed #cbd5e1;
+        border-radius: 10px;
         background: #f8fafc;
+        color: #64748b;
+    }
+
+    .producto-etiqueta-preview {
+        width: 100%;
+        min-height: 315px;
+        flex: 1 1 auto;
+        padding: 12px;
+        cursor: pointer;
+    }
+
+    .producto-etiqueta-preview:disabled,
+    .producto-table-image-preview:disabled {
+        cursor: default;
+    }
+
+    .producto-etiqueta-preview img {
+        width: 100%;
+        height: 100%;
+        min-height: 290px;
+        max-height: 410px;
+        object-fit: contain;
+    }
+
+    .producto-etiqueta-preview>span,
+    .producto-table-image-preview span {
+        padding: 6px;
+        font-size: 11px;
+        text-align: center;
+    }
+
+    .producto-etiqueta-preview>span {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+    }
+
+    /* El mensaje vacío no debe compartir espacio con una imagen ya seleccionada. */
+    .producto-etiqueta-preview>span[hidden],
+    .producto-table-image-preview span[hidden] {
+        display: none !important;
+    }
+
+    .producto-etiqueta-preview>span i {
+        color: #94a3b8;
+        font-size: 34px;
+    }
+
+    .producto-etiqueta-preview>span strong {
+        color: #475569;
+        font-size: 13px;
+    }
+
+    .producto-etiqueta-preview>span small {
+        color: #94a3b8;
+        font-size: 10px;
+    }
+
+    .producto-etiqueta-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        margin-top: 12px;
+        border-radius: 9px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        padding: 10px 12px;
+    }
+
+    .producto-etiqueta-info>i {
+        padding-top: 2px;
+    }
+
+    .producto-etiqueta-info div {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .producto-etiqueta-info span,
+    .producto-etiqueta-info small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .producto-etiqueta-info span {
+        color: #1e3a8a;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .producto-etiqueta-info small {
+        color: #475569;
+        font-size: 9px;
+        font-weight: 600;
+    }
+
+    .producto-table-etiqueta-cell {
+        min-width: 112px;
+    }
+
+    .producto-table-image-preview {
+        width: 54px;
+        height: 48px;
+        margin: 0 auto;
+        padding: 3px;
+        cursor: pointer;
+    }
+
+    .producto-table-image-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .producto-image-preview-modal {
+        display: block;
+        max-width: 100%;
+        max-height: min(72vh, 720px);
+        margin: 0 auto;
+        object-fit: contain;
     }
 
     .producto-modal-title-row {
@@ -1724,6 +1886,256 @@
         padding: 12px 18px;
     }
 
+    .producto-modal-actions[hidden] {
+        display: none !important;
+    }
+
+    /*
+     * El menú lateral reduce el espacio real del formulario. Estas reglas observan el ancho
+     * del módulo y no el de la ventana, evitando que los campos se compriman dentro del card.
+     */
+    @container producto-registro (max-width: 1180px) {
+        .producto-rp-layout {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .producto-rp-preview {
+            display: flex;
+            min-height: 0;
+        }
+
+        .producto-rp-preview .producto-etiqueta-workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+            align-items: stretch;
+        }
+
+        .producto-rp-preview .producto-rp-card-head {
+            margin-bottom: 12px;
+        }
+
+        .producto-rp-preview .producto-etiqueta-preview {
+            min-height: 280px;
+        }
+
+        .producto-rp-preview .producto-etiqueta-preview img {
+            min-height: 255px;
+            max-height: 330px;
+        }
+
+        .producto-rp-preview .producto-etiqueta-info {
+            margin-top: 0;
+        }
+    }
+
+    @container producto-registro (max-width: 760px) {
+        .producto-registro-grid {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        .producto-registro-grid-autorizacion .producto-campo-codigo,
+        .producto-registro-grid-autorizacion .producto-campo-lote,
+        .producto-registro-grid-autorizacion .producto-campo-fecha,
+        .producto-registro-grid-autorizacion .producto-campo-cantidad,
+        .producto-registro-grid-autorizacion .producto-campo-unidad,
+        .producto-registro-grid-autorizacion .producto-campo-estado {
+            grid-column: span 3;
+        }
+
+        .producto-registro-grid-presentacion .producto-campo-catalogo {
+            grid-column: 1 / -1;
+        }
+
+        .producto-registro-grid-presentacion .producto-campo-cantidad,
+        .producto-registro-grid-presentacion .producto-campo-unidad,
+        .producto-registro-grid-presentacion .producto-campo-estado {
+            grid-column: span 2;
+        }
+
+        .producto-rp-preview {
+            display: flex;
+        }
+
+        .producto-rp-preview .producto-etiqueta-workspace {
+            display: flex;
+        }
+
+        .producto-rp-preview .producto-rp-card-head {
+            margin-bottom: 12px;
+        }
+
+        .producto-rp-preview .producto-etiqueta-info {
+            margin-top: 0;
+        }
+
+        .producto-rp-listado-head {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .producto-rp-listado-tools {
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .producto-table-filter,
+        .producto-table-search {
+            flex: 1 1 220px;
+            width: auto;
+        }
+
+        /* En tamaños reducidos cada fila pasa a ser una tarjeta legible. */
+        .producto-table-registros-presentaciones {
+            display: block;
+            min-width: 0 !important;
+        }
+
+        .producto-table-registros-presentaciones thead {
+            display: none;
+        }
+
+        .producto-table-registros-presentaciones tbody {
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .producto-table-registros-presentaciones tbody tr {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .producto-table-registros-presentaciones #sinRegistrosPresentacionesProducto {
+            display: block;
+        }
+
+        .producto-table-registros-presentaciones #sinRegistrosPresentacionesProducto td {
+            display: block;
+            border-bottom: 0;
+        }
+
+        .producto-table-registros-presentaciones #sinRegistrosPresentacionesProducto td::before {
+            display: none;
+        }
+
+        .producto-table-registros-presentaciones tbody td {
+            display: flex;
+            min-width: 0;
+            align-items: flex-start;
+            gap: 8px;
+            border-right: 0;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            text-align: left !important;
+        }
+
+        .producto-table-registros-presentaciones tbody td::before {
+            flex: 0 0 78px;
+            color: #64748b;
+            content: attr(data-label);
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .producto-table-registros-presentaciones tbody td:nth-child(7),
+        .producto-table-registros-presentaciones tbody td:nth-child(10) {
+            grid-column: 1 / -1;
+        }
+
+        .producto-table-registros-presentaciones tbody td:nth-child(10) {
+            border-bottom: 0;
+        }
+
+        .producto-table-registros-presentaciones .producto-table-presentacion,
+        .producto-table-registros-presentaciones .producto-row-actions {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .producto-table-registros-presentaciones .producto-table-etiqueta-cell {
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .producto-table-registros-presentaciones .producto-table-image-preview {
+            margin: 0;
+        }
+
+        .producto-table-registros-presentaciones .producto-table-file-name {
+            margin: 0;
+        }
+
+        .producto-table-registros-presentaciones .producto-row-actions {
+            justify-content: flex-end;
+        }
+    }
+
+    @container producto-registro (max-width: 520px) {
+        .producto-rp-layout,
+        .producto-rp-formularios {
+            gap: 12px;
+        }
+
+        .producto-rp-card {
+            padding: 14px;
+        }
+
+        .producto-rp-listado {
+            padding: 0;
+        }
+
+        .producto-registro-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .producto-registro-grid .producto-campo-catalogo,
+        .producto-registro-grid-presentacion .producto-campo-cantidad,
+        .producto-registro-grid-presentacion .producto-campo-unidad,
+        .producto-registro-grid-presentacion .producto-campo-estado,
+        .producto-registro-grid .producto-campo-descripcion,
+        .producto-registro-grid .producto-campo-acciones,
+        .producto-registro-grid-autorizacion .producto-campo-codigo,
+        .producto-registro-grid-autorizacion .producto-campo-lote,
+        .producto-registro-grid-autorizacion .producto-campo-fecha,
+        .producto-registro-grid-autorizacion .producto-campo-cantidad,
+        .producto-registro-grid-autorizacion .producto-campo-unidad,
+        .producto-registro-grid-autorizacion .producto-campo-estado {
+            grid-column: 1 / -1;
+        }
+
+        .producto-campo-acciones .producto-btn,
+        .producto-rp-listado-tools,
+        .producto-table-filter,
+        .producto-table-search {
+            width: 100%;
+        }
+
+        .producto-rp-listado-tools {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .producto-table-registros-presentaciones tbody tr {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .producto-table-registros-presentaciones tbody td,
+        .producto-table-registros-presentaciones tbody td:nth-child(7),
+        .producto-table-registros-presentaciones tbody td:nth-child(10) {
+            grid-column: 1;
+        }
+
+        .producto-table-registros-presentaciones tbody td:last-child {
+            border-bottom: 0;
+        }
+    }
+
     @media (max-width: 1100px) {
         .producto-layout {
             grid-template-columns: 1fr;
@@ -1732,6 +2144,7 @@
         .producto-side {
             position: static;
         }
+
     }
 
     @media (max-width: 640px) {
@@ -1742,7 +2155,6 @@
         }
 
         .producto-step-grid,
-        .producto-step-compose,
         .producto-step>.producto-section>.grid,
         .producto-step>.producto-section>.space-y-5 {
             padding: 14px !important;
@@ -1773,10 +2185,10 @@
         }
 
         .producto-registro-grid .md\:col-span-12,
+        .producto-registro-grid .producto-campo-catalogo,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado,
-        .producto-registro-grid-presentacion .producto-campo-etiqueta,
         .producto-registro-grid .producto-campo-descripcion,
         .producto-registro-grid .producto-campo-acciones,
         .producto-registro-grid-autorizacion .producto-campo-codigo,
@@ -1796,19 +2208,39 @@
             width: 100%;
         }
 
-        /* En movil el cargador PDF se apila ordenado para que los botones no aplasten el nombre del archivo. */
-        .producto-upload-card {
-            align-items: stretch;
-            flex-wrap: wrap;
-            min-height: auto;
+        .producto-registro-presentacion {
+            padding: 10px;
         }
 
-        .producto-upload-actions {
+        .producto-rp-card {
+            padding: 14px;
+        }
+
+        .producto-rp-listado {
+            padding: 0;
+        }
+
+        .producto-rp-listado-head {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .producto-rp-listado-tools,
+        .producto-table-search {
             width: 100%;
         }
 
-        .producto-upload-button {
-            flex: 1 1 0;
+        .producto-rp-listado-tools {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .producto-etiqueta-preview {
+            min-height: 260px;
+        }
+
+        .producto-etiqueta-preview img {
+            min-height: 235px;
         }
 
         .producto-table-wrap {
@@ -1827,10 +2259,6 @@
         .producto-review-row {
             grid-template-columns: 1fr;
             gap: 3px;
-        }
-
-        .producto-table-registros-presentaciones {
-            min-width: 860px;
         }
 
         .producto-table th,

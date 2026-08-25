@@ -111,6 +111,14 @@
                 return 'QR de verificación';
             }
 
+            if (elemento.tipo_elemento === 'FORMA') {
+                return elemento.configuracion?.forma === 'ELIPSE' ? 'Elipse' : 'Rectángulo';
+            }
+
+            if (elemento.tipo_elemento === 'LINEA') {
+                return 'Línea';
+            }
+
             return campoPorCodigo(elemento.codigo_elemento)?.nombre || elemento.codigo_elemento || 'Campo del sistema';
         }
 
@@ -153,6 +161,14 @@
                 return 160;
             }
 
+            if (tipo === 'FORMA') {
+                return 180;
+            }
+
+            if (tipo === 'LINEA') {
+                return 220;
+            }
+
             return tipo === 'TEXTO' ? 430 : 190;
         }
 
@@ -173,7 +189,68 @@
                 return 90;
             }
 
+            if (tipo === 'FORMA') {
+                return 100;
+            }
+
+            if (tipo === 'LINEA') {
+                return 8;
+            }
+
             return tipo === 'TEXTO' ? 88 : 34;
+        }
+
+        function configuracionPredeterminada(tipo) {
+            return {
+                rotacion: 0,
+                opacidad: 1,
+                fondo_color: tipo === 'FORMA' ? '#d1fae5' : 'transparent',
+                borde_color: '#0f766e',
+                borde_ancho: ['FORMA', 'LINEA'].includes(tipo) ? 2 : 0,
+                borde_estilo: 'SOLIDO',
+                radio_borde: tipo === 'FORMA' ? 6 : 0,
+                bloqueado: false,
+                forma: 'RECTANGULO',
+                ajuste_imagen: 'CONTENER',
+                tabla: {
+                    bordes: 'TODOS',
+                    borde_color: '#0f172a',
+                    borde_ancho: 1,
+                    borde_estilo: 'SOLIDO',
+                    encabezado_fondo: '#f1f5f9',
+                    encabezado_texto: '#0f172a',
+                    celdas_fondo: '#ffffff',
+                    filas_alternas: false,
+                    filas_alternas_color: '#f8fafc',
+                    padding_x: 6,
+                    padding_y: 4,
+                    alineacion_vertical: 'MEDIO',
+                },
+            };
+        }
+
+        function normalizarConfiguracion(item, tipo) {
+            const base = configuracionPredeterminada(tipo);
+            const recibida = item && typeof item === 'object' ? item : {};
+            const tabla = recibida.tabla && typeof recibida.tabla === 'object' ? recibida.tabla : {};
+
+            return {
+                ...base,
+                ...recibida,
+                rotacion: Number(recibida.rotacion ?? base.rotacion),
+                opacidad: Number(recibida.opacidad ?? base.opacidad),
+                borde_ancho: Number(recibida.borde_ancho ?? base.borde_ancho),
+                radio_borde: Number(recibida.radio_borde ?? base.radio_borde),
+                bloqueado: Boolean(recibida.bloqueado),
+                tabla: {
+                    ...base.tabla,
+                    ...tabla,
+                    borde_ancho: Number(tabla.borde_ancho ?? base.tabla.borde_ancho),
+                    padding_x: Number(tabla.padding_x ?? base.tabla.padding_x),
+                    padding_y: Number(tabla.padding_y ?? base.tabla.padding_y),
+                    filas_alternas: Boolean(tabla.filas_alternas),
+                },
+            };
         }
 
         function normalizarElemento(item) {
@@ -181,7 +258,7 @@
             const textoInicial = ['TABLA', 'QR'].includes(tipo)
                 ? ''
                 : (item.codigo_elemento ? marcadorDesdeCodigo(item.codigo_elemento) : '');
-            const usaPadding = !['IMAGEN', 'TABLA', 'QR'].includes(tipo);
+            const usaPadding = !['IMAGEN', 'TABLA', 'QR', 'FORMA', 'LINEA'].includes(tipo);
 
             return {
                 tipo_elemento: tipo,
@@ -203,6 +280,7 @@
                 color_texto: item.color_texto || '#0f172a',
                 tipo_letra: item.tipo_letra || 'Arial',
                 z_index: Number(item.z_index || 3),
+                configuracion: normalizarConfiguracion(item.configuracion, tipo),
                 estado: item.estado || 'ACTIVO',
                 columnas: Array.isArray(item.columnas) && item.columnas.length ? item.columnas : columnasPorDefecto(item.codigo_elemento),
             };
@@ -231,6 +309,10 @@
 
             if (elemento.tipo_elemento === 'IMAGEN') {
                 return elemento.texto_fijo || '';
+            }
+
+            if (['FORMA', 'LINEA'].includes(elemento.tipo_elemento)) {
+                return '';
             }
 
             return elemento.texto_fijo || marcadorDesdeCodigo(elemento.codigo_elemento);
@@ -327,6 +409,27 @@
         function htmlTablaPlantilla(elemento) {
             const columnas = columnasTabla(elemento);
             const filas = filasTabla(elemento);
+            const estilo = elemento.configuracion.tabla;
+            const claseBordes = `is-bordes-${String(estilo.bordes || 'TODOS').toLowerCase()}`;
+            const estiloBorde = {
+                SOLIDO: 'solid',
+                PUNTEADO: 'dotted',
+                DISCONTINUO: 'dashed',
+                DOBLE: 'double',
+            }[estilo.borde_estilo] || 'solid';
+            const variables = [
+                `--tabla-borde-color:${estilo.borde_color}`,
+                `--tabla-borde-ancho:${Number(estilo.borde_ancho)}px`,
+                `--tabla-borde-estilo:${estiloBorde}`,
+                `--tabla-encabezado-fondo:${estilo.encabezado_fondo}`,
+                `--tabla-encabezado-texto:${estilo.encabezado_texto}`,
+                `--tabla-celdas-fondo:${estilo.celdas_fondo}`,
+                `--tabla-alterna-fondo:${estilo.filas_alternas_color}`,
+                `--tabla-padding-x:${Number(estilo.padding_x)}px`,
+                `--tabla-padding-y:${Number(estilo.padding_y)}px`,
+                `--tabla-alineacion-vertical:${estilo.alineacion_vertical === 'SUPERIOR' ? 'top' : (estilo.alineacion_vertical === 'INFERIOR' ? 'bottom' : 'middle')}`,
+            ].join(';');
+            const claseAlterna = estilo.filas_alternas ? 'is-filas-alternas' : '';
 
             if (!columnas.length) {
                 return '<table class="plantilla-word-table"><tbody><tr><td>Tabla</td><td>Dato</td></tr><tr><td>Fila 1</td><td>Valor</td></tr></tbody></table>';
@@ -339,7 +442,7 @@
                 .map((fila) => `<tr>${fila.map((celda) => `<td>${textoConMarcadores(celda)}</td>`).join('')}</tr>`)
                 .join('');
 
-            return `<table class="plantilla-word-table"><thead><tr>${encabezado}</tr></thead><tbody>${cuerpo}</tbody></table>`;
+            return `<table class="plantilla-word-table ${claseBordes} ${claseAlterna}" style="${variables}"><thead><tr>${encabezado}</tr></thead><tbody>${cuerpo}</tbody></table>`;
         }
 
         function htmlQrPlantilla(elemento) {
@@ -361,6 +464,14 @@
 
             if (elemento.tipo_elemento === 'QR') {
                 return htmlQrPlantilla(elemento);
+            }
+
+            if (elemento.tipo_elemento === 'LINEA') {
+                return '<span class="plantilla-linea-contenido"></span>';
+            }
+
+            if (elemento.tipo_elemento === 'FORMA') {
+                return '<span class="sr-only">Forma decorativa</span>';
             }
 
             return textoConMarcadores(textoVisible(elemento));
@@ -409,6 +520,50 @@
             }
         }
 
+        function bordeCssPlantilla(estilo) {
+            return {
+                SOLIDO: 'solid',
+                PUNTEADO: 'dotted',
+                DISCONTINUO: 'dashed',
+                DOBLE: 'double',
+                NINGUNO: 'none',
+            }[String(estilo || 'SOLIDO').toUpperCase()] || 'solid';
+        }
+
+        // Mantiene iguales los estilos del lienzo y los que luego se envían al PDF.
+        function aplicarEstilosVisualesNodo(nodo, elemento) {
+            const configuracion = elemento.configuracion;
+            const esTabla = elemento.tipo_elemento === 'TABLA';
+            const esLinea = elemento.tipo_elemento === 'LINEA';
+            const esElipse = elemento.tipo_elemento === 'FORMA' && configuracion.forma === 'ELIPSE';
+
+            nodo.style.opacity = String(configuracion.opacidad);
+            nodo.style.transform = `rotate(${configuracion.rotacion}deg)`;
+            nodo.style.transformOrigin = 'center center';
+            nodo.style.backgroundColor = esTabla || esLinea ? 'transparent' : configuracion.fondo_color;
+            nodo.style.borderColor = configuracion.borde_color;
+            nodo.style.borderWidth = esTabla || esLinea ? '0' : `${configuracion.borde_ancho}px`;
+            nodo.style.borderStyle = esTabla || esLinea ? 'none' : bordeCssPlantilla(configuracion.borde_estilo);
+            nodo.style.borderRadius = esElipse ? '50%' : `${configuracion.radio_borde}px`;
+            nodo.classList.toggle('is-locked', configuracion.bloqueado);
+
+            const imagen = nodo.querySelector('img');
+            if (imagen && elemento.tipo_elemento === 'IMAGEN') {
+                imagen.style.objectFit = {
+                    CUBRIR: 'cover',
+                    ESTIRAR: 'fill',
+                    CONTENER: 'contain',
+                }[configuracion.ajuste_imagen] || 'contain';
+            }
+
+            const linea = nodo.querySelector('.plantilla-linea-contenido');
+            if (linea) {
+                linea.style.borderTopColor = configuracion.borde_color;
+                linea.style.borderTopWidth = `${Math.max(1, configuracion.borde_ancho)}px`;
+                linea.style.borderTopStyle = bordeCssPlantilla(configuracion.borde_estilo);
+            }
+        }
+
         function renderizarLienzo() {
             if (!lienzo) {
                 return;
@@ -427,6 +582,8 @@
                     elemento.tipo_elemento === 'FIRMA' ? 'is-firma' : '',
                     elemento.tipo_elemento === 'QR' ? 'is-qr' : '',
                     elemento.tipo_elemento === 'IMAGEN' ? 'is-imagen' : '',
+                    elemento.tipo_elemento === 'FORMA' ? 'is-forma' : '',
+                    elemento.tipo_elemento === 'LINEA' ? 'is-linea' : '',
                     claseAlineacion(elemento),
                     index === indiceSeleccionado ? 'is-selected' : '',
                 ].filter(Boolean).join(' ');
@@ -445,8 +602,9 @@
                 nodo.style.padding = `${elemento.padding_y}px ${elemento.padding_x}px`;
                 nodo.style.zIndex = String(elemento.z_index || 3);
                 nodo.innerHTML = contenidoElementoPlantilla(elemento);
+                aplicarEstilosVisualesNodo(nodo, elemento);
 
-                if (index === indiceSeleccionado) {
+                if (index === indiceSeleccionado && !elemento.configuracion.bloqueado) {
                     const controlTamano = document.createElement('span');
                     controlTamano.className = 'plantilla-resize-handle';
                     controlTamano.dataset.resizeHandle = '1';
@@ -478,6 +636,8 @@
                 elemento.tipo_elemento === 'FIRMA' ? 'is-firma' : '',
                 elemento.tipo_elemento === 'QR' ? 'is-qr' : '',
                 elemento.tipo_elemento === 'IMAGEN' ? 'is-imagen' : '',
+                elemento.tipo_elemento === 'FORMA' ? 'is-forma' : '',
+                elemento.tipo_elemento === 'LINEA' ? 'is-linea' : '',
                 claseAlineacion(elemento),
                 'is-selected',
             ].filter(Boolean).join(' ');
@@ -495,10 +655,13 @@
             nodo.style.padding = `${elemento.padding_y}px ${elemento.padding_x}px`;
             nodo.style.zIndex = String(elemento.z_index || 3);
             nodo.innerHTML = contenidoElementoPlantilla(elemento);
-            const controlTamano = document.createElement('span');
-            controlTamano.className = 'plantilla-resize-handle';
-            controlTamano.dataset.resizeHandle = '1';
-            nodo.appendChild(controlTamano);
+            aplicarEstilosVisualesNodo(nodo, elemento);
+            if (!elemento.configuracion.bloqueado) {
+                const controlTamano = document.createElement('span');
+                controlTamano.className = 'plantilla-resize-handle';
+                controlTamano.dataset.resizeHandle = '1';
+                nodo.appendChild(controlTamano);
+            }
             actualizarInput();
             renderizarCapas();
         }
@@ -627,6 +790,27 @@
             renderizarLienzo();
         }
 
+        function alinearElementoSeleccionado(alineacion) {
+            const elemento = elementoSeleccionado();
+
+            if (!elemento || elemento.configuracion.bloqueado || !lienzo) {
+                return;
+            }
+
+            guardarHistorial();
+            const anchoLienzo = lienzo.clientWidth;
+            const altoLienzo = lienzo.clientHeight;
+
+            if (alineacion === 'IZQUIERDA') elemento.posicion_x = 0;
+            if (alineacion === 'CENTRO_H') elemento.posicion_x = Math.round((anchoLienzo - elemento.ancho) / 2);
+            if (alineacion === 'DERECHA') elemento.posicion_x = Math.max(0, anchoLienzo - elemento.ancho);
+            if (alineacion === 'ARRIBA') elemento.posicion_y = 0;
+            if (alineacion === 'CENTRO_V') elemento.posicion_y = Math.round((altoLienzo - elemento.alto) / 2);
+            if (alineacion === 'ABAJO') elemento.posicion_y = Math.max(0, altoLienzo - elemento.alto);
+
+            renderizarLienzo();
+        }
+
         function cambiarZoom(accion) {
             if (accion === 'mas') {
                 zoomActual = Math.min(1.6, zoomActual + 0.1);
@@ -642,6 +826,7 @@
         function htmlEditorTabla(elemento) {
             const columnas = columnasTabla(elemento);
             const filas = filasTabla(elemento);
+            const estilo = elemento.configuracion.tabla;
             const ejemploCelda = marcadorDesdeCodigo('campo');
             const ejemploBeneficiario = marcadorDesdeCodigo('beneficiario.nombre');
             const encabezados = columnas.map((columna, index) => `
@@ -674,6 +859,73 @@
                             <span class="plantilla-prop-label">Columnas</span>
                             <input class="plantilla-prop-input" type="number" min="1" max="12" data-tabla-columnas value="${columnas.length}">
                         </label>
+                    </div>
+                    <div class="plantilla-table-style-grid">
+                        <label class="plantilla-prop-full">
+                            <span class="plantilla-prop-label">Bordes de la tabla</span>
+                            <select class="plantilla-prop-select" data-tabla-estilo="bordes">
+                                <option value="TODOS" ${estilo.bordes === 'TODOS' ? 'selected' : ''}>Todos los bordes</option>
+                                <option value="EXTERIOR" ${estilo.bordes === 'EXTERIOR' ? 'selected' : ''}>Solo borde exterior</option>
+                                <option value="HORIZONTAL" ${estilo.bordes === 'HORIZONTAL' ? 'selected' : ''}>Solo líneas horizontales</option>
+                                <option value="VERTICAL" ${estilo.bordes === 'VERTICAL' ? 'selected' : ''}>Solo líneas verticales</option>
+                                <option value="ENCABEZADO" ${estilo.bordes === 'ENCABEZADO' ? 'selected' : ''}>Solo debajo del encabezado</option>
+                                <option value="NINGUNO" ${estilo.bordes === 'NINGUNO' ? 'selected' : ''}>Sin bordes</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Color borde</span>
+                            <input class="plantilla-prop-input" type="color" data-tabla-estilo="borde_color" value="${estilo.borde_color}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Grosor</span>
+                            <input class="plantilla-prop-input" type="number" min="0" max="8" step="0.5" data-tabla-estilo="borde_ancho" value="${estilo.borde_ancho}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Tipo de línea</span>
+                            <select class="plantilla-prop-select" data-tabla-estilo="borde_estilo">
+                                <option value="SOLIDO" ${estilo.borde_estilo === 'SOLIDO' ? 'selected' : ''}>Sólida</option>
+                                <option value="PUNTEADO" ${estilo.borde_estilo === 'PUNTEADO' ? 'selected' : ''}>Punteada</option>
+                                <option value="DISCONTINUO" ${estilo.borde_estilo === 'DISCONTINUO' ? 'selected' : ''}>Discontinua</option>
+                                <option value="DOBLE" ${estilo.borde_estilo === 'DOBLE' ? 'selected' : ''}>Doble</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Fondo encabezado</span>
+                            <input class="plantilla-prop-input" type="color" data-tabla-estilo="encabezado_fondo" value="${estilo.encabezado_fondo}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Texto encabezado</span>
+                            <input class="plantilla-prop-input" type="color" data-tabla-estilo="encabezado_texto" value="${estilo.encabezado_texto}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Fondo celdas</span>
+                            <input class="plantilla-prop-input" type="color" data-tabla-estilo="celdas_fondo" value="${estilo.celdas_fondo}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Alineación vertical</span>
+                            <select class="plantilla-prop-select" data-tabla-estilo="alineacion_vertical">
+                                <option value="SUPERIOR" ${estilo.alineacion_vertical === 'SUPERIOR' ? 'selected' : ''}>Superior</option>
+                                <option value="MEDIO" ${estilo.alineacion_vertical === 'MEDIO' ? 'selected' : ''}>Centro</option>
+                                <option value="INFERIOR" ${estilo.alineacion_vertical === 'INFERIOR' ? 'selected' : ''}>Inferior</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Espacio horizontal</span>
+                            <input class="plantilla-prop-input" type="number" min="0" max="30" data-tabla-estilo="padding_x" value="${estilo.padding_x}">
+                        </label>
+                        <label>
+                            <span class="plantilla-prop-label">Espacio vertical</span>
+                            <input class="plantilla-prop-input" type="number" min="0" max="30" data-tabla-estilo="padding_y" value="${estilo.padding_y}">
+                        </label>
+                        <label class="plantilla-prop-full plantilla-check-row">
+                            <input type="checkbox" data-tabla-estilo="filas_alternas" ${estilo.filas_alternas ? 'checked' : ''}>
+                            <span>Alternar el color de las filas</span>
+                        </label>
+                        ${estilo.filas_alternas ? `
+                        <label class="plantilla-prop-full">
+                            <span class="plantilla-prop-label">Color de filas alternas</span>
+                            <input class="plantilla-prop-input" type="color" data-tabla-estilo="filas_alternas_color" value="${estilo.filas_alternas_color}">
+                        </label>` : ''}
                     </div>
                     <div class="plantilla-table-editor-note">
                         Puede escribir texto normal o marcadores como ${escaparHtml(ejemploBeneficiario)} dentro de una celda.
@@ -734,6 +986,9 @@
                 return;
             }
 
+            const configuracion = elemento.configuracion;
+            const tieneRelleno = configuracion.fondo_color !== 'transparent';
+
             panelPropiedades.innerHTML = `
                 <div class="plantilla-prop-grid">
                     <div class="plantilla-prop-full">
@@ -755,7 +1010,15 @@
                     </label>
                     <label>
                         <span class="plantilla-prop-label">Alto</span>
-                        <input class="plantilla-prop-input" type="number" min="20" data-prop="alto" value="${elemento.alto}">
+                        <input class="plantilla-prop-input" type="number" min="${elemento.tipo_elemento === 'LINEA' ? 4 : 20}" data-prop="alto" value="${elemento.alto}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Rotación</span>
+                        <input class="plantilla-prop-input" type="number" min="-360" max="360" step="1" data-config="rotacion" value="${configuracion.rotacion}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Opacidad</span>
+                        <input class="plantilla-prop-input" type="number" min="5" max="100" step="5" data-config-porcentaje="opacidad" value="${Math.round(configuracion.opacidad * 100)}">
                     </label>
                     <label>
                         <span class="plantilla-prop-label">Tamaño</span>
@@ -780,6 +1043,58 @@
                     <label>
                         <span class="plantilla-prop-label">Color</span>
                         <input class="plantilla-prop-input" type="color" data-prop="color_texto" value="${elemento.color_texto || '#0f172a'}">
+                    </label>
+                    <div class="plantilla-prop-full plantilla-prop-section-title">Apariencia del bloque</div>
+                    <label>
+                        <span class="plantilla-prop-label">Relleno</span>
+                        <input class="plantilla-prop-input" type="color" data-config="fondo_color" value="${tieneRelleno ? configuracion.fondo_color : '#ffffff'}" ${tieneRelleno ? '' : 'disabled'}>
+                    </label>
+                    <label class="plantilla-check-row">
+                        <input type="checkbox" data-config-transparente ${tieneRelleno ? '' : 'checked'}>
+                        <span>Sin relleno</span>
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Color del borde</span>
+                        <input class="plantilla-prop-input" type="color" data-config="borde_color" value="${configuracion.borde_color}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Grosor del borde</span>
+                        <input class="plantilla-prop-input" type="number" min="0" max="12" step="0.5" data-config="borde_ancho" value="${configuracion.borde_ancho}">
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Tipo de borde</span>
+                        <select class="plantilla-prop-select" data-config="borde_estilo">
+                            <option value="SOLIDO" ${configuracion.borde_estilo === 'SOLIDO' ? 'selected' : ''}>Sólido</option>
+                            <option value="PUNTEADO" ${configuracion.borde_estilo === 'PUNTEADO' ? 'selected' : ''}>Punteado</option>
+                            <option value="DISCONTINUO" ${configuracion.borde_estilo === 'DISCONTINUO' ? 'selected' : ''}>Discontinuo</option>
+                            <option value="DOBLE" ${configuracion.borde_estilo === 'DOBLE' ? 'selected' : ''}>Doble</option>
+                            <option value="NINGUNO" ${configuracion.borde_estilo === 'NINGUNO' ? 'selected' : ''}>Sin borde</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span class="plantilla-prop-label">Esquinas</span>
+                        <input class="plantilla-prop-input" type="number" min="0" max="100" data-config="radio_borde" value="${configuracion.radio_borde}">
+                    </label>
+                    ${elemento.tipo_elemento === 'FORMA' ? `
+                    <label class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Tipo de forma</span>
+                        <select class="plantilla-prop-select" data-config="forma">
+                            <option value="RECTANGULO" ${configuracion.forma === 'RECTANGULO' ? 'selected' : ''}>Rectángulo</option>
+                            <option value="ELIPSE" ${configuracion.forma === 'ELIPSE' ? 'selected' : ''}>Elipse</option>
+                        </select>
+                    </label>` : ''}
+                    ${elemento.tipo_elemento === 'IMAGEN' ? `
+                    <label class="plantilla-prop-full">
+                        <span class="plantilla-prop-label">Ajuste de imagen</span>
+                        <select class="plantilla-prop-select" data-config="ajuste_imagen">
+                            <option value="CONTENER" ${configuracion.ajuste_imagen === 'CONTENER' ? 'selected' : ''}>Mostrar completa</option>
+                            <option value="CUBRIR" ${configuracion.ajuste_imagen === 'CUBRIR' ? 'selected' : ''}>Cubrir el espacio</option>
+                            <option value="ESTIRAR" ${configuracion.ajuste_imagen === 'ESTIRAR' ? 'selected' : ''}>Estirar</option>
+                        </select>
+                    </label>` : ''}
+                    <label class="plantilla-prop-full plantilla-check-row">
+                        <input type="checkbox" data-config="bloqueado" ${configuracion.bloqueado ? 'checked' : ''}>
+                        <span>Bloquear posición y tamaño</span>
                     </label>
                     <label class="plantilla-prop-full">
                         <span class="plantilla-prop-label">Tipo de letra</span>
@@ -812,7 +1127,7 @@
                     </div>
                     ${elemento.tipo_elemento === 'TABLA' ? htmlEditorTabla(elemento) : ''}
                     ${elemento.tipo_elemento === 'QR' ? htmlPropiedadesQr(elemento) : ''}
-                    ${elemento.tipo_elemento !== 'TABLA' && elemento.tipo_elemento !== 'QR' ? `
+                    ${!['TABLA', 'QR', 'FORMA', 'LINEA'].includes(elemento.tipo_elemento) ? `
                     <label class="plantilla-prop-full">
                         <span class="plantilla-prop-label">Texto del bloque</span>
                         <textarea class="plantilla-prop-textarea" data-prop-texto>${escaparHtml(elemento.texto_fijo || '')}</textarea>
@@ -1050,6 +1365,14 @@
                     });
                 }
 
+                if (accion === 'forma') {
+                    agregarElemento('FORMA');
+                }
+
+                if (accion === 'linea') {
+                    agregarElemento('LINEA');
+                }
+
                 if (accion === 'deshacer') {
                     deshacerCambio();
                 }
@@ -1070,11 +1393,24 @@
                     moverCapaSeleccionada(accion);
                 }
 
+                if (accion === 'bloquear' && elementoSeleccionado()) {
+                    guardarHistorial();
+                    elementoSeleccionado().configuracion.bloqueado = !elementoSeleccionado().configuracion.bloqueado;
+                    renderizarLienzo();
+                }
+
                 if (accion === 'grid') {
                     cuadriculaActiva = !cuadriculaActiva;
                     actualizarFormaLienzo();
                 }
             });
+        });
+
+        document.querySelector('[data-plantilla-alinear]')?.addEventListener('change', function () {
+            if (this.value) {
+                alinearElementoSeleccionado(this.value);
+                this.value = '';
+            }
         });
 
         document.querySelectorAll('[data-plantilla-campo]').forEach((boton) => {
@@ -1121,7 +1457,9 @@
                 item.classList.toggle('is-selected', item === nodo);
             });
 
-            if (!nodo.querySelector('[data-resize-handle]')) {
+            const elemento = elementos[index];
+
+            if (!elemento.configuracion.bloqueado && !nodo.querySelector('[data-resize-handle]')) {
                 const controlTamano = document.createElement('span');
                 controlTamano.className = 'plantilla-resize-handle';
                 controlTamano.dataset.resizeHandle = '1';
@@ -1130,9 +1468,13 @@
 
             renderizarPropiedades();
             renderizarCapas();
+
+            if (elemento.configuracion.bloqueado) {
+                return;
+            }
+
             guardarHistorial();
 
-            const elemento = elementos[index];
             const estaRedimensionando = Boolean(event.target.closest('[data-resize-handle]'));
             const inicioX = event.clientX;
             const inicioY = event.clientY;
@@ -1143,15 +1485,19 @@
 
             function mover(eventMove) {
                 eventMove.preventDefault();
+                const ajuste = (valor) => cuadriculaActiva ? Math.round(valor / 10) * 10 : Math.round(valor);
+                const deltaX = (eventMove.clientX - inicioX) / zoomActual;
+                const deltaY = (eventMove.clientY - inicioY) / zoomActual;
 
                 if (estaRedimensionando) {
-                    const nuevoAncho = Math.max(28, anchoInicial + (eventMove.clientX - inicioX));
-                    const nuevoAlto = Math.max(24, altoInicial + (eventMove.clientY - inicioY));
+                    const altoMinimo = elemento.tipo_elemento === 'LINEA' ? 4 : 24;
+                    const nuevoAncho = Math.max(28, anchoInicial + deltaX);
+                    const nuevoAlto = Math.max(altoMinimo, altoInicial + deltaY);
 
-                    elemento.ancho = Math.round(nuevoAncho);
-                    elemento.alto = Math.round(nuevoAlto);
+                    elemento.ancho = ajuste(nuevoAncho);
+                    elemento.alto = elemento.tipo_elemento === 'LINEA' ? Math.round(nuevoAlto) : ajuste(nuevoAlto);
                     nodo.style.width = `${elemento.ancho}px`;
-                    nodo.style.minHeight = `${elemento.alto}px`;
+                    nodo.style.height = `${elemento.alto}px`;
                     actualizarInput();
                     renderizarPropiedades();
                     return;
@@ -1159,11 +1505,11 @@
 
                 const maxX = Math.max(0, lienzo.clientWidth - nodo.offsetWidth);
                 const maxY = Math.max(0, lienzo.clientHeight - nodo.offsetHeight);
-                const nuevaX = posicionInicialX + (eventMove.clientX - inicioX);
-                const nuevaY = posicionInicialY + (eventMove.clientY - inicioY);
+                const nuevaX = posicionInicialX + deltaX;
+                const nuevaY = posicionInicialY + deltaY;
 
-                elemento.posicion_x = Math.round(Math.min(Math.max(0, nuevaX), maxX));
-                elemento.posicion_y = Math.round(Math.min(Math.max(0, nuevaY), maxY));
+                elemento.posicion_x = ajuste(Math.min(Math.max(0, nuevaX), maxX));
+                elemento.posicion_y = ajuste(Math.min(Math.max(0, nuevaY), maxY));
                 nodo.style.left = `${elemento.posicion_x}px`;
                 nodo.style.top = `${elemento.posicion_y}px`;
                 actualizarInput();
@@ -1184,6 +1530,51 @@
             const elemento = elementoSeleccionado();
 
             if (!elemento) {
+                return;
+            }
+
+            const estiloTabla = event.target.dataset.tablaEstilo;
+            if (estiloTabla) {
+                const valor = event.target.type === 'checkbox'
+                    ? event.target.checked
+                    : (['borde_ancho', 'padding_x', 'padding_y'].includes(estiloTabla)
+                        ? Number(event.target.value || 0)
+                        : event.target.value);
+                elemento.configuracion.tabla[estiloTabla] = valor;
+                actualizarNodoSeleccionado();
+
+                if (estiloTabla === 'filas_alternas') {
+                    renderizarPropiedades();
+                }
+                return;
+            }
+
+            const configPorcentaje = event.target.dataset.configPorcentaje;
+            if (configPorcentaje) {
+                elemento.configuracion[configPorcentaje] = Math.max(0.05, Math.min(1, Number(event.target.value || 100) / 100));
+                actualizarNodoSeleccionado();
+                return;
+            }
+
+            if (event.target.matches('[data-config-transparente]')) {
+                elemento.configuracion.fondo_color = event.target.checked ? 'transparent' : '#ffffff';
+                renderizarPropiedades();
+                actualizarNodoSeleccionado();
+                return;
+            }
+
+            const config = event.target.dataset.config;
+            if (config) {
+                elemento.configuracion[config] = event.target.type === 'checkbox'
+                    ? event.target.checked
+                    : (['rotacion', 'borde_ancho', 'radio_borde'].includes(config)
+                        ? Number(event.target.value || 0)
+                        : event.target.value);
+                actualizarNodoSeleccionado();
+
+                if (['bloqueado', 'forma'].includes(config)) {
+                    renderizarLienzo();
+                }
                 return;
             }
 
@@ -1259,7 +1650,7 @@
         panelPropiedades?.addEventListener('change', actualizarPropiedadDesdePanel);
 
         panelPropiedades?.addEventListener('focusin', function (event) {
-            if (!preparandoHistorialPropiedad && event.target.matches('[data-prop], [data-prop-texto], [data-tabla-filas], [data-tabla-columnas], [data-tabla-encabezado], [data-tabla-celda], [data-qr-codigo]')) {
+            if (!preparandoHistorialPropiedad && event.target.matches('[data-prop], [data-prop-texto], [data-config], [data-config-porcentaje], [data-config-transparente], [data-tabla-estilo], [data-tabla-filas], [data-tabla-columnas], [data-tabla-encabezado], [data-tabla-celda], [data-qr-codigo]')) {
                 guardarHistorial();
                 preparandoHistorialPropiedad = true;
             }

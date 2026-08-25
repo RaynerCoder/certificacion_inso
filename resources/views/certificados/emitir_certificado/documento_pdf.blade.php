@@ -44,6 +44,8 @@
 
         .documento-elemento.tabla { padding: 0 !important; }
         .documento-elemento.imagen { padding: 0 !important; }
+        .documento-elemento.forma,
+        .documento-elemento.linea { padding: 0 !important; }
 
         .documento-elemento.imagen img,
         .documento-elemento.qr img {
@@ -93,12 +95,71 @@
                 $usaPadding = !in_array($tipo, ['IMAGEN', 'TABLA', 'QR'], true);
                 $paddingX = (float) data_get($elemento, 'padding_x', $usaPadding ? 7 : 0);
                 $paddingY = (float) data_get($elemento, 'padding_y', $usaPadding ? 5 : 0);
-                $claseTipo = strtolower($tipo === 'TABLA' ? 'tabla' : ($tipo === 'IMAGEN' ? 'imagen' : ($tipo === 'QR' ? 'qr' : 'texto')));
+                $claseTipo = strtolower(match ($tipo) {
+                    'TABLA' => 'tabla',
+                    'IMAGEN' => 'imagen',
+                    'QR' => 'qr',
+                    'FORMA' => 'forma',
+                    'LINEA' => 'linea',
+                    default => 'texto',
+                });
+                $configuracion = (array) ($elemento->configuracion ?? []);
+                $rotacion = max(-360, min(360, (float) data_get($configuracion, 'rotacion', 0)));
+                $opacidad = max(0.05, min(1, (float) data_get($configuracion, 'opacidad', 1)));
+                $fondoColor = data_get($configuracion, 'fondo_color', 'transparent') ?: 'transparent';
+                $bordeColor = data_get($configuracion, 'borde_color', '#0f766e') ?: '#0f766e';
+                $bordeAncho = max(0, (float) data_get($configuracion, 'borde_ancho', 0));
+                $bordeEstilo = match (strtoupper((string) data_get($configuracion, 'borde_estilo', 'SOLIDO'))) {
+                    'PUNTEADO' => 'dotted',
+                    'DISCONTINUO' => 'dashed',
+                    'DOBLE' => 'double',
+                    'NINGUNO' => 'none',
+                    default => 'solid',
+                };
+                $radioBorde = max(0, (float) data_get($configuracion, 'radio_borde', 0));
+                $ajusteImagen = match (strtoupper((string) data_get($configuracion, 'ajuste_imagen', 'CONTENER'))) {
+                    'CUBRIR' => 'cover',
+                    'ESTIRAR' => 'fill',
+                    default => 'contain',
+                };
+
+                $tabla = (array) data_get($configuracion, 'tabla', []);
+                $tablaBordes = strtoupper((string) data_get($tabla, 'bordes', 'TODOS'));
+                $tablaBordeColor = data_get($tabla, 'borde_color', '#0f172a') ?: '#0f172a';
+                $tablaBordeAncho = max(0, (float) data_get($tabla, 'borde_ancho', 1));
+                $tablaBordeEstilo = match (strtoupper((string) data_get($tabla, 'borde_estilo', 'SOLIDO'))) {
+                    'PUNTEADO' => 'dotted',
+                    'DISCONTINUO' => 'dashed',
+                    'DOBLE' => 'double',
+                    default => 'solid',
+                };
+                $tablaBorde = $tablaBordeAncho.'px '.$tablaBordeEstilo.' '.$tablaBordeColor;
+                $tablaPaddingX = max(0, (float) data_get($tabla, 'padding_x', 6));
+                $tablaPaddingY = max(0, (float) data_get($tabla, 'padding_y', 4));
+                $tablaVertical = match (strtoupper((string) data_get($tabla, 'alineacion_vertical', 'MEDIO'))) {
+                    'SUPERIOR' => 'top',
+                    'INFERIOR' => 'bottom',
+                    default => 'middle',
+                };
+                $estiloCelda = function (bool $encabezado, bool $primeraColumna) use ($tablaBordes, $tablaBorde, $tablaPaddingX, $tablaPaddingY, $tablaVertical): string {
+                    $borde = match ($tablaBordes) {
+                        'NINGUNO', 'EXTERIOR' => 'border: 0;',
+                        'HORIZONTAL' => 'border: 0; border-bottom: '.$tablaBorde.';',
+                        'VERTICAL' => $primeraColumna ? 'border: 0;' : 'border: 0; border-left: '.$tablaBorde.';',
+                        'ENCABEZADO' => $encabezado ? 'border: 0; border-bottom: '.$tablaBorde.';' : 'border: 0;',
+                        default => 'border: '.$tablaBorde.';',
+                    };
+
+                    return $borde.' padding: '.$tablaPaddingY.'px '.$tablaPaddingX.'px; vertical-align: '.$tablaVertical.';';
+                };
             @endphp
 
-            @if ($tipo === 'TABLA' || filled($valor))
+            @if (in_array($tipo, ['TABLA', 'FORMA', 'LINEA'], true) || filled($valor))
                 <div class="documento-elemento {{ $claseTipo }}"
                     style="
+                        background: {{ in_array($tipo, ['TABLA', 'LINEA'], true) ? 'transparent' : $fondoColor }};
+                        border: {{ in_array($tipo, ['TABLA', 'LINEA'], true) || $bordeEstilo === 'none' ? '0' : $bordeAncho.'px '.$bordeEstilo.' '.$bordeColor }};
+                        border-radius: {{ $tipo === 'FORMA' && data_get($configuracion, 'forma') === 'ELIPSE' ? '50%' : $radioBorde.'px' }};
                         color: {{ data_get($elemento, 'color_texto', '#0f172a') ?: '#0f172a' }};
                         font-family: '{{ data_get($elemento, 'tipo_letra', 'Arial') ?: 'Arial' }}', Arial, sans-serif;
                         font-size: {{ (int) $elemento->tamano_letra }}px;
@@ -107,20 +168,31 @@
                         height: {{ (float) $elemento->alto }}px;
                         left: {{ (float) $elemento->posicion_x }}px;
                         line-height: {{ (float) data_get($elemento, 'interlineado', 1.25) }};
+                        opacity: {{ $opacidad }};
                         padding: {{ $paddingY }}px {{ $paddingX }}px;
                         text-align: {{ $alineacion }};
                         text-decoration: {{ data_get($elemento, 'subrayado') ? 'underline' : 'none' }};
                         top: {{ (float) $elemento->posicion_y }}px;
+                        transform: rotate({{ $rotacion }}deg);
+                        transform-origin: center center;
                         width: {{ (float) $elemento->ancho }}px;
                     ">
                     @if ($tipo === 'IMAGEN' || ($tipo === 'QR' && str_starts_with((string) $valor, 'data:image')))
-                        <img src="{{ $valor }}" alt="Imagen del certificado">
+                        <img src="{{ $valor }}" alt="Imagen del certificado" style="object-fit: {{ $ajusteImagen }};">
                     @elseif ($tipo === 'TABLA')
-                        <table class="documento-tabla">
+                        <table class="documento-tabla" style="
+                            border: {{ $tablaBordes === 'EXTERIOR' ? $tablaBorde : '0' }};
+                            color: {{ data_get($elemento, 'color_texto', '#0f172a') ?: '#0f172a' }};
+                        ">
                             <thead>
                                 <tr>
                                     @forelse ($elemento->columnas as $columna)
-                                        <th style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
+                                        <th style="
+                                            {{ $estiloCelda(true, $loop->first) }}
+                                            background: {{ data_get($tabla, 'encabezado_fondo', '#f1f5f9') }};
+                                            color: {{ data_get($tabla, 'encabezado_texto', '#0f172a') }};
+                                            width: {{ (float) ($columna->ancho ?: 25) }}%;
+                                        ">
                                             {{ $columna->titulo_columna ?: $columna->codigo_campo }}
                                         </th>
                                     @empty
@@ -132,7 +204,10 @@
                                 @forelse ($item['filas'] as $fila)
                                     <tr>
                                         @foreach ($fila as $celda)
-                                            <td>{{ $celda }}</td>
+                                            <td style="
+                                                {{ $estiloCelda(false, $loop->first) }}
+                                                background: {{ data_get($tabla, 'filas_alternas') && $loop->parent->iteration % 2 === 0 ? data_get($tabla, 'filas_alternas_color', '#f8fafc') : data_get($tabla, 'celdas_fondo', '#ffffff') }};
+                                            ">{{ $celda }}</td>
                                         @endforeach
                                     </tr>
                                 @empty
@@ -140,7 +215,9 @@
                                 @endforelse
                             </tbody>
                         </table>
-                    @else
+                    @elseif ($tipo === 'LINEA')
+                        <div style="position:absolute; left:0; right:0; top:50%; border-top: {{ max(1, $bordeAncho) }}px {{ $bordeEstilo === 'none' ? 'solid' : $bordeEstilo }} {{ $bordeColor }};"></div>
+                    @elseif ($tipo !== 'FORMA')
                         {!! nl2br(e($valor)) !!}
                     @endif
                 </div>

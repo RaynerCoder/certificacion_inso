@@ -172,6 +172,8 @@
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="firma">Agregar firma</button>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="qr">Agregar QR</button>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="imagen">Agregar imagen</button>
+                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="forma">Agregar forma</button>
+                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="linea">Agregar línea</button>
                     <span class="plantilla-toolbar-separator"></span>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="deshacer">Deshacer</button>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="rehacer">Rehacer</button>
@@ -179,6 +181,16 @@
                     <button type="button" class="plantilla-action-btn is-danger" data-plantilla-tool="eliminar">Quitar</button>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="fondo">Enviar atrás</button>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="frente">Traer al frente</button>
+                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="bloquear">Bloquear</button>
+                    <select class="plantilla-toolbar-select" data-plantilla-alinear aria-label="Alinear bloque al lienzo">
+                        <option value="">Alinear...</option>
+                        <option value="IZQUIERDA">A la izquierda</option>
+                        <option value="CENTRO_H">Centrar horizontal</option>
+                        <option value="DERECHA">A la derecha</option>
+                        <option value="ARRIBA">Arriba</option>
+                        <option value="CENTRO_V">Centrar vertical</option>
+                        <option value="ABAJO">Abajo</option>
+                    </select>
                     <button type="button" class="plantilla-action-btn" data-plantilla-tool="grid">Cuadrícula</button>
                     <div class="plantilla-zoom-control">
                         <button type="button" data-plantilla-zoom="menos">-</button>

@@ -54,10 +54,26 @@
                                 $usaPaddingElemento = !in_array($elemento->tipo_elemento, ['IMAGEN', 'TABLA', 'QR'], true);
                                 $paddingXElemento = (float) ($elemento->padding_x ?? ($usaPaddingElemento ? 7 : 0));
                                 $paddingYElemento = (float) ($elemento->padding_y ?? ($usaPaddingElemento ? 5 : 0));
+                                $configuracion = (array) ($elemento->configuracion ?? []);
+                                $bordeEstilo = match (strtoupper((string) data_get($configuracion, 'borde_estilo', 'SOLIDO'))) {
+                                    'PUNTEADO' => 'dotted',
+                                    'DISCONTINUO' => 'dashed',
+                                    'DOBLE' => 'double',
+                                    'NINGUNO' => 'none',
+                                    default => 'solid',
+                                };
+                                $tabla = (array) data_get($configuracion, 'tabla', []);
+                                $claseBordesTabla = 'is-bordes-' . strtolower((string) data_get($tabla, 'bordes', 'TODOS'));
+                                $contenidoTabla = json_decode((string) $elemento->texto_fijo, true);
+                                $filasTabla = is_array($contenidoTabla['filas'] ?? null) ? $contenidoTabla['filas'] : [];
                                 $clasesElemento = collect([
                                     'plantilla-element',
                                     $elemento->tipo_elemento === 'TEXTO' ? 'is-texto' : null,
                                     $elemento->tipo_elemento === 'IMAGEN' ? 'is-imagen' : null,
+                                    $elemento->tipo_elemento === 'TABLA' ? 'is-tabla' : null,
+                                    $elemento->tipo_elemento === 'QR' ? 'is-qr' : null,
+                                    $elemento->tipo_elemento === 'FORMA' ? 'is-forma' : null,
+                                    $elemento->tipo_elemento === 'LINEA' ? 'is-linea' : null,
                                     $elemento->alineacion === 'CENTRO' ? 'is-center' : null,
                                     $elemento->alineacion === 'DERECHA' ? 'is-right' : null,
                                     $elemento->alineacion === 'JUSTIFICADO' ? 'is-justify' : null,
@@ -79,10 +95,45 @@
                                     line-height: {{ (float) ($elemento->interlineado ?? 1.25) }};
                                     padding: {{ $paddingYElemento }}px {{ $paddingXElemento }}px;
                                     z-index: {{ (int) ($elemento->z_index ?? 3) }};
+                                    opacity: {{ (float) data_get($configuracion, 'opacidad', 1) }};
+                                    transform: rotate({{ (float) data_get($configuracion, 'rotacion', 0) }}deg);
+                                    transform-origin: center center;
+                                    background: {{ in_array($elemento->tipo_elemento, ['TABLA', 'LINEA'], true) ? 'transparent' : data_get($configuracion, 'fondo_color', 'transparent') }};
+                                    border: {{ in_array($elemento->tipo_elemento, ['TABLA', 'LINEA'], true) || $bordeEstilo === 'none' ? '0' : (float) data_get($configuracion, 'borde_ancho', 0) . 'px ' . $bordeEstilo . ' ' . data_get($configuracion, 'borde_color', '#0f766e') }};
+                                    border-radius: {{ $elemento->tipo_elemento === 'FORMA' && data_get($configuracion, 'forma') === 'ELIPSE' ? '50%' : (float) data_get($configuracion, 'radio_borde', 0) . 'px' }};
                                 ">
                                 @if ($elemento->tipo_elemento === 'IMAGEN' && $textoElemento)
-                                    <img src="{{ $textoElemento }}" alt="Imagen de la plantilla">
-                                @else
+                                    <img src="{{ $textoElemento }}" alt="Imagen de la plantilla" style="object-fit: {{ data_get($configuracion, 'ajuste_imagen') === 'CUBRIR' ? 'cover' : (data_get($configuracion, 'ajuste_imagen') === 'ESTIRAR' ? 'fill' : 'contain') }};">
+                                @elseif ($elemento->tipo_elemento === 'TABLA')
+                                    <table class="plantilla-word-table {{ $claseBordesTabla }} {{ data_get($tabla, 'filas_alternas') ? 'is-filas-alternas' : '' }}" style="
+                                        --tabla-borde-color: {{ data_get($tabla, 'borde_color', '#0f172a') }};
+                                        --tabla-borde-ancho: {{ (float) data_get($tabla, 'borde_ancho', 1) }}px;
+                                        --tabla-borde-estilo: {{ match (data_get($tabla, 'borde_estilo', 'SOLIDO')) { 'PUNTEADO' => 'dotted', 'DISCONTINUO' => 'dashed', 'DOBLE' => 'double', default => 'solid' } }};
+                                        --tabla-encabezado-fondo: {{ data_get($tabla, 'encabezado_fondo', '#f1f5f9') }};
+                                        --tabla-encabezado-texto: {{ data_get($tabla, 'encabezado_texto', '#0f172a') }};
+                                        --tabla-celdas-fondo: {{ data_get($tabla, 'celdas_fondo', '#ffffff') }};
+                                        --tabla-alterna-fondo: {{ data_get($tabla, 'filas_alternas_color', '#f8fafc') }};
+                                        --tabla-padding-x: {{ (float) data_get($tabla, 'padding_x', 6) }}px;
+                                        --tabla-padding-y: {{ (float) data_get($tabla, 'padding_y', 4) }}px;
+                                    ">
+                                        <thead><tr>
+                                            @foreach ($elemento->columnas as $columna)
+                                                <th style="width: {{ (float) ($columna->ancho ?: 25) }}%;">{{ $columna->titulo_columna }}</th>
+                                            @endforeach
+                                        </tr></thead>
+                                        <tbody>
+                                            @forelse ($filasTabla as $fila)
+                                                <tr>@foreach ($fila as $celda)<td>{{ $celda }}</td>@endforeach</tr>
+                                            @empty
+                                                <tr><td>Sin datos</td></tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                @elseif ($elemento->tipo_elemento === 'QR' && str_starts_with((string) $textoElemento, 'data:image'))
+                                    <img src="{{ $textoElemento }}" alt="Código QR">
+                                @elseif ($elemento->tipo_elemento === 'LINEA')
+                                    <span class="plantilla-linea-contenido" style="border-top: {{ max(1, (float) data_get($configuracion, 'borde_ancho', 1)) }}px {{ $bordeEstilo === 'none' ? 'solid' : $bordeEstilo }} {{ data_get($configuracion, 'borde_color', '#0f766e') }};"></span>
+                                @elseif ($elemento->tipo_elemento !== 'FORMA')
                                     {!! nl2br(e($textoElemento)) !!}
                                 @endif
                             </div>

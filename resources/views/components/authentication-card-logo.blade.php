@@ -1,6 +1,19 @@
-<a href="/">
-    <svg class="size-16" viewbox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11.395 44.428C4.557 40.198 0 32.632 0 24 0 10.745 10.745 0 24 0a23.891 23.891 0 0113.997 4.502c-.2 17.907-11.097 33.245-26.602 39.926z" fill="#6875F5"/>
-        <path d="M14.134 45.885A23.914 23.914 0 0024 48c13.255 0 24-10.745 24-24 0-3.516-.756-6.856-2.115-9.866-4.659 15.143-16.608 27.092-31.75 31.751z" fill="#6875F5"/>
-    </svg>
+<a
+    href="{{ url('/') }}"
+    class="group flex flex-col items-center gap-3 rounded-xl px-4 py-2 text-center focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-offset-2"
+    aria-label="Ir al inicio de Certificador"
+>
+    {{-- El mismo archivo se usa en el acceso, el favicon y las versiones descargables. --}}
+    <img
+        src="{{ asset('images/branding/certificador-icon.svg') }}"
+        class="h-20 w-20 transition-transform duration-200 group-hover:scale-105"
+        alt="Ícono de Certificador"
+    >
+
+    <span>
+        <span class="block text-xl font-bold tracking-wide text-green-800">CERTIFICADOR</span>
+        <span class="mt-1 block max-w-xs text-xs font-medium uppercase tracking-wider text-gray-500">
+            Sistema de Gestión y Consulta de Certificados
+        </span>
+    </span>
 </a>

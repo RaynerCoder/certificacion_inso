@@ -9,6 +9,13 @@ use App\Traits\Auditable;
 class Producto extends Model
 {
     use SoftDeletes, Auditable;
+
+    // Tipos permitidos al registrar un producto.
+    public const TIPOS_PRODUCTO = [
+        'PLAGUICIDA' => 'Plaguicida',
+        'MATERIA PRIMA' => 'Materia prima',
+    ];
+
     protected $table = 'productos';
     protected $fillable = [
         'id_importador_persona',

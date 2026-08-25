@@ -9,7 +9,10 @@
                     <option value="">Seleccione importador</option>
                     @foreach ($importadoresCatalogo as $persona)
                         @php
-                            $importadorSeleccionado = old('form_id_importador_persona', request('form_id_importador_persona'));
+                            $importadorSeleccionado = $valorProducto(
+                                'form_id_importador_persona',
+                                request('form_id_importador_persona')
+                            );
                         @endphp
                         <option value="{{ $persona->id }}" @selected((string) $importadorSeleccionado === (string) $persona->id)>
                             {{ $nombrePersonaProducto($persona) }}
@@ -33,13 +36,13 @@
                         <option value="{{ old('form_id_fabricante') }}" data-temporal="1"
                             data-nombre="{{ old('form_fabricante_temporal_nombre') }}"
                             data-razon-social="{{ old('form_fabricante_temporal_razon_social') }}" selected>
-                            {{ old('form_fabricante_temporal_razon_social') ? old('form_fabricante_temporal_razon_social') . ' - ' : '' }}{{ old('form_fabricante_temporal_nombre') }}
+                            {{ old('form_fabricante_temporal_razon_social') ?: old('form_fabricante_temporal_nombre') }}
                         </option>
                     @endif
                     @foreach ($fabricantesCatalogo as $fabricante)
                         <option value="{{ $fabricante->id }}" data-nombre="{{ $fabricante->nombre }}"
-                            data-razon-social="{{ $fabricante->razon_social }}" @selected(old('form_id_fabricante') == $fabricante->id)>
-                            {{ $fabricante->razon_social ? $fabricante->razon_social . ' - ' : '' }}{{ $fabricante->nombre }}
+                            data-razon-social="{{ $fabricante->razon_social }}" @selected($valorProducto('form_id_fabricante') == $fabricante->id)>
+                            {{ $fabricante->razon_social ?: $fabricante->nombre }}
                         </option>
                     @endforeach
                 </select>
@@ -49,15 +52,15 @@
                 <label class="producto-field-label" for="form_estado">Estado</label>
                 <select class="producto-select{{ $claseErrorProducto('form_estado') }}" id="form_estado"
                     name="form_estado">
-                    <option value="ACTIVO" @selected(old('form_estado', 'ACTIVO') === 'ACTIVO')>Activo</option>
-                    <option value="INACTIVO" @selected(old('form_estado') === 'INACTIVO')>Inactivo</option>
+                    <option value="ACTIVO" @selected($valorProducto('form_estado', 'ACTIVO') === 'ACTIVO')>Activo</option>
+                    <option value="INACTIVO" @selected($valorProducto('form_estado') === 'INACTIVO')>Inactivo</option>
                 </select>
             </div>
 
             <div class="lg:col-span-3">
                 <label class="producto-field-label" for="form_codigo">Código</label>
                 <input class="producto-input{{ $claseErrorProducto('form_codigo') }}" id="form_codigo"
-                    name="form_codigo" type="text" value="{{ old('form_codigo') }}" placeholder="Ej: PROD-PLAG-001">
+                    name="form_codigo" type="text" value="{{ $valorProducto('form_codigo') }}" placeholder="Ej: PROD-PLAG-001">
                 @error('form_codigo')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
@@ -67,7 +70,7 @@
                 <label class="producto-field-label" for="form_nombre_comercial">Nombre comercial</label>
                 <input class="producto-input{{ $claseErrorProducto('form_nombre_comercial') }}"
                     id="form_nombre_comercial" name="form_nombre_comercial" type="text"
-                    value="{{ old('form_nombre_comercial') }}" placeholder="Ej: GLIFOSATO 48 SL">
+                    value="{{ $valorProducto('form_nombre_comercial') }}" placeholder="Ej: GLIFOSATO 48 SL">
                 @error('form_nombre_comercial')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
@@ -79,7 +82,7 @@
                     id="form_id_territorio_pais" name="form_id_territorio_pais">
                     <option value="">Seleccione el país</option>
                     @foreach ($territoriosCatalogo as $territorio)
-                        <option value="{{ $territorio->id }}" @selected(old('form_id_territorio_pais') == $territorio->id)>
+                        <option value="{{ $territorio->id }}" @selected($valorProducto('form_id_territorio_pais') == $territorio->id)>
                             {{ $territorio->nombre }}{{ $territorio->codigo ? ' - ' . $territorio->codigo : '' }}
                         </option>
                     @endforeach
@@ -88,9 +91,15 @@
 
             <div class="lg:col-span-6">
                 <label class="producto-field-label" for="form_tipo_producto">Tipo de producto</label>
-                <input class="producto-input{{ $claseErrorProducto('form_tipo_producto') }}"
-                    id="form_tipo_producto" name="form_tipo_producto" type="text"
-                    value="{{ old('form_tipo_producto') }}" placeholder="Ej: Plaguicida o Materia Prima" oninput="this.value = this.value.toUpperCase()">
+                <select class="producto-select{{ $claseErrorProducto('form_tipo_producto') }}"
+                    id="form_tipo_producto" name="form_tipo_producto">
+                    <option value="">Seleccione el tipo de producto</option>
+                    @foreach ($tiposProducto as $valor => $etiqueta)
+                        <option value="{{ $valor }}" @selected($valorProducto('form_tipo_producto') === $valor)>
+                            {{ $etiqueta }}
+                        </option>
+                    @endforeach
+                </select>
                 @error('form_tipo_producto')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
@@ -100,7 +109,7 @@
                 <label class="producto-field-label" for="form_nombre_tecnico">Nombre técnico</label>
                 <input class="producto-input{{ $claseErrorProducto('form_nombre_tecnico') }}"
                     id="form_nombre_tecnico" name="form_nombre_tecnico" type="text"
-                    value="{{ old('form_nombre_tecnico') }}" placeholder="Ingrese el nombre técnico">
+                    value="{{ $valorProducto('form_nombre_tecnico') }}" placeholder="Ingrese el nombre técnico">
                 @error('form_nombre_tecnico')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
@@ -124,7 +133,7 @@
                     @endif
                     @foreach ($clasificacionesQuimicasCatalogo as $clasificacionQuimica)
                         <option value="{{ $clasificacionQuimica->id }}"
-                            @selected((string) old('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
+                            @selected((string) $valorProducto('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
                             {{ $clasificacionQuimica->nombre }}
                         </option>
                     @endforeach
@@ -154,7 +163,7 @@
                         <option value="{{ $clasificacionToxicologica->id }}"
                             data-codigo="{{ $clasificacionToxicologica->codigo }}"
                             data-descripcion="{{ $clasificacionToxicologica->descripcion }}"
-                            @selected(old('form_id_clasificacion_toxicologica') == $clasificacionToxicologica->id)>
+                            @selected($valorProducto('form_id_clasificacion_toxicologica') == $clasificacionToxicologica->id)>
                             {{ $clasificacionToxicologica->codigo }}{{ $clasificacionToxicologica->descripcion ? ' - ' . $clasificacionToxicologica->descripcion : '' }}
                         </option>
                     @endforeach
@@ -163,4 +172,3 @@
         </div>
     </section>
 </div>
-

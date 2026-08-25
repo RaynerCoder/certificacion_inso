@@ -16,7 +16,7 @@ return new class extends Migration
             
             $table->foreignId('id_ingrediente')->constrained('ingredientes');
             $table->foreignId('id_producto')->constrained('productos');
-            $table->integer('porcentaje')->nullable();
+            $table->decimal('porcentaje', 5, 2)->nullable();
             // Estados manejados por ahora: ACTIVO e INACTIVO.
             $table->string('estado', 50)->default('ACTIVO');
 

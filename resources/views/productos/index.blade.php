@@ -23,24 +23,29 @@
 
     @push('js')
         <script>
-            document.querySelectorAll('.delete-form').forEach((formulario) => {
-                formulario.addEventListener('submit', function (evento) {
-                    evento.preventDefault();
+            // Se escucha el documento porque Livewire puede volver a dibujar las filas de la tabla.
+            document.addEventListener('submit', function (evento) {
+                const formulario = evento.target.closest('.delete-form');
 
-                    Swal.fire({
-                        title: '¿Estás seguro?',
-                        text: '¡No podrás revertir esta acción!',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: '¡Sí, eliminar!',
-                        cancelButtonText: 'Cancelar',
-                    }).then((resultado) => {
-                        if (resultado.isConfirmed) {
-                            formulario.submit();
-                        }
-                    });
+                if (!formulario) {
+                    return;
+                }
+
+                evento.preventDefault();
+
+                Swal.fire({
+                    title: '¿Está seguro?',
+                    text: 'El producto se marcará como inactivo y dejará de aparecer en el listado.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                }).then((resultado) => {
+                    if (resultado.isConfirmed) {
+                        formulario.submit();
+                    }
                 });
             });
         </script>

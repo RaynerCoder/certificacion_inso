@@ -2,14 +2,13 @@
 
 namespace App\Providers;
 
+use App\Actions\Fortify\AuthenticateUser;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
-use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -35,19 +34,9 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
-        // Permite iniciar sesion con correo o nombre de usuario usando el mismo campo del login.
+        // La accion mantiene juntas las reglas propias del acceso sin recargar este proveedor.
         Fortify::authenticateUsing(function (Request $request) {
-            $acceso = $request->input(Fortify::username());
-
-            $usuario = User::where('email', $acceso)
-                ->orWhere('name', $acceso)
-                ->first();
-
-            if (! $usuario || (string) $usuario->estado !== '1') {
-                return null;
-            }
-
-            return Hash::check($request->password, $usuario->password) ? $usuario : null;
+            return app(AuthenticateUser::class)($request);
         });
 
         RateLimiter::for('login', function (Request $request) {

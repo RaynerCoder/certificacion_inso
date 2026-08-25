@@ -1141,8 +1141,13 @@ class CertificadoController extends Controller
 
         foreach ($elementos as $orden => $item) {
             $codigoElemento = $item['codigo_elemento'] ?? null;
-            $tipoElemento = $item['tipo_elemento'] ?? 'CAMPO';
+            $tiposPermitidos = ['TEXTO', 'CAMPO', 'TABLA', 'FIRMA', 'QR', 'IMAGEN', 'FORMA', 'LINEA'];
+            $tipoElemento = strtoupper((string) ($item['tipo_elemento'] ?? 'CAMPO'));
             $textoFijo = $item['texto_fijo'] ?? null;
+
+            if (! in_array($tipoElemento, $tiposPermitidos, true)) {
+                continue;
+            }
 
             // Solo se guardan campos definidos por el sistema; así no se aceptan códigos inventados desde el navegador.
             if ($codigoElemento && ! in_array($codigoElemento, $codigosPermitidos, true)) {
@@ -1198,6 +1203,13 @@ class CertificadoController extends Controller
                 $datosElemento['z_index'] = (int) ($item['z_index'] ?? ($orden + 3));
             }
 
+            if (Schema::hasColumn('plantillas_elementos', 'configuracion')) {
+                $datosElemento['configuracion'] = $this->normalizarConfiguracionElementoPlantilla(
+                    is_array($item['configuracion'] ?? null) ? $item['configuracion'] : [],
+                    $tipoElemento
+                );
+            }
+
             $elemento = PlantillaElemento::create($datosElemento);
 
             if ($tipoElemento === 'TABLA') {
@@ -1213,6 +1225,76 @@ class CertificadoController extends Controller
         return in_array($valor, ['IZQUIERDA', 'CENTRO', 'DERECHA', 'JUSTIFICADO'], true)
             ? $valor
             : 'IZQUIERDA';
+    }
+
+    /**
+     * Conserva únicamente propiedades visuales conocidas por el editor.
+     * Esto evita guardar estilos arbitrarios enviados desde el navegador.
+     */
+    private function normalizarConfiguracionElementoPlantilla(array $configuracion, string $tipoElemento): array
+    {
+        $color = function ($valor, string $predeterminado, bool $permiteTransparente = false): string {
+            $valor = strtolower(trim((string) $valor));
+
+            if ($permiteTransparente && $valor === 'transparent') {
+                return 'transparent';
+            }
+
+            return preg_match('/^#[0-9a-f]{6}$/i', $valor) ? $valor : $predeterminado;
+        };
+
+        $bordeEstilo = strtoupper((string) ($configuracion['borde_estilo'] ?? 'SOLIDO'));
+        $forma = strtoupper((string) ($configuracion['forma'] ?? 'RECTANGULO'));
+        $ajusteImagen = strtoupper((string) ($configuracion['ajuste_imagen'] ?? 'CONTENER'));
+
+        $resultado = [
+            'rotacion' => max(-360, min(360, (float) ($configuracion['rotacion'] ?? 0))),
+            'opacidad' => max(0.05, min(1, (float) ($configuracion['opacidad'] ?? 1))),
+            'fondo_color' => $color($configuracion['fondo_color'] ?? 'transparent', 'transparent', true),
+            'borde_color' => $color($configuracion['borde_color'] ?? '#0f766e', '#0f766e'),
+            'borde_ancho' => max(0, min(12, (float) ($configuracion['borde_ancho'] ?? 0))),
+            'borde_estilo' => in_array($bordeEstilo, ['SOLIDO', 'PUNTEADO', 'DISCONTINUO', 'DOBLE', 'NINGUNO'], true)
+                ? $bordeEstilo
+                : 'SOLIDO',
+            'radio_borde' => max(0, min(100, (float) ($configuracion['radio_borde'] ?? 0))),
+            'bloqueado' => (bool) ($configuracion['bloqueado'] ?? false),
+            'forma' => in_array($forma, ['RECTANGULO', 'ELIPSE'], true) ? $forma : 'RECTANGULO',
+            'ajuste_imagen' => in_array($ajusteImagen, ['CONTENER', 'CUBRIR', 'ESTIRAR'], true)
+                ? $ajusteImagen
+                : 'CONTENER',
+        ];
+
+        if ($tipoElemento !== 'TABLA') {
+            return $resultado;
+        }
+
+        $tabla = is_array($configuracion['tabla'] ?? null) ? $configuracion['tabla'] : [];
+        $bordes = strtoupper((string) ($tabla['bordes'] ?? 'TODOS'));
+        $estilo = strtoupper((string) ($tabla['borde_estilo'] ?? 'SOLIDO'));
+        $alineacionVertical = strtoupper((string) ($tabla['alineacion_vertical'] ?? 'MEDIO'));
+
+        $resultado['tabla'] = [
+            'bordes' => in_array($bordes, ['TODOS', 'EXTERIOR', 'HORIZONTAL', 'VERTICAL', 'ENCABEZADO', 'NINGUNO'], true)
+                ? $bordes
+                : 'TODOS',
+            'borde_color' => $color($tabla['borde_color'] ?? '#0f172a', '#0f172a'),
+            'borde_ancho' => max(0, min(8, (float) ($tabla['borde_ancho'] ?? 1))),
+            'borde_estilo' => in_array($estilo, ['SOLIDO', 'PUNTEADO', 'DISCONTINUO', 'DOBLE'], true)
+                ? $estilo
+                : 'SOLIDO',
+            'encabezado_fondo' => $color($tabla['encabezado_fondo'] ?? '#f1f5f9', '#f1f5f9'),
+            'encabezado_texto' => $color($tabla['encabezado_texto'] ?? '#0f172a', '#0f172a'),
+            'celdas_fondo' => $color($tabla['celdas_fondo'] ?? '#ffffff', '#ffffff'),
+            'filas_alternas' => (bool) ($tabla['filas_alternas'] ?? false),
+            'filas_alternas_color' => $color($tabla['filas_alternas_color'] ?? '#f8fafc', '#f8fafc'),
+            'padding_x' => max(0, min(30, (float) ($tabla['padding_x'] ?? 6))),
+            'padding_y' => max(0, min(30, (float) ($tabla['padding_y'] ?? 4))),
+            'alineacion_vertical' => in_array($alineacionVertical, ['SUPERIOR', 'MEDIO', 'INFERIOR'], true)
+                ? $alineacionVertical
+                : 'MEDIO',
+        ];
+
+        return $resultado;
     }
 
     private function guardarColumnasPlantilla(PlantillaElemento $elemento, array $columnas, array $codigosPermitidos): void
@@ -1417,6 +1499,11 @@ class CertificadoController extends Controller
     {
         if (blank($ruta)) {
             return null;
+        }
+
+        // Las imágenes insertadas desde el editor ya llegan como Data URL.
+        if (str_starts_with((string) $ruta, 'data:image/')) {
+            return (string) $ruta;
         }
 
         $rutaLimpia = ltrim((string) $ruta, '/');

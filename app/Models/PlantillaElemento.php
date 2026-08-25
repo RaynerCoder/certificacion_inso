@@ -33,8 +33,16 @@ class PlantillaElemento extends Model
         'color_texto',
         'tipo_letra',
         'z_index',
+        'configuracion',
         'orden',
         'estado',
+    ];
+
+    protected $casts = [
+        'configuracion' => 'array',
+        'negrita' => 'boolean',
+        'cursiva' => 'boolean',
+        'subrayado' => 'boolean',
     ];
 
     // Relación muchos a uno (muchos elementos pertenecen a una plantilla)

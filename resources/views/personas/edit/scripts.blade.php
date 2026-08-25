@@ -552,7 +552,8 @@
          'Seleccione si registrara una persona natural o una empresa.',
          'Complete los datos generales comunes de la persona.',
          'Complete los datos específicos según el tipo registro seleccionado.',
-         'Agregue teléfonos y complementos: rubros para natural o responsables para empresa.',
+         '',
+         //'Agregue teléfonos y complementos: rubros para natural o responsables para empresa.',
          'Revise los datos principales antes de guardar el registro.'
      ];
 

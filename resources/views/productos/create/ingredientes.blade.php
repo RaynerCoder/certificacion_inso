@@ -16,8 +16,7 @@
                         <option value="">Seleccione un ingrediente</option>
                         @foreach ($ingredientesCatalogo as $ingrediente)
                             <option value="{{ $ingrediente->id }}"
-                                data-nombre="{{ $ingrediente->nombre }}"
-                                data-composicion="{{ $ingrediente->composicion }}">
+                                data-nombre="{{ $ingrediente->nombre }}">
                                 {{ $ingrediente->nombre }}
                             </option>
                         @endforeach
@@ -29,7 +28,6 @@
                             aria-expanded="false" aria-controls="form_ingrediente_dropdown">
                             <span class="producto-ingredient-trigger-text">
                                 <strong data-ingrediente-label>Seleccione un ingrediente</strong>
-                                <small data-ingrediente-detail>Composición como detalle</small>
                             </span>
                             <i class="fa-solid fa-chevron-down"></i>
                         </button>
@@ -48,9 +46,8 @@
 
                 <div class="lg:col-span-3">
                     <label class="producto-field-label" for="form_ingrediente_porcentaje">Porcentaje</label>
-                    {{-- La columna porcentaje es entera en la base de datos, por eso se permite de 0 a 100 sin decimales. --}}
                     <input class="producto-input" id="form_ingrediente_porcentaje" type="number" min="0"
-                        max="100" step="1" placeholder="Ej: 48">
+                        max="100" step="0.01" placeholder="Ej: 48.50">
                 </div>
 
                 <div class="lg:col-span-3">
@@ -70,38 +67,81 @@
             </div>
 
             <div class="producto-table-wrap overflow-x-auto rounded-lg border border-slate-200">
-                <table class="producto-table">
+                <table class="producto-table producto-table-ingredientes">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Producto</th>
                             <th>Nombre ingrediente</th>
-                            <th>Composición</th>
                             <th>Porcentaje</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
                     <tbody id="tablaIngredientesProducto">
-                        <tr id="sinIngredientesProducto">
-                            <td colspan="7">
-                                <div class="producto-empty">Todavía no agregaste ingredientes.
+                        @forelse ($ingredientesOld as $indice => $ingredienteOld)
+                            @php
+                                $ingredienteCatalogo = $ingredientesCatalogo->firstWhere(
+                                    'id',
+                                    (int) ($ingredienteOld['id_ingrediente'] ?? 0)
+                                );
+                                $nombreIngrediente = $ingredienteOld['nombre']
+                                    ?? $ingredienteCatalogo?->nombre
+                                    ?? 'Ingrediente sin nombre';
+                                $estadoIngrediente = $ingredienteOld['estado'] ?? 'ACTIVO';
+                            @endphp
+                            <tr>
+                                <td class="producto-ingredient-index">{{ $loop->iteration }}</td>
+                                <td class="producto-ingredient-name">
+                                    {{ $nombreIngrediente }}
+                                    <input type="hidden"
+                                        name="ingredientes_productos[{{ $indice }}][id_ingrediente]"
+                                        value="{{ $ingredienteOld['id_ingrediente'] ?? '' }}">
+                                    <input type="hidden" name="ingredientes_productos[{{ $indice }}][nombre]"
+                                        value="{{ $nombreIngrediente }}">
+                                    <input type="hidden" name="ingredientes_productos[{{ $indice }}][porcentaje]"
+                                        value="{{ $ingredienteOld['porcentaje'] ?? '' }}">
+                                    <input type="hidden" name="ingredientes_productos[{{ $indice }}][estado]"
+                                        value="{{ $estadoIngrediente }}">
+                                </td>
+                                <td class="producto-ingredient-percentage">
+                                    {{ rtrim(rtrim(number_format((float) ($ingredienteOld['porcentaje'] ?? 0), 2, '.', ''), '0'), '.') }}%
+                                </td>
+                                <td><span class="producto-pill">{{ $estadoIngrediente }}</span></td>
+                                <td>
+                                    <button type="button" class="producto-btn producto-btn-danger"
+                                        onclick="quitarFilaProducto(this)">
+                                        <i class="fa-solid fa-xmark text-[10px]"></i>
+                                        <span>Quitar</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr id="sinIngredientesProducto">
+                                <td colspan="5">
+                                    <div class="producto-empty">Todavía no agregaste ingredientes.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5">
+                                <div class="producto-ingredientes-total">
+                                    <div class="producto-ingredientes-total-head">
+                                        <span>Total de porcentaje de ingredientes</span>
+                                        <strong id="totalPorcentajeIngredientesProducto">0%</strong>
+                                    </div>
+                                    <div class="producto-ingredientes-progress" aria-hidden="true">
+                                        <span id="barraPorcentajeIngredientesProducto"></span>
+                                    </div>
+                                    <p class="hidden producto-ingredientes-alert" id="alertaPorcentajeIngredientesProducto">
+                                        La suma de los porcentajes excedió el 100%.
+                                    </p>
                                 </div>
                             </td>
                         </tr>
-                    </tbody>
+                    </tfoot>
                 </table>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="font-semibold">Total de porcentaje de ingredientes</span>
-                    <span class="rounded-full bg-white px-3 py-1 font-bold text-slate-800"
-                        id="totalPorcentajeIngredientesProducto">0%</span>
-                </div>
-                <p class="mt-2 hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 font-semibold text-red-700"
-                    id="alertaPorcentajeIngredientesProducto">
-                    La suma de los porcentajes excedió el 100%.
-                </p>
             </div>
         </div>
     </section>

@@ -19,6 +19,13 @@ class IngredienteProducto extends Model
         'estado',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'porcentaje' => 'decimal:2',
+        ];
+    }
+
     // Relacion muchos a uno (muchas asignaciones pertenecen a un ingrediente)
     public function ingrediente()
     {
