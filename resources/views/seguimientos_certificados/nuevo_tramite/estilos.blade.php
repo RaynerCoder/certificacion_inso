@@ -268,18 +268,28 @@
     }
 
     .tramite-persona-select-search {
-        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-bottom: 0;
         padding: 8px 10px;
     }
 
-    .tramite-persona-select-search input {
-        border: 0;
+    .tramite-persona-select-search input,
+    .tramite-persona-select-search input:focus,
+    .tramite-persona-select-search input:focus-visible {
+        appearance: none;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0;
+        box-shadow: none !important;
         color: #0f172a;
         font-size: 13px;
         font-weight: 700;
-        outline: 0;
+        outline: 0 !important;
         padding: 0;
         width: 100%;
+        --tw-ring-color: transparent !important;
+        --tw-ring-offset-shadow: 0 0 #0000 !important;
+        --tw-ring-shadow: 0 0 #0000 !important;
     }
 
     .tramite-persona-select-options {

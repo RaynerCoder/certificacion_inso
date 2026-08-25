@@ -847,9 +847,23 @@
                     value="${escaparHtml(celda)}"
                     placeholder="Texto o ${escaparHtml(ejemploCelda)}">
             `).join('')).join('');
+            const anchos = columnas.map((columna, index) => `
+                <label>
+                    <span class="plantilla-prop-label">Columna ${index + 1} (%)</span>
+                    <input
+                        class="plantilla-table-width-input"
+                        type="number"
+                        min="5"
+                        max="100"
+                        step="1"
+                        data-tabla-ancho="${index}"
+                        value="${Number(columna.ancho || Math.round(100 / columnas.length))}">
+                </label>
+            `).join('');
 
             return `
                 <div class="plantilla-prop-full plantilla-table-editor">
+                    <div class="plantilla-table-editor-title">Configuración de la tabla</div>
                     <div class="plantilla-table-editor-head">
                         <label>
                             <span class="plantilla-prop-label">Filas</span>
@@ -860,6 +874,13 @@
                             <input class="plantilla-prop-input" type="number" min="1" max="12" data-tabla-columnas value="${columnas.length}">
                         </label>
                     </div>
+                    <div class="plantilla-table-widths-head">
+                        <strong>Ancho de columnas</strong>
+                        <button type="button" class="plantilla-action-btn" data-tabla-distribuir>
+                            Distribuir por igual
+                        </button>
+                    </div>
+                    <div class="plantilla-table-widths-grid">${anchos}</div>
                     <div class="plantilla-table-style-grid">
                         <label class="plantilla-prop-full">
                             <span class="plantilla-prop-label">Bordes de la tabla</span>
@@ -995,6 +1016,7 @@
                         <div class="text-xs font-black uppercase text-emerald-700">${nombreElemento(elemento)}</div>
                         <div class="mt-1 text-xs font-semibold text-slate-500">${elemento.codigo_elemento || elemento.tipo_elemento}</div>
                     </div>
+                    ${elemento.tipo_elemento === 'TABLA' ? htmlEditorTabla(elemento) : ''}
 
                     <label>
                         <span class="plantilla-prop-label">Posición X</span>
@@ -1125,7 +1147,6 @@
                             <button type="button" class="plantilla-format-btn ${elemento.subrayado ? 'is-active' : ''}" data-toggle-formato="subrayado">U</button>
                         </div>
                     </div>
-                    ${elemento.tipo_elemento === 'TABLA' ? htmlEditorTabla(elemento) : ''}
                     ${elemento.tipo_elemento === 'QR' ? htmlPropiedadesQr(elemento) : ''}
                     ${!['TABLA', 'QR', 'FORMA', 'LINEA'].includes(elemento.tipo_elemento) ? `
                     <label class="plantilla-prop-full">
@@ -1592,6 +1613,18 @@
                 return;
             }
 
+            if (event.target.matches('[data-tabla-ancho]')) {
+                const columnaIndex = Number(event.target.dataset.tablaAncho);
+                const columnas = columnasTabla(elemento);
+
+                if (columnas[columnaIndex]) {
+                    columnas[columnaIndex].ancho = Math.max(5, Math.min(100, Number(event.target.value || 5)));
+                    actualizarNodoSeleccionado();
+                }
+
+                return;
+            }
+
             if (event.target.matches('[data-tabla-encabezado]')) {
                 const columnaIndex = Number(event.target.dataset.tablaEncabezado);
                 const columnas = columnasTabla(elemento);
@@ -1650,7 +1683,7 @@
         panelPropiedades?.addEventListener('change', actualizarPropiedadDesdePanel);
 
         panelPropiedades?.addEventListener('focusin', function (event) {
-            if (!preparandoHistorialPropiedad && event.target.matches('[data-prop], [data-prop-texto], [data-config], [data-config-porcentaje], [data-config-transparente], [data-tabla-estilo], [data-tabla-filas], [data-tabla-columnas], [data-tabla-encabezado], [data-tabla-celda], [data-qr-codigo]')) {
+            if (!preparandoHistorialPropiedad && event.target.matches('[data-prop], [data-prop-texto], [data-config], [data-config-porcentaje], [data-config-transparente], [data-tabla-estilo], [data-tabla-filas], [data-tabla-columnas], [data-tabla-ancho], [data-tabla-encabezado], [data-tabla-celda], [data-qr-codigo]')) {
                 guardarHistorial();
                 preparandoHistorialPropiedad = true;
             }
@@ -1672,6 +1705,21 @@
             const insertar = event.target.closest('[data-insertar-marcador]');
             const qrImagen = event.target.closest('[data-qr-imagen]');
             const qrCampo = event.target.closest('[data-qr-usar-campo]');
+            const distribuirColumnas = event.target.closest('[data-tabla-distribuir]');
+
+            if (distribuirColumnas && elemento.tipo_elemento === 'TABLA') {
+                guardarHistorial();
+                const columnas = columnasTabla(elemento);
+                const anchoIgual = Number((100 / columnas.length).toFixed(2));
+
+                columnas.forEach((columna) => {
+                    columna.ancho = anchoIgual;
+                });
+
+                actualizarNodoSeleccionado();
+                renderizarPropiedades();
+                return;
+            }
 
             if (formato) {
                 const propiedad = formato.dataset.toggleFormato;

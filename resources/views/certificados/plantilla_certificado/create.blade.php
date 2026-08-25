@@ -216,7 +216,7 @@
                 </div>
             </main>
 
-            <aside class="plantilla-panel">
+            <aside class="plantilla-panel plantilla-properties-panel">
                 <div class="plantilla-panel-title">Propiedades</div>
                 <div class="plantilla-panel-body">
                     <div data-plantilla-propiedades></div>

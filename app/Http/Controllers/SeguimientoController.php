@@ -1468,9 +1468,39 @@ class SeguimientoController extends Controller
         return [
             'id' => $persona->id,
             'nombre' => $this->nombrePersona($persona),
-            'detalle' => $esEmpresa ? ($detalleEmpresa ?: 'Empresa') : 'Persona natural',
+            'detalle' => $esEmpresa
+                ? $this->detalleRepresentanteLegalEmpresa($persona, $detalleEmpresa)
+                : 'Persona natural',
             'tipo' => $esEmpresa ? 'EMPRESA' : 'NATURAL',
         ];
+    }
+
+    // En el selector de beneficiarios la empresa muestra quién puede representarla legalmente.
+    private function detalleRepresentanteLegalEmpresa(Persona $persona, ?string $detalleAlternativo = null): string
+    {
+        $representantes = $persona->empresa?->responsables
+            ?->filter(function (Responsable $responsable) {
+                $relacionActiva = in_array((string) $responsable->estado, ['1', 'ACTIVO'], true);
+                $rolActivo = $responsable->rol
+                    && (string) $responsable->rol->estado === '1'
+                    && $responsable->rol->slug === 'solicitante';
+                $personaActiva = $responsable->persona
+                    && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true);
+
+                return $relacionActiva && $rolActivo && $personaActiva;
+            })
+            ->map(fn (Responsable $responsable) => $this->nombrePersona($responsable->persona))
+            ->filter()
+            ->unique()
+            ->values() ?? collect();
+
+        if ($representantes->isEmpty()) {
+            return $detalleAlternativo ?: 'Empresa · Sin representante legal activo';
+        }
+
+        $etiqueta = $representantes->count() === 1 ? 'Representante legal' : 'Representantes legales';
+
+        return $etiqueta.': '.$representantes->implode(', ');
     }
 
     // Identifica por qué la cuenta puede iniciar trámites para cada empresa visible.
@@ -1487,8 +1517,7 @@ class SeguimientoController extends Controller
                 $roles = $relaciones->pluck('rol.slug')->filter()->unique();
 
                 return match (true) {
-                    $roles->contains('solicitante') && $roles->contains('tramitador')
-                        => 'Empresa · Representante legal y tramitador',
+                    $roles->contains('solicitante') && $roles->contains('tramitador') => 'Empresa · Representante legal y tramitador',
                     $roles->contains('solicitante') => 'Empresa · Representante legal',
                     default => 'Empresa · Tramitador',
                 };

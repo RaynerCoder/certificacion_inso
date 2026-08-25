@@ -116,10 +116,15 @@
                         </path>
                     </svg>
                 </button>
-                <a href="/" class="flex ms-2 md:me-24">
-                    <img src="https://flowbite.com/docs/images/logo.svg" class="h-8 me-3" alt="FlowBite Logo" />
-                    <span
-                        class="self-center text-xl font-semibold sm:text-2xl whitespace-nowrap dark:text-white">CERTIFICADOR - INSO</span>
+                <a href="/" class="cert-topbar-brand ms-2 md:me-24" aria-label="Ir al menú principal">
+                    <img
+                        src="{{ asset('images/branding/certificador-icon.png') }}"
+                        class="cert-topbar-brand-icon"
+                        alt="Ícono del sistema Certificador"
+                    >
+                    <span class="cert-topbar-brand-name">
+                        CERTIFICADOR <span class="cert-topbar-brand-institution">- INSO</span>
+                    </span>
                 </a>
             </div>
             <div class="cert-topbar-actions">

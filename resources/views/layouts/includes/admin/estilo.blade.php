@@ -1,11 +1,65 @@
 {{-- Estilos locales: mejoran la lectura del menu sin cambiar el layout general. --}}
 <style>
+    .cert-topbar-brand {
+        display: inline-flex;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+        color: #0f172a;
+        text-decoration: none;
+    }
+
+    .cert-topbar-brand-icon {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        object-fit: contain;
+    }
+
+    .cert-topbar-brand-name {
+        overflow: hidden;
+        color: #0f172a;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: -.015em;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cert-topbar-brand:focus-visible {
+        border-radius: 8px;
+        outline: 3px solid rgba(8, 122, 55, .2);
+        outline-offset: 3px;
+    }
+
     .cert-topbar-actions {
         display: flex;
         flex: 0 0 auto;
         align-items: center;
         gap: 8px;
         min-width: 0;
+    }
+
+    @media (max-width: 640px) {
+        .cert-topbar-brand {
+            gap: 7px;
+        }
+
+        .cert-topbar-brand-icon {
+            width: 34px;
+            height: 34px;
+            flex-basis: 34px;
+        }
+
+        .cert-topbar-brand-name {
+            max-width: 145px;
+            font-size: 1rem;
+        }
+
+        .cert-topbar-brand-institution {
+            display: none;
+        }
     }
 
     .cert-topbar-profile-trigger {

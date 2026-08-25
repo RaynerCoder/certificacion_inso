@@ -11,6 +11,7 @@
         border: 1px solid #dbe4ee;
         border-radius: 9px;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        min-width: 0;
         overflow: hidden;
     }
 
@@ -215,6 +216,13 @@
 
     .plantilla-panel-body {
         padding: 14px;
+    }
+
+    .plantilla-properties-panel {
+        max-height: calc(100vh - 92px);
+        overflow-y: auto;
+        position: sticky;
+        top: 80px;
     }
 
     .plantilla-search {
@@ -723,6 +731,46 @@
         margin-bottom: 8px;
     }
 
+    .plantilla-table-editor-title {
+        color: #0f766e;
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: .025em;
+        margin-bottom: 9px;
+        text-transform: uppercase;
+    }
+
+    .plantilla-table-widths-head {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .plantilla-table-widths-head strong {
+        color: #334155;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .plantilla-table-widths-grid {
+        display: grid;
+        gap: 7px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 7px;
+    }
+
+    .plantilla-table-width-input {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        color: #0f172a;
+        font-size: 12px;
+        min-height: 32px;
+        padding: 0 7px;
+        width: 100%;
+    }
+
     .plantilla-table-style-grid {
         display: grid;
         gap: 8px;
@@ -941,6 +989,11 @@
     @media (max-width: 1280px) {
         .plantilla-designer {
             grid-template-columns: 1fr;
+        }
+
+        .plantilla-properties-panel {
+            max-height: none;
+            position: static;
         }
     }
 
