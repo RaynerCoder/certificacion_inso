@@ -61,7 +61,7 @@
                         </div>
                     @endsession
 
-                    <form method="POST" action="{{ route('login') }}" class="cert-login-form">
+                    <form id="loginForm" method="POST" action="{{ route('login') }}" class="cert-login-form">
                         @csrf
 
                         <div class="cert-form-field">
@@ -184,8 +184,14 @@
                             @enderror
                         </fieldset>
 
-                        <button type="submit" class="cert-login-submit">
-                            Iniciar sesión
+                        <button
+                            id="loginSubmit"
+                            type="submit"
+                            class="cert-login-submit"
+                            data-loading-text="Ingresando al sistema…"
+                        >
+                            <span class="cert-login-spinner" aria-hidden="true"></span>
+                            <span class="cert-login-submit-text">Iniciar sesión</span>
                         </button>
                     </form>
                 </div>

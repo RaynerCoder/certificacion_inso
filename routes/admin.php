@@ -172,6 +172,9 @@ Route::delete('/responsables/{responsable}', [ResponsableController::class, 'des
 ========================= */
 Route::get('/tramitadores', [TramitadorController::class, 'index'])->name('tramitadores_index')->middleware('permiso:tramitadores.ver,tramitadores.validar');
 Route::get('/tramitadores/create', [TramitadorController::class, 'create'])->name('tramitadores_create')->middleware('permiso:tramitadores.ver');
+Route::get('/tramitadores/buscar-persona', [TramitadorController::class, 'buscarPersona'])
+    ->name('tramitadores_buscar_persona')
+    ->middleware(['permiso:tramitadores.ver', 'throttle:30,1']);
 Route::get('/tramitadores/territorios/{territorio}/hijos', [TramitadorController::class, 'territoriosHijos'])
     ->name('tramitadores_territorios_hijos')
     ->middleware('permiso:tramitadores.ver');
@@ -449,6 +452,9 @@ Route::get('/procedencias/{procedencia}',[ProcedenciaController::class, 'show'])
    PAGO
 ========================= */
 Route::get('/pagos', [PagoController::class, 'index'])->name('pagos_index')->middleware('permiso:pagos.ver,pagos.validar');
+Route::view('/pagos/openbcb/prototipo', 'pagos.openbcb.usuario')->name('pagos_openbcb_usuario')->middleware('permiso:pagos.ver,pagos.validar');
+Route::view('/pagos/openbcb/administracion', 'pagos.openbcb.administracion')->name('pagos_openbcb_administracion')->middleware('permiso:pagos.ver,pagos.validar');
+Route::view('/pagos/openbcb/integracion', 'pagos.openbcb.integracion')->name('pagos_openbcb_integracion')->middleware('permiso:pagos.ver,pagos.validar');
 Route::get('/pagos/create', [PagoController::class, 'create'])->name('pagos_create');
 Route::post('/pagos', [PagoController::class, 'store'])->name('pagos_store')->middleware('permiso:pagos.validar');
 Route::get('/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])->name('pagos_comprobante');

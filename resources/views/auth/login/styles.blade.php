@@ -475,6 +475,10 @@
         cursor: pointer;
         box-shadow: 0 7px 15px rgba(8, 122, 55, .16);
         transition: filter .2s ease, transform .2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
     }
 
     .cert-login-submit:hover {
@@ -483,6 +487,39 @@
 
     .cert-login-submit:active {
         transform: translateY(1px);
+    }
+
+    .cert-login-submit:disabled {
+        cursor: wait;
+        filter: brightness(.9);
+        transform: none;
+    }
+
+    .cert-login-spinner {
+        display: none;
+        width: 19px;
+        height: 19px;
+        flex: 0 0 19px;
+        border: 3px solid rgba(255, 255, 255, .38);
+        border-top-color: #fff;
+        border-radius: 50%;
+    }
+
+    .cert-login-submit--loading .cert-login-spinner {
+        display: inline-block;
+        animation: cert-login-spin .75s linear infinite;
+    }
+
+    @keyframes cert-login-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .cert-login-submit--loading .cert-login-spinner {
+            animation-duration: 1.5s;
+        }
     }
 
     .cert-input-action:focus-visible,

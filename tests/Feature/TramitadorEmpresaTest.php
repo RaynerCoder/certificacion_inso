@@ -23,7 +23,7 @@ class TramitadorEmpresaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_el_selector_entrega_la_fecha_de_nacimiento_de_la_persona_existente(): void
+    public function test_la_busqueda_por_ci_entrega_los_datos_de_la_persona_existente(): void
     {
         [$usuarioEmpresa, , $territorio] = $this->crearEmpresaConPermisos();
         $persona = Persona::create([
@@ -41,9 +41,78 @@ class TramitadorEmpresaTest extends TestCase
         ]);
 
         $this->actingAs($usuarioEmpresa)
+            ->getJson(route('tramitadores_buscar_persona', ['ci' => '4455667']))
+            ->assertOk()
+            ->assertJsonPath('encontrado', true)
+            ->assertJsonPath('persona.nombres', 'PERSONA')
+            ->assertJsonPath('persona.fecha_nacimiento', '1992-04-18');
+    }
+
+    public function test_el_formulario_no_expone_el_listado_de_personas_registradas(): void
+    {
+        [$usuarioEmpresa, , $territorio] = $this->crearEmpresaConPermisos();
+        $persona = Persona::create([
+            'correo' => 'dato.no.expuesto@example.com',
+            'id_territorio' => $territorio->id,
+            'estado' => 'ACTIVO',
+        ]);
+        Natural::create([
+            'id_persona' => $persona->id,
+            'ci' => '1122334',
+            'nombres' => 'PERSONA NO EXPUESTA',
+            'apellido_paterno' => 'PRIVADA',
+            'genero' => 1,
+        ]);
+
+        $this->actingAs($usuarioEmpresa)
             ->get(route('tramitadores_create'))
             ->assertOk()
-            ->assertSee('data-fecha="1992-04-18"', false);
+            ->assertSee('Buscar persona por CI')
+            ->assertDontSee('form_id_persona')
+            ->assertDontSee('PERSONA NO EXPUESTA')
+            ->assertDontSee('dato.no.expuesto@example.com');
+    }
+
+    public function test_la_busqueda_indica_cuando_el_ci_no_esta_registrado(): void
+    {
+        [$usuarioEmpresa] = $this->crearEmpresaConPermisos();
+
+        $this->actingAs($usuarioEmpresa)
+            ->getJson(route('tramitadores_buscar_persona', ['ci' => 'CI-NUEVO']))
+            ->assertOk()
+            ->assertExactJson(['encontrado' => false]);
+    }
+
+    public function test_la_busqueda_solicita_complemento_si_el_ci_tiene_mas_de_un_registro(): void
+    {
+        [$usuarioEmpresa, , $territorio] = $this->crearEmpresaConPermisos();
+
+        foreach (['1A', '2B'] as $complemento) {
+            $persona = Persona::create([
+                'correo' => strtolower($complemento).'@example.com',
+                'id_territorio' => $territorio->id,
+                'estado' => 'ACTIVO',
+            ]);
+            Natural::create([
+                'id_persona' => $persona->id,
+                'ci' => '5566778',
+                'complemento' => $complemento,
+                'nombres' => 'PERSONA '.$complemento,
+                'apellido_paterno' => 'DUPLICADA',
+                'genero' => 1,
+            ]);
+        }
+
+        $this->actingAs($usuarioEmpresa)
+            ->getJson(route('tramitadores_buscar_persona', ['ci' => '5566778']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('complemento');
+
+        $this->actingAs($usuarioEmpresa)
+            ->getJson(route('tramitadores_buscar_persona', ['ci' => '5566778', 'complemento' => '2b']))
+            ->assertOk()
+            ->assertJsonPath('persona.nombres', 'PERSONA 2B')
+            ->assertJsonPath('persona.complemento', '2B');
     }
 
     public function test_reutiliza_persona_y_cuenta_existentes_sin_crear_credenciales(): void
@@ -70,7 +139,7 @@ class TramitadorEmpresaTest extends TestCase
         $personasAntes = Persona::count();
 
         $respuesta = $this->actingAs($usuarioEmpresa)->post(route('tramitadores_store'), [
-            'form_id_persona' => $persona->id,
+            'form_ci' => '7788990',
             'form_nombres' => 'NOMBRE ALTERADO',
             'form_fecha_nacimiento' => '2000-01-01',
             'form_url_respaldo' => UploadedFile::fake()->create('carta.pdf', 100, 'application/pdf'),
@@ -341,7 +410,7 @@ class TramitadorEmpresaTest extends TestCase
         ]);
 
         $this->actingAs($usuarioEmpresa)->post(route('tramitadores_store'), [
-            'form_id_persona' => $persona->id,
+            'form_ci' => '1234567',
             'form_url_respaldo' => UploadedFile::fake()->create('respaldo.pdf', 100, 'application/pdf'),
         ]);
 
@@ -381,7 +450,7 @@ class TramitadorEmpresaTest extends TestCase
         ]);
 
         $this->actingAs($usuarioEmpresa)->post(route('tramitadores_store'), [
-            'form_id_persona' => $persona->id,
+            'form_ci' => '7654321',
             'form_url_respaldo' => UploadedFile::fake()->create('respaldo.pdf', 100, 'application/pdf'),
         ]);
 

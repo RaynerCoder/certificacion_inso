@@ -207,6 +207,36 @@
             'permission' => ['pagos.ver', 'pagos.validar'],
         ],
         [
+            'name' => 'OpenBCB',
+            'description' => 'Prototipo QR y VUCE',
+            'icon' => 'fa-solid fa-qrcode',
+            'active' => $activo(['pagos_openbcb_']),
+            'permission' => ['pagos.ver', 'pagos.validar'],
+            'submenu' => [
+                [
+                    'name' => 'Pantallas usuario',
+                    'icon' => 'fa-solid fa-mobile-screen-button',
+                    'href' => $href('pagos_openbcb_usuario'),
+                    'active' => request()->routeIs('pagos_openbcb_usuario'),
+                    'permission' => ['pagos.ver', 'pagos.validar'],
+                ],
+                [
+                    'name' => 'Administración',
+                    'icon' => 'fa-solid fa-table-list',
+                    'href' => $href('pagos_openbcb_administracion'),
+                    'active' => request()->routeIs('pagos_openbcb_administracion'),
+                    'permission' => ['pagos.ver', 'pagos.validar'],
+                ],
+                [
+                    'name' => 'Integración VUCE',
+                    'icon' => 'fa-solid fa-paper-plane',
+                    'href' => $href('pagos_openbcb_integracion'),
+                    'active' => request()->routeIs('pagos_openbcb_integracion'),
+                    'permission' => ['pagos.ver', 'pagos.validar'],
+                ],
+            ],
+        ],
+        [
             // Modulo operativo: separa claramente lo que el usuario envia y lo que debe atender.
             'name' => 'Trámites',
             'description' => 'Enviar, revisar y atender',

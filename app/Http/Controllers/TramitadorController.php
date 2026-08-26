@@ -50,17 +50,6 @@ class TramitadorController extends Controller
     {
         $empresa = $this->empresaAutenticada();
         $paises = Territorio::query()->where('id_ambito', 1)->orderBy('nombre')->get();
-        $personas = Persona::query()
-            ->with([
-                'natural.ocupacionCob',
-                'telefonos',
-                'territorio',
-                'rubros' => fn ($query) => $query->where('rubros.nivel_caeb', 'SUBCLASE'),
-            ])
-            ->where('estado', 'ACTIVO')
-            ->whereHas('natural', fn ($query) => $query->whereNotNull('ci')->where('ci', '<>', ''))
-            ->orderBy('id')
-            ->get();
         $rubrosCatalogo = Rubro::query()
             ->whereNotNull('codigo_caeb')
             ->where('nivel_caeb', 'SUBCLASE')
@@ -74,10 +63,74 @@ class TramitadorController extends Controller
         return view('tramitadores.create', compact(
             'empresa',
             'paises',
-            'personas',
             'rubrosCatalogo',
             'ocupacionesCob'
         ));
+    }
+
+    /**
+     * Busca una identidad exacta sin exponer el padrón completo de personas.
+     */
+    public function buscarPersona(Request $request): JsonResponse
+    {
+        $this->empresaAutenticada();
+        $documento = $request->validate([
+            'ci' => ['required', 'string', 'max:50'],
+            'complemento' => ['nullable', 'string', 'max:10'],
+        ], [], [
+            'ci' => 'CI',
+            'complemento' => 'complemento',
+        ]);
+
+        $natural = $this->buscarNaturalPorDocumento(
+            $documento['ci'],
+            $documento['complemento'] ?? null
+        );
+
+        if (! $natural) {
+            return response()->json(['encontrado' => false]);
+        }
+
+        $this->validarIdentidadDisponible($natural);
+        $natural->loadMissing([
+            'ocupacionCob',
+            'persona.telefonos',
+            'persona.rubros' => fn ($query) => $query
+                ->where('rubros.nivel_caeb', 'SUBCLASE')
+                ->where('rubros.estado', 'ACTIVO'),
+        ]);
+        $persona = $natural->persona;
+
+        return response()->json([
+            'encontrado' => true,
+            'persona' => [
+                'domicilio' => $persona->domicilio,
+                'nit' => $persona->nit,
+                'correo' => $persona->correo,
+                'id_territorio' => $persona->id_territorio,
+                'nombres' => $natural->nombres,
+                'apellido_paterno' => $natural->apellido_paterno,
+                'apellido_materno' => $natural->apellido_materno,
+                'apellido_casado' => $natural->apellido_casado,
+                'complemento' => $natural->complemento,
+                'expedido' => $natural->expedido,
+                'fecha_nacimiento' => $natural->fecha_nacimiento
+                    ? substr((string) $natural->fecha_nacimiento, 0, 10)
+                    : null,
+                'genero' => $natural->genero,
+                'id_ocupacion' => $natural->id_ocupacion,
+                'ocupacion' => $natural->ocupacionCob?->descripcion_ocupacion,
+                'telefonos' => $persona->telefonos->map(fn (Telefono $telefono) => [
+                    'numero' => $telefono->numero,
+                    'estado' => $telefono->estado,
+                ])->values(),
+                'rubros' => $persona->rubros->map(fn (Rubro $rubro) => [
+                    'id' => $rubro->id,
+                    'codigo' => $rubro->codigo_caeb,
+                    'nombre' => $rubro->nombre,
+                ])->values(),
+            ],
+        ]);
     }
 
     public function territoriosHijos(Territorio $territorio): JsonResponse
@@ -119,32 +172,17 @@ class TramitadorController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $empresa = $this->empresaAutenticada();
-        $seleccion = $request->validate([
-            'form_id_persona' => ['nullable', 'exists:personas,id'],
+        $documento = $request->validate([
+            'form_ci' => ['required', 'string', 'max:50'],
+            'form_complemento' => ['nullable', 'string', 'max:10'],
+        ], [], [
+            'form_ci' => 'CI',
+            'form_complemento' => 'complemento',
         ]);
-
-        $natural = null;
-
-        if (! empty($seleccion['form_id_persona'])) {
-            $natural = Natural::with('persona')
-                ->where('id_persona', $seleccion['form_id_persona'])
-                ->firstOrFail();
-        } else {
-            $documento = $request->validate([
-                'form_ci' => ['required', 'string', 'max:50'],
-                'form_complemento' => ['nullable', 'string', 'max:10'],
-            ]);
-            $natural = $this->buscarNaturalPorDocumento(
-                $documento['form_ci'],
-                $documento['form_complemento'] ?? null
-            );
-
-            if ($natural) {
-                throw ValidationException::withMessages([
-                    'form_id_persona' => 'La persona ya está registrada. Selecciónela en Persona registrada.',
-                ]);
-            }
-        }
+        $natural = $this->buscarNaturalPorDocumento(
+            $documento['form_ci'],
+            $documento['form_complemento'] ?? null
+        );
 
         if ($natural) {
             $this->validarIdentidadDisponible($natural);
@@ -514,8 +552,7 @@ class TramitadorController extends Controller
         $requeridoSiEsNueva = Rule::requiredIf($personaNueva);
 
         return $request->validate([
-            'form_ci' => [$requeridoSiEsNueva, 'nullable', 'string', 'max:50'],
-            'form_id_persona' => ['nullable', 'exists:personas,id'],
+            'form_ci' => ['required', 'string', 'max:50'],
             'form_complemento' => ['nullable', 'string', 'max:10'],
             'form_url_respaldo' => ['required', 'file', 'mimes:pdf', 'max:5120'],
             'form_correo' => [$requeridoSiEsNueva, 'nullable', 'email', 'max:50', Rule::unique('personas', 'correo')],
@@ -626,26 +663,30 @@ class TramitadorController extends Controller
     private function buscarNaturalPorDocumento(string $ci, ?string $complemento): ?Natural
     {
         $ci = $this->normalizarDocumento($ci);
+        $complemento = $this->normalizarComplemento($complemento);
         $coincidencias = Natural::withTrashed()
             ->with(['persona' => fn ($query) => $query->withTrashed()])
             ->whereRaw("UPPER(REPLACE(TRIM(ci), ' ', '')) = ?", [$ci])
             ->get();
 
-        if ($coincidencias->count() <= 1) {
+        if ($coincidencias->isEmpty()) {
+            return null;
+        }
+
+        if ($complemento) {
+            return $coincidencias->first(
+                fn (Natural $natural) => $this->normalizarComplemento($natural->complemento) === $complemento
+            );
+        }
+
+        if ($coincidencias->count() === 1) {
             return $coincidencias->first();
         }
 
-        $complemento = $this->normalizarComplemento($complemento);
-
-        if (! $complemento) {
-            throw ValidationException::withMessages([
-                'form_complemento' => 'Existe más de una persona con este CI. Ingrese el complemento para identificarla.',
-                'complemento' => 'Existe más de una persona con este CI. Ingrese el complemento para identificarla.',
-            ]);
-        }
-
-        return $coincidencias->first(fn (Natural $natural) => $this->normalizarComplemento($natural->complemento) === $complemento
-        );
+        throw ValidationException::withMessages([
+            'form_complemento' => 'Existe más de una persona con este CI. Ingrese el complemento para identificarla.',
+            'complemento' => 'Existe más de una persona con este CI. Ingrese el complemento para identificarla.',
+        ]);
     }
 
     private function validarIdentidadDisponible(Natural $natural): void

@@ -6,65 +6,9 @@
     {{-- Reutiliza exactamente los estilos del modal de responsables. --}}
     @include('personas.create.estilos')
 
-    {{-- Mismo TomSelect y mismos estilos usados por el selector del modal de responsables. --}}
-    <link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
     <style>
-        .ts-wrapper.single .ts-control {
-            min-height: 42px !important;
-            height: 42px !important;
-            display: flex !important;
-            align-items: center !important;
-            border-radius: 0.5rem !important;
-            border: 1px solid #d1d5db !important;
-            background: #fff !important;
-            padding: 0 0.75rem !important;
-            box-shadow: none !important;
-        }
-
-        .ts-wrapper.single .ts-control input {
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-            line-height: 1.25rem !important;
-            font-size: 0.875rem !important;
-            color: #374151 !important;
-        }
-
-        .ts-wrapper.single .ts-control .item {
-            margin: 0 !important;
-            padding: 0 !important;
-            line-height: 1.25rem !important;
-            font-size: 0.875rem !important;
-            color: #374151 !important;
-            display: flex !important;
-            align-items: center !important;
-        }
-
-        .ts-wrapper.focus .ts-control {
-            border-color: #9ca3af !important;
-            box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.15) !important;
-        }
-
-        .ts-dropdown {
-            border-radius: 0.65rem !important;
-            border: 1px solid #e5e7eb !important;
-            overflow: hidden !important;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
-        }
-
-        .ts-dropdown .option {
-            padding: 0.7rem 0.85rem !important;
-            font-size: 0.875rem !important;
-        }
-
-        .ts-dropdown .active {
-            background: #f3f4f6 !important;
-            color: #111827 !important;
-        }
-
         #formTramitador .grid > *,
-        #formTramitador .ts-wrapper {
+        #formTramitador fieldset {
             min-width: 0;
             width: 100%;
         }
@@ -85,20 +29,6 @@
             display: none !important;
         }
 
-        @media (max-width: 640px) {
-            .ts-wrapper.single .ts-control {
-                height: auto !important;
-                min-height: 42px !important;
-            }
-
-            .ts-wrapper.single .ts-control .item {
-                white-space: normal !important;
-            }
-
-            .ts-dropdown {
-                max-width: calc(100vw - 2rem) !important;
-            }
-        }
     </style>
 
     <div class="w-full max-w-none">
@@ -128,40 +58,42 @@
             <div class="space-y-4 p-3 sm:space-y-6 sm:p-6">
                 <section class="relative z-40 overflow-visible rounded-xl border border-slate-200">
                     <div class="border-b border-slate-200 bg-slate-100 px-4 py-2">
-                        <h2 class="text-sm font-bold text-slate-700">1. Persona registrada</h2>
+                        <h2 class="text-sm font-bold text-slate-700">1. Buscar persona por CI</h2>
                     </div>
-                    <div class="p-4">
-                        <label for="form_id_persona" class="mb-1 block text-sm font-medium text-gray-700">
-                            Seleccionar persona existente
-                        </label>
-                        <select id="form_id_persona" name="form_id_persona" class="w-full">
-                            <option value="">Nueva persona / No registrada</option>
-                            @foreach ($personas as $persona)
-                                @php($natural = $persona->natural)
-                                <option value="{{ $persona->id }}" @selected((string) old('form_id_persona') === (string) $persona->id)
-                                    data-domicilio="{{ $persona->domicilio }}"
-                                    data-nit="{{ $persona->nit }}"
-                                    data-correo="{{ $persona->correo }}"
-                                    data-territorio="{{ $persona->id_territorio }}"
-                                    data-nombres="{{ $natural?->nombres }}"
-                                    data-paterno="{{ $natural?->apellido_paterno }}"
-                                    data-materno="{{ $natural?->apellido_materno }}"
-                                    data-casado="{{ $natural?->apellido_casado }}"
-                                    data-ci="{{ $natural?->ci }}"
-                                    data-complemento="{{ $natural?->complemento }}"
-                                    data-expedido="{{ $natural?->expedido }}"
-                                    data-fecha="{{ $natural?->fecha_nacimiento }}"
-                                    data-genero="{{ $natural?->genero }}"
-                                    data-id-ocupacion="{{ $natural?->id_ocupacion }}"
-                                    data-ocupacion="{{ $natural?->ocupacionCob?->descripcion_ocupacion }}"
-                                    data-telefonos='@json($persona->telefonos)'
-                                    data-rubros='@json($persona->rubros)'>
-                                    {{ $natural?->ci ?: 'Sin CI' }} -
-                                    {{ trim(($natural?->nombres ?? '') . ' ' . ($natural?->apellido_paterno ?? '') . ' ' . ($natural?->apellido_materno ?? '')) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <p class="mt-2 text-xs text-gray-500">Busque y seleccione una persona registrada para autocompletar los datos.</p>
+                    <div class="space-y-3 p-4">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
+                            <div class="md:col-span-5">
+                                <label for="form_ci" class="mb-1 block text-sm font-medium text-gray-700">CI</label>
+                                <input type="text" id="form_ci" name="form_ci" value="{{ old('form_ci') }}"
+                                    maxlength="50" required autocomplete="off" placeholder="Ingrese el número de CI"
+                                    class="w-full rounded-lg border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500">
+                                @error('form_ci')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div class="md:col-span-3">
+                                <label for="form_complemento" class="mb-1 block text-sm font-medium text-gray-700">Complemento</label>
+                                <input type="text" id="form_complemento" name="form_complemento"
+                                    value="{{ old('form_complemento') }}" maxlength="10" autocomplete="off"
+                                    placeholder="Ej.: 1A"
+                                    class="w-full rounded-lg border-gray-300 text-sm uppercase focus:border-primary-500 focus:ring-primary-500">
+                                @error('form_complemento')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            <div class="md:col-span-4 md:flex md:items-end">
+                                <button type="button" id="btnBuscarPersona"
+                                    data-url="{{ route('tramitadores_buscar_persona') }}"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <span>Buscar por CI</span>
+                                </button>
+                            </div>
+                        </div>
+                        <p id="estadoBusquedaPersona" role="status" aria-live="polite"
+                            class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            Ingrese el CI y presione “Buscar por CI”. Si existe, los datos se completarán automáticamente.
+                        </p>
                     </div>
                 </section>
 
@@ -215,8 +147,6 @@
                         <x-wire-input label="Apellido paterno" id="form_apellido_paterno" name="form_apellido_paterno" value="{{ old('form_apellido_paterno') }}" />
                         <x-wire-input label="Apellido materno" id="form_apellido_materno" name="form_apellido_materno" value="{{ old('form_apellido_materno') }}" />
                         <x-wire-input label="Apellido de casado" id="form_apellido_casado" name="form_apellido_casado" value="{{ old('form_apellido_casado') }}" />
-                        <x-wire-input label="CI" id="form_ci" name="form_ci" value="{{ old('form_ci') }}" />
-                        <x-wire-input label="Complemento" id="form_complemento" name="form_complemento" value="{{ old('form_complemento') }}" />
                         <x-wire-native-select label="Expedido" id="form_expedido" name="form_expedido">
                             <option value="">Seleccione expedido</option>
                             @foreach (\App\Models\Natural::EXPEDIDOS as $codigo => $nombre)
@@ -369,15 +299,17 @@
     @push('js')
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const personaSelect = document.getElementById('form_id_persona');
+                const btnBuscarPersona = document.getElementById('btnBuscarPersona');
+                const estadoBusquedaPersona = document.getElementById('estadoBusquedaPersona');
                 const camposPersona = [
                     'form_domicilio', 'form_nit', 'form_correo', 'form_nombres', 'form_apellido_paterno',
-                    'form_apellido_materno', 'form_apellido_casado', 'form_ci', 'form_complemento',
-                    'form_expedido', 'form_fecha_nacimiento', 'form_genero', 'form_id_ocupacion'
+                    'form_apellido_materno', 'form_apellido_casado', 'form_expedido',
+                    'form_fecha_nacimiento', 'form_genero', 'form_id_ocupacion'
                 ];
                 let telefonos = JSON.parse(document.getElementById('form_telefonos_json').value || '[]');
                 let rubros = JSON.parse(document.getElementById('form_rubros_json').value || '[]');
                 let urlPdfTemporal = null;
+                let documentoConsultado = '';
 
                 const asignar = (id, valor) => {
                     const campo = document.getElementById(id);
@@ -386,6 +318,18 @@
 
                 const bloquearPersona = (bloquear) => {
                     document.getElementById('datosPersonaTramitador').disabled = bloquear;
+                };
+
+                const mostrarEstadoBusqueda = (mensaje, tipo = 'neutral') => {
+                    const estilos = {
+                        neutral: 'bg-slate-50 text-slate-600',
+                        cargando: 'bg-blue-50 text-blue-700',
+                        encontrado: 'bg-emerald-50 text-emerald-700',
+                        nuevo: 'bg-amber-50 text-amber-800',
+                        error: 'bg-red-50 text-red-700',
+                    };
+                    estadoBusquedaPersona.className = `rounded-lg px-3 py-2 text-xs ${estilos[tipo] || estilos.neutral}`;
+                    estadoBusquedaPersona.textContent = mensaje;
                 };
 
                 const renderTelefonos = () => {
@@ -495,42 +439,108 @@
                     }
                 };
 
-                const cargarPersona = async () => {
-                    const opcion = personaSelect.options[personaSelect.selectedIndex];
-                    if (!opcion?.value) {
-                        camposPersona.forEach((id) => asignar(id, ''));
-                        telefonos = [];
-                        rubros = [];
-                        renderTelefonos();
-                        renderRubros();
-                        seleccionarOcupacion('', '');
-                        await seleccionarPais('', '');
-                        bloquearPersona(false);
-                        return;
-                    }
+                const limpiarDatosPersona = async () => {
+                    camposPersona.forEach((id) => asignar(id, ''));
+                    telefonos = [];
+                    rubros = [];
+                    renderTelefonos();
+                    renderRubros();
+                    seleccionarOcupacion('', '');
+                    await seleccionarPais('', '');
+                    bloquearPersona(false);
+                };
 
-                    bloquearPersona(true);
-                    asignar('form_domicilio', opcion.dataset.domicilio);
-                    asignar('form_nit', opcion.dataset.nit);
-                    asignar('form_correo', opcion.dataset.correo);
-                    asignar('form_nombres', opcion.dataset.nombres);
-                    asignar('form_apellido_paterno', opcion.dataset.paterno);
-                    asignar('form_apellido_materno', opcion.dataset.materno);
-                    asignar('form_apellido_casado', opcion.dataset.casado);
-                    asignar('form_ci', opcion.dataset.ci);
-                    asignar('form_complemento', opcion.dataset.complemento);
-                    asignar('form_expedido', opcion.dataset.expedido);
-                    asignar('form_fecha_nacimiento', String(opcion.dataset.fecha || '').slice(0, 10));
-                    asignar('form_genero', opcion.dataset.genero);
-                    seleccionarOcupacion(opcion.dataset.idOcupacion, opcion.dataset.ocupacion);
-                    telefonos = JSON.parse(opcion.dataset.telefonos || '[]').map((item) => ({ numero: item.numero, estado: item.estado || 'ACTIVO' }));
-                    rubros = JSON.parse(opcion.dataset.rubros || '[]').map((item) => ({
+                const cargarPersona = async (persona) => {
+                    asignar('form_domicilio', persona.domicilio);
+                    asignar('form_nit', persona.nit);
+                    asignar('form_correo', persona.correo);
+                    asignar('form_nombres', persona.nombres);
+                    asignar('form_apellido_paterno', persona.apellido_paterno);
+                    asignar('form_apellido_materno', persona.apellido_materno);
+                    asignar('form_apellido_casado', persona.apellido_casado);
+                    asignar('form_complemento', persona.complemento);
+                    asignar('form_expedido', persona.expedido);
+                    asignar('form_fecha_nacimiento', String(persona.fecha_nacimiento || '').slice(0, 10));
+                    asignar('form_genero', persona.genero);
+                    seleccionarOcupacion(persona.id_ocupacion, persona.ocupacion);
+                    telefonos = (persona.telefonos || []).map((item) => ({
+                        numero: item.numero,
+                        estado: item.estado || 'ACTIVO',
+                    }));
+                    rubros = (persona.rubros || []).map((item) => ({
                         id: item.id,
-                        etiqueta: `${item.codigo_caeb || ''}${item.codigo_caeb ? ' - ' : ''}${item.nombre || ''}`,
+                        etiqueta: `${item.codigo || ''}${item.codigo ? ' - ' : ''}${item.nombre || ''}`,
                     }));
                     renderTelefonos();
                     renderRubros();
-                    await cargarRutaTerritorio(opcion.dataset.territorio);
+                    await cargarRutaTerritorio(persona.id_territorio);
+                    bloquearPersona(true);
+                };
+
+                const claveDocumentoActual = () => {
+                    const ci = document.getElementById('form_ci').value.trim().toUpperCase().replace(/\s+/g, '');
+                    const complemento = document.getElementById('form_complemento').value.trim().toUpperCase().replace(/\s+/g, '');
+                    return `${ci}|${complemento}`;
+                };
+
+                const buscarPersona = async () => {
+                    const ci = document.getElementById('form_ci').value.trim();
+                    const complemento = document.getElementById('form_complemento').value.trim();
+
+                    if (!ci) {
+                        mostrarEstadoBusqueda('Ingrese el CI antes de realizar la búsqueda.', 'error');
+                        document.getElementById('form_ci').focus();
+                        return;
+                    }
+
+                    btnBuscarPersona.disabled = true;
+                    btnBuscarPersona.querySelector('i').className = 'fa-solid fa-spinner fa-spin';
+                    mostrarEstadoBusqueda('Buscando el CI ingresado…', 'cargando');
+
+                    try {
+                        const url = new URL(btnBuscarPersona.dataset.url, window.location.origin);
+                        url.searchParams.set('ci', ci);
+                        if (complemento) url.searchParams.set('complemento', complemento);
+
+                        const respuesta = await fetch(url, {
+                            headers: { Accept: 'application/json' },
+                            credentials: 'same-origin',
+                        });
+                        const datos = await respuesta.json().catch(() => ({}));
+
+                        if (!respuesta.ok) {
+                            const mensaje = Object.values(datos.errors || {}).flat()[0]
+                                || datos.message
+                                || 'No fue posible consultar el CI.';
+                            throw new Error(mensaje);
+                        }
+
+                        documentoConsultado = claveDocumentoActual();
+
+                        if (!datos.encontrado) {
+                            await limpiarDatosPersona();
+                            mostrarEstadoBusqueda(
+                                'El CI no está registrado. Complete los datos para registrar una nueva persona.',
+                                'nuevo'
+                            );
+                            document.getElementById('form_nombres').focus();
+                            return;
+                        }
+
+                        await cargarPersona(datos.persona);
+                        documentoConsultado = claveDocumentoActual();
+                        mostrarEstadoBusqueda(
+                            'Persona encontrada. Los datos se completaron y quedaron protegidos contra modificaciones.',
+                            'encontrado'
+                        );
+                    } catch (error) {
+                        documentoConsultado = '';
+                        await limpiarDatosPersona();
+                        mostrarEstadoBusqueda(error.message, 'error');
+                    } finally {
+                        btnBuscarPersona.disabled = false;
+                        btnBuscarPersona.querySelector('i').className = 'fa-solid fa-magnifying-glass';
+                    }
                 };
 
                 const mostrarOpciones = (contenedor, opciones) => {
@@ -640,17 +650,27 @@
                 buscadorRubro.addEventListener('focus', () => { document.getElementById('contenedorRubroTramitador').classList.add('is-open'); renderOpcionesRubros(); });
                 buscadorRubro.addEventListener('input', renderOpcionesRubros);
 
-                if (typeof TomSelect !== 'undefined' && !personaSelect.tomselect) {
-                    new TomSelect(personaSelect, {
-                        create: false,
-                        placeholder: 'Buscar por CI o nombre completo',
-                        allowEmptyOption: true,
-                        maxOptions: 500,
-                        onChange: cargarPersona,
+                btnBuscarPersona.addEventListener('click', buscarPersona);
+
+                ['form_ci', 'form_complemento'].forEach((id) => {
+                    const campo = document.getElementById(id);
+                    campo.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            buscarPersona();
+                        }
                     });
-                } else {
-                    personaSelect.addEventListener('change', cargarPersona);
-                }
+                    campo.addEventListener('input', () => {
+                        if (!documentoConsultado || claveDocumentoActual() === documentoConsultado) return;
+
+                        documentoConsultado = '';
+                        limpiarDatosPersona();
+                        mostrarEstadoBusqueda(
+                            'El CI cambió. Presione “Buscar por CI” para verificar el nuevo documento.',
+                            'neutral'
+                        );
+                    });
+                });
 
                 const actualizarPdf = (nombre = 'Sin PDF seleccionado', estado = 'Seleccione un documento PDF.', url = '') => {
                     document.getElementById('responsableModalPdfNombre').textContent = nombre;
@@ -688,15 +708,10 @@
                 renderTelefonos();
                 renderRubros();
                 if (document.getElementById('form_id_ocupacion').value) seleccionarOcupacion(document.getElementById('form_id_ocupacion').value);
-                if (personaSelect.value) {
-                    cargarPersona();
-                } else {
-                    // Una persona nueva debe poder completar toda su ficha.
-                    bloquearPersona(false);
+                bloquearPersona(false);
 
-                    if (document.getElementById('form_id_territorio').value) {
-                        cargarRutaTerritorio(document.getElementById('form_id_territorio').value);
-                    }
+                if (document.getElementById('form_id_territorio').value) {
+                    cargarRutaTerritorio(document.getElementById('form_id_territorio').value);
                 }
             });
         </script>
