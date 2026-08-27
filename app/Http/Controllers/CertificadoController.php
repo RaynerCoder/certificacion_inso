@@ -78,7 +78,7 @@ class CertificadoController extends Controller
 
             $plantilla = PlantillaCertificado::create($datosPlantilla);
 
-            $this->guardarElementosPlantilla($plantilla, $solicitud->input('elementos_plantilla', '[]'));
+            $this->guardarElementosPlantilla($plantilla, $solicitud->input('form_elementos_plantilla', '[]'));
 
             DB::commit();
 
@@ -159,7 +159,7 @@ class CertificadoController extends Controller
             }
 
             $urlFondo = $this->guardarFondoPlantilla($solicitud);
-            if (! $urlFondo && ! $solicitud->boolean('quitar_fondo_plantilla')) {
+            if (! $urlFondo && ! $solicitud->boolean('form_quitar_fondo_plantilla')) {
                 $urlFondo = $plantillaCertificado->url_fondo;
             }
 
@@ -175,7 +175,7 @@ class CertificadoController extends Controller
 
             $plantillaCertificado->update($datosPlantilla);
 
-            $this->reemplazarElementosPlantilla($plantillaCertificado, $solicitud->input('elementos_plantilla', '[]'));
+            $this->reemplazarElementosPlantilla($plantillaCertificado, $solicitud->input('form_elementos_plantilla', '[]'));
 
             DB::commit();
 
@@ -284,7 +284,7 @@ class CertificadoController extends Controller
                 'icon' => 'success',
             ]);
 
-            return $solicitud->input('accion') === 'guardar_otro'
+            return $solicitud->input('form_accion') === 'guardar_otro'
                 ? redirect()->route('certificados_create')
                 : redirect()->route('certificados_index');
         } catch (\Exception $e) {
@@ -588,7 +588,7 @@ class CertificadoController extends Controller
 
         return redirect()->route('certificados_emitir', [
             'certificado' => $certificado,
-            'bandeja' => $solicitud->input('bandeja', 'finalizados'),
+            'bandeja' => $solicitud->input('form_bandeja', 'finalizados'),
         ]);
     }
 
@@ -989,9 +989,9 @@ class CertificadoController extends Controller
             'form_imprimir_transparente' => ['nullable', 'boolean'],
             'form_imprimir_fondo' => ['nullable', 'boolean'],
             'form_url_fondo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
-            'quitar_fondo_plantilla' => ['nullable', 'boolean'],
+            'form_quitar_fondo_plantilla' => ['nullable', 'boolean'],
             'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
-            'elementos_plantilla' => ['nullable', 'string'],
+            'form_elementos_plantilla' => ['nullable', 'string'],
         ], [], [
             'form_id_tipo_certificado' => 'tipo de certificado',
             'form_nombre' => 'nombre de la plantilla',

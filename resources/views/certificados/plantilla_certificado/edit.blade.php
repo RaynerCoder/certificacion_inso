@@ -42,8 +42,8 @@
                 ];
             })
             ->values();
-        $elementosIniciales = old('elementos_plantilla')
-            ? (json_decode(old('elementos_plantilla'), true) ?: [])
+        $elementosIniciales = old('form_elementos_plantilla')
+            ? (json_decode(old('form_elementos_plantilla'), true) ?: [])
             : $elementosGuardados;
     @endphp
 
@@ -63,8 +63,8 @@
             @method('PUT')
         @endif
 
-        <input type="hidden" name="elementos_plantilla" data-plantilla-elementos-input value="{{ old('elementos_plantilla', $elementosGuardados->toJson()) }}">
-        <input type="hidden" name="quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
+        <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', $elementosGuardados->toJson()) }}">
+        <input type="hidden" name="form_quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
 
         <section class="plantilla-card">
             <div class="plantilla-head">

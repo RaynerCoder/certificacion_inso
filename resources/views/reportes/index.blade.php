@@ -51,18 +51,18 @@
 
         <form method="GET" action="{{ route('reportes_index') }}" class="reporte-filtros">
             <div class="reporte-field">
-                <label for="fecha_desde">Fecha desde</label>
-                <input id="fecha_desde" name="fecha_desde" type="date" value="{{ $filtros['fecha_desde'] }}">
+                <label for="filtro_fecha_desde">Fecha desde</label>
+                <input id="filtro_fecha_desde" name="filtro_fecha_desde" type="date" value="{{ $filtros['fecha_desde'] }}">
             </div>
 
             <div class="reporte-field">
-                <label for="fecha_hasta">Fecha hasta</label>
-                <input id="fecha_hasta" name="fecha_hasta" type="date" value="{{ $filtros['fecha_hasta'] }}">
+                <label for="filtro_fecha_hasta">Fecha hasta</label>
+                <input id="filtro_fecha_hasta" name="filtro_fecha_hasta" type="date" value="{{ $filtros['fecha_hasta'] }}">
             </div>
 
             <div class="reporte-field">
-                <label for="id_tipo_certificado">Tipo de certificado</label>
-                <select id="id_tipo_certificado" name="id_tipo_certificado">
+                <label for="filtro_id_tipo_certificado">Tipo de certificado</label>
+                <select id="filtro_id_tipo_certificado" name="filtro_id_tipo_certificado">
                     <option value="">Todos</option>
                     @foreach ($tiposCertificados as $tipoCertificado)
                         <option value="{{ $tipoCertificado->id }}" @selected((string) $filtros['id_tipo_certificado'] === (string) $tipoCertificado->id)>
@@ -73,8 +73,8 @@
             </div>
 
             <div class="reporte-field">
-                <label for="id_area">Area</label>
-                <select id="id_area" name="id_area">
+                <label for="filtro_id_area">Area</label>
+                <select id="filtro_id_area" name="filtro_id_area">
                     <option value="">Todas</option>
                     @foreach ($areas as $area)
                         <option value="{{ $area->id }}" @selected((string) $filtros['id_area'] === (string) $area->id)>
@@ -85,8 +85,8 @@
             </div>
 
             <div class="reporte-field">
-                <label for="estado">Estado</label>
-                <select id="estado" name="estado">
+                <label for="filtro_estado">Estado</label>
+                <select id="filtro_estado" name="filtro_estado">
                     <option value="">Todos</option>
                     @foreach ($estadoOpciones as $codigo => $texto)
                         <option value="{{ $codigo }}" @selected($filtros['estado'] === $codigo)>{{ $texto }}</option>

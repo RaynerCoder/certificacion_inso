@@ -2758,7 +2758,7 @@
              campo.tomselect?.disable();
          });
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = true;
 
          const buscadorOcupacion = document.querySelector('[data-ocupacion-responsable-buscar]');
@@ -2789,7 +2789,7 @@
              campo.tomselect?.enable();
          });
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = false;
 
          const buscadorOcupacion = document.querySelector('[data-ocupacion-responsable-buscar]');
@@ -2837,7 +2837,7 @@
              opcion.dataset.fecha.substring(0, 10) :
              '';
 
-         const fechaNacimiento = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fechaNacimiento = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
 
          if (fechaNacimiento) {
 
@@ -3470,7 +3470,7 @@
          const ci = document.getElementById('nuevo_ci').value.trim();
          const complemento = document.getElementById('nuevo_complemento').value.trim();
          const expedido = document.getElementById('nuevo_expedido').value.trim();
-         const fechaNacimiento = document.querySelector('[name="nuevo_fecha_nacimiento"]')?.value ?? '';
+         const fechaNacimiento = document.querySelector('[name="form_nuevo_fecha_nacimiento"]')?.value ?? '';
          const genero = document.getElementById('nuevo_genero').value;
          const idOcupacion = document.getElementById('nuevo_id_ocupacion').value;
          const ocupacion = descripcionOcupacionResponsableModal();
@@ -3880,7 +3880,7 @@
          reiniciarTerritorioResponsable();
          seleccionarOcupacionResponsableModal('');
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.value = '';
      }
 

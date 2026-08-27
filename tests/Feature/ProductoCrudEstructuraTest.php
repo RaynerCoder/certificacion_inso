@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\ProductoController;
+use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
 class ProductoCrudEstructuraTest extends TestCase
@@ -40,5 +41,15 @@ class ProductoCrudEstructuraTest extends TestCase
         $this->assertTrue(view()->exists('productos.index'));
         $this->assertTrue(view()->exists('productos.create'));
         $this->assertTrue(view()->exists('productos.show'));
+    }
+
+    public function test_el_porcentaje_de_ingrediente_admite_concentraciones_pequenas(): void
+    {
+        $validador = Validator::make(
+            ['porcentaje' => '0.005'],
+            ['porcentaje' => ['required', 'numeric', 'decimal:0,5', 'min:0', 'max:100']]
+        );
+
+        $this->assertTrue($validador->passes());
     }
 }

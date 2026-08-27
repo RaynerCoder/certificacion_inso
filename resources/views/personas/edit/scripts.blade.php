@@ -1099,7 +1099,7 @@
              if (campo) campo.disabled = true;
          });
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = true;
      }
 
@@ -1125,7 +1125,7 @@
              if (campo) campo.disabled = false;
          });
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.disabled = false;
      }
 
@@ -1165,7 +1165,7 @@
              opcion.dataset.fecha.substring(0, 10) :
              '';
 
-         const fechaNacimiento = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fechaNacimiento = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
 
          if (fechaNacimiento) {
 
@@ -1382,7 +1382,7 @@
          const ci = document.getElementById('nuevo_ci').value.trim();
          const complemento = document.getElementById('nuevo_complemento').value.trim();
          const expedido = document.getElementById('nuevo_expedido').value.trim();
-         const fechaNacimiento = document.querySelector('[name="nuevo_fecha_nacimiento"]')?.value ?? '';
+         const fechaNacimiento = document.querySelector('[name="form_nuevo_fecha_nacimiento"]')?.value ?? '';
          const genero = document.getElementById('nuevo_genero').value;
          const ocupacion = document.getElementById('nuevo_ocupacion').value.trim();
 
@@ -1390,8 +1390,8 @@
          const rolNombre = textoSelectPorValorPersonaWizard('#nuevo_id_rol', idRol);
          const respaldoInput = document.getElementById('nuevo_url_respaldo');
          const archivoRespaldo = respaldoInput?.files?.[0] ?? null;
-         const fechaRegistro = document.querySelector('[name="nuevo_fecha_registro"]')?.value ?? '';
-         const fechaBaja = document.querySelector('[name="nuevo_fecha_baja"]')?.value ?? '';
+         const fechaRegistro = document.querySelector('[name="form_nuevo_fecha_registro"]')?.value ?? '';
+         const fechaBaja = document.querySelector('[name="form_nuevo_fecha_baja"]')?.value ?? '';
          const estadoResponsable = document.getElementById('nuevo_estado_responsable').value;
 
          if (idPersonaExistente === '') {
@@ -1592,7 +1592,7 @@
              if (campo) campo.value = '';
          });
 
-         const fecha = document.querySelector('[name="nuevo_fecha_nacimiento"]');
+         const fecha = document.querySelector('[name="form_nuevo_fecha_nacimiento"]');
          if (fecha) fecha.value = '';
      }
 

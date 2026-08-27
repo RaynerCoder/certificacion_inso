@@ -22,7 +22,7 @@ class IngredienteProducto extends Model
     protected function casts(): array
     {
         return [
-            'porcentaje' => 'decimal:2',
+            'porcentaje' => 'decimal:5',
         ];
     }
 

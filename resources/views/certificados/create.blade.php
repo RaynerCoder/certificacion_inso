@@ -318,14 +318,14 @@
                                 </button>
                                 
                                     {{-- Permite continuar registrando otro certificado despues del guardado. --}}
-                                    <button type="submit" name="accion" value="guardar_otro"
+                                    <button type="submit" name="form_accion" value="guardar_otro"
                                         class="cert-ghost-btn px-4">
                                         {!! $icon('plus', 'cert-svg-sm') !!}
                                         <span>Guardar y registrar otro</span>
                                     </button>
 
                                 {{-- Guarda el certificado/tramite principal y sus requisitos. --}}
-                                <button type="submit" name="accion" value="guardar" class="cert-action-btn px-5">
+                                <button type="submit" name="form_accion" value="guardar" class="cert-action-btn px-5">
                                     {!! $icon('save', 'cert-svg-sm') !!}
                                     <span>Guardar certificado</span>
                                 </button>

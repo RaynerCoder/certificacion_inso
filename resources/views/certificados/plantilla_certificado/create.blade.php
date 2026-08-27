@@ -5,7 +5,7 @@
     ['name' => 'Crear'],
 ]">
     @php
-        $elementosIniciales = json_decode(old('elementos_plantilla', '[]'), true) ?: [];
+        $elementosIniciales = json_decode(old('form_elementos_plantilla', '[]'), true) ?: [];
     @endphp
 
     @include('certificados.plantilla_certificado.estilo')
@@ -17,8 +17,8 @@
 
     <form class="plantilla-shell" action="{{ route('certificados_plantillas_store') }}" method="POST" enctype="multipart/form-data">
         @csrf
-        <input type="hidden" name="elementos_plantilla" data-plantilla-elementos-input value="{{ old('elementos_plantilla', '[]') }}">
-        <input type="hidden" name="quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
+        <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', '[]') }}">
+        <input type="hidden" name="form_quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
 
         <section class="plantilla-card">
             <div class="plantilla-head">

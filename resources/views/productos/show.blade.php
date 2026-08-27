@@ -110,7 +110,7 @@
                             <tr>
                                 <td class="px-4 py-3 text-slate-500">{{ $loop->iteration }}</td>
                                 <td class="px-4 py-3 font-bold text-slate-700">{{ $relacion->ingrediente?->nombre ?: 'Sin nombre' }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ rtrim(rtrim(number_format((float) $relacion->porcentaje, 2, '.', ''), '0'), '.') }}%</td>
+                                <td class="px-4 py-3 text-slate-600">{{ rtrim(rtrim(number_format((float) $relacion->porcentaje, 5, '.', ''), '0'), '.') }}%</td>
                                 <td class="px-4 py-3 text-slate-600">{{ $relacion->estado }}</td>
                             </tr>
                         @empty

@@ -3,9 +3,9 @@
      * Selector visual de funcionario.
      * Mantiene un select real con name/id para que el controlador reciba el mismo dato.
      */
-    $selectId = $selectId ?? 'id_tecnico';
-    $selectName = $selectName ?? 'id_tecnico';
-    $selectLabel = $selectLabel ?? 'Tecnico asignado';
+    $selectId = $selectId ?? 'id_funcionario';
+    $selectName = $selectName ?? 'form_id_funcionario';
+    $selectLabel = $selectLabel ?? 'Funcionario asignado';
     $placeholder = $placeholder ?? 'Seleccione funcionario';
     $helpText = $helpText ?? 'Busque por nombre, cargo o area';
     $oldValue = (string) ($oldValue ?? old($selectName));
@@ -35,7 +35,8 @@
             $textoCarga = $cargaActual . ' tramite' . ($cargaActual === 1 ? ' activo' : 's activos');
 
             return [
-                'id' => (int) $tecnico->id,
+                // El valor enviado corresponde a funcionarios.id, no al id de la cuenta.
+                'id' => (int) $tecnico->funcionario->id,
                 'nombre' => $nombreVisible,
                 'cargo' => $textoCargo,
                 'area' => $textoArea,

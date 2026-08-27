@@ -812,8 +812,8 @@
                                             $destinatarioSeleccionado = $destinatariosCorreccion->firstWhere('id', $idDestinatarioCorreccion);
                                         @endphp
                                         <div class="cert-technical-field" data-correction-recipient-selector>
-                                            <label class="cert-show-label" for="id_usuario_responsable_correccion">Responsable de la corrección</label>
-                                            <input type="hidden" id="id_usuario_responsable_correccion" name="id_usuario_responsable_correccion"
+                                            <label class="cert-show-label" for="form_id_usuario_responsable_correccion">Responsable de la corrección</label>
+                                            <input type="hidden" id="form_id_usuario_responsable_correccion" name="form_id_usuario_responsable_correccion"
                                                 form="form-notificar-correccion-v2" value="{{ $idDestinatarioCorreccion }}" data-correction-recipient-value>
                                             <button type="button" class="cert-technical-control" data-correction-recipient-toggle
                                                 @disabled($destinatarioCorreccionBloqueado) aria-expanded="false">
@@ -876,7 +876,7 @@
                                 <form id="form-finalizar-tramite" action="{{ route('seguimientos_finalizar_tramite', $seguimientoTecnicoActual) }}" method="POST">
                                     @csrf
                                     @if ($tramiteRequiereHabilitarTramitador)
-                                        <input type="hidden" name="aceptar_tramitador" id="aceptar-tramitador" value="">
+                                        <input type="hidden" name="form_aceptar_tramitador" id="aceptar-tramitador" value="">
                                     @endif
                                 </form>
                             @endif
@@ -1035,7 +1035,7 @@
                                         <i class="fa-solid fa-xmark"></i>
                                         Salir sin guardar
                                     </a>
-                                    <button type="submit" name="accion_correccion" value="enviar" class="tramite-btn tramite-btn-primary" onclick="return confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')">
+                                    <button type="submit" name="form_accion_correccion" value="enviar" class="tramite-btn tramite-btn-primary" onclick="return confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')">
                                         <i class="fa-solid fa-reply"></i>
                                         Enviar al revisor
                                     </button>
@@ -1336,17 +1336,17 @@
                                 @csrf
                                 <div class="cert-derive-grid">
                                     @include('certificados.partials.selector_tecnico', [
-                                        'selectId' => 'id_tecnico_v2',
-                                        'selectName' => 'id_tecnico',
-                                        'selectLabel' => 'Tecnico asignado',
+                                        'selectId' => 'id_funcionario_v2',
+                                        'selectName' => 'form_id_funcionario',
+                                        'selectLabel' => 'Funcionario asignado',
                                         'placeholder' => 'Seleccione funcionario',
-                                        'oldValue' => old('id_tecnico'),
+                                        'oldValue' => old('form_id_funcionario'),
                                         'tecnicos' => $tecnicosDerivacion,
                                         'excluirIds' => [(int) $seguimientoAtencionActual?->id_usuario_siguiente],
                                     ])
                                     <div>
                                         <label class="cert-show-label" for="descripcion_derivacion_v2">Referencia de asignación</label>
-                                        <textarea id="descripcion_derivacion_v2" class="cert-review-textarea" name="descripcion_derivacion" placeholder="Ingrese una referencia opcional">{{ old('descripcion_derivacion') }}</textarea>
+                                        <textarea id="descripcion_derivacion_v2" class="cert-review-textarea" name="form_descripcion_derivacion" placeholder="Ingrese una referencia opcional">{{ old('form_descripcion_derivacion') }}</textarea>
                                     </div>
                                     <button type="submit" class="tramite-btn tramite-btn-primary">
                                         <i class="fa-solid fa-user-check"></i>
@@ -1361,11 +1361,11 @@
                                 @csrf
                                 <div class="cert-derive-grid is-transfer">
                                     @include('certificados.partials.selector_tecnico', [
-                                        'selectId' => 'id_tecnico_destino_v2',
-                                        'selectName' => 'id_tecnico_destino',
+                                        'selectId' => 'id_funcionario_destino_v2',
+                                        'selectName' => 'form_id_funcionario_destino',
                                         'selectLabel' => 'Funcionario destino',
                                         'placeholder' => 'Seleccione funcionario',
-                                        'oldValue' => old('id_tecnico_destino'),
+                                        'oldValue' => old('form_id_funcionario_destino'),
                                         'tecnicos' => $tecnicosDerivacion,
                                         'excluirIds' => [
                                             (int) $seguimientoAtencionActual?->id_usuario_siguiente,
@@ -1374,7 +1374,7 @@
                                     ])
                                     <div>
                                         <label class="cert-show-label" for="motivo_derivacion_v2">Referencia de derivación</label>
-                                        <textarea id="motivo_derivacion_v2" class="cert-review-textarea" name="motivo_derivacion" placeholder="Ingrese la referencia de esta derivación." required>{{ old('motivo_derivacion') }}</textarea>
+                                        <textarea id="motivo_derivacion_v2" class="cert-review-textarea" name="form_motivo_derivacion" placeholder="Ingrese la referencia de esta derivación." required>{{ old('form_motivo_derivacion') }}</textarea>
                                     </div>
                                     <button type="submit" class="tramite-btn tramite-btn-primary">
                                         <i class="fa-solid fa-share"></i>

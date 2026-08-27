@@ -59,7 +59,7 @@
                     <i class="fa-solid fa-xmark"></i> Salir sin guardar
                 </a>
 
-                <button type="submit" name="accion" value="enviar" class="tramite-btn tramite-btn-primary">
+                <button type="submit" name="form_accion" value="enviar" class="tramite-btn tramite-btn-primary">
                     <i class="fa-regular fa-paper-plane"></i> Registrar tramite
                 </button>
             </div>

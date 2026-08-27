@@ -173,7 +173,7 @@
                         data-url-hijos="{{ route('personas_territorios_hijos', ['territorio' => '__ID__']) }}"
                         data-url-ruta="{{ route('personas_territorio_ruta', ['territorio' => '__ID__']) }}"
                         data-error-wrapper="nuevo_id_territorio">
-                        <select id="nuevo_id_territorio" name="nuevo_id_territorio" class="hidden">
+                        <select id="nuevo_id_territorio" name="form_nuevo_id_territorio" class="hidden">
                             <option value="">Seleccione territorio</option>
                         </select>
 
@@ -252,7 +252,7 @@
                     {{-- En este modal se usa un campo de fecha nativo porque tambien debe aceptar
                          los valores cargados al editar un responsable existente. --}}
                     <x-wire-input type="date" label="Fecha de nacimiento" id="nuevo_fecha_nacimiento"
-                        name="nuevo_fecha_nacimiento" />
+                        name="form_nuevo_fecha_nacimiento" />
 
                     <x-wire-native-select label="Género" id="nuevo_genero">
                         <option value="">Seleccione una opción</option>

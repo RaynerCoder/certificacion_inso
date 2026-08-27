@@ -182,7 +182,7 @@
                         data-url-hijos="{{ route('personas_territorios_hijos', ['territorio' => '__ID__']) }}"
                         data-url-ruta="{{ route('personas_territorio_ruta', ['territorio' => '__ID__']) }}"
                         data-error-wrapper="nuevo_id_territorio">
-                        <select id="nuevo_id_territorio" name="nuevo_id_territorio" class="hidden">
+                        <select id="nuevo_id_territorio" name="form_nuevo_id_territorio" class="hidden">
                             <option value="">Seleccione territorio</option>
                         </select>
 
@@ -231,7 +231,7 @@
                     <x-wire-input label="Expedido" id="nuevo_expedido" placeholder="LP, CB, SC..." />
 
                     <x-wire-datetime-picker label="Fecha de nacimiento" id="nuevo_fecha_nacimiento"
-                        name="nuevo_fecha_nacimiento" without-time />
+                        name="form_nuevo_fecha_nacimiento" without-time />
 
                     <x-wire-native-select label="Género" id="nuevo_genero">
                         <option value="">Seleccione una opción</option>
@@ -424,9 +424,9 @@
                     </div>
 
                     <x-wire-datetime-picker label="Fecha de registro" id="nuevo_fecha_registro"
-                        name="nuevo_fecha_registro" without-time />
+                        name="form_nuevo_fecha_registro" without-time />
 
-                    <x-wire-datetime-picker label="Fecha de baja" id="nuevo_fecha_baja" name="nuevo_fecha_baja"
+                    <x-wire-datetime-picker label="Fecha de baja" id="nuevo_fecha_baja" name="form_nuevo_fecha_baja"
                         without-time />
 
                     <x-wire-native-select label="Estado" id="nuevo_estado_responsable">

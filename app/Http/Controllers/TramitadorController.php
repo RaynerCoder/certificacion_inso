@@ -75,16 +75,16 @@ class TramitadorController extends Controller
     {
         $this->empresaAutenticada();
         $documento = $request->validate([
-            'ci' => ['required', 'string', 'max:50'],
-            'complemento' => ['nullable', 'string', 'max:10'],
+            'form_ci' => ['required', 'string', 'max:50'],
+            'form_complemento' => ['nullable', 'string', 'max:10'],
         ], [], [
-            'ci' => 'CI',
-            'complemento' => 'complemento',
+            'form_ci' => 'CI',
+            'form_complemento' => 'complemento',
         ]);
 
         $natural = $this->buscarNaturalPorDocumento(
-            $documento['ci'],
-            $documento['complemento'] ?? null
+            $documento['form_ci'],
+            $documento['form_complemento'] ?? null
         );
 
         if (! $natural) {
@@ -323,7 +323,7 @@ class TramitadorController extends Controller
         $datos = $request->validate([
             'form_estado' => ['required', Rule::in(['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO'])],
             'form_cambiar_password' => ['nullable', 'boolean'],
-            'password' => [
+            'form_password' => [
                 'nullable',
                 Rule::requiredIf($request->boolean('form_cambiar_password')),
                 'string',
@@ -334,12 +334,12 @@ class TramitadorController extends Controller
 
         if ($request->boolean('form_cambiar_password') && $datos['form_estado'] !== 'ACTIVO') {
             throw ValidationException::withMessages([
-                'password' => 'La nueva contraseña solo puede asignarse al habilitar al tramitador.',
+                'form_password' => 'La nueva contraseña solo puede asignarse al habilitar al tramitador.',
             ]);
         }
 
         $nuevaPassword = $request->boolean('form_cambiar_password')
-            ? $datos['password']
+            ? $datos['form_password']
             : null;
 
         try {
@@ -369,7 +369,7 @@ class TramitadorController extends Controller
         } catch (ValidationException $exception) {
             return back()
                 ->withErrors($exception->errors())
-                ->withInput($request->except(['password', 'password_confirmation']));
+                ->withInput($request->except(['form_password', 'form_password_confirmation']));
         }
 
         session()->flash('swal', [

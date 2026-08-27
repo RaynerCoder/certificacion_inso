@@ -41,7 +41,7 @@ class TramitadorEmpresaTest extends TestCase
         ]);
 
         $this->actingAs($usuarioEmpresa)
-            ->getJson(route('tramitadores_buscar_persona', ['ci' => '4455667']))
+            ->getJson(route('tramitadores_buscar_persona', ['form_ci' => '4455667']))
             ->assertOk()
             ->assertJsonPath('encontrado', true)
             ->assertJsonPath('persona.nombres', 'PERSONA')
@@ -78,7 +78,7 @@ class TramitadorEmpresaTest extends TestCase
         [$usuarioEmpresa] = $this->crearEmpresaConPermisos();
 
         $this->actingAs($usuarioEmpresa)
-            ->getJson(route('tramitadores_buscar_persona', ['ci' => 'CI-NUEVO']))
+            ->getJson(route('tramitadores_buscar_persona', ['form_ci' => 'CI-NUEVO']))
             ->assertOk()
             ->assertExactJson(['encontrado' => false]);
     }
@@ -104,12 +104,12 @@ class TramitadorEmpresaTest extends TestCase
         }
 
         $this->actingAs($usuarioEmpresa)
-            ->getJson(route('tramitadores_buscar_persona', ['ci' => '5566778']))
+            ->getJson(route('tramitadores_buscar_persona', ['form_ci' => '5566778']))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('complemento');
+            ->assertJsonValidationErrors('form_complemento');
 
         $this->actingAs($usuarioEmpresa)
-            ->getJson(route('tramitadores_buscar_persona', ['ci' => '5566778', 'complemento' => '2b']))
+            ->getJson(route('tramitadores_buscar_persona', ['form_ci' => '5566778', 'form_complemento' => '2b']))
             ->assertOk()
             ->assertJsonPath('persona.nombres', 'PERSONA 2B')
             ->assertJsonPath('persona.complemento', '2B');
@@ -461,8 +461,8 @@ class TramitadorEmpresaTest extends TestCase
         $this->actingAs($validador)->put(route('tramitadores_update', $relacion), [
             'form_estado' => 'ACTIVO',
             'form_cambiar_password' => '1',
-            'password' => 'NuevaClaveSegura123',
-            'password_confirmation' => 'NuevaClaveSegura123',
+            'form_password' => 'NuevaClaveSegura123',
+            'form_password_confirmation' => 'NuevaClaveSegura123',
         ])->assertRedirect(route('tramitadores_index'));
 
         $this->assertTrue(Hash::check('NuevaClaveSegura123', $usuarioTramitador->fresh()->password));

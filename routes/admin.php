@@ -84,6 +84,18 @@ Route::get('/', function () {
     return view('admin.dashboard', compact('resumenInicio'));
 })->name('admin_dashboard');
 
+// Página independiente para que cualquier cuenta autenticada cambie su contraseña.
+Route::view('/cambio-password', 'profile.cambio_password')->name('cambio_password');
+
+/* =========================
+   CAPACITACIONES - PROTOTIPO VISUAL
+========================= */
+// Estas rutas permiten revisar el diseño antes de conectar modelos y procesos de guardado.
+Route::view('/capacitaciones/prototipo', 'capacitaciones.index')->name('capacitaciones_index');
+Route::view('/capacitaciones/crear/prototipo', 'capacitaciones.create')->name('capacitaciones_create');
+Route::view('/capacitaciones/preinscripciones/prototipo', 'capacitaciones.preinscripciones')
+    ->name('capacitaciones_preinscripciones_index');
+
 /* =========================
    REPORTES
 ========================= */

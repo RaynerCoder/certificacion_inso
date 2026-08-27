@@ -760,7 +760,7 @@ class ProductoController extends Controller
                 'ingredientes_productos' => ['nullable', 'array'],
                 'ingredientes_productos.*.id_ingrediente' => ['required_with:ingredientes_productos', 'string', 'max:50'],
                 'ingredientes_productos.*.nombre' => ['nullable', 'string', 'max:255'],
-                'ingredientes_productos.*.porcentaje' => ['required_with:ingredientes_productos', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+                'ingredientes_productos.*.porcentaje' => ['required_with:ingredientes_productos', 'numeric', 'decimal:0,5', 'min:0', 'max:100'],
                 'ingredientes_productos.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
 
                 'presentaciones' => ['nullable', 'array'],

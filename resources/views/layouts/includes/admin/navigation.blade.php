@@ -420,6 +420,14 @@
                                 </span>
                             </x-dropdown-link>
 
+                            {{-- Todos los usuarios autenticados pueden actualizar su propia contraseña. --}}
+                            <x-dropdown-link href="{{ route('cambio_password') }}">
+                                <span class="inline-flex items-center gap-2">
+                                    <i class="fa-solid fa-lock text-slate-400"></i>
+                                    Cambiar contraseña
+                                </span>
+                            </x-dropdown-link>
+
                             @if (Laravel\Jetstream\Jetstream::hasApiFeatures())
                                 <x-dropdown-link href="{{ route('api-tokens.index') }}">
                                     <span class="inline-flex items-center gap-2">

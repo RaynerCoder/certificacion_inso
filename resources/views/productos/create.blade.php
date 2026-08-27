@@ -527,7 +527,6 @@
 </div>
 
 {{-- Modal visual para unidad de medida. --}}
-{{-- Modal visual para unidad de medida. --}}
 <div class="producto-modal" id="modalUnidadProducto">
     <div class="producto-modal-card is-compact">
 
@@ -1648,7 +1647,7 @@
 
         return porcentaje.toLocaleString('es-BO', {
             minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
+            maximumFractionDigits: 5,
         });
     }
 

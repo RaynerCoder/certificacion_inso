@@ -330,7 +330,7 @@
                                 </button>
 
                                 {{-- Actualiza el certificado principal y sus requisitos evaluados. --}}
-                                <button type="submit" name="accion" value="guardar" class="cert-action-btn px-5">
+                                <button type="submit" name="form_accion" value="guardar" class="cert-action-btn px-5">
                                     {!! $icon('save', 'cert-svg-sm') !!}
                                     <span>Actualizar certificado</span>
                                 </button>

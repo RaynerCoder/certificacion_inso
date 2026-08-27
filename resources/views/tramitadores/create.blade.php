@@ -499,8 +499,8 @@
 
                     try {
                         const url = new URL(btnBuscarPersona.dataset.url, window.location.origin);
-                        url.searchParams.set('ci', ci);
-                        if (complemento) url.searchParams.set('complemento', complemento);
+                        url.searchParams.set('form_ci', ci);
+                        if (complemento) url.searchParams.set('form_complemento', complemento);
 
                         const respuesta = await fetch(url, {
                             headers: { Accept: 'application/json' },

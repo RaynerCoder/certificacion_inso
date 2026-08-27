@@ -40,25 +40,25 @@ class ReporteController extends Controller
     private function validarFiltros(Request $request): array
     {
         $datos = $request->validate([
-            'fecha_desde' => ['nullable', 'date'],
-            'fecha_hasta' => ['nullable', 'date', 'after_or_equal:fecha_desde'],
-            'id_tipo_certificado' => ['nullable', 'integer', 'exists:tipos_certificados,id'],
-            'id_area' => ['nullable', 'integer', 'exists:areas,id'],
-            'estado' => ['nullable', 'string', 'max:50'],
+            'filtro_fecha_desde' => ['nullable', 'date'],
+            'filtro_fecha_hasta' => ['nullable', 'date', 'after_or_equal:filtro_fecha_desde'],
+            'filtro_id_tipo_certificado' => ['nullable', 'integer', 'exists:tipos_certificados,id'],
+            'filtro_id_area' => ['nullable', 'integer', 'exists:areas,id'],
+            'filtro_estado' => ['nullable', 'string', 'max:50'],
         ], [], [
-            'fecha_desde' => 'fecha desde',
-            'fecha_hasta' => 'fecha hasta',
-            'id_tipo_certificado' => 'tipo de certificado',
-            'id_area' => 'area',
-            'estado' => 'estado',
+            'filtro_fecha_desde' => 'fecha desde',
+            'filtro_fecha_hasta' => 'fecha hasta',
+            'filtro_id_tipo_certificado' => 'tipo de certificado',
+            'filtro_id_area' => 'area',
+            'filtro_estado' => 'estado',
         ]);
 
         return [
-            'fecha_desde' => $datos['fecha_desde'] ?? now()->startOfMonth()->toDateString(),
-            'fecha_hasta' => $datos['fecha_hasta'] ?? now()->toDateString(),
-            'id_tipo_certificado' => $datos['id_tipo_certificado'] ?? null,
-            'id_area' => $datos['id_area'] ?? null,
-            'estado' => $datos['estado'] ?? null,
+            'fecha_desde' => $datos['filtro_fecha_desde'] ?? now()->startOfMonth()->toDateString(),
+            'fecha_hasta' => $datos['filtro_fecha_hasta'] ?? now()->toDateString(),
+            'id_tipo_certificado' => $datos['filtro_id_tipo_certificado'] ?? null,
+            'id_area' => $datos['filtro_id_area'] ?? null,
+            'estado' => $datos['filtro_estado'] ?? null,
         ];
     }
 

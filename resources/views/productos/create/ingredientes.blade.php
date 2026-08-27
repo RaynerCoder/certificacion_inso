@@ -47,7 +47,7 @@
                 <div class="lg:col-span-3">
                     <label class="producto-field-label" for="form_ingrediente_porcentaje">Porcentaje</label>
                     <input class="producto-input" id="form_ingrediente_porcentaje" type="number" min="0"
-                        max="100" step="0.01" placeholder="Ej: 48.50">
+                        max="100" step="0.00001" placeholder="Ej: 0.005">
                 </div>
 
                 <div class="lg:col-span-3">
@@ -104,7 +104,7 @@
                                         value="{{ $estadoIngrediente }}">
                                 </td>
                                 <td class="producto-ingredient-percentage">
-                                    {{ rtrim(rtrim(number_format((float) ($ingredienteOld['porcentaje'] ?? 0), 2, '.', ''), '0'), '.') }}%
+                                    {{ rtrim(rtrim(number_format((float) ($ingredienteOld['porcentaje'] ?? 0), 5, '.', ''), '0'), '.') }}%
                                 </td>
                                 <td><span class="producto-pill">{{ $estadoIngrediente }}</span></td>
                                 <td>

@@ -683,7 +683,7 @@
         <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
                 @csrf
-                <input type="hidden" name="bandeja" value="{{ request('bandeja', 'finalizados') }}">
+                <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
 
                 <div class="emit-modal-head">
                     <div>

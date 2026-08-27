@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Certificado;
 use App\Models\DependenciaRequisito;
 use App\Models\EvidenciaRequisito;
+use App\Models\Funcionario;
 use App\Models\NotificacionTramite;
 use App\Models\ObservacionRequisito;
 use App\Models\Persona;
@@ -554,30 +555,33 @@ class SeguimientoController extends Controller
         }
 
         $datos = $request->validate([
-            'id_tecnico' => ['required', 'exists:users,id'],
-            'descripcion_derivacion' => ['nullable', 'string', 'max:1000'],
+            'form_id_funcionario' => ['required', 'exists:funcionarios,id'],
+            'form_descripcion_derivacion' => ['nullable', 'string', 'max:1000'],
         ], [], [
-            'id_tecnico' => 'tecnico',
-            'descripcion_derivacion' => 'descripcion de derivacion',
+            'form_id_funcionario' => 'funcionario',
+            'form_descripcion_derivacion' => 'descripcion de derivacion',
         ]);
 
-        if ((int) $datos['id_tecnico'] === (int) $seguimiento->id_usuario_siguiente) {
-            return back()
-                ->withErrors(['id_tecnico' => 'Seleccione un funcionario diferente al funcionario actual.'])
-                ->withInput();
-        }
-
-        $tecnico = User::query()
-            ->whereKey($datos['id_tecnico'])
+        // El formulario trabaja con funcionarios.id. El seguimiento conserva users.id
+        // porque id_usuario_siguiente identifica la cuenta que recibira el tramite.
+        $funcionario = Funcionario::query()
+            ->with('usuario')
+            ->whereKey($datos['form_id_funcionario'])
             ->where('estado', 1)
-            ->whereHas('funcionario', function ($query) {
-                $query->where('estado', 1)
-                    ->whereHas('cargos', fn ($cargo) => $cargo->where('estado', 1));
-            })
+            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
+            ->whereHas('cargos', fn ($query) => $query->where('estado', 1))
             ->first();
 
-        if (! $tecnico) {
+        if (! $funcionario?->usuario) {
             return back()->with('error', 'Seleccione un funcionario activo con cargo asignado.');
+        }
+
+        $usuarioFuncionario = $funcionario->usuario;
+
+        if ((int) $usuarioFuncionario->id === (int) $seguimiento->id_usuario_siguiente) {
+            return back()
+                ->withErrors(['form_id_funcionario' => 'Seleccione un funcionario diferente al funcionario actual.'])
+                ->withInput();
         }
 
         try {
@@ -609,12 +613,12 @@ class SeguimientoController extends Controller
                 'fecha_final' => null,
                 'descripcion_final' => null,
                 // La referencia solo se registra cuando fue escrita en el formulario de asignación.
-                'referencia' => filled($datos['descripcion_derivacion'] ?? null)
-                    ? trim($datos['descripcion_derivacion'])
+                'referencia' => filled($datos['form_descripcion_derivacion'] ?? null)
+                    ? trim($datos['form_descripcion_derivacion'])
                     : null,
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente ?: $seguimientoBloqueado->id_usuario_origen,
                 'id_usuario_origen' => auth()->id(),
-                'id_usuario_siguiente' => $tecnico->id,
+                'id_usuario_siguiente' => $usuarioFuncionario->id,
                 'estado' => 'ACTIVO',
             ]);
 
@@ -622,7 +626,7 @@ class SeguimientoController extends Controller
 
             // Aviso simple para que el tecnico vea la solicitud en su bandeja.
             $this->notificarUsuarioTramite(
-                $tecnico,
+                $usuarioFuncionario,
                 $certificado,
                 'Tramite asignado',
                 'Tiene una solicitud pendiente para revision.'
@@ -651,34 +655,35 @@ class SeguimientoController extends Controller
     public function derivarTecnico(Request $request, Seguimiento $seguimiento)
     {
         $datos = $request->validate([
-            'id_tecnico_destino' => ['required', 'exists:users,id'],
-            'motivo_derivacion' => ['required', 'string', 'max:1000'],
+            'form_id_funcionario_destino' => ['required', 'exists:funcionarios,id'],
+            'form_motivo_derivacion' => ['required', 'string', 'max:1000'],
         ], [], [
-            'id_tecnico_destino' => 'funcionario destino',
-            'motivo_derivacion' => 'motivo de derivacion',
+            'form_id_funcionario_destino' => 'funcionario destino',
+            'form_motivo_derivacion' => 'motivo de derivacion',
         ]);
 
         if (! $this->usuarioPuedeRevisarSeguimiento($seguimiento)) {
             return back()->with('error', 'Solo el funcionario asignado puede derivar este tramite.');
         }
 
-        if ((int) $datos['id_tecnico_destino'] === (int) $seguimiento->id_usuario_siguiente) {
-            return back()
-                ->withErrors(['id_tecnico_destino' => 'Seleccione un funcionario diferente al funcionario actual.'])
-                ->withInput();
-        }
-
-        $funcionarioDestino = User::query()
-            ->whereKey($datos['id_tecnico_destino'])
+        $funcionarioDestino = Funcionario::query()
+            ->with('usuario')
+            ->whereKey($datos['form_id_funcionario_destino'])
             ->where('estado', 1)
-            ->whereHas('funcionario', function ($query) {
-                $query->where('estado', 1)
-                    ->whereHas('cargos', fn ($cargo) => $cargo->where('estado', 1));
-            })
+            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
+            ->whereHas('cargos', fn ($query) => $query->where('estado', 1))
             ->first();
 
-        if (! $funcionarioDestino) {
+        if (! $funcionarioDestino?->usuario) {
             return back()->with('error', 'El usuario destino debe ser un funcionario activo con cargo asignado.');
+        }
+
+        $usuarioDestino = $funcionarioDestino->usuario;
+
+        if ((int) $usuarioDestino->id === (int) $seguimiento->id_usuario_siguiente) {
+            return back()
+                ->withErrors(['form_id_funcionario_destino' => 'Seleccione un funcionario diferente al funcionario actual.'])
+                ->withInput();
         }
 
         try {
@@ -708,10 +713,10 @@ class SeguimientoController extends Controller
                 'fecha_final' => null,
                 'descripcion_final' => null,
                 // En una derivación, la referencia corresponde exactamente al texto ingresado.
-                'referencia' => trim($datos['motivo_derivacion']),
+                'referencia' => trim($datos['form_motivo_derivacion']),
                 'id_usuario_anterior' => $seguimientoBloqueado->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
-                'id_usuario_siguiente' => $funcionarioDestino->id,
+                'id_usuario_siguiente' => $usuarioDestino->id,
                 'estado' => 'ACTIVO',
             ]);
 
@@ -720,7 +725,7 @@ class SeguimientoController extends Controller
             // Notifica al tecnico destino para que el cambio se refleje en su bandeja de trabajo.
             if ($seguimientoBloqueado->certificado) {
                 $this->notificarUsuarioTramite(
-                    $funcionarioDestino,
+                    $usuarioDestino,
                     $seguimientoBloqueado->certificado,
                     'Tramite derivado',
                     'Recibio una solicitud derivada para su revision.'
@@ -881,9 +886,9 @@ class SeguimientoController extends Controller
 
             if ($this->tramiteRequiereHabilitarTramitador($certificado)) {
                 $request->validate([
-                    'aceptar_tramitador' => ['accepted'],
+                    'form_aceptar_tramitador' => ['accepted'],
                 ], [], [
-                    'aceptar_tramitador' => 'aceptacion del tramitador',
+                    'form_aceptar_tramitador' => 'aceptacion del tramitador',
                 ]);
 
                 $this->habilitarTramitadorDelTramite($certificado);
@@ -957,15 +962,15 @@ class SeguimientoController extends Controller
             }
 
             $datos = $request->validate([
-                'id_usuario_responsable_correccion' => ['required', 'integer'],
+                'form_id_usuario_responsable_correccion' => ['required', 'integer'],
             ], [], [
-                'id_usuario_responsable_correccion' => 'destinatario de la correccion',
+                'form_id_usuario_responsable_correccion' => 'destinatario de la correccion',
             ]);
 
             // El servicio vuelve a validar que la cuenta elegida pertenece al beneficiario o es un tramitador habilitado.
             $usuarioResponsableCorreccion = $this->gestionTramitadores->destinatarioCorreccionValido(
                 $certificado,
-                (int) $datos['id_usuario_responsable_correccion']
+                (int) $datos['form_id_usuario_responsable_correccion']
             );
 
             $observaciones = $requisitosObservados
@@ -1157,13 +1162,13 @@ class SeguimientoController extends Controller
         }
 
         $datos = $request->validate([
-            'accion_correccion' => ['required', 'in:guardar,enviar'],
+            'form_accion_correccion' => ['required', 'in:guardar,enviar'],
             'documentos_correccion' => ['nullable', 'array'],
             'documentos_correccion.*' => ['nullable', 'file'],
             'textos_correccion' => ['nullable', 'array'],
             'textos_correccion.*' => ['nullable', 'string', 'max:2000'],
         ], [], [
-            'accion_correccion' => 'accion de correccion',
+            'form_accion_correccion' => 'accion de correccion',
             'documentos_correccion.*' => 'documento corregido',
             'textos_correccion.*' => 'texto corregido',
         ]);
@@ -1181,7 +1186,7 @@ class SeguimientoController extends Controller
             $tecnicoDestinoId = $seguimiento->id_usuario_origen;
             $archivos = $request->file('documentos_correccion', []);
             $textos = $request->input('textos_correccion', []);
-            $soloGuardar = $datos['accion_correccion'] === 'guardar';
+            $soloGuardar = $datos['form_accion_correccion'] === 'guardar';
             $requisitosObservados = $certificado->certificadoRequisitos->where('cumple', 'NO');
 
             if (! $tecnicoDestinoId) {

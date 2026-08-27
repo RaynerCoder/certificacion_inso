@@ -13,6 +13,14 @@ class UpdatePasswordTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_authenticated_user_can_open_change_password_page(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('cambio_password'))
+            ->assertOk()
+            ->assertSee('Cambiar contraseña');
+    }
+
     public function test_password_can_be_updated(): void
     {
         $this->actingAs($user = User::factory()->create());

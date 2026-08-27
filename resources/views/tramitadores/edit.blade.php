@@ -307,25 +307,25 @@
 
                             <div x-cloak x-show="cambiarPassword" class="mt-4 space-y-4">
                                 <div>
-                                    <label for="password" class="block text-sm font-medium text-slate-700">Nueva contraseña</label>
+                                    <label for="form_password" class="block text-sm font-medium text-slate-700">Nueva contraseña</label>
                                     <input
-                                        id="password"
-                                        name="password"
+                                        id="form_password"
+                                        name="form_password"
                                         type="password"
                                         autocomplete="new-password"
                                         x-bind:disabled="!cambiarPassword"
                                         class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-teal-500 focus:ring-teal-500"
                                     >
-                                    @error('password')
+                                    @error('form_password')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
 
                                 <div>
-                                    <label for="password_confirmation" class="block text-sm font-medium text-slate-700">Confirmar contraseña</label>
+                                    <label for="form_password_confirmation" class="block text-sm font-medium text-slate-700">Confirmar contraseña</label>
                                     <input
-                                        id="password_confirmation"
-                                        name="password_confirmation"
+                                        id="form_password_confirmation"
+                                        name="form_password_confirmation"
                                         type="password"
                                         autocomplete="new-password"
                                         x-bind:disabled="!cambiarPassword"
