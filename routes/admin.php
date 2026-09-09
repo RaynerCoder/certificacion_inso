@@ -225,12 +225,14 @@ Route::delete('/rubros/{rubro}', [RubroController::class, 'destroy'])->name('rub
    TIPOS DE CERTIFICADOR
 ========================= */
 Route::get('/tipos-certificados', [TipoCertificadoController::class, 'index'])->name('tipos_certificados_index');
-Route::get('/tipos-certificados/create', [TipoCertificadoController::class, 'create'])->name('tipos_certificados_create');
 Route::post('/tipos-certificados', [TipoCertificadoController::class, 'store'])->name('tipos_certificados_store');
+Route::patch('/tipos-certificados/{tipoCertificado}/datos-basicos', [TipoCertificadoController::class, 'actualizarDatosBasicos'])
+    ->name('tipos_certificados_update_basico');
+Route::get('/tipos-certificados/{tipoCertificado}/configuracion', [TipoCertificadoController::class, 'configurar'])
+    ->name('tipos_certificados_configuracion');
+Route::put('/tipos-certificados/{tipoCertificado}/configuracion', [TipoCertificadoController::class, 'actualizarConfiguracion'])
+    ->name('tipos_certificados_configuracion_update');
 Route::get('/tipos-certificados/{tipoCertificado}', [TipoCertificadoController::class, 'show'])->name('tipos_certificados_show');
-Route::get('/tipos-certificados/{tipoCertificado}/edit', [TipoCertificadoController::class, 'edit'])->name('tipos_certificados_edit');
-Route::put('/tipos-certificados/{tipoCertificado}', [TipoCertificadoController::class, 'update'])->name('tipos_certificados_update');
-Route::delete('/tipos-certificados/{tipoCertificado}', [TipoCertificadoController::class, 'destroy'])->name('tipos_certificados_destroy');
 
 
 
@@ -271,6 +273,10 @@ Route::post('/certificados/{certificado}/emitir', [CertificadoController::class,
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')
     ->middleware('permiso:certificados.emitir');
+Route::get('/certificados/{certificado}/descargar', [CertificadoController::class, 'descargar'])
+    ->name('certificados_descargar');
+Route::get('/certificados/{certificado}/evidencias/{evidenciaRequisito}/archivo', [CertificadoController::class, 'descargarEvidencia'])
+    ->name('certificados_evidencias_descargar');
 Route::get('/certificados/{certificado}/edit', [CertificadoController::class, 'edit'])->name('certificados_edit');
 Route::put('/certificados/{certificado}', [CertificadoController::class, 'update'])->name('certificados_update');
 Route::delete('/certificados/{certificado}', [CertificadoController::class, 'destroy'])->name('certificados_destroy');
@@ -321,6 +327,8 @@ Route::get('/ingredientes/{ingrediente}',[IngredienteController::class, 'show'])
 Route::get('/productos', [ProductoController::class, 'index'])->name('productos_index');
 Route::get('/productos/create', [ProductoController::class, 'create'])->name('productos_create');
 Route::post('/productos', [ProductoController::class, 'store'])->name('productos_store');
+Route::get('/productos/presentaciones/{presentacion}/etiqueta', [ProductoController::class, 'etiquetaPresentacion'])
+    ->name('productos_presentaciones_etiqueta');
 Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos_edit');
 Route::put('/productos/{producto}', [ProductoController::class, 'update'])->name('productos_update');
 Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])->name('productos_destroy');

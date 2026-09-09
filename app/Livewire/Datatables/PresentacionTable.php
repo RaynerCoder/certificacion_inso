@@ -30,11 +30,11 @@ class PresentacionTable extends DataTableComponent
     public function columns(): array
     {
         return [
-            Column::make('Id', 'id')->sortable(),
+            Column::make('Nro.', 'id')->sortable(),
             $this->columnaProducto(),
             $this->columnaEtiqueta(),
-            Column::make('Cantidad', 'cantidad')->sortable(),
-            Column::make('Unidad', 'id_catalogo_unidad')
+            Column::make('Cantidad de presentación', 'cantidad')->sortable(),
+            Column::make('Unidad de presentación', 'id_catalogo_unidad')
                 ->format(fn ($valor, $presentacion) => $this->textoCatalogoUnidad($presentacion))
                 ->sortable(),
             $this->columnaDescripcion(),
@@ -60,14 +60,14 @@ class PresentacionTable extends DataTableComponent
     private function columnaEtiqueta(): Column
     {
         return Column::make('Etiqueta', 'url_etiqueta')
-            ->format(fn ($valor) => $this->enlaceArchivo($valor, 'Ver etiqueta'))
+            ->format(fn ($valor, Presentacion $presentacion) => $this->enlaceArchivo($presentacion))
             ->html();
     }
 
     private function columnaDescripcion(): Column
     {
-        return Column::make('Descripcion', 'descripcion')
-            ->format(fn ($valor) => $this->textoConSalto($valor ?: 'Sin descripcion'))
+        return Column::make('Descripción de presentación', 'descripcion')
+            ->format(fn ($valor) => $this->textoConSalto($valor ?: 'No registrada'))
             ->html()
             ->sortable();
     }
@@ -90,25 +90,31 @@ class PresentacionTable extends DataTableComponent
 
         $nombre = $producto->nombre_comercial ?: 'Sin nombre comercial';
         $codigo = $producto->codigo ?: 'Sin codigo';
-        $clasificacionToxicologica = $producto->clasificacionToxicologica?->descripcion ?: 'Sin clasificación toxicológica';
-        $fabricante = $producto->fabricante?->nombre ?: 'Sin fabricante';
+        $clasificacionToxicologica = trim(
+            ($producto->clasificacionToxicologica?->codigo ?? '') . ' - ' .
+            ($producto->clasificacionToxicologica?->descripcion ?? ''),
+            ' -'
+        ) ?: 'No registrada';
+        $fabricante = $producto->fabricante?->razon_social
+            ?: ($producto->fabricante?->nombre ?: 'No registrado');
 
         return '<div class="max-w-[260px] whitespace-normal break-words leading-snug">'
             . '<div class="font-bold text-slate-800">' . e($nombre) . '</div>'
-            . '<div class="text-xs font-semibold text-slate-500">' . e($codigo) . ' | ' . e($clasificacionToxicologica) . '</div>'
-            . '<div class="text-xs text-slate-500">' . e($fabricante) . '</div>'
+            . '<div class="mt-1 text-xs text-slate-500"><strong>Código:</strong> ' . e($codigo) . '</div>'
+            . '<div class="text-xs text-slate-500"><strong>Clasificación toxicológica:</strong> ' . e($clasificacionToxicologica) . '</div>'
+            . '<div class="text-xs text-slate-500"><strong>Fabricante:</strong> ' . e($fabricante) . '</div>'
             . '</div>';
     }
 
-    private function enlaceArchivo(?string $ruta, string $texto): string
+    private function enlaceArchivo(Presentacion $presentacion): string
     {
-        if (!$ruta) {
+        if (!$presentacion->url_etiqueta) {
             return '<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-500">Sin archivo</span>';
         }
 
-        return '<a href="' . e(asset('storage/' . $ruta)) . '" target="_blank" '
+        return '<a href="' . e(route('productos_presentaciones_etiqueta', $presentacion)) . '" target="_blank" '
             . 'class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">'
-            . e($texto)
+            . 'Ver etiqueta'
             . '</a>';
     }
 

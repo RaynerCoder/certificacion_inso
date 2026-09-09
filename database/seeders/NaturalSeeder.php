@@ -28,8 +28,6 @@ class NaturalSeeder extends Seeder
                 'apellido_casado' => $casado,
                 'fecha_nacimiento' => $nacimiento,
                 'genero' => $genero,
-                // La descripción se obtiene desde ocupaciones_cob mediante id_ocupacion.
-                'ocupacion' => null,
             ]);
         }
     }

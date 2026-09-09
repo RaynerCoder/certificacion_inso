@@ -380,7 +380,7 @@
              'form_expedido',
              'form_fecha_nacimiento',
              'form_genero',
-             'form_ocupacion'
+             'form_id_ocupacion'
          ];
 
          campos.forEach(name => {
@@ -750,7 +750,7 @@
                  itemResumenPersonaWizard('Nombre completo', nombreNaturalPersonaWizard()),
                  itemResumenPersonaWizard('CI', valorPersonaWizard('[name="form_ci"]')),
                  itemResumenPersonaWizard('Genero', textoSelectPersonaWizard('[name="form_genero"]')),
-                 itemResumenPersonaWizard('Ocupacion', valorPersonaWizard('[name="form_ocupacion"]')),
+                 itemResumenPersonaWizard('Ocupación', textoSelectPersonaWizard('[name="form_id_ocupacion"]')),
                  itemResumenPersonaWizard('Rubros agregados', cantidadRubros)
              ]);
          }
@@ -1091,7 +1091,7 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {
@@ -1117,7 +1117,7 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {
@@ -1159,7 +1159,7 @@
          document.getElementById('nuevo_complemento').value = opcion.dataset.complemento || '';
          document.getElementById('nuevo_expedido').value = opcion.dataset.expedido || '';
          document.getElementById('nuevo_genero').value = String(opcion.dataset.genero ?? '');
-         document.getElementById('nuevo_ocupacion').value = opcion.dataset.ocupacion || '';
+         document.getElementById('nuevo_id_ocupacion').value = opcion.dataset.idOcupacion || '';
 
          const fecha = opcion.dataset.fecha ?
              opcion.dataset.fecha.substring(0, 10) :
@@ -1384,7 +1384,7 @@
          const expedido = document.getElementById('nuevo_expedido').value.trim();
          const fechaNacimiento = document.querySelector('[name="form_nuevo_fecha_nacimiento"]')?.value ?? '';
          const genero = document.getElementById('nuevo_genero').value;
-         const ocupacion = document.getElementById('nuevo_ocupacion').value.trim();
+         const idOcupacion = document.getElementById('nuevo_id_ocupacion').value;
 
          const idRol = document.getElementById('nuevo_id_rol').value;
          const rolNombre = textoSelectPorValorPersonaWizard('#nuevo_id_rol', idRol);
@@ -1498,7 +1498,7 @@
             <input type="hidden" name="responsables[${indiceResponsable}][expedido]" value="${expedido}">
             <input type="hidden" name="responsables[${indiceResponsable}][fecha_nacimiento]" value="${fechaNacimiento}">
             <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${genero}">
-            <input type="hidden" name="responsables[${indiceResponsable}][ocupacion]" value="${ocupacion}">
+            <input type="hidden" name="responsables[${indiceResponsable}][id_ocupacion]" value="${idOcupacion}">
 
             <input type="hidden" name="responsables[${indiceResponsable}][id_rol]" value="${idRol}">
             <input type="hidden" name="responsables[${indiceResponsable}][fecha_registro]" value="${fechaRegistro}">
@@ -1584,7 +1584,7 @@
              'nuevo_complemento',
              'nuevo_expedido',
              'nuevo_genero',
-             'nuevo_ocupacion',
+             'nuevo_id_ocupacion',
          ];
 
          ids.forEach(id => {

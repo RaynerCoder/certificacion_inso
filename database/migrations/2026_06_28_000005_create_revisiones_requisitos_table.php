@@ -34,6 +34,9 @@ return new class extends Migration
             // Resultado de la revision: SI, NO, PENDIENTE, etc.
             $table->string('resultado_cumple', 50);
 
+            // Valor registrado cuando el requisito fue configurado como CALIFICACION.
+            $table->decimal('calificacion_obtenida', 5, 2)->nullable();
+
             // Estado del registro de revision: ACTIVO, ANULADO, etc.
             $table->string('estado', 50)->default('ACTIVO');
 

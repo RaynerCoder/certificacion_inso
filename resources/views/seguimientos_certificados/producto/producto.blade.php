@@ -27,12 +27,13 @@
                     id="form_id_clasificacion_quimica" name="form_id_clasificacion_quimica" data-producto-buscador="1">
                     <option value="">Seleccione clasificación química</option>
                     @if (str_starts_with((string) old('form_id_clasificacion_quimica'), 'TEMP-') && old('form_clasificacion_quimica_temporal_nombre'))
-                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1" selected>
+                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1"
+                            data-nombre="{{ old('form_clasificacion_quimica_temporal_nombre') }}" selected>
                             {{ old('form_clasificacion_quimica_temporal_nombre') }}
                         </option>
                     @endif
                     @foreach ($clasificacionesQuimicasCatalogo as $clasificacionQuimica)
-                        <option value="{{ $clasificacionQuimica->id }}"
+                        <option value="{{ $clasificacionQuimica->id }}" data-nombre="{{ $clasificacionQuimica->nombre }}"
                             @selected((string) old('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
                             {{ $clasificacionQuimica->nombre }}
                         </option>
@@ -160,4 +161,3 @@
         </div>
     </section>
 </div>
-

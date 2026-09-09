@@ -17,11 +17,13 @@ class RequisitoTipoCertificado extends Model
         'id_tipo_certificado',
         'id_tipo_evidencia',
         'orden',
+        'calificacion_minima_aprobacion',
         'estado',
     ];
 
     protected $casts = [
         'orden' => 'integer',
+        'calificacion_minima_aprobacion' => 'decimal:2',
     ];
 
     // Relación muchos a uno (muchos requisitos tipos certificados pertenecen a un requisito)

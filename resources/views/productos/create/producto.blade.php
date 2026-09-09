@@ -4,8 +4,9 @@
         <div class="producto-step-grid grid grid-cols-1 gap-x-4 gap-y-3 lg:grid-cols-12">
             <div class="lg:col-span-5">
                 <label class="producto-field-label" for="form_id_importador_persona">Importador</label>
-                <select class="producto-select{{ $claseErrorProducto('form_id_importador_persona') }}"
-                    id="form_id_importador_persona" name="form_id_importador_persona">
+                <select class="producto-select{{ $claseErrorProducto('form_id_importador_persona') }} producto-select-search"
+                    id="form_id_importador_persona" name="form_id_importador_persona" data-producto-buscador="1"
+                    data-producto-placeholder="Buscar importador">
                     <option value="">Seleccione importador</option>
                     @foreach ($importadoresCatalogo as $persona)
                         @php
@@ -29,8 +30,9 @@
                         + Nuevo fabricante
                     </button>
                 </div>
-                <select class="producto-select{{ $claseErrorProducto('form_id_fabricante') }}" id="form_id_fabricante"
-                    name="form_id_fabricante">
+                <select class="producto-select{{ $claseErrorProducto('form_id_fabricante') }} producto-select-search"
+                    id="form_id_fabricante" name="form_id_fabricante" data-producto-buscador="1"
+                    data-producto-placeholder="Buscar fabricante">
                     <option value="">Seleccione fabricante</option>
                     @if (str_starts_with((string) old('form_id_fabricante'), 'TEMP-') && old('form_fabricante_temporal_nombre'))
                         <option value="{{ old('form_id_fabricante') }}" data-temporal="1"
@@ -78,8 +80,9 @@
 
             <div class="lg:col-span-4">
                 <label class="producto-field-label" for="form_id_territorio_pais">País</label>
-                <select class="producto-select{{ $claseErrorProducto('form_id_territorio_pais') }}"
-                    id="form_id_territorio_pais" name="form_id_territorio_pais">
+                <select class="producto-select{{ $claseErrorProducto('form_id_territorio_pais') }} producto-select-search"
+                    id="form_id_territorio_pais" name="form_id_territorio_pais" data-producto-buscador="1"
+                    data-producto-placeholder="Buscar país">
                     <option value="">Seleccione el país</option>
                     @foreach ($territoriosCatalogo as $territorio)
                         <option value="{{ $territorio->id }}" @selected($valorProducto('form_id_territorio_pais') == $territorio->id)>
@@ -124,15 +127,17 @@
                     </button>
                 </div>
                 <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_quimica') }} producto-select-search"
-                    id="form_id_clasificacion_quimica" name="form_id_clasificacion_quimica" data-producto-buscador="1">
+                    id="form_id_clasificacion_quimica" name="form_id_clasificacion_quimica" data-producto-buscador="1"
+                    data-producto-placeholder="Buscar clasificación química">
                     <option value="">Seleccione clasificación química</option>
                     @if (str_starts_with((string) old('form_id_clasificacion_quimica'), 'TEMP-') && old('form_clasificacion_quimica_temporal_nombre'))
-                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1" selected>
+                        <option value="{{ old('form_id_clasificacion_quimica') }}" data-temporal="1"
+                            data-nombre="{{ old('form_clasificacion_quimica_temporal_nombre') }}" selected>
                             {{ old('form_clasificacion_quimica_temporal_nombre') }}
                         </option>
                     @endif
                     @foreach ($clasificacionesQuimicasCatalogo as $clasificacionQuimica)
-                        <option value="{{ $clasificacionQuimica->id }}"
+                        <option value="{{ $clasificacionQuimica->id }}" data-nombre="{{ $clasificacionQuimica->nombre }}"
                             @selected((string) $valorProducto('form_id_clasificacion_quimica') === (string) $clasificacionQuimica->id)>
                             {{ $clasificacionQuimica->nombre }}
                         </option>
@@ -150,7 +155,7 @@
                 </div>
                 <select class="producto-select{{ $claseErrorProducto('form_id_clasificacion_toxicologica') }} producto-select-search"
                     id="form_id_clasificacion_toxicologica" name="form_id_clasificacion_toxicologica"
-                    data-producto-buscador="1">
+                    data-producto-buscador="1" data-producto-placeholder="Buscar clasificación toxicológica">
                     <option value="">Seleccione clasificación toxicológica</option>
                     @if (str_starts_with((string) old('form_id_clasificacion_toxicologica'), 'TEMP-') && old('form_clasificacion_toxicologica_temporal_codigo'))
                         <option value="{{ old('form_id_clasificacion_toxicologica') }}" data-temporal="1"

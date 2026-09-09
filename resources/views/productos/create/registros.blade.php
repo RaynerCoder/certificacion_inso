@@ -31,7 +31,8 @@
                             + Nueva unidad
                         </button>
                     </div>
-                    <select class="producto-select producto-select-search" id="form_registro_unidad" data-producto-buscador="1">
+                    <select class="producto-select producto-select-search" id="form_registro_unidad"
+                        data-producto-buscador="1" data-producto-placeholder="Buscar unidad">
                         <option value="">Seleccione unidad</option>
                         @if (str_starts_with((string) old('form_unidad_temporal_id'), 'TEMP-'))
                             <option value="{{ old('form_unidad_temporal_id') }}" selected>

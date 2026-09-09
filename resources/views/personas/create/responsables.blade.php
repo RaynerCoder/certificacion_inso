@@ -125,7 +125,7 @@
                                 data-fecha="{{ $persona->natural?->fecha_nacimiento ?? '' }}"
                                 data-genero="{{ $persona->natural?->genero ?? '' }}"
                                 data-id-ocupacion="{{ $persona->natural?->id_ocupacion ?? '' }}"
-                                data-ocupacion="{{ $persona->natural?->ocupacion ?? '' }}"
+                                data-ocupacion="{{ $persona->natural?->ocupacionCob?->descripcion_ocupacion ?? '' }}"
                                 data-telefonos='@json($persona->telefonos)'
                                 data-rubros='@json($persona->rubros)'>
 

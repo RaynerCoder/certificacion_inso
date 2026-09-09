@@ -18,6 +18,7 @@
         "vite": "^6.2.4"
     },
     "dependencies": {
+        "fabric": "^7.4.0",
         "flowbite": "^3.1.2"
     }
 }

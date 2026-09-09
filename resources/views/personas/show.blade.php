@@ -778,7 +778,7 @@
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Ocupacion</span>
-                                <span class="persona-o3-value">{{ $natural?->ocupacion ?: 'Sin ocupacion' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación' }}</span>
                             </div>
                         </div>
                     </section>
@@ -941,7 +941,7 @@
                                             <h4 class="persona-o3-responsable-panel-title">Datos personales</h4>
                                             <div class="persona-o3-responsable-data"><span>Nacimiento</span><span>{{ $fechaCorta($naturalResponsable?->fecha_nacimiento) }}</span></div>
                                             <div class="persona-o3-responsable-data"><span>Genero</span><span>{{ $generoResponsableTexto }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Ocupacion</span><span>{{ $naturalResponsable?->ocupacion ?: 'Sin ocupacion' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Ocupación</span><span>{{ $naturalResponsable?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación' }}</span></div>
                                         </div>
 
                                         <div class="persona-o3-responsable-panel">

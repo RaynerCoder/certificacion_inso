@@ -135,7 +135,7 @@
                                 data-expedido="{{ $persona->natural?->expedido ?? '' }}"
                                 data-fecha="{{ $persona->natural?->fecha_nacimiento ?? '' }}"
                                 data-genero="{{ $persona->natural?->genero ?? '' }}"
-                                data-ocupacion="{{ $persona->natural?->ocupacion ?? '' }}"
+                                data-id-ocupacion="{{ $persona->natural?->id_ocupacion ?? '' }}"
                                 data-telefonos='@json($persona->telefonos)'
                                 data-rubros='@json($persona->rubros)'>
 
@@ -239,7 +239,14 @@
                         <option value="0">Femenino</option>
                     </x-wire-native-select>
 
-                    <x-wire-input label="Ocupación" id="nuevo_ocupacion" placeholder="Ocupación" />
+                    <x-wire-native-select label="Ocupación" id="nuevo_id_ocupacion">
+                        <option value="">Seleccione una ocupación</option>
+                        @foreach (($ocupacionesCob ?? collect()) as $ocupacionCob)
+                            <option value="{{ $ocupacionCob->id }}">
+                                {{ $ocupacionCob->codigo_ocupacion }} - {{ $ocupacionCob->descripcion_ocupacion }}
+                            </option>
+                        @endforeach
+                    </x-wire-native-select>
 
                 </div>
 

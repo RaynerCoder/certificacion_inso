@@ -47,6 +47,27 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        // Registra quien descargo cada certificado y cuando lo hizo.
+        Schema::create('descargas_certificados', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('id_certificado');
+            $table->unsignedBigInteger('id_usuario');
+            $table->dateTime('fecha_descarga')->useCurrent();
+
+            $table->index(
+                ['id_certificado', 'id_usuario'],
+                'idx_descargas_certificados_certificado_usuario'
+            );
+            $table->index('id_usuario', 'idx_descargas_certificados_usuario');
+
+            $table->foreign('id_certificado', 'fk_descargas_certificados_certificado')
+                ->references('id')
+                ->on('certificados');
+            $table->foreign('id_usuario', 'fk_descargas_certificados_usuario')
+                ->references('id')
+                ->on('users');
+        });
     }
 
     /**
@@ -54,6 +75,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('descargas_certificados');
         Schema::dropIfExists('certificados');
     }
 };

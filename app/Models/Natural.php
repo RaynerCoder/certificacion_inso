@@ -37,7 +37,6 @@ class Natural extends Model
         'apellido_casado',
         'fecha_nacimiento',
         'genero',
-        'ocupacion',
     ];
 
     // Relacion uno a uno inversa (un natural pertenece a una persona)

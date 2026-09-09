@@ -39,11 +39,12 @@ class Certificado extends Model
     ];    
 
 
-    // Verifica si el certificado ya paso su fecha final.
-    // Se usa menor a hoy: si vence hoy, todavia se considera vigente durante el dia.
+    // La fecha final representa la vigencia del documento, no el cierre del tramite.
+    // Solo un certificado ya emitido puede vencer; si vence hoy sigue vigente durante el dia.
     public function debeMarcarseComoVencido(): bool
     {
-        return $this->fecha_fin
+        return in_array($this->estado, ['EMITIDO', 'VENCIDO'], true)
+            && $this->fecha_fin
             && $this->fecha_fin->toDateString() < now()->toDateString()
             && !in_array($this->estado, ['ANULADO', 'RECHAZADO'], true);
     }
@@ -56,6 +57,91 @@ class Certificado extends Model
 
         return $requisitos->isNotEmpty()
             && $requisitos->every(fn ($requisito) => $requisito->cumple === 'SI');
+    }
+
+
+    /**
+     * Calcula el resultado general de los requisitos evaluados con calificación.
+     *
+     * Usa la última calificación activa de cada requisito y la compara con la calificación
+     * mínima configurada.
+     *
+     * Resultado:
+     * - PENDIENTE: falta registrar alguna calificación.
+     * - APROBADO: todas las calificaciones alcanzan el mínimo.
+     * - PARTICIPACION: alguna calificación no alcanza el mínimo.
+     */
+    public function resumenEvaluacionCalificaciones(): array
+    {
+        // Obtiene los requisitos activos del certificado que se evalúan con calificación.
+        $configuraciones = RequisitoTipoCertificado::query()
+            ->with('tipoEvidencia')
+            ->where('id_tipo_certificado', $this->id_tipo_certificado)
+            ->where('estado', 'ACTIVO')
+            ->whereHas(
+                'tipoEvidencia',
+                fn ($query) => $query->where('codigo', 'CALIFICACION')
+            )
+            ->orderBy('orden')
+            ->get();
+
+        // La evaluación no aplica si no existen requisitos de tipo CALIFICACION.
+        if ($configuraciones->isEmpty()) {
+            return [
+                'aplica' => false,
+                'resultado' => null,
+                'detalles' => collect(),
+            ];
+        }
+
+        // Carga los requisitos del trámite y sus revisiones.
+        $requisitos = $this->certificadoRequisitos()
+            ->with('revisionesRequisitos')
+            ->get()
+            ->keyBy('id_requisito');
+
+        // Evalúa la última calificación registrada para cada requisito.
+        $detalles = $configuraciones->map(
+            function ($configuracion) use ($requisitos) {
+                $requisito = $requisitos->get(
+                    $configuracion->id_requisito
+                );
+
+                // Toma la última revisión activa que tenga una calificación.
+                $revision = $requisito
+                    ? $requisito->revisionesRequisitos
+                        ->where('estado', 'ACTIVO')
+                        ->whereNotNull('calificacion_obtenida')
+                        ->sortByDesc('id')
+                        ->first()
+                    : null;
+
+                $calificacion = $revision?->calificacion_obtenida;
+                $minima = $configuracion->calificacion_minima_aprobacion;
+
+                return [
+                    'id_requisito' => $configuracion->id_requisito,
+                    'calificacion_obtenida' => $calificacion,
+                    'calificacion_minima' => $minima,
+
+                    // Aprueba cuando existe calificación y alcanza el mínimo configurado.
+                    'aprobado' => $calificacion !== null
+                        && $minima !== null
+                        && (float) $calificacion >= (float) $minima,
+                ];
+            }
+        );
+
+        // Si falta una calificación queda pendiente; de lo contrario verifica si todas aprobaron.
+        $resultado = $detalles->contains(fn ($detalle) => $detalle['calificacion_obtenida'] === null) ? 'PENDIENTE' : (
+            $detalles->every(fn ($detalle) => $detalle['aprobado']) ? 'APROBADO' : 'PARTICIPACION'
+        );
+
+        return [
+            'aplica' => true,
+            'resultado' => $resultado,
+            'detalles' => $detalles,
+        ];
     }
 
 
@@ -165,24 +251,16 @@ class Certificado extends Model
         $datosVencido = ['estado' => 'VENCIDO'];
         $datosObservado = ['estado' => 'OBSERVADO'];
 
-        // Marca como vencidos los certificados cuya fecha final ya paso.
+        // La vigencia comienza con la emision: un tramite aprobado aun no puede vencer.
         $vencidos = static::query()
             ->whereNotNull('fecha_fin')
-            ->whereNotIn('estado', ['ANULADO', 'RECHAZADO'])
-            ->where(function ($query) {
-                $query->whereNull('estado')
-                    ->orWhere('estado', '!=', 'VENCIDO');
-            })
+            ->where('estado', 'EMITIDO')
             ->whereDate('fecha_fin', '<', now()->toDateString())
             ->update($datosVencido);
 
-        // Si no vencio y tiene algun requisito no cumplido, el certificado queda observado.
+        // Antes de emitirse, el estado observado depende de los requisitos y no de la vigencia.
         $observados = static::query()
             ->whereNotIn('estado', ['ANULADO', 'RECHAZADO', 'EMITIDO'])
-            ->where(function ($query) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', now()->toDateString());
-            })
             ->where(function ($query) {
                 $query->whereNull('estado')
                     ->orWhere('estado', '!=', 'OBSERVADO');
@@ -337,4 +415,11 @@ class Certificado extends Model
     {
         return $this->hasMany(Seguimiento::class, 'id_certificado');
     }
+
+    // Historial de usuarios que descargaron el documento emitido.
+    public function descargas()
+    {
+        return $this->hasMany(DescargaCertificado::class, 'id_certificado');
+    }
+
 }

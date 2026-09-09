@@ -51,16 +51,20 @@
                                     </button>
                                 </div>
                                 <select class="producto-select producto-select-search" id="form_registro_unidad"
-                                    data-producto-buscador="1">
+                                    data-producto-buscador="1" data-producto-placeholder="Buscar unidad">
                                     <option value="">Seleccione unidad</option>
                                     @if (str_starts_with((string) old('form_registro_unidad_temporal_id'), 'TEMP-') && old('form_registro_unidad_temporal_nombre'))
                                         <option value="{{ old('form_registro_unidad_temporal_id') }}" data-temporal="1"
+                                            data-nombre="{{ old('form_registro_unidad_temporal_nombre') }}"
+                                            data-abreviatura="{{ old('form_registro_unidad_temporal_abreviatura') }}"
                                             data-texto="{{ trim(old('form_registro_unidad_temporal_nombre') . (old('form_registro_unidad_temporal_abreviatura') ? ' (' . old('form_registro_unidad_temporal_abreviatura') . ')' : '')) }}">
                                             {{ old('form_registro_unidad_temporal_nombre') }}{{ old('form_registro_unidad_temporal_abreviatura') ? ' (' . old('form_registro_unidad_temporal_abreviatura') . ')' : '' }}
                                         </option>
                                     @endif
                                     @foreach ($catalogosUnidades as $catalogoUnidad)
                                         <option value="{{ $catalogoUnidad->id }}"
+                                            data-nombre="{{ $catalogoUnidad->nombre }}"
+                                            data-abreviatura="{{ $catalogoUnidad->abreviatura }}"
                                             data-texto="{{ trim($catalogoUnidad->nombre . ($catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '')) }}">
                                             {{ $catalogoUnidad->nombre }}{{ $catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '' }}
                                         </option>
@@ -92,16 +96,16 @@
                             <div class="producto-campo-catalogo">
                                 <div class="producto-field-label-row">
                                     <label class="producto-field-label" for="form_presentacion_catalogo">
-                                        Seleccionar o crear presentación
+                                        Presentación del producto
                                     </label>
                                     <button type="button" class="producto-field-link"
                                         onclick="prepararNuevaPresentacionProducto()">
-                                        + Nueva presentación
+                                        Crear presentación
                                     </button>
                                 </div>
 
                                 <select class="producto-select" id="form_presentacion_catalogo">
-                                    <option value="">Buscar o seleccionar una presentación existente</option>
+                                    <option value="">Seleccione una presentación registrada o cree otra</option>
                                     @foreach ($presentacionesCatalogo as $presentacionCatalogo)
                                         @php
                                             $productoCatalogo = $presentacionCatalogo->producto;
@@ -113,7 +117,7 @@
                                             $textoPresentacionCatalogo = $textoPresentacionCatalogo ?: 'Presentación #' . $presentacionCatalogo->id;
                                             $textoPresentacionCatalogo .= $presentacionCatalogo->descripcion ? ' - ' . $presentacionCatalogo->descripcion : '';
                                             $urlEtiquetaCatalogo = $presentacionCatalogo->url_etiqueta
-                                                ? \Illuminate\Support\Facades\Storage::url($presentacionCatalogo->url_etiqueta)
+                                                ? route('productos_presentaciones_etiqueta', $presentacionCatalogo)
                                                 : '';
                                         @endphp
                                         <option value="{{ $presentacionCatalogo->id }}"
@@ -126,7 +130,7 @@
                                             data-descripcion="{{ $presentacionCatalogo->descripcion }}"
                                             data-estado="{{ $presentacionCatalogo->estado }}"
                                             data-etiqueta-url="{{ $urlEtiquetaCatalogo }}"
-                                            data-etiqueta-nombre="Etiqueta registrada - {{ $textoPresentacionCatalogo }}">
+                                            data-etiqueta-nombre="{{ $presentacionCatalogo->url_etiqueta ? basename($presentacionCatalogo->url_etiqueta) : 'Sin archivo' }}">
                                             {{ $textoPresentacionCatalogo }}
                                         </option>
                                     @endforeach
@@ -149,16 +153,20 @@
                                     </button>
                                 </div>
                                 <select class="producto-select producto-select-search" id="form_presentacion_unidad"
-                                    data-producto-buscador="1">
+                                    data-producto-buscador="1" data-producto-placeholder="Buscar unidad">
                                     <option value="">Seleccione unidad</option>
                                     @if (str_starts_with((string) old('form_presentacion_unidad_temporal_id'), 'TEMP-') && old('form_presentacion_unidad_temporal_nombre'))
                                         <option value="{{ old('form_presentacion_unidad_temporal_id') }}" data-temporal="1"
+                                            data-nombre="{{ old('form_presentacion_unidad_temporal_nombre') }}"
+                                            data-abreviatura="{{ old('form_presentacion_unidad_temporal_abreviatura') }}"
                                             data-texto="{{ trim(old('form_presentacion_unidad_temporal_nombre') . (old('form_presentacion_unidad_temporal_abreviatura') ? ' (' . old('form_presentacion_unidad_temporal_abreviatura') . ')' : '')) }}">
                                             {{ old('form_presentacion_unidad_temporal_nombre') }}{{ old('form_presentacion_unidad_temporal_abreviatura') ? ' (' . old('form_presentacion_unidad_temporal_abreviatura') . ')' : '' }}
                                         </option>
                                     @endif
                                     @foreach ($catalogosUnidades as $catalogoUnidad)
                                         <option value="{{ $catalogoUnidad->id }}"
+                                            data-nombre="{{ $catalogoUnidad->nombre }}"
+                                            data-abreviatura="{{ $catalogoUnidad->abreviatura }}"
                                             data-texto="{{ trim($catalogoUnidad->nombre . ($catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '')) }}">
                                             {{ $catalogoUnidad->nombre }}{{ $catalogoUnidad->abreviatura ? ' (' . $catalogoUnidad->abreviatura . ')' : '' }}
                                         </option>
@@ -307,22 +315,20 @@
                                     $presentacionOld = $presentacionesOld[$indicePresentacion] ?? [];
                                     $textoUnidadPresentacion = $nombreCatalogoUnidad($presentacionOld['id_catalogo_unidad'] ?? null);
                                     $textoUnidadRegistro = $nombreCatalogoUnidad($registroOld['id_catalogo_unidad'] ?? null);
-                                    $presentacionTexto = $registroOld['presentacion_texto'] ?? '';
-
-                                    if (!$presentacionTexto) {
-                                        $presentacionTexto = trim(
-                                            ($presentacionOld['cantidad'] ?? '') . ' ' . $textoUnidadPresentacion
-                                        );
-                                        $presentacionTexto = $presentacionTexto ?: 'Presentación #' . ((int) $indicePresentacion + 1);
-                                        $presentacionTexto .= !empty($presentacionOld['descripcion'])
-                                            ? ' - ' . $presentacionOld['descripcion']
-                                            : '';
-                                    }
+                                    $presentacionValor = trim(
+                                        ($presentacionOld['cantidad'] ?? '') . ' ' . $textoUnidadPresentacion
+                                    );
+                                    $presentacionValor = $presentacionValor
+                                        ?: ($registroOld['presentacion_texto'] ?? 'Presentación #' . ((int) $indicePresentacion + 1));
+                                    $presentacionDescripcion = $presentacionOld['descripcion'] ?? '';
+                                    $presentacionTexto = trim(
+                                        $presentacionValor . ($presentacionDescripcion ? ' - ' . $presentacionDescripcion : '')
+                                    );
                                     $presentacionOrigenOld = !empty($presentacionOld['id_presentacion_origen'])
                                         ? $presentacionesCatalogo->firstWhere('id', $presentacionOld['id_presentacion_origen'])
                                         : null;
                                     $etiquetaOldUrl = $presentacionOrigenOld?->url_etiqueta
-                                        ? \Illuminate\Support\Facades\Storage::url($presentacionOrigenOld->url_etiqueta)
+                                        ? route('productos_presentaciones_etiqueta', $presentacionOrigenOld)
                                         : '';
                                     $estadoRegistroOld = $registroOld['estado'] ?? 'ACTIVO';
                                 @endphp
@@ -336,8 +342,10 @@
                                     <td data-label="Unidad">{{ $textoUnidadRegistro }}</td>
                                     <td data-label="Presentación">
                                         <div class="producto-table-presentacion">
-                                            <strong>{{ $presentacionTexto }}</strong>
-                                            <small>{{ $presentacionOld['estado'] ?? 'ACTIVO' }}</small>
+                                            <strong>{{ $presentacionValor }}</strong>
+                                            @if ($presentacionDescripcion)
+                                                <small class="producto-table-descripcion">{{ $presentacionDescripcion }}</small>
+                                            @endif
                                         </div>
                                         <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][cantidad]"
                                             value="{{ $presentacionOld['cantidad'] ?? '' }}">
@@ -380,21 +388,22 @@
                                     <td data-label="Acciones">
                                         <div class="producto-row-actions">
                                             <button type="button" class="producto-action-icon is-view"
-                                                title="Ver etiqueta"
+                                                title="Ver etiqueta" aria-label="Ver etiqueta"
                                                 onclick="abrirModalEtiquetaOldProducto('form_presentacion_etiqueta_old_{{ $indicePresentacion }}')"
                                                 @disabled(!$etiquetaOldUrl)>
-                                                <i class="fa-solid fa-eye"></i><span>Ver</span>
+                                                <i class="fa-solid fa-eye"></i>
                                             </button>
                                             <button type="button" class="producto-action-icon is-edit"
-                                                title="Editar presentación y registro"
+                                                title="Editar presentación y registro" aria-label="Editar presentación y registro"
                                                 onclick="editarFilaRegistroPresentacionProducto(this)">
-                                                <i class="fa-solid fa-pen"></i><span>Editar</span>
+                                                <i class="fa-solid fa-pen"></i>
                                             </button>
                                             <button type="button" class="producto-action-icon is-delete"
                                                 title="{{ !empty($registroOld['bloqueado_eliminacion']) ? 'Este registro ya está relacionado con un certificado' : 'Eliminar presentación y registro' }}"
+                                                aria-label="Eliminar presentación y registro"
                                                 onclick="quitarFilaProducto(this)"
                                                 @disabled(!empty($registroOld['bloqueado_eliminacion']))>
-                                                <i class="fa-solid fa-trash-can"></i><span>Eliminar</span>
+                                                <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </div>
                                         <input type="hidden" name="registros[{{ $indice }}][id_registro]"

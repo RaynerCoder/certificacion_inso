@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Ingrediente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class IngredienteController extends Controller
 {
@@ -21,7 +20,7 @@ class IngredienteController extends Controller
 
     public function store(Request $request)
     {
-        $datos = $request->validate($this->validarIngrediente());
+        $datos = $this->validarIngrediente($request);
 
         try {
             DB::beginTransaction();
@@ -59,7 +58,7 @@ class IngredienteController extends Controller
 
     public function update(Request $request, Ingrediente $ingrediente)
     {
-        $datos = $request->validate($this->validarIngrediente($ingrediente));
+        $datos = $this->validarIngrediente($request, $ingrediente);
 
         try {
             DB::beginTransaction();
@@ -122,25 +121,41 @@ class IngredienteController extends Controller
         }
     }
 
-    private function validarIngrediente(?Ingrediente $ingrediente = null): array
+    private function validarIngrediente(Request $request, ?Ingrediente $ingrediente = null): array
     {
-        return [
+        // Se limpia el nombre antes de compararlo y guardarlo.
+        $request->merge([
+            'form_nombre' => trim((string) $request->input('form_nombre')),
+        ]);
+
+        return $request->validate([
             'form_nombre' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('ingredientes', 'nombre')->ignore($ingrediente?->id),
+                function (string $atributo, mixed $valor, \Closure $fallar) use ($ingrediente) {
+                    $consulta = Ingrediente::withTrashed()
+                        ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower(trim((string) $valor))]);
+
+                    if ($ingrediente) {
+                        $consulta->whereKeyNot($ingrediente->id);
+                    }
+
+                    if ($consulta->exists()) {
+                        $fallar('Ya existe un ingrediente con el mismo nombre.');
+                    }
+                },
             ],
             'form_composicion' => ['nullable', 'string', 'max:255'],
             'form_riesgo_salud' => ['nullable', 'string', 'max:255'],
             'form_estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
-        ];
+        ]);
     }
 
     private function datosIngrediente(array $datos): array
     {
         return [
-            'nombre' => $datos['form_nombre'],
+            'nombre' => trim($datos['form_nombre']),
             'composicion' => $datos['form_composicion'] ?? null,
             'riesgo_salud' => $datos['form_riesgo_salud'] ?? null,
             'estado' => $datos['form_estado'] ?? 'ACTIVO',

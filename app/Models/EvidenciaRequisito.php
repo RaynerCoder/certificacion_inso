@@ -45,4 +45,5 @@ class EvidenciaRequisito extends Model
     {
         return $this->belongsTo(User::class, 'id_usuario_registro');
     }
+
 }

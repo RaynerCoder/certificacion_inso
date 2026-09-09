@@ -32,7 +32,18 @@
         .documento-fondo img {
             display: block;
             height: 100%;
+            object-fit: {{ $documento['ajuste_fondo'] ?? 'fill' }};
             width: 100%;
+        }
+
+        .documento-renderizado {
+            display: block;
+            height: 100%;
+            left: 0;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            z-index: 10;
         }
 
         .documento-elemento {
@@ -46,6 +57,7 @@
         .documento-elemento.imagen { padding: 0 !important; }
         .documento-elemento.forma,
         .documento-elemento.linea { padding: 0 !important; }
+        .documento-elemento.texto { overflow: visible; }
 
         .documento-elemento.imagen img,
         .documento-elemento.qr img {
@@ -75,6 +87,9 @@
 </head>
 <body>
     <div class="documento-certificado">
+        @if ($documento['imagen_renderizada'] ?? null)
+            <img class="documento-renderizado" src="{{ $documento['imagen_renderizada'] }}" alt="Certificado emitido">
+        @else
         @if ($documento['fondo'])
             <div class="documento-fondo">
                 <img src="{{ $documento['fondo'] }}" alt="Plantilla del certificado">
@@ -92,9 +107,9 @@
                     'JUSTIFICADO' => 'justify',
                     default => 'left',
                 };
-                $usaPadding = !in_array($tipo, ['IMAGEN', 'TABLA', 'QR'], true);
-                $paddingX = (float) data_get($elemento, 'padding_x', $usaPadding ? 7 : 0);
-                $paddingY = (float) data_get($elemento, 'padding_y', $usaPadding ? 5 : 0);
+                // Las medidas provienen directamente del Textbox de Fabric.js, que no incluye padding de contenido.
+                $paddingX = 0;
+                $paddingY = 0;
                 $claseTipo = strtolower(match ($tipo) {
                     'TABLA' => 'tabla',
                     'IMAGEN' => 'imagen',
@@ -162,9 +177,9 @@
                         border-radius: {{ $tipo === 'FORMA' && data_get($configuracion, 'forma') === 'ELIPSE' ? '50%' : $radioBorde.'px' }};
                         color: {{ data_get($elemento, 'color_texto', '#0f172a') ?: '#0f172a' }};
                         font-family: '{{ data_get($elemento, 'tipo_letra', 'Arial') ?: 'Arial' }}', Arial, sans-serif;
-                        font-size: {{ (int) $elemento->tamano_letra }}px;
+                        font-size: {{ (float) $elemento->tamano_letra }}px;
                         font-style: {{ data_get($elemento, 'cursiva') ? 'italic' : 'normal' }};
-                        font-weight: {{ data_get($elemento, 'negrita') ? 900 : 700 }};
+                        font-weight: {{ data_get($elemento, 'negrita') ? 700 : 400 }};
                         height: {{ (float) $elemento->alto }}px;
                         left: {{ (float) $elemento->posicion_x }}px;
                         line-height: {{ (float) data_get($elemento, 'interlineado', 1.25) }};
@@ -218,11 +233,14 @@
                     @elseif ($tipo === 'LINEA')
                         <div style="position:absolute; left:0; right:0; top:50%; border-top: {{ max(1, $bordeAncho) }}px {{ $bordeEstilo === 'none' ? 'solid' : $bordeEstilo }} {{ $bordeColor }};"></div>
                     @elseif ($tipo !== 'FORMA')
-                        {!! nl2br(e($valor)) !!}
+                        {!! $elemento instanceof \App\Models\PlantillaElemento && $tipo === 'TEXTO'
+                            ? $elemento->textoConEstilosResueltos($documento['valores'] ?? [])
+                            : nl2br(e($valor)) !!}
                     @endif
                 </div>
             @endif
         @endforeach
+        @endif
     </div>
 </body>
 </html>

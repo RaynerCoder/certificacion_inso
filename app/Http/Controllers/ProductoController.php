@@ -16,6 +16,7 @@ use App\Models\Registro;
 use App\Models\Territorio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -96,22 +97,42 @@ class ProductoController extends Controller
 
         // En modo embebido el formulario vive dentro del trámite y no debe sacar al usuario de esa pantalla.
         if ($request->boolean('embebido')) {
+            $productoParaTramite = [
+                'id' => $productoCreado->id,
+                'codigo' => $productoCreado->codigo,
+                'nombre_comercial' => $productoCreado->nombre_comercial,
+                'estado' => $productoCreado->estado,
+            ];
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'producto' => $productoParaTramite,
+                    'message' => 'Producto registrado correctamente. Puede volver al tramite para registrar la solicitud.',
+                ]);
+            }
+
             return redirect()
                 ->route('productos_create', ['embebido' => 1])
-                ->with('producto_creado_tramite', [
-                    'id' => $productoCreado->id,
-                    'codigo' => $productoCreado->codigo,
-                    'nombre_comercial' => $productoCreado->nombre_comercial,
-                    'estado' => $productoCreado->estado,
-                ])
+                ->with('producto_creado_tramite', $productoParaTramite)
                 ->with('success', 'Producto registrado correctamente. Puede volver al tramite para registrar la solicitud.');
         }
 
         $urlRetorno = $this->urlRetornoSegura($datos['form_retorno'] ?? null);
+        $urlDestino = $urlRetorno ?: route('productos_index');
+        $mensaje = $urlRetorno
+            ? 'Producto registrado correctamente y relacionado al tramite.'
+            : 'Producto registrado correctamente.';
+
+        // El formulario normal usa una petición en segundo plano para conservar los datos si hay errores.
+        if ($request->expectsJson()) {
+            session()->flash('success', $mensaje);
+
+            return response()->json(['redirect' => $urlDestino]);
+        }
 
         return $urlRetorno
-            ? redirect()->to($urlRetorno)->with('success', 'Producto registrado correctamente y relacionado al tramite.')
-            : redirect()->route('productos_index')->with('success', 'Producto registrado correctamente.');
+            ? redirect()->to($urlRetorno)->with('success', $mensaje)
+            : redirect()->route('productos_index')->with('success', $mensaje);
     }
 
     /**
@@ -135,6 +156,21 @@ class ProductoController extends Controller
         ]);
 
         return view('productos.show', compact('producto'));
+    }
+
+    /**
+     * Entrega la etiqueta desde el disco privado de la aplicación.
+     * Así la imagen se puede ver aunque el servidor no tenga creado el enlace public/storage.
+     */
+    public function etiquetaPresentacion(Presentacion $presentacion)
+    {
+        $ruta = $presentacion->url_etiqueta;
+
+        abort_unless($ruta && Storage::disk('public')->exists($ruta), 404);
+
+        return Storage::disk('public')->response($ruta, basename($ruta), [
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
     }
 
     /**
@@ -194,9 +230,16 @@ class ProductoController extends Controller
             $this->retirarPresentacionesProducto($producto, $presentacionesConservadas);
         });
 
-        return redirect()
-            ->route('productos_show', $producto)
-            ->with('success', 'Producto actualizado correctamente.');
+        $mensaje = 'Producto actualizado correctamente.';
+        $urlDestino = route('productos_show', $producto);
+
+        if ($request->expectsJson()) {
+            session()->flash('success', $mensaje);
+
+            return response()->json(['redirect' => $urlDestino]);
+        }
+
+        return redirect()->to($urlDestino)->with('success', $mensaje);
     }
 
     /**
@@ -280,7 +323,8 @@ class ProductoController extends Controller
                 ->where('estado', 'ACTIVO')->where('id_ambito', 1)->orderBy('nombre')->get(),
             'importadores' => Persona::with(['natural', 'empresa'])
                 ->where('estado', 'ACTIVO')->orderBy('id')->get(),
-            'ingredientes' => Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get(),
+            // Se trae primero el registro más antiguo; la vista agrupa nombres equivalentes y luego los ordena.
+            'ingredientes' => Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('id')->get(),
             'clasificacionesQuimicas' => ClasificacionQuimica::query()
                 ->where('estado', 'ACTIVO')->orderBy('nombre')->get(),
             'catalogosMedidas' => CatalogoMedida::query()
@@ -864,7 +908,9 @@ class ProductoController extends Controller
         $nombre = trim((string) $request->input('form_fabricante_temporal_nombre'));
         $razonSocial = trim((string) $request->input('form_fabricante_temporal_razon_social', ''));
 
-        if (Fabricante::withTrashed()->where('nombre', $nombre)->exists()) {
+        if (Fabricante::withTrashed()
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
+            ->exists()) {
             $validador->errors()->add(
                 'form_id_fabricante',
                 'Ya existe un fabricante con el mismo nombre. Selecciónelo del listado.'
@@ -872,7 +918,9 @@ class ProductoController extends Controller
             return;
         }
 
-        if ($razonSocial !== '' && Fabricante::withTrashed()->where('razon_social', $razonSocial)->exists()) {
+        if ($razonSocial !== '' && Fabricante::withTrashed()
+            ->whereRaw('LOWER(TRIM(razon_social)) = ?', [mb_strtolower($razonSocial)])
+            ->exists()) {
             $validador->errors()->add(
                 'form_id_fabricante',
                 'Ya existe un fabricante con la misma razón social. Selecciónelo del listado.'
@@ -891,34 +939,31 @@ class ProductoController extends Controller
             return;
         }
 
-        if (!$this->esTemporal($valor) || !$request->filled('form_clasificacion_toxicologica_temporal_codigo')) {
+        if (
+            !$this->esTemporal($valor) ||
+            !$request->filled('form_clasificacion_toxicologica_temporal_codigo') ||
+            !$request->filled('form_clasificacion_toxicologica_temporal_descripcion')
+        ) {
             $validador->errors()->add(
                 'form_id_clasificacion_toxicologica',
-                'Seleccione una clasificación toxicológica válida o registre una nueva.'
+                'Para registrar una clasificación toxicológica debe ingresar el código y la descripción.'
             );
             return;
         }
 
         $codigo = trim((string) $request->input('form_clasificacion_toxicologica_temporal_codigo'));
         $descripcion = trim((string) $request->input('form_clasificacion_toxicologica_temporal_descripcion', ''));
-        $existente = ClasificacionToxicologica::withTrashed()->where('codigo', $codigo)->first();
+        $combinacionExiste = ClasificacionToxicologica::withTrashed()
+            ->whereRaw('LOWER(TRIM(codigo)) = ?', [mb_strtolower($codigo)])
+            ->whereRaw('LOWER(TRIM(descripcion)) = ?', [mb_strtolower($descripcion)])
+            ->exists();
 
-        if (!$existente) {
-            return;
-        }
-
-        if (strcasecmp(trim((string) $existente->descripcion), $descripcion) === 0) {
+        if ($combinacionExiste) {
             $validador->errors()->add(
                 'form_id_clasificacion_toxicologica',
                 'Ya existe una clasificación toxicológica con el mismo código y descripción. Selecciónela del listado.'
             );
-            return;
         }
-
-        $validador->errors()->add(
-            'form_id_clasificacion_toxicologica',
-            'El código ya está registrado. Seleccione la clasificación toxicológica existente.'
-        );
     }
 
     /**
@@ -937,6 +982,19 @@ class ProductoController extends Controller
                 'form_id_clasificacion_quimica',
                 'Seleccione una clasificación química válida o registre una nueva.'
             );
+            return;
+        }
+
+        $nombre = trim((string) $request->input('form_clasificacion_quimica_temporal_nombre'));
+        $nombreYaRegistrado = ClasificacionQuimica::withTrashed()
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
+            ->exists();
+
+        if ($nombreYaRegistrado) {
+            $validador->errors()->add(
+                'form_id_clasificacion_quimica',
+                'Ya existe una clasificación química con ese nombre. Selecciónela del listado.'
+            );
         }
     }
 
@@ -946,6 +1004,18 @@ class ProductoController extends Controller
     private function validarIngredientesTemporales($validador, Request $request): void
     {
         $ingredientesAgregados = [];
+        $nombresAgregados = [];
+        $idsExistentes = collect($request->input('ingredientes_productos', []))
+            ->pluck('id_ingrediente')
+            ->filter(fn($idIngrediente) => ctype_digit((string) $idIngrediente))
+            ->map(fn($idIngrediente) => (int) $idIngrediente)
+            ->unique()
+            ->values();
+        $nombresExistentes = $idsExistentes->isEmpty()
+            ? collect()
+            : Ingrediente::withTrashed()
+                ->whereIn('id', $idsExistentes)
+                ->pluck('nombre', 'id');
 
         foreach ($request->input('ingredientes_productos', []) as $indice => $ingredienteProducto) {
             $idIngrediente = $ingredienteProducto['id_ingrediente'] ?? null;
@@ -960,12 +1030,50 @@ class ProductoController extends Controller
 
             $ingredientesAgregados[(string) $idIngrediente] = true;
 
-            if ($this->esIdExistente($idIngrediente, Ingrediente::class)) {
+            if (ctype_digit((string) $idIngrediente) && $nombresExistentes->has((int) $idIngrediente)) {
+                $nombreNormalizado = mb_strtolower(trim((string) $nombresExistentes->get((int) $idIngrediente)));
+
+                if (isset($nombresAgregados[$nombreNormalizado])) {
+                    $validador->errors()->add(
+                        "ingredientes_productos.$indice.id_ingrediente",
+                        'El ingrediente está repetido en la composición del producto.'
+                    );
+                    continue;
+                }
+
+                $nombresAgregados[$nombreNormalizado] = true;
                 continue;
             }
 
-            if (!$this->esTemporal($idIngrediente) || empty($ingredienteProducto['nombre'])) {
-                $validador->errors()->add('ingredientes_productos', 'Uno de los ingredientes no es valido.');
+            $nombre = trim((string) ($ingredienteProducto['nombre'] ?? ''));
+
+            if (!$this->esTemporal($idIngrediente) || $nombre === '') {
+                $validador->errors()->add(
+                    "ingredientes_productos.$indice.id_ingrediente",
+                    'El ingrediente seleccionado no es válido. Selecciónelo nuevamente o registre uno nuevo.'
+                );
+                continue;
+            }
+
+            $nombreNormalizado = mb_strtolower($nombre);
+
+            if (isset($nombresAgregados[$nombreNormalizado])) {
+                $validador->errors()->add(
+                    "ingredientes_productos.$indice.id_ingrediente",
+                    'El ingrediente está repetido en la composición del producto.'
+                );
+                continue;
+            }
+
+            $nombresAgregados[$nombreNormalizado] = true;
+
+            if (Ingrediente::withTrashed()
+                ->whereRaw('LOWER(TRIM(nombre)) = ?', [$nombreNormalizado])
+                ->exists()) {
+                $validador->errors()->add(
+                    "ingredientes_productos.$indice.id_ingrediente",
+                    'Ya existe un ingrediente con ese nombre. Selecciónelo del listado.'
+                );
             }
         }
     }
@@ -984,6 +1092,11 @@ class ProductoController extends Controller
                 $validador->errors()->add(
                     "presentaciones.$indice.id_catalogo_unidad",
                     'Seleccione una unidad válida o registre una nueva.'
+                );
+            } elseif ($this->nombreUnidadYaRegistrado($request, $idUnidad)) {
+                $validador->errors()->add(
+                    "presentaciones.$indice.id_catalogo_unidad",
+                    'Ya existe una unidad con ese nombre. Selecciónela de la lista.'
                 );
             } elseif ($this->abreviaturaUnidadYaRegistrada($request, $idUnidad)) {
                 $validador->errors()->add(
@@ -1041,6 +1154,11 @@ class ProductoController extends Controller
                 $validador->errors()->add(
                     "registros.$indice.id_catalogo_unidad",
                     'Seleccione una unidad válida o registre una nueva.'
+                );
+            } elseif ($idUnidad && $this->nombreUnidadYaRegistrado($request, $idUnidad)) {
+                $validador->errors()->add(
+                    "registros.$indice.id_catalogo_unidad",
+                    'Ya existe una unidad con ese nombre. Selecciónela de la lista.'
                 );
             } elseif ($idUnidad && $this->abreviaturaUnidadYaRegistrada($request, $idUnidad)) {
                 $validador->errors()->add(
@@ -1196,9 +1314,14 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $fabricante = Fabricante::firstOrCreate(
-            ['nombre' => trim((string) $request->input('form_fabricante_temporal_nombre'))],
-            [
+        $nombre = trim((string) $request->input('form_fabricante_temporal_nombre'));
+        $fabricante = Fabricante::withTrashed()
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
+            ->first();
+
+        if (!$fabricante) {
+            $fabricante = Fabricante::create([
+                'nombre' => $nombre,
                 'razon_social' => filled($request->input('form_fabricante_temporal_razon_social'))
                     ? trim((string) $request->input('form_fabricante_temporal_razon_social'))
                     : null,
@@ -1206,8 +1329,12 @@ class ProductoController extends Controller
                     ? trim((string) $request->input('form_fabricante_temporal_descripcion'))
                     : null,
                 'estado' => 'ACTIVO',
-            ]
-        );
+            ]);
+        } elseif ($fabricante->trashed()) {
+            $fabricante->restore();
+            $fabricante->estado = 'ACTIVO';
+            $fabricante->save();
+        }
 
         return $fabricante->id;
     }
@@ -1224,13 +1351,22 @@ class ProductoController extends Controller
         $codigo = trim((string) $request->input('form_clasificacion_toxicologica_temporal_codigo'));
         $descripcion = trim((string) $request->input('form_clasificacion_toxicologica_temporal_descripcion'));
 
-        $clasificacion = ClasificacionToxicologica::firstOrCreate(
-            ['codigo' => $codigo],
-            [
-                'descripcion' => $descripcion !== '' ? $descripcion : null,
+        $clasificacion = ClasificacionToxicologica::withTrashed()
+            ->whereRaw('LOWER(TRIM(codigo)) = ?', [mb_strtolower($codigo)])
+            ->whereRaw('LOWER(TRIM(descripcion)) = ?', [mb_strtolower($descripcion)])
+            ->first();
+
+        if (!$clasificacion) {
+            $clasificacion = ClasificacionToxicologica::create([
+                'codigo' => $codigo,
+                'descripcion' => $descripcion,
                 'estado' => 'ACTIVO',
-            ]
-        );
+            ]);
+        } elseif ($clasificacion->trashed()) {
+            $clasificacion->restore();
+            $clasificacion->estado = 'ACTIVO';
+            $clasificacion->save();
+        }
 
         return $clasificacion->id;
     }
@@ -1248,16 +1384,17 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $clasificacion = ClasificacionQuimica::withTrashed()->firstOrNew([
-            'nombre' => trim((string) $request->input('form_clasificacion_quimica_temporal_nombre')),
-        ]);
+        $nombre = trim((string) $request->input('form_clasificacion_quimica_temporal_nombre'));
+        $clasificacion = ClasificacionQuimica::withTrashed()
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
+            ->first();
 
-        if (!$clasificacion->exists) {
-            $clasificacion->fill([
+        if (!$clasificacion) {
+            $clasificacion = ClasificacionQuimica::create([
+                'nombre' => $nombre,
                 'descripcion' => $request->input('form_clasificacion_quimica_temporal_descripcion'),
                 'estado' => 'ACTIVO',
             ]);
-            $clasificacion->save();
         } elseif ($clasificacion->trashed()) {
             $clasificacion->restore();
             $clasificacion->estado = 'ACTIVO';
@@ -1364,8 +1501,26 @@ class ProductoController extends Controller
 
         return CatalogoMedida::withTrashed()
             ->where('tipo', 'unidad de medida')
-            ->where('abreviatura', $unidad['abreviatura'])
-            ->where('nombre', '!=', $unidad['nombre'])
+            ->whereRaw('LOWER(TRIM(abreviatura)) = ?', [mb_strtolower($unidad['abreviatura'])])
+            ->whereRaw('LOWER(TRIM(nombre)) != ?', [mb_strtolower($unidad['nombre'])])
+            ->exists();
+    }
+
+    /**
+     * Detecta una unidad temporal cuyo nombre ya existe en el catálogo.
+     * La abreviatura puede variar, pero el nombre sigue identificando una sola unidad.
+     */
+    private function nombreUnidadYaRegistrado(Request $request, $valor): bool
+    {
+        $unidad = $this->datosUnidadTemporal($request, $valor);
+
+        if (!$unidad) {
+            return false;
+        }
+
+        return CatalogoMedida::withTrashed()
+            ->where('tipo', 'unidad de medida')
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($unidad['nombre'])])
             ->exists();
     }
 
@@ -1386,17 +1541,18 @@ class ProductoController extends Controller
             ]);
         }
 
-        $unidad = CatalogoMedida::withTrashed()->firstOrNew([
-            'nombre' => $datos['nombre'],
-            'tipo' => 'unidad de medida',
-        ]);
+        $unidad = CatalogoMedida::withTrashed()
+            ->where('tipo', 'unidad de medida')
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($datos['nombre'])])
+            ->first();
 
-        if (!$unidad->exists) {
-            $unidad->fill([
+        if (!$unidad) {
+            $unidad = CatalogoMedida::create([
+                'nombre' => $datos['nombre'],
+                'tipo' => 'unidad de medida',
                 'abreviatura' => $datos['abreviatura'] !== '' ? $datos['abreviatura'] : null,
                 'estado' => 'ACTIVO',
             ]);
-            $unidad->save();
         } elseif ($unidad->trashed()) {
             $unidad->restore();
             $unidad->estado = 'ACTIVO';
@@ -1417,16 +1573,21 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $ingrediente = Ingrediente::firstOrCreate(
-            [
-                'nombre' => $ingredienteProducto['nombre'],
-                'composicion' => $ingredienteProducto['composicion'] ?? null,
-            ],
-            [
-                'riesgo_salud' => $ingredienteProducto['riesgo_salud'] ?? null,
+        $nombre = trim((string) $ingredienteProducto['nombre']);
+        $ingrediente = Ingrediente::withTrashed()
+            ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
+            ->first();
+
+        if (!$ingrediente) {
+            $ingrediente = Ingrediente::create([
+                'nombre' => $nombre,
                 'estado' => 'ACTIVO',
-            ]
-        );
+            ]);
+        } elseif ($ingrediente->trashed()) {
+            $ingrediente->restore();
+            $ingrediente->estado = 'ACTIVO';
+            $ingrediente->save();
+        }
 
         return $ingrediente->id;
     }

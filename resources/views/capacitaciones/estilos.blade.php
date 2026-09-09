@@ -426,9 +426,339 @@
         font-size: 13px;
     }
 
+    /* Constructor visual del formulario público. */
+    .cap-builder-card { overflow: hidden; }
+
+    .cap-builder-status {
+        align-items: center;
+        color: #64748b;
+        display: flex;
+        font-size: 11px;
+        gap: 10px;
+    }
+
+    .cap-builder-stepbar {
+        align-items: center;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        gap: 8px;
+        padding: 14px 16px;
+    }
+
+    .cap-builder-steps {
+        display: flex;
+        flex: 1 1 auto;
+        gap: 8px;
+        min-width: 0;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .cap-add-step { flex: 0 0 auto; }
+
+    .cap-builder-step {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 10px;
+        color: #475569;
+        cursor: pointer;
+        display: grid;
+        gap: 2px 9px;
+        grid-template-columns: 32px minmax(0, 1fr);
+        padding: 9px 10px;
+        text-align: left;
+        flex: 1 0 170px;
+    }
+
+    .cap-builder-step > span {
+        align-items: center;
+        background: #e2e8f0;
+        border-radius: 50%;
+        display: flex;
+        font-size: 12px;
+        font-weight: 800;
+        grid-row: 1 / 3;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+    }
+
+    .cap-builder-step strong { font-size: 12px; }
+    .cap-builder-step small { color: #94a3b8; font-size: 10px; }
+
+    .cap-builder-step.is-active {
+        background: #ecfdf5;
+        border-color: #34d399;
+        color: #047857;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, .08);
+    }
+
+    .cap-builder-step.is-active > span { background: #059669; color: #ffffff; }
+
+    .cap-builder-layout {
+        display: grid;
+        grid-template-columns: 220px minmax(360px, 1fr) 270px;
+        min-height: 580px;
+    }
+
+    .cap-builder-palette,
+    .cap-builder-properties {
+        background: #f8fafc;
+        min-width: 0;
+        padding: 14px;
+    }
+
+    .cap-builder-palette { border-right: 1px solid #e2e8f0; }
+    .cap-builder-properties { border-left: 1px solid #e2e8f0; }
+
+    .cap-builder-panel-title {
+        border-bottom: 1px solid #e2e8f0;
+        display: grid;
+        gap: 3px;
+        margin: -2px -2px 13px;
+        padding: 0 2px 11px;
+    }
+
+    .cap-builder-panel-title strong { font-size: 13px; }
+    .cap-builder-panel-title small { color: #64748b; font-size: 10px; line-height: 1.4; }
+
+    .cap-builder-tools {
+        display: grid;
+        gap: 7px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cap-builder-tools button {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 8px;
+        color: #334155;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        font-size: 10px;
+        font-weight: 700;
+        gap: 6px;
+        justify-content: center;
+        min-height: 68px;
+        padding: 8px 5px;
+    }
+
+    .cap-builder-tools button i { color: #059669; font-size: 16px; }
+    .cap-builder-tools button:hover { border-color: #34d399; background: #ecfdf5; }
+
+    .cap-system-fields {
+        display: grid;
+        gap: 6px;
+        max-height: 310px;
+        overflow-y: auto;
+        padding-right: 3px;
+    }
+
+    .cap-system-fields button {
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 8px;
+        color: #334155;
+        cursor: pointer;
+        display: grid;
+        gap: 2px;
+        padding: 8px 9px;
+        text-align: left;
+    }
+
+    .cap-system-fields button:hover {
+        background: #ecfdf5;
+        border-color: #34d399;
+    }
+
+    .cap-system-fields strong { font-size: 10px; }
+    .cap-system-fields small { color: #64748b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; }
+    .cap-custom-fields-title { margin-top: 16px; }
+
+    .cap-builder-tip {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 9px;
+        color: #854d0e;
+        display: flex;
+        font-size: 10px;
+        gap: 8px;
+        line-height: 1.45;
+        margin-top: 14px;
+        padding: 10px;
+    }
+
+    .cap-builder-canvas { background: #eef3f7; min-width: 0; padding: 18px; }
+
+    .cap-canvas-head {
+        align-items: flex-start;
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 11px;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding: 15px;
+    }
+
+    .cap-canvas-kicker {
+        color: #059669;
+        display: block;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .cap-canvas-head h3 { font-size: 16px; margin: 3px 0 0; }
+    .cap-canvas-head p { color: #64748b; font-size: 11px; margin: 4px 0 0; }
+    .cap-canvas-fields { display: grid; gap: 9px; }
+
+    .cap-canvas-empty {
+        align-items: center;
+        background: rgba(255, 255, 255, .72);
+        border: 1px dashed #94a3b8;
+        border-radius: 10px;
+        color: #64748b;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        justify-content: center;
+        min-height: 210px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .cap-canvas-empty i { color: #059669; font-size: 25px; }
+    .cap-canvas-empty strong { color: #334155; font-size: 13px; }
+    .cap-canvas-empty span { font-size: 11px; }
+
+    .cap-canvas-field {
+        align-items: flex-start;
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 10px;
+        color: #0f172a;
+        cursor: pointer;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 14px minmax(0, 1fr) auto;
+        padding: 12px;
+        text-align: left;
+        width: 100%;
+    }
+
+    .cap-canvas-field:hover { border-color: #86efac; }
+    .cap-canvas-field.is-selected { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16, 185, 129, .11); }
+    .cap-field-drag { color: #cbd5e1; padding-top: 2px; }
+    .cap-canvas-field-body, .cap-canvas-label, .cap-canvas-help { display: block; }
+    .cap-canvas-label { font-size: 12px; font-weight: 800; }
+    .cap-canvas-label b { color: #dc2626; }
+    .cap-canvas-help { color: #64748b; font-size: 10px; margin-top: 3px; }
+
+    .cap-field-badge {
+        background: #e0f2fe;
+        border-radius: 999px;
+        color: #0369a1;
+        font-size: 9px;
+        font-weight: 800;
+        padding: 4px 7px;
+    }
+
+    .cap-field-badge.is-locked { background: #e2e8f0; color: #475569; }
+
+    .cap-preview-control {
+        align-items: center;
+        background: #f8fafc;
+        border: 1px solid #dbe4ee;
+        border-radius: 7px;
+        color: #94a3b8;
+        display: flex;
+        font-size: 10px;
+        margin-top: 8px;
+        min-height: 34px;
+        padding: 7px 9px;
+    }
+
+    .cap-preview-control.is-textarea { min-height: 58px; }
+    .cap-preview-options { color: #64748b; font-size: 10px; margin-top: 10px; }
+    .cap-preview-options span { border: 1px solid #94a3b8; border-radius: 50%; display: inline-block; height: 10px; margin: 0 3px 0 8px; width: 10px; }
+    .cap-preview-options span:first-child { margin-left: 0; }
+    .cap-preview-options span.is-square { border-radius: 2px; }
+    .cap-preview-note { background: #eff6ff; border-radius: 7px; color: #475569; font-size: 10px; margin-top: 8px; padding: 9px; }
+
+    .cap-properties-empty {
+        align-items: center;
+        color: #94a3b8;
+        display: flex;
+        flex-direction: column;
+        font-size: 11px;
+        gap: 9px;
+        justify-content: center;
+        min-height: 220px;
+        text-align: center;
+    }
+
+    .cap-properties-empty i { font-size: 24px; }
+    .cap-properties-form { display: grid; gap: 13px; }
+
+    .cap-property-check {
+        align-items: flex-start;
+        background: #ffffff;
+        border: 1px solid #dbe4ee;
+        border-radius: 8px;
+        display: flex;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .cap-property-check input { accent-color: #059669; margin-top: 2px; }
+    .cap-property-check strong, .cap-property-check small { display: block; }
+    .cap-property-check strong { font-size: 11px; }
+    .cap-property-check small { color: #64748b; font-size: 9px; margin-top: 2px; }
+    .cap-property-actions { display: grid; gap: 7px; grid-template-columns: 1fr 1fr; }
+
+    .cap-builder-footer {
+        align-items: center;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 13px 16px;
+    }
+
+    .cap-builder-url { flex: 1 1 420px; max-width: 620px; }
+
+    .cap-prototype-message {
+        background: #0f172a;
+        border-radius: 9px;
+        bottom: 22px;
+        color: #ffffff;
+        font-size: 12px;
+        left: 50%;
+        opacity: 0;
+        padding: 11px 16px;
+        pointer-events: none;
+        position: fixed;
+        transform: translate(-50%, 15px);
+        transition: opacity .2s ease, transform .2s ease;
+        z-index: 100;
+    }
+
+    .cap-prototype-message.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
     @media (max-width: 960px) {
         .cap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .cap-hero { align-items: flex-start; flex-direction: column; }
+        .cap-builder-layout { grid-template-columns: 190px minmax(330px, 1fr); }
+        .cap-builder-properties { border-left: 0; border-top: 1px solid #e2e8f0; grid-column: 1 / -1; }
+        .cap-properties-empty { min-height: 90px; }
+        .cap-properties-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     @media (max-width: 640px) {
@@ -444,5 +774,22 @@
         .cap-field-item { grid-template-columns: 1fr; }
         .cap-form-footer { align-items: stretch; flex-direction: column-reverse; }
         .cap-modal-footer { align-items: stretch; flex-direction: column-reverse; }
+        .cap-builder-status { align-items: flex-start; flex-direction: column; }
+        .cap-builder-stepbar { align-items: stretch; flex-direction: column; }
+        .cap-builder-steps { display: flex; overflow-x: auto; }
+        .cap-add-step { width: 100%; }
+        .cap-builder-step { flex: 0 0 170px; }
+        .cap-builder-layout { display: block; }
+        .cap-builder-palette { border-bottom: 1px solid #e2e8f0; border-right: 0; }
+        .cap-builder-tools { grid-template-columns: repeat(4, minmax(78px, 1fr)); overflow-x: auto; }
+        .cap-system-fields { grid-template-columns: repeat(2, minmax(130px, 1fr)); max-height: 220px; }
+        .cap-builder-canvas { padding: 12px; }
+        .cap-canvas-head { align-items: stretch; flex-direction: column; }
+        .cap-builder-properties { border-top: 1px solid #e2e8f0; }
+        .cap-properties-form { grid-template-columns: 1fr; }
+        .cap-builder-footer { align-items: stretch; flex-direction: column; }
+        .cap-builder-url { max-width: none; }
+        .cap-canvas-field { grid-template-columns: 12px minmax(0, 1fr); }
+        .cap-field-badge { grid-column: 2; justify-self: start; }
     }
 </style>

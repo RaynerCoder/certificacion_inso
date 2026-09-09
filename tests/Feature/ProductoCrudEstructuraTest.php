@@ -3,14 +3,21 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\ProductoController;
+use App\Models\Presentacion;
+use Illuminate\Http\Request;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class ProductoCrudEstructuraTest extends TestCase
 {
     public function test_el_crud_de_productos_tiene_todos_sus_metodos_publicos(): void
     {
-        foreach (['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'] as $metodo) {
+        foreach (['index', 'create', 'store', 'show', 'etiquetaPresentacion', 'edit', 'update', 'destroy'] as $metodo) {
             $this->assertTrue(
                 method_exists(ProductoController::class, $metodo),
                 "Falta el método {$metodo} en ProductoController."
@@ -24,6 +31,7 @@ class ProductoCrudEstructuraTest extends TestCase
             'productos_index' => 'index',
             'productos_create' => 'create',
             'productos_store' => 'store',
+            'productos_presentaciones_etiqueta' => 'etiquetaPresentacion',
             'productos_show' => 'show',
             'productos_edit' => 'edit',
             'productos_update' => 'update',
@@ -51,5 +59,86 @@ class ProductoCrudEstructuraTest extends TestCase
         );
 
         $this->assertTrue($validador->passes());
+    }
+
+    public function test_un_ingrediente_temporal_con_nombre_es_valido(): void
+    {
+        // Esta tabla mínima permite probar la misma comparación que se usa al guardar el producto.
+        Schema::create('ingredientes', function (Blueprint $table) {
+            $table->id();
+            $table->string('nombre')->nullable();
+            $table->softDeletes();
+        });
+
+        $request = Request::create('/productos', 'POST', [
+            'ingredientes_productos' => [[
+                'id_ingrediente' => 'TEMP-INGREDIENTE-1',
+                'nombre' => 'Permetrina',
+                'porcentaje' => '12.5',
+                'estado' => 'ACTIVO',
+            ]],
+        ]);
+        $validador = Validator::make($request->all(), []);
+        $metodo = new ReflectionMethod(ProductoController::class, 'validarIngredientesTemporales');
+
+        $metodo->invoke(app(ProductoController::class), $validador, $request);
+
+        $this->assertFalse($validador->errors()->has('ingredientes_productos.0.id_ingrediente'));
+
+        DB::table('ingredientes')->insert(['nombre' => 'PERMETRINA']);
+
+        $requestRepetido = Request::create('/productos', 'POST', [
+            'ingredientes_productos' => [[
+                'id_ingrediente' => 'TEMP-INGREDIENTE-2',
+                'nombre' => '  permetrina  ',
+                'porcentaje' => '10',
+                'estado' => 'ACTIVO',
+            ]],
+        ]);
+        $validadorRepetido = Validator::make($requestRepetido->all(), []);
+
+        $metodo->invoke(app(ProductoController::class), $validadorRepetido, $requestRepetido);
+
+        $this->assertTrue($validadorRepetido->errors()->has('ingredientes_productos.0.id_ingrediente'));
+    }
+
+    public function test_la_fila_nueva_envia_el_nombre_del_ingrediente(): void
+    {
+        $vista = file_get_contents(resource_path('views/productos/create.blade.php'));
+
+        $this->assertStringContainsString(
+            'name="ingredientes_productos[${productoIngredienteIndice}][nombre]"',
+            $vista
+        );
+    }
+
+    public function test_los_errores_de_guardado_se_devuelven_sin_recargar_el_formulario(): void
+    {
+        $respuesta = $this
+            ->withoutMiddleware()
+            ->postJson(route('productos_store'), []);
+
+        $respuesta
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'form_codigo',
+                'form_nombre_comercial',
+                'form_tipo_producto',
+            ]);
+    }
+
+    public function test_la_etiqueta_se_entrega_sin_depender_de_public_storage(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('productos/etiquetas/ejemplo.jpg', 'imagen-prueba');
+
+        $presentacion = new Presentacion([
+            'url_etiqueta' => 'productos/etiquetas/ejemplo.jpg',
+        ]);
+
+        $respuesta = app(ProductoController::class)->etiquetaPresentacion($presentacion);
+
+        $this->assertSame(200, $respuesta->getStatusCode());
+        $this->assertStringContainsString('image/jpeg', (string) $respuesta->headers->get('content-type'));
     }
 }

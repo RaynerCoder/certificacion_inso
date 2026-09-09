@@ -15,7 +15,12 @@ class TipoCertificado extends Model
     protected $fillable = [
         'nombre',
         'id_area',
+        'limite_descargas',
         'estado',
+    ];
+
+    protected $casts = [
+        'limite_descargas' => 'integer',
     ];
 
     // Relación muchos a uno (muchos tipos de certificados pertenecen a un área)

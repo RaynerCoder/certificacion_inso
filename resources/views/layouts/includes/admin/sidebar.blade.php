@@ -349,14 +349,14 @@
             'description' => 'Tipos y requisitos',
             'icon' => 'fa-solid fa-file-signature',
             'active' => $activo(['tipos_certificados_', 'requisitos_', 'tipos_evidencias_', 'certificados_plantillas_']),
-            'permission' => ['tipos_certificados.ver', 'requisitos.ver', 'tipos_evidencias.ver', 'plantillas_certificados.ver'],
+            'permission' => ['tipos_certificados.gestionar', 'tipos_certificados.configurar', 'requisitos.ver', 'tipos_evidencias.ver', 'plantillas_certificados.ver'],
             'submenu' => [
                 [
                     'name' => 'Tipos de Certificado',
                     'icon' => 'fa-solid fa-certificate',
                     'href' => $href('tipos_certificados_index'),
                     'active' => $activo(['tipos_certificados_']),
-                    'permission' => 'tipos_certificados.ver',
+                    'permission' => ['tipos_certificados.gestionar', 'tipos_certificados.configurar'],
                 ],
                 [
                     'name' => 'Requisitos',

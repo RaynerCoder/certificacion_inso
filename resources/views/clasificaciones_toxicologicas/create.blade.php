@@ -18,10 +18,10 @@
             @csrf
 
             <x-wire-input label="Código" id="codigo" name="form_codigo" type="text" placeholder="Ej: CLASE II"
-                value="{{ old('form_codigo') }}" />
+                value="{{ old('form_codigo') }}" required />
 
-            <x-wire-textarea label="Descripción (opcional)" id="descripcion" name="form_descripcion"
-                placeholder="Ej: Moderadamente peligroso">{{ old('form_descripcion') }}</x-wire-textarea>
+            <x-wire-textarea label="Descripción" id="descripcion" name="form_descripcion"
+                placeholder="Ej: Moderadamente peligroso" required>{{ old('form_descripcion') }}</x-wire-textarea>
                
             <x-wire-input label="Estado" id="estado" name="form_estado" type="text" placeholder="Estado de la clasificación toxicológica"
                 value="{{ old('form_estado') }}" />    

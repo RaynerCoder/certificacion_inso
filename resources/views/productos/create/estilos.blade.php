@@ -487,9 +487,28 @@
         display: none;
     }
 
+    .producto-search-native-select {
+        display: none;
+    }
+
     .producto-ingredient-select {
         position: relative;
         width: 100%;
+    }
+
+    .producto-catalog-search .producto-ingredient-trigger {
+        min-height: 42px;
+        padding: 8px 11px;
+    }
+
+    .producto-catalog-search .producto-ingredient-trigger-text strong {
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 20px;
+    }
+
+    .producto-catalog-search .producto-ingredient-search {
+        min-height: 42px;
     }
 
     .producto-ingredient-trigger {
@@ -506,6 +525,39 @@
         padding: 4px 10px;
         text-align: left;
         transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .producto-ingredient-select:has(.producto-search-clear:not([hidden])) .producto-ingredient-trigger-text {
+        padding-right: 30px;
+    }
+
+    .producto-search-clear {
+        position: absolute;
+        z-index: 2;
+        top: 7px;
+        right: 32px;
+        display: inline-flex;
+        width: 26px;
+        height: 26px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #94a3b8;
+        cursor: pointer;
+    }
+
+    .producto-search-clear[hidden],
+    .producto-ingredient-select.is-open > .producto-search-clear {
+        display: none;
+    }
+
+    .producto-search-clear:hover,
+    .producto-search-clear:focus-visible {
+        background: #f1f5f9;
+        color: #dc2626;
+        outline: none;
     }
 
     .producto-ingredient-trigger:hover,
@@ -591,6 +643,27 @@
     .producto-ingredient-search i {
         flex: 0 0 auto;
         font-size: 12px;
+    }
+
+    .producto-search-close {
+        display: inline-flex;
+        width: 26px;
+        height: 26px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #64748b;
+        cursor: pointer;
+    }
+
+    .producto-search-close:hover,
+    .producto-search-close:focus-visible {
+        background: #f1f5f9;
+        color: #0f766e;
+        outline: none;
     }
 
     .producto-ingredient-options {
@@ -1004,7 +1077,7 @@
 
     .producto-table-registros-presentaciones th:nth-child(10),
     .producto-table-registros-presentaciones td:nth-child(10) {
-        min-width: 205px;
+        min-width: 124px;
         text-align: center;
     }
 
@@ -1019,10 +1092,12 @@
         line-height: 1.35;
     }
 
-    .producto-table-presentacion small {
+    .producto-table-presentacion .producto-table-descripcion {
         color: #64748b;
-        font-size: 9px;
-        font-weight: 800;
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.35;
     }
 
     .producto-table-status {
@@ -1059,22 +1134,22 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 4px;
     }
 
     .producto-action-icon {
         display: inline-flex;
-        width: auto;
-        min-height: 30px;
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
         align-items: center;
         justify-content: center;
-        gap: 5px;
         border: 1px solid #bfdbfe;
         border-radius: 7px;
         background: #ffffff;
         color: #1d4ed8;
-        padding: 5px 8px;
-        font-size: 10px;
+        padding: 0;
+        font-size: 11px;
         font-weight: 800;
         transition: all 160ms ease;
     }
@@ -1111,9 +1186,14 @@
         display: none;
     }
 
+    /* El paso de revisión necesita margen propio porque no utiliza la cuadrícula de los formularios anteriores. */
+    .producto-review-panel {
+        padding: 20px;
+    }
+
     .producto-review-intro {
         border-bottom: 1px solid #e2e8f0;
-        padding: 2px 0 14px;
+        padding: 0 0 16px;
     }
 
     .producto-review-intro h3 {
@@ -1133,8 +1213,8 @@
     .producto-review-grid {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        margin-top: 14px;
+        gap: 16px;
+        margin-top: 16px;
     }
 
     .producto-review-section {
@@ -1150,7 +1230,7 @@
         gap: 10px;
         border-bottom: 1px solid #eef2f7;
         background: #f8fafc;
-        padding: 11px 14px;
+        padding: 13px 16px;
     }
 
     .producto-review-section-dot {
@@ -1182,12 +1262,12 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0 24px;
         margin: 0;
-        padding: 8px 14px;
+        padding: 10px 16px;
     }
 
     .producto-review-row {
         display: grid;
-        grid-template-columns: minmax(130px, 170px) minmax(0, 1fr);
+        grid-template-columns: minmax(165px, 205px) minmax(0, 1fr);
         gap: 10px;
         align-items: baseline;
         border-bottom: 1px solid #f1f5f9;
@@ -1211,7 +1291,96 @@
         font-size: 13px;
         font-weight: 800;
         line-height: 1.5;
-        overflow-wrap: anywhere;
+        overflow-wrap: break-word;
+        word-break: normal;
+    }
+
+    .producto-review-new-catalog {
+        grid-column: 1 / -1;
+        margin: 8px 0;
+        overflow: hidden;
+        border: 1px solid #99f6e4;
+        border-radius: 10px;
+        background: #ffffff;
+    }
+
+    .producto-review-new-catalog>header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid #ccfbf1;
+        background: #f0fdfa;
+    }
+
+    .producto-review-new-catalog>header>div {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+    }
+
+    .producto-review-new-catalog h5,
+    .producto-review-new-catalog p {
+        margin: 0;
+    }
+
+    .producto-review-new-catalog h5 {
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    .producto-review-new-catalog>header p {
+        color: #0f766e;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .producto-review-new-badge {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: #0d9488;
+        color: #ffffff;
+        padding: 3px 8px;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .producto-review-new-catalog>dl {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 24px;
+        margin: 0;
+        padding: 4px 12px 8px;
+    }
+
+    .producto-review-new-catalog>dl>div {
+        display: grid;
+        grid-template-columns: minmax(165px, 205px) minmax(0, 1fr);
+        gap: 10px;
+        align-items: baseline;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 8px 0;
+    }
+
+    .producto-review-new-catalog dt {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .producto-review-new-catalog dd {
+        margin: 0;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.45;
+        overflow-wrap: break-word;
     }
 
     .producto-review-table-block {
@@ -1266,6 +1435,348 @@
         padding: 10px;
         font-size: 12px;
         font-weight: 800;
+    }
+
+    .producto-review-overview {
+        align-items: center;
+        background: linear-gradient(110deg, #ecfdf5, #f0fdfa 55%, #ffffff);
+        border: 1px solid #a7f3d0;
+        border-radius: 12px;
+        display: flex;
+        gap: 24px;
+        justify-content: space-between;
+        padding: 17px 18px;
+    }
+
+    .producto-review-overview-identity {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .producto-review-overview-identity > span,
+    .producto-review-eyebrow {
+        color: #0f766e;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .producto-review-product-data {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) minmax(130px, .55fr);
+        gap: 10px;
+        margin: 0;
+    }
+
+    .producto-review-product-data div {
+        min-width: 0;
+        border-left: 3px solid #34d399;
+        padding-left: 9px;
+    }
+
+    .producto-review-product-data dt {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    .producto-review-product-data dd {
+        margin: 3px 0 0;
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 900;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    .producto-review-overview > dl {
+        display: flex;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .producto-review-overview > dl div {
+        background: rgba(255, 255, 255, .82);
+        border: 1px solid #d1fae5;
+        border-radius: 8px;
+        min-width: 92px;
+        padding: 8px 11px;
+        text-align: center;
+    }
+
+    .producto-review-overview dt {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .producto-review-overview dd {
+        color: #047857;
+        font-size: 18px;
+        font-weight: 900;
+        margin: 2px 0 0;
+    }
+
+    .producto-review-presentations {
+        display: grid;
+        gap: 16px;
+        grid-column: 1 / -1;
+        margin: 6px 0;
+        width: 100%;
+    }
+
+    .producto-review-presentation {
+        border: 1px solid #dbe4ee;
+        border-radius: 12px;
+        background: #ffffff;
+        overflow: hidden;
+    }
+
+    .producto-review-presentation-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        padding: 12px 16px;
+    }
+
+    .producto-review-presentation-main {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 18px;
+        padding: 16px;
+    }
+
+    .producto-review-visual {
+        display: grid;
+        align-content: start;
+        gap: 7px;
+    }
+
+    .producto-review-block-label,
+    .producto-review-presentation-data dt {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    .producto-review-image {
+        align-items: center;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        min-height: 170px;
+        overflow: hidden;
+        padding: 10px;
+        position: relative;
+    }
+
+    .producto-review-image img {
+        height: 148px;
+        object-fit: contain;
+        transition: transform 160ms ease;
+        width: 100%;
+    }
+
+    button.producto-review-image:hover img {
+        transform: scale(1.04);
+    }
+
+    .producto-review-image > span {
+        align-items: center;
+        background: rgba(15, 23, 42, .72);
+        border-radius: 999px;
+        bottom: 10px;
+        color: #ffffff;
+        display: inline-flex;
+        height: 28px;
+        justify-content: center;
+        position: absolute;
+        right: 10px;
+        width: 28px;
+    }
+
+    .producto-review-image.is-empty {
+        color: #94a3b8;
+        flex-direction: column;
+        font-size: 22px;
+        gap: 7px;
+    }
+
+    .producto-review-image.is-empty span {
+        background: transparent;
+        color: #64748b;
+        font-size: 10px;
+        height: auto;
+        position: static;
+        width: auto;
+    }
+
+    .producto-review-presentation-content {
+        min-width: 0;
+    }
+
+    .producto-review-presentation-head h5 {
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 900;
+        margin: 3px 0 0;
+    }
+
+    .producto-review-presentation-data {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 18px;
+        margin: 0;
+    }
+
+    .producto-review-presentation-data div {
+        min-width: 0;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 3px 0 9px;
+    }
+
+    .producto-review-presentation-data dd {
+        margin: 3px 0 0;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
+    .producto-review-status {
+        background: #ecfdf5;
+        border: 1px solid #bbf7d0;
+        border-radius: 999px;
+        color: #047857;
+        font-size: 9px;
+        font-weight: 900;
+        padding: 4px 8px;
+    }
+
+    .producto-review-status.is-inactive {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #64748b;
+    }
+
+    .producto-review-description {
+        background: #f8fafc;
+        border-radius: 6px;
+        margin-top: 12px;
+        padding: 9px 10px;
+    }
+
+    .producto-review-description span,
+    .producto-review-register-row dt {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .producto-review-description p {
+        color: #334155;
+        font-size: 11px;
+        font-weight: 700;
+        margin: 2px 0 0;
+    }
+
+    .producto-review-registers {
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+        padding: 14px 16px 16px;
+    }
+
+    .producto-review-registers-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .producto-review-registers-head h6 {
+        color: #334155;
+        font-size: 11px;
+        font-weight: 900;
+        margin: 0;
+        text-transform: uppercase;
+    }
+
+    .producto-review-registers-head p {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 600;
+        margin: 2px 0 0;
+    }
+
+    .producto-review-registers-head > span {
+        background: #dbeafe;
+        border-radius: 999px;
+        color: #1d4ed8;
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 900;
+        padding: 3px 8px;
+    }
+
+    .producto-review-register-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .producto-review-register-row {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 10px 12px;
+    }
+
+    .producto-review-register-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .producto-review-register-head strong {
+        color: #0f766e;
+        font-size: 11px;
+        font-weight: 900;
+    }
+
+    .producto-review-register-row dl {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin: 0;
+    }
+
+    .producto-review-register-row dl div {
+        min-width: 0;
+        border-left: 2px solid #e2e8f0;
+        padding-left: 8px;
+    }
+
+    .producto-review-register-row dd {
+        color: #0f172a;
+        font-size: 11px;
+        font-weight: 800;
+        margin: 2px 0 0;
+        overflow-wrap: anywhere;
     }
 
     .producto-textarea-compact {
@@ -1754,6 +2265,17 @@
         font-size: 13px;
     }
 
+    .producto-table-ingredientes tbody tr.is-invalid {
+        background: #fff7f7;
+    }
+
+    .producto-table-field-error {
+        margin: 4px 0 0;
+        color: #dc2626;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
     .producto-etiqueta-preview>span small {
         color: #94a3b8;
         font-size: 10px;
@@ -1821,8 +2343,67 @@
         display: block;
         max-width: 100%;
         max-height: min(72vh, 720px);
-        margin: 0 auto;
         object-fit: contain;
+        transform-origin: left top;
+        user-select: none;
+    }
+
+    .producto-image-preview-viewport {
+        background: #f8fafc;
+        display: block;
+        height: min(72vh, 720px);
+        min-height: 320px;
+        overflow: auto;
+        padding: 18px;
+    }
+
+    .producto-image-preview-stage {
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .producto-image-modal-actions,
+    .producto-image-zoom-tools {
+        align-items: center;
+        display: flex;
+        gap: 7px;
+    }
+
+    .producto-image-zoom-tools {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        gap: 0;
+        overflow: hidden;
+    }
+
+    .producto-image-zoom-tools button,
+    .producto-image-zoom-tools output {
+        align-items: center;
+        color: #334155;
+        display: inline-flex;
+        font-size: 12px;
+        height: 32px;
+        justify-content: center;
+        min-width: 34px;
+        padding: 0 8px;
+    }
+
+    .producto-image-zoom-tools button + button,
+    .producto-image-zoom-tools output + button {
+        border-left: 1px solid #e2e8f0;
+    }
+
+    .producto-image-zoom-tools button:hover {
+        background: #ecfdf5;
+        color: #0f766e;
+    }
+
+    .producto-image-zoom-tools output {
+        border-left: 1px solid #e2e8f0;
+        color: #0f766e;
+        font-weight: 900;
+        min-width: 52px;
     }
 
     .producto-modal-title-row {
@@ -2145,9 +2726,56 @@
             position: static;
         }
 
+        .producto-review-overview {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .producto-review-overview > dl {
+            width: 100%;
+        }
+
+        .producto-review-overview > dl div {
+            flex: 1 1 0;
+        }
+
     }
 
     @media (max-width: 640px) {
+
+        .producto-review-panel {
+            padding: 14px;
+        }
+
+        .producto-review-presentation-main {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-review-image {
+            min-height: 210px;
+        }
+
+        .producto-review-presentation-data {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-review-product-data {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-review-register-row dl {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .producto-review-overview > dl {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .producto-review-overview > dl div {
+            min-width: 0;
+            padding-inline: 5px;
+        }
 
         .producto-action-bar,
         .producto-form-head {
@@ -2261,6 +2889,21 @@
             gap: 3px;
         }
 
+        .producto-review-new-catalog>header {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .producto-review-new-catalog>dl {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-review-new-catalog>dl>div {
+            grid-template-columns: 1fr;
+            gap: 3px;
+        }
+
         .producto-table th,
         .producto-table td {
             padding: 9px 10px;
@@ -2272,43 +2915,4 @@
         }
     }
 
-    .producto-step .ts-wrapper.single .ts-control {
-        min-height: 44px;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        background: #ffffff;
-        padding: 9px 12px;
-        color: #0f172a;
-        font-size: 14px;
-        box-shadow: none;
-    }
-
-    .producto-step .ts-wrapper.focus .ts-control {
-        border-color: #0d9488;
-        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
-    }
-
-    .producto-step .ts-dropdown {
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        overflow: hidden;
-        font-size: 14px;
-        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
-    }
-
-    .producto-step .ts-dropdown .option {
-        padding: 9px 12px;
-        color: #0f172a;
-    }
-
-    .producto-step .ts-dropdown .active {
-        background: #2563eb;
-        color: #ffffff;
-    }
-
-    .producto-ts-option {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
 </style>

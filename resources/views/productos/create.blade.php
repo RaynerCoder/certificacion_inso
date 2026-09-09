@@ -73,8 +73,13 @@
             ->orderBy('id')
             ->get();
 
-    $ingredientesCatalogo =
-        $ingredientes ?? \App\Models\Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
+    $ingredientesCatalogo = collect(
+        $ingredientes ?? \App\Models\Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('id')->get()
+    )
+        // Los registros antiguos con el mismo nombre se muestran como una sola opción.
+        ->unique(fn($ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
+        ->sortBy(fn($ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
+        ->values();
 
     $clasificacionesQuimicasCatalogo =
         $clasificacionesQuimicas ??
@@ -137,6 +142,19 @@
     $presentacionesOld = old('presentaciones', $presentacionesIniciales ?? []);
     $registrosOld = old('registros', $registrosIniciales ?? []);
 
+    // Después de un error pueden quedar índices intermedios vacíos; se continúa desde el índice mayor para no reemplazar filas.
+    $siguienteIndiceProducto = function (array $filas): int {
+        if ($filas === []) {
+            return 0;
+        }
+
+        return max(array_map('intval', array_keys($filas))) + 1;
+    };
+
+    $siguienteIngrediente = $siguienteIndiceProducto($ingredientesOld);
+    $siguientePresentacion = $siguienteIndiceProducto($presentacionesOld);
+    $siguienteRegistro = $siguienteIndiceProducto($registrosOld);
+
     // Mantiene los mismos nombres de campos en registro y edición.
     $valorProducto = function (string $campo, $predeterminado = null) use ($productoEnEdicion) {
         $valores = [
@@ -181,9 +199,6 @@
 @endif
 
 @if ($productoEmbebido && session('producto_creado_tramite'))
-    <link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
-
     <script>
         /*
          * Avisa al formulario de tramite que el producto ya fue guardado.
@@ -294,17 +309,16 @@
         </div>
     @endunless
 
-    @if ($errors->any())
-        {{-- Resumen de errores del servidor: aparece despues del submit y conserva old() en los campos. --}}
-        <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+    {{-- Este bloque también recibe errores sin recargar la página para conservar todo lo ingresado. --}}
+        <div id="productoResumenErrores"
+            class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 {{ $errors->any() ? '' : 'hidden' }}">
             <p class="text-sm font-black">No se pudo guardar. Revise estos datos:</p>
-            <ul class="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
+            <ul id="productoListaErrores" class="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
         </div>
-    @endif
 
     <div class="producto-layout">
         <section class="producto-card">
@@ -393,6 +407,21 @@
     </div>
 </form>
 
+{{-- Bloquea el formulario durante el guardado para evitar registros enviados varias veces. --}}
+<div id="productoGuardandoOverlay"
+    class="fixed inset-0 z-[20000] hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
+    role="dialog" aria-modal="true" aria-labelledby="productoGuardandoTitulo" aria-hidden="true">
+    <div class="flex max-w-sm items-center gap-4 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-2xl">
+        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-lg text-teal-700">
+            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+        </span>
+        <div>
+            <h3 id="productoGuardandoTitulo" class="text-base font-black text-slate-900">Registrando producto</h3>
+            <p class="mt-1 text-sm font-medium text-slate-600">Espere mientras guardamos toda la información.</p>
+        </div>
+    </div>
+</div>
+
 @if ($productoEmbebido)
     {{-- El producto se guarda en un iframe oculto para no sacar al usuario del trámite actual. --}}
     <iframe name="productoSubmitFrame" class="hidden" title="Guardado de producto"></iframe>
@@ -467,8 +496,7 @@
             </div>
 
             <div>
-                <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción
-                    <span class="font-normal text-slate-400">(opcional)</span></label>
+                <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
                 <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
                     placeholder="Ej: Moderadamente peligroso">
             </div>
@@ -633,13 +661,36 @@
                 </div>
             </div>
 
-            <button type="button" class="producto-modal-close" onclick="cerrarModalEtiquetaProducto()">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div class="producto-image-modal-actions">
+                <div class="producto-image-zoom-tools" role="group" aria-label="Zoom de la etiqueta">
+                    <button type="button" onclick="cambiarZoomEtiquetaProducto(-0.25)"
+                        title="Alejar imagen" aria-label="Alejar imagen">
+                        <i class="fa-solid fa-magnifying-glass-minus"></i>
+                    </button>
+                    <output id="etiquetaImagenZoomValor" aria-live="polite">100%</output>
+                    <button type="button" onclick="cambiarZoomEtiquetaProducto(0.25)"
+                        title="Acercar imagen" aria-label="Acercar imagen">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i>
+                    </button>
+                    <button type="button" onclick="restablecerZoomEtiquetaProducto()"
+                        title="Restablecer tamaño" aria-label="Restablecer tamaño">
+                        <i class="fa-solid fa-compress"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="producto-modal-close" onclick="cerrarModalEtiquetaProducto()"
+                    title="Cerrar vista previa" aria-label="Cerrar vista previa">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
         </div>
 
-        <img id="etiquetaImagenPreview" class="producto-image-preview-modal"
-            alt="Vista previa de la etiqueta">
+        <div class="producto-image-preview-viewport" id="etiquetaImagenViewport">
+            <div class="producto-image-preview-stage" id="etiquetaImagenStage">
+                <img id="etiquetaImagenPreview" class="producto-image-preview-modal"
+                    alt="Vista previa de la etiqueta" draggable="false">
+            </div>
+        </div>
     </div>
 </div>
 
@@ -648,12 +699,14 @@
     let productoPasoActual = 0;
 
     // Contadores usados para crear nombres de arrays dinamicos sin repetir indices.
-    let productoIngredienteIndice = {{ count($ingredientesOld) }};
-    let productoPresentacionIndice = {{ count($presentacionesOld) }};
-    let productoRegistroIndice = {{ count($registrosOld) }};
+    let productoIngredienteIndice = {{ $siguienteIngrediente }};
+    let productoPresentacionIndice = {{ $siguientePresentacion }};
+    let productoRegistroIndice = {{ $siguienteRegistro }};
     let productoRegistroEditandoId = null;
     let productoEtiquetaPreviewUrl = null;
     let productoEtiquetaOrigenActual = null;
+    let productoEtiquetaZoom = 1;
+    let productoEtiquetaTamanoBase = { ancho: 0, alto: 0 };
     const productoEtiquetaUrls = {};
     const productoEtiquetaOldUrls = {};
     const productoErroresLaravel = @json($errors->messages());
@@ -779,18 +832,17 @@
         return String(valor ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    function sincronizarTomSelectProducto(select, valorSeleccionado = null) {
-        if (!select?.tomselect) {
-            if (valorSeleccionado !== null) {
-                select.value = valorSeleccionado;
-            }
+    // Mantiene sincronizados el select real y el buscador visible del catálogo.
+    function sincronizarBuscadorProducto(select, valorSeleccionado = null) {
+        if (!select) {
             return;
         }
 
-        select.tomselect.sync();
         if (valorSeleccionado !== null) {
-            select.tomselect.setValue(valorSeleccionado, true);
+            select.value = valorSeleccionado;
         }
+
+        actualizarBuscadorCatalogoProducto(select);
     }
 
     // Actualiza un selector de unidad sin modificar el otro campo del formulario.
@@ -801,31 +853,178 @@
             return;
         }
 
-        sincronizarTomSelectProducto(select, String(valor ?? ''));
+        sincronizarBuscadorProducto(select, String(valor ?? ''));
     }
 
-    function inicializarBuscadoresProducto() {
-        if (!window.TomSelect) {
-            return;
-        }
-
-        document.querySelectorAll('[data-producto-buscador]').forEach((select) => {
-            if (select.tomselect) {
+    // Cierra uno o todos los buscadores de catálogo sin alterar la opción seleccionada.
+    function cerrarBuscadoresCatalogoProducto(excepto = null) {
+        document.querySelectorAll('[data-producto-search-select]').forEach((contenedor) => {
+            if (contenedor === excepto) {
                 return;
             }
 
-            new TomSelect(select, {
-                create: false,
-                allowEmptyOption: true,
-                maxOptions: 500,
-                dropdownParent: 'body',
-                searchField: ['text'],
-                render: {
-                    option: (data, escape) =>
-                        `<div class="producto-ts-option">${escape(data.text || '')}</div>`,
-                    item: (data, escape) => `<div>${escape(data.text || '')}</div>`,
-                },
+            contenedor.classList.remove('is-open');
+            contenedor.querySelector('[data-producto-search-trigger]')?.setAttribute('aria-expanded', 'false');
+
+            const buscador = contenedor.querySelector('[data-producto-search-input]');
+            if (buscador) {
+                buscador.value = '';
+            }
+        });
+    }
+
+    // Dibuja las opciones del catálogo que coinciden con el texto escrito.
+    function renderizarOpcionesBuscadorProducto(contenedor) {
+        const select = document.getElementById(contenedor?.dataset.productoSearchSelect || '');
+        const lista = contenedor?.querySelector('[data-producto-search-options]');
+        const buscador = contenedor?.querySelector('[data-producto-search-input]');
+
+        if (!select || !lista) {
+            return;
+        }
+
+        const consulta = normalizarTextoProducto(buscador?.value || '');
+        const opciones = Array.from(select.options).filter((opcion) =>
+            opcion.value && normalizarTextoProducto(opcion.textContent).includes(consulta)
+        );
+
+        if (!opciones.length) {
+            lista.innerHTML = '<div class="producto-ingredient-empty">No se encontraron resultados.</div>';
+            return;
+        }
+
+        lista.innerHTML = opciones.map((opcion) => {
+            const seleccionado = String(select.value) === String(opcion.value);
+
+            return `
+                <button type="button" class="producto-ingredient-option ${seleccionado ? 'is-selected' : ''}"
+                    data-producto-search-option="${escaparHtmlProducto(opcion.value)}" role="option"
+                    aria-selected="${seleccionado ? 'true' : 'false'}">
+                    <span class="producto-ingredient-option-copy">
+                        <strong>${escaparHtmlProducto(opcion.textContent.trim())}</strong>
+                    </span>
+                    ${seleccionado ? '<i class="fa-solid fa-check producto-ingredient-option-check" aria-hidden="true"></i>' : ''}
+                </button>`;
+        }).join('');
+
+        lista.querySelectorAll('[data-producto-search-option]').forEach((boton) => {
+            boton.addEventListener('click', () => {
+                select.value = boton.dataset.productoSearchOption || '';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                actualizarBuscadorCatalogoProducto(select);
+                cerrarBuscadoresCatalogoProducto();
             });
+        });
+    }
+
+    // Refleja en el control visible el texto que realmente conserva el select.
+    function actualizarBuscadorCatalogoProducto(select) {
+        const contenedor = document.querySelector(
+            `[data-producto-search-select="${CSS.escape(select?.id || '')}"]`
+        );
+
+        if (!select || !contenedor) {
+            return;
+        }
+
+        const etiqueta = contenedor.querySelector('[data-producto-search-label]');
+        const botonLimpiar = contenedor.querySelector('[data-producto-search-clear]');
+        const opcion = select.options[select.selectedIndex];
+        const textoVacio = select.options[0]?.textContent?.trim() || 'Seleccione una opción';
+
+        if (etiqueta) {
+            etiqueta.textContent = select.value ? opcion?.textContent?.trim() || textoVacio : textoVacio;
+        }
+
+        if (botonLimpiar) {
+            botonLimpiar.hidden = !select.value;
+        }
+
+        contenedor.classList.toggle('is-invalid', select.classList.contains('is-invalid'));
+        renderizarOpcionesBuscadorProducto(contenedor);
+    }
+
+    // Convierte cualquier select marcado en el mismo buscador compacto usado por Ingredientes.
+    function inicializarBuscadoresProducto() {
+        document.querySelectorAll('[data-producto-buscador]').forEach((select) => {
+            if (document.querySelector(`[data-producto-search-select="${CSS.escape(select.id)}"]`)) {
+                return;
+            }
+
+            const idDesplegable = `${select.id}_buscador`;
+            const placeholder = select.dataset.productoPlaceholder || 'Buscar...';
+            const contenedor = document.createElement('div');
+
+            contenedor.className = 'producto-ingredient-select producto-catalog-search';
+            contenedor.dataset.productoSearchSelect = select.id;
+            contenedor.innerHTML = `
+                <button type="button" class="producto-ingredient-trigger" data-producto-search-trigger
+                    aria-expanded="false" aria-controls="${escaparHtmlProducto(idDesplegable)}">
+                    <span class="producto-ingredient-trigger-text">
+                        <strong data-producto-search-label></strong>
+                    </span>
+                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="producto-search-clear" data-producto-search-clear hidden
+                    title="Quitar selección" aria-label="Quitar selección">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+                <div class="producto-ingredient-dropdown" id="${escaparHtmlProducto(idDesplegable)}">
+                    <div class="producto-ingredient-search">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="search" placeholder="${escaparHtmlProducto(placeholder)}" autocomplete="off"
+                            data-producto-search-input aria-label="${escaparHtmlProducto(placeholder)}">
+                        <button type="button" class="producto-search-close" data-producto-search-close
+                            title="Cerrar selector" aria-label="Cerrar selector">
+                            <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="producto-ingredient-options" data-producto-search-options role="listbox"></div>
+                </div>`;
+
+            select.insertAdjacentElement('afterend', contenedor);
+            select.classList.add('producto-search-native-select');
+
+            const disparador = contenedor.querySelector('[data-producto-search-trigger]');
+            const buscador = contenedor.querySelector('[data-producto-search-input]');
+            const botonCerrar = contenedor.querySelector('[data-producto-search-close]');
+            const botonLimpiar = contenedor.querySelector('[data-producto-search-clear]');
+
+            disparador?.addEventListener('click', () => {
+                const abrir = !contenedor.classList.contains('is-open');
+                cerrarBuscadoresCatalogoProducto(contenedor);
+                cerrarSelectorIngredienteProducto();
+                contenedor.classList.toggle('is-open', abrir);
+                disparador.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+
+                if (abrir) {
+                    buscador.value = '';
+                    renderizarOpcionesBuscadorProducto(contenedor);
+                    requestAnimationFrame(() => buscador.focus());
+                }
+            });
+
+            buscador?.addEventListener('input', () => renderizarOpcionesBuscadorProducto(contenedor));
+            botonLimpiar?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                select.value = '';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                actualizarBuscadorCatalogoProducto(select);
+                cerrarBuscadoresCatalogoProducto();
+            });
+            botonCerrar?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                cerrarBuscadoresCatalogoProducto();
+                disparador?.focus();
+            });
+            buscador?.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    cerrarBuscadoresCatalogoProducto();
+                    disparador?.focus();
+                }
+            });
+            select.addEventListener('change', () => actualizarBuscadorCatalogoProducto(select));
+            actualizarBuscadorCatalogoProducto(select);
         });
     }
 
@@ -862,6 +1061,19 @@
             return;
         }
 
+        const normalizarUnidad = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
+        const opcionesUnidad = Array.from(document.querySelectorAll(
+            '#form_presentacion_unidad option[value], #form_registro_unidad option[value]'
+        )).filter((opcion) => opcion.value);
+        const unidadRepetida = opcionesUnidad.some((opcion) =>
+            normalizarUnidad(opcion.dataset.nombre) === normalizarUnidad(nombre)
+        );
+
+        if (unidadRepetida) {
+            marcarErrorProducto(nombreInput, 'Ya existe una unidad con ese nombre. Selecciónela de la lista.');
+            return;
+        }
+
         const valorTemporal = `TEMP-${Date.now()}`;
 
         const textoVisible = abreviatura ?
@@ -885,7 +1097,7 @@
         opcion.dataset.abreviatura = abreviatura;
 
         selectDestino.add(opcion);
-        sincronizarTomSelectProducto(selectDestino, valorTemporal);
+        sincronizarBuscadorProducto(selectDestino, valorTemporal);
 
         /*
          * Guardamos los datos temporales
@@ -938,6 +1150,15 @@
         return opcion?.dataset.texto || opcion?.textContent?.trim() || '';
     }
 
+    // En la revisión identifica una unidad temporal sin usar términos ambiguos como "origen".
+    function textoUnidadRevisionProducto(idUnidad) {
+        const texto = textoUnidadCatalogoProducto(idUnidad);
+
+        return String(idUnidad || '').startsWith('TEMP-') ?
+            `Nueva unidad: ${texto || 'Sin nombre'} (se registrará activa)` :
+            texto;
+    }
+
     // Muestra avisos del wizard con SweetAlert y deja alert como respaldo si la libreria no carga.
     function notificarProducto(icono, titulo, mensaje) {
         if (window.Swal) {
@@ -969,6 +1190,12 @@
             return document.querySelector('[data-ingrediente-combobox]') || campo;
         }
 
+        if (campo.matches('[data-producto-buscador]')) {
+            return document.querySelector(
+                `[data-producto-search-select="${CSS.escape(campo.id)}"]`
+            ) || campo;
+        }
+
         return campo;
     }
 
@@ -983,11 +1210,20 @@
 
         objetivo.classList.add('is-invalid');
 
-        let error = objetivo.nextElementSibling;
+        const errorDentroDelControl = objetivo.matches('td, tr');
+        let error = errorDentroDelControl
+            ? objetivo.querySelector(':scope > .producto-field-error')
+            : objetivo.nextElementSibling;
+
         if (!error || !error.classList.contains('producto-field-error')) {
             error = document.createElement('p');
             error.className = 'producto-field-error';
-            objetivo.insertAdjacentElement('afterend', error);
+
+            if (errorDentroDelControl) {
+                objetivo.appendChild(error);
+            } else {
+                objetivo.insertAdjacentElement('afterend', error);
+            }
         }
 
         error.textContent = mensaje;
@@ -1003,9 +1239,12 @@
             return;
         }
 
+        campo?.classList.remove('is-invalid');
         objetivo.classList.remove('is-invalid');
 
-        const error = objetivo.nextElementSibling;
+        const error = objetivo.matches('td, tr')
+            ? objetivo.querySelector(':scope > .producto-field-error')
+            : objetivo.nextElementSibling;
         if (error?.classList.contains('producto-field-error')) {
             error.remove();
         }
@@ -1566,10 +1805,90 @@
             return;
         }
 
+        imagen.onload = prepararZoomEtiquetaProducto;
         imagen.src = url;
         document.getElementById('etiquetaImagenModalNombre').textContent = nombre || 'Imagen de etiqueta';
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
+
+        if (imagen.complete) {
+            prepararZoomEtiquetaProducto();
+        }
+    }
+
+    // Conserva como 100% el tamaño que cabe completo dentro de la vista previa.
+    function prepararZoomEtiquetaProducto() {
+        const imagen = document.getElementById('etiquetaImagenPreview');
+        const escenario = document.getElementById('etiquetaImagenStage');
+        const visor = document.getElementById('etiquetaImagenViewport');
+
+        if (!imagen || !escenario || !visor) {
+            return;
+        }
+
+        productoEtiquetaZoom = 1;
+        imagen.style.width = '';
+        imagen.style.height = '';
+        imagen.style.transform = '';
+        imagen.style.maxWidth = '';
+        imagen.style.maxHeight = '';
+        escenario.style.width = '';
+        escenario.style.height = '';
+
+        requestAnimationFrame(() => {
+            const anchoDisponible = Math.max(1, visor.clientWidth - 36);
+            const altoDisponible = Math.max(1, visor.clientHeight - 36);
+            const anchoNatural = Math.max(1, imagen.naturalWidth);
+            const altoNatural = Math.max(1, imagen.naturalHeight);
+            const escalaInicial = Math.min(1, anchoDisponible / anchoNatural, altoDisponible / altoNatural);
+            productoEtiquetaTamanoBase = {
+                ancho: anchoNatural * escalaInicial,
+                alto: altoNatural * escalaInicial,
+            };
+            aplicarZoomEtiquetaProducto();
+        });
+    }
+
+    function cambiarZoomEtiquetaProducto(cambio) {
+        productoEtiquetaZoom = Math.min(3, Math.max(0.5, productoEtiquetaZoom + cambio));
+        aplicarZoomEtiquetaProducto();
+    }
+
+    function restablecerZoomEtiquetaProducto() {
+        productoEtiquetaZoom = 1;
+        aplicarZoomEtiquetaProducto();
+    }
+
+    function aplicarZoomEtiquetaProducto() {
+        const imagen = document.getElementById('etiquetaImagenPreview');
+        const escenario = document.getElementById('etiquetaImagenStage');
+        const valor = document.getElementById('etiquetaImagenZoomValor');
+
+        if (!imagen || !escenario || !productoEtiquetaTamanoBase.ancho) {
+            return;
+        }
+
+        const ancho = productoEtiquetaTamanoBase.ancho * productoEtiquetaZoom;
+        const alto = productoEtiquetaTamanoBase.alto * productoEtiquetaZoom;
+        escenario.style.width = `${ancho}px`;
+        escenario.style.height = `${alto}px`;
+        imagen.style.width = `${productoEtiquetaTamanoBase.ancho}px`;
+        imagen.style.height = `${productoEtiquetaTamanoBase.alto}px`;
+        imagen.style.maxWidth = 'none';
+        imagen.style.maxHeight = 'none';
+        imagen.style.transform = `scale(${productoEtiquetaZoom})`;
+
+        if (valor) {
+            valor.textContent = `${Math.round(productoEtiquetaZoom * 100)}%`;
+        }
+
+        // Al ampliar se conserva el centro visible para recorrer la etiqueta en cualquier dirección.
+        requestAnimationFrame(() => {
+            const visor = document.getElementById('etiquetaImagenViewport');
+            if (!visor) return;
+            visor.scrollLeft = Math.max(0, (ancho - visor.clientWidth) / 2);
+            visor.scrollTop = Math.max(0, (alto - visor.clientHeight) / 2);
+        });
     }
 
     // Cierra la vista previa sin borrar la imagen seleccionada.
@@ -1577,6 +1896,7 @@
         const modal = document.getElementById('modalEtiquetaImagenProducto');
         modal?.classList.remove('is-open');
         modal?.setAttribute('aria-hidden', 'true');
+        restablecerZoomEtiquetaProducto();
     }
 
     // Agrega un ingrediente a la tabla y crea inputs hidden para enviarlo al controlador.
@@ -1612,6 +1932,7 @@
                 <td class="producto-ingredient-name">
                     ${escaparHtmlProducto(ingredienteNombre)}
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][id_ingrediente]" value="${ingredienteId}">
+                    <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][nombre]" value="${escaparHtmlProducto(ingredienteNombre)}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][porcentaje]" value="${porcentaje.value}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][estado]" value="${estado.value}">
                 </td>
@@ -1732,8 +2053,9 @@
         const idRegistroEditando = productoRegistroEditandoId || '';
         const textoUnidadPresentacion = textoUnidadCatalogoProducto(unidadPresentacion.value);
         const textoUnidadRegistro = textoUnidadCatalogoProducto(unidadRegistro.value);
-        const presentacionTexto =
-            `${cantidadPresentacion.value} ${textoUnidadPresentacion}${descripcion.value ? ' - ' + descripcion.value : ''}`;
+        const presentacionValor = `${cantidadPresentacion.value} ${textoUnidadPresentacion}`.trim();
+        const presentacionDescripcion = descripcion.value.trim();
+        const presentacionTexto = `${presentacionValor}${presentacionDescripcion ? ' - ' + presentacionDescripcion : ''}`;
         const etiquetaUrl = archivoEtiqueta ?
             (productoEtiquetaPreviewUrl || URL.createObjectURL(archivoEtiqueta)) :
             (productoEtiquetaOrigenActual?.url || productoEtiquetaUrls[indicePresentacion]?.url);
@@ -1790,18 +2112,23 @@
                 <td>${escaparHtmlProducto(cantidadRegistro.value || '-')}</td>
                 <td>${escaparHtmlProducto(textoUnidadRegistro || 'Sin unidad')}</td>
                 <td>
-                    ${escaparHtmlProducto(presentacionTexto)}
+                    <div class="producto-table-presentacion">
+                        <strong>${escaparHtmlProducto(presentacionValor)}</strong>
+                        ${presentacionDescripcion ? `<small class="producto-table-descripcion">${escaparHtmlProducto(presentacionDescripcion)}</small>` : ''}
+                    </div>
                 </td>
                 <td><span class="producto-pill">${escaparHtmlProducto(estadoRegistro.value)}</span></td>
                 <td>
                     <div class="producto-row-actions">
                         <button type="button" class="producto-action-icon is-edit"
-                            title="Editar presentación y registro" onclick="editarFilaRegistroPresentacionProducto(this)">
-                            <span>Editar</span>
+                            title="Editar presentación y registro" aria-label="Editar presentación y registro"
+                            onclick="editarFilaRegistroPresentacionProducto(this)">
+                            <i class="fa-solid fa-pen"></i>
                         </button>
                         <button type="button" class="producto-action-icon is-delete"
-                            title="Eliminar presentación y registro" onclick="quitarFilaProducto(this)">
-                            <span>Quitar</span>
+                            title="Eliminar presentación y registro" aria-label="Eliminar presentación y registro"
+                            onclick="quitarFilaProducto(this)">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                     <span class="presentacion-etiqueta-input hidden"></span>
@@ -1828,8 +2155,8 @@
                 <td data-label="Unidad">${escaparHtmlProducto(textoUnidadRegistro || 'Sin unidad')}</td>
                 <td data-label="Presentación">
                     <div class="producto-table-presentacion">
-                        <strong>${escaparHtmlProducto(presentacionTexto)}</strong>
-                        <small>${escaparHtmlProducto(estadoPresentacion.value)}</small>
+                        <strong>${escaparHtmlProducto(presentacionValor)}</strong>
+                        ${presentacionDescripcion ? `<small class="producto-table-descripcion">${escaparHtmlProducto(presentacionDescripcion)}</small>` : ''}
                     </div>
                 </td>
                 <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
@@ -1847,16 +2174,19 @@
                 <td data-label="Acciones">
                     <div class="producto-row-actions">
                         <button type="button" class="producto-action-icon is-view" title="Ver etiqueta"
+                            aria-label="Ver etiqueta"
                             onclick="abrirModalEtiquetaProducto(${indicePresentacion})">
-                            <i class="fa-solid fa-eye"></i><span>Ver</span>
+                            <i class="fa-solid fa-eye"></i>
                         </button>
                         <button type="button" class="producto-action-icon is-edit"
-                            title="Editar presentación y registro" onclick="editarFilaRegistroPresentacionProducto(this)">
-                            <i class="fa-solid fa-pen"></i><span>Editar</span>
+                            title="Editar presentación y registro" aria-label="Editar presentación y registro"
+                            onclick="editarFilaRegistroPresentacionProducto(this)">
+                            <i class="fa-solid fa-pen"></i>
                         </button>
                         <button type="button" class="producto-action-icon is-delete"
-                            title="Eliminar presentación y registro" onclick="quitarFilaProducto(this)">
-                            <i class="fa-solid fa-trash-can"></i><span>Eliminar</span>
+                            title="Eliminar presentación y registro" aria-label="Eliminar presentación y registro"
+                            onclick="quitarFilaProducto(this)">
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
                     <input type="hidden" name="registros[${indiceRegistro}][id_registro]" value="${escaparHtmlProducto(idRegistroEditando)}">
@@ -2194,18 +2524,24 @@
             const descripcion = document.getElementById('modal_clasificacion_toxicologica_descripcion')?.value.trim() ||
                 '';
             const normalizar = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
-            const opcionMismoCodigo = Array.from(select.options).find((opcion) =>
-                opcion.dataset.temporal !== '1' &&
-                normalizar(opcion.dataset.codigo) === normalizar(textoBase)
+            const descripcionInput = document.getElementById('modal_clasificacion_toxicologica_descripcion');
+
+            if (!descripcion) {
+                marcarErrorProducto(descripcionInput, 'Ingrese la descripción de la clasificación toxicológica.');
+                return;
+            }
+
+            const combinacionRepetida = Array.from(select.options).some((opcion) =>
+                opcion.value &&
+                normalizar(opcion.dataset.codigo) === normalizar(textoBase) &&
+                normalizar(opcion.dataset.descripcion) === normalizar(descripcion)
             );
 
-            if (opcionMismoCodigo) {
-                const mismaDescripcion = normalizar(opcionMismoCodigo.dataset.descripcion) === normalizar(descripcion);
-                const mensaje = mismaDescripcion ?
-                    'Ya existe una clasificación toxicológica con el mismo código y descripción. Selecciónela del listado.' :
-                    'El código ya está registrado. Seleccione la clasificación toxicológica existente.';
-
-                marcarErrorProducto(input, mensaje);
+            if (combinacionRepetida) {
+                marcarErrorProducto(
+                    descripcionInput,
+                    'Ya existe una clasificación toxicológica con el mismo código y descripción. Selecciónela del listado.'
+                );
                 return;
             }
 
@@ -2215,9 +2551,35 @@
         }
 
         if (idSelect === 'form_id_clasificacion_quimica') {
+            const normalizar = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
+            const nombreRepetido = Array.from(select.options).some((opcion) =>
+                opcion.value && normalizar(opcion.dataset.nombre || opcion.textContent) === normalizar(textoBase)
+            );
+
+            if (nombreRepetido) {
+                marcarErrorProducto(
+                    input,
+                    'Ya existe una clasificación química con ese nombre. Selecciónela del listado.'
+                );
+                return;
+            }
+
             document.getElementById('form_clasificacion_quimica_temporal_nombre').value = textoBase;
             document.getElementById('form_clasificacion_quimica_temporal_descripcion').value =
                 document.getElementById('modal_clasificacion_quimica_descripcion')?.value.trim() || '';
+        }
+
+        if (idSelect === 'form_ingrediente_select') {
+            const normalizar = (valor) => String(valor || '').trim().toLocaleUpperCase('es');
+            const nombreRepetido = Array.from(select.options).some((opcion) =>
+                opcion.value && opcion.dataset.temporal !== '1' &&
+                normalizar(opcion.dataset.nombre || opcion.textContent) === normalizar(textoBase)
+            );
+
+            if (nombreRepetido) {
+                marcarErrorProducto(input, 'Ya existe un ingrediente con ese nombre. Selecciónelo del listado.');
+                return;
+            }
         }
 
         if (idSelect === 'form_presentacion_unidad' || idSelect === 'form_registro_unidad') {
@@ -2266,7 +2628,7 @@
             unidadSelect.add(opcionUnidad);
 
             // Autoselecciona únicamente el select correspondiente.
-            sincronizarTomSelectProducto(
+            sincronizarBuscadorProducto(
                 unidadSelect,
                 valorTemporal
             );
@@ -2285,6 +2647,10 @@
         const opcion = new Option(textoVisible, valorTemporal, true, true);
         opcion.dataset.temporal = '1';
 
+        if (idSelect === 'form_id_clasificacion_quimica') {
+            opcion.dataset.nombre = textoBase;
+        }
+
         if (idSelect === 'form_id_fabricante') {
             opcion.dataset.nombre = textoBase;
             opcion.dataset.razonSocial = document.getElementById('modal_fabricante_razon_social')?.value.trim() || '';
@@ -2302,7 +2668,7 @@
         }
 
         select.add(opcion);
-        sincronizarTomSelectProducto(select, valorTemporal);
+        sincronizarBuscadorProducto(select, valorTemporal);
         limpiarErrorProducto(select);
         limpiarErrorProducto(input);
         actualizarDetalleIngredienteProducto();
@@ -2368,9 +2734,14 @@
     // Devuelve el texto seleccionado de un select para mostrarlo en revision.
     function textoSelectProducto(idSelect) {
         const select = document.getElementById(idSelect);
+
+        if (!select?.value) {
+            return 'No registrado';
+        }
+
         const texto = select?.options[select.selectedIndex]?.text?.trim();
 
-        return texto || 'Sin seleccionar';
+        return texto || 'No registrado';
     }
 
     // Cierra el selector visual de ingredientes cuando el usuario elige o hace clic fuera.
@@ -2448,12 +2819,16 @@
         const etiqueta = document.querySelector('[data-ingrediente-label]');
         const opcion = select?.options[select.selectedIndex];
         const nombre = opcion?.dataset.nombre || opcion?.text?.trim() || 'Seleccione un ingrediente';
+        const botonLimpiar = document.querySelector('[data-ingrediente-clear]');
 
         if (!etiqueta) {
             return;
         }
 
         etiqueta.textContent = select?.value ? nombre : 'Seleccione un ingrediente';
+        if (botonLimpiar) {
+            botonLimpiar.hidden = !select?.value;
+        }
         renderizarOpcionesIngredienteProducto();
     }
 
@@ -2498,6 +2873,30 @@
                     <dt>${escaparHtmlProducto(titulo)}</dt>
                     <dd>${textoSeguro}</dd>
                 </div>
+            `;
+    }
+
+    // Destaca los catálogos que todavía no existen y que se crearán junto con el producto.
+    // Cada bloque presenta todos sus campos una sola vez para no mezclar datos nuevos con los ya registrados.
+    function bloqueCatalogoNuevoProducto(titulo, campos) {
+        const filas = (Array.isArray(campos) ? campos : []).map((campo) => `
+                <div>
+                    <dt>${escaparHtmlProducto(campo.etiqueta)}</dt>
+                    <dd>${escaparHtmlProducto(textoResumenProducto(campo.valor)).replaceAll('\n', '<br>')}</dd>
+                </div>
+            `).join('');
+
+        return `
+                <article class="producto-review-new-catalog">
+                    <header>
+                        <div>
+                            <span class="producto-review-new-badge">Nuevo</span>
+                            <h5>${escaparHtmlProducto(titulo)}</h5>
+                        </div>
+                        <p>Se registrará al guardar el producto.</p>
+                    </header>
+                    <dl>${filas}</dl>
+                </article>
             `;
     }
 
@@ -2593,36 +2992,124 @@
         return Object.keys(gruposPorIndiceResumenProducto('presentaciones'));
     }
 
-    // Lee el nombre del PDF de una presentacion, sea nuevo, temporal o copiado de catalogo.
-    function etiquetaResumenPresentacionProducto(indice, presentacion) {
-        const archivo = document.querySelector(`input[name="presentaciones[${indice}][url_etiqueta]"]`)?.files?.[0];
+    // Localiza la imagen real de una presentación nueva, recuperada o tomada del catálogo.
+    function datosEtiquetaResumenProducto(indice, presentacion = {}) {
+        const input = document.querySelector(`input[name="presentaciones[${indice}][url_etiqueta]"]`);
+        const datosOld = input?.id ? productoEtiquetaOldUrls[input.id] : null;
+        const opcionCatalogo = presentacion.id_presentacion_origen ?
+            document.querySelector(`#form_presentacion_catalogo option[value="${presentacion.id_presentacion_origen}"]`) :
+            null;
+        const datos = productoEtiquetaUrls[indice] || datosOld;
+        const url = datos?.url || input?.dataset.urlInicial || opcionCatalogo?.dataset.etiquetaUrl || '';
+        const nombre = input?.files?.[0]?.name || datos?.nombre || opcionCatalogo?.dataset.etiquetaNombre ||
+            (url ? 'Imagen registrada' : 'Sin imagen');
 
-        if (archivo?.name) {
-            return archivo.name;
-        }
-
-        if (productoEtiquetaUrls[indice]?.nombre) {
-            return productoEtiquetaUrls[indice].nombre;
-        }
-
-        if (presentacion.id_presentacion_origen) {
-            return `Etiqueta registrada de presentacion #${presentacion.id_presentacion_origen}`;
-        }
-
-        return 'Pendiente de seleccionar PDF';
+        return { url, nombre };
     }
 
-    // Une cantidad, unidad y descripcion para identificar a que presentacion apunta un registro.
-    function textoPresentacionResumenProducto(indice, presentaciones) {
-        const presentacion = presentaciones[indice] || {};
-        const base = [presentacion.cantidad, textoUnidadCatalogoProducto(presentacion.id_catalogo_unidad)].filter(
-            Boolean).join(' ');
-        const descripcion = presentacion.descripcion ? ` - ${presentacion.descripcion}` : '';
+    function abrirEtiquetaResumenProducto(indice) {
+        const presentaciones = gruposPorIndiceResumenProducto('presentaciones');
+        const etiqueta = datosEtiquetaResumenProducto(indice, presentaciones[indice]);
 
-        return base || descripcion ? `${base}${descripcion}` : `Presentacion #${indice}`;
+        if (!etiqueta.url) {
+            notificarProducto('info', 'Sin imagen', 'Esta presentación no tiene una etiqueta disponible.');
+            return;
+        }
+
+        mostrarEtiquetaEnModalProducto(etiqueta.url, etiqueta.nombre);
     }
 
-    // Actualiza el paso Revision para confirmar antes de guardar producto.
+    // Presenta cada formato junto a sus registros para que la relación sea fácil de comprobar.
+    function resumenPresentacionesRegistrosProducto(presentaciones, registros) {
+        const listaPresentaciones = Object.entries(presentaciones);
+
+        if (!listaPresentaciones.length) {
+            return '<div class="producto-review-empty">No se agregaron presentaciones ni registros.</div>';
+        }
+
+        return `<div class="producto-review-presentations">
+            ${listaPresentaciones.map(([indice, presentacion], posicion) => {
+                const etiqueta = datosEtiquetaResumenProducto(indice, presentacion);
+                const registrosAsociados = Object.entries(registros)
+                    .filter(([, registro]) => String(registro.id_presentacion_temporal) === String(indice));
+                const vistaEtiqueta = etiqueta.url ? `
+                    <button type="button" class="producto-review-image" onclick="abrirEtiquetaResumenProducto(${Number(indice)})"
+                        title="Ampliar etiqueta" aria-label="Ampliar etiqueta de la presentación ${posicion + 1}">
+                        <img src="${escaparHtmlProducto(etiqueta.url)}" alt="Etiqueta de la presentación ${posicion + 1}">
+                        <span><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                    </button>` : `
+                    <div class="producto-review-image is-empty">
+                        <i class="fa-regular fa-image"></i>
+                        <span>Sin imagen</span>
+                    </div>`;
+                const listaRegistros = registrosAsociados.length ? registrosAsociados.map(([, registro], registroPosicion) => `
+                    <div class="producto-review-register-row">
+                        <div class="producto-review-register-head">
+                            <strong>Registro ${registroPosicion + 1}</strong>
+                            <span class="producto-review-status ${registro.estado === 'INACTIVO' ? 'is-inactive' : ''}">
+                                ${escaparHtmlProducto(registro.estado || 'ACTIVO')}
+                            </span>
+                        </div>
+                        <dl>
+                            <div><dt>Código de autorización</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.codigo_autorizacion))}</dd></div>
+                            <div><dt>Nro. de lote</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.numero_lote))}</dd></div>
+                            <div><dt>Fecha de vigencia</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.fecha_vigencia))}</dd></div>
+                            <div><dt>Cantidad registrada</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.cantidad))}</dd></div>
+                            <div><dt>Unidad del registro</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(registro.id_catalogo_unidad)))}</dd></div>
+                        </dl>
+                    </div>
+                `).join('') : '<div class="producto-review-empty">Esta presentación todavía no tiene registros asociados.</div>';
+
+                return `
+                    <article class="producto-review-presentation">
+                        <header class="producto-review-presentation-head">
+                            <div>
+                                <span class="producto-review-eyebrow">Presentación ${posicion + 1}</span>
+                                <h5>Datos de la presentación</h5>
+                            </div>
+                            <span class="producto-review-status ${presentacion.estado === 'INACTIVO' ? 'is-inactive' : ''}">
+                                ${escaparHtmlProducto(presentacion.estado || 'ACTIVO')}
+                            </span>
+                        </header>
+
+                        <div class="producto-review-presentation-main">
+                            <div class="producto-review-visual">
+                                <span class="producto-review-block-label">Vista previa de la etiqueta</span>
+                                ${vistaEtiqueta}
+                            </div>
+
+                            <div class="producto-review-presentation-content">
+                                <dl class="producto-review-presentation-data">
+                                    <div><dt>Cantidad de la presentación</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.cantidad))}</dd></div>
+                                    <div><dt>Unidad de la presentación</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(presentacion.id_catalogo_unidad)))}</dd></div>
+                                    <div><dt>Nombre del archivo de etiqueta</dt><dd>${escaparHtmlProducto(etiqueta.nombre)}</dd></div>
+                                </dl>
+
+                                <div class="producto-review-description">
+                                    <span>Descripción de la presentación</span>
+                                    <p>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="producto-review-registers">
+                            <div class="producto-review-registers-head">
+                                <div>
+                                    <h6>Registros vinculados a esta presentación</h6>
+                                    <p>Datos de autorización, lote, vigencia y cantidad registrada.</p>
+                                </div>
+                                <span>${registrosAsociados.length}</span>
+                            </div>
+                            <div class="producto-review-register-list">
+                                ${listaRegistros}
+                            </div>
+                        </div>
+                    </article>`;
+            }).join('')}
+        </div>`;
+    }
+
+    // Arma un resumen claro con los mismos datos que se enviarán al guardar el producto.
     function actualizarRevisionFinalProducto() {
         const destino = document.getElementById('resumenProductoWizard');
 
@@ -2630,82 +3117,145 @@
             return;
         }
 
-        const fabricanteNuevo = document.getElementById('form_id_fabricante')?.selectedOptions?.[0]?.dataset
-            .temporal === '1';
-        const clasificacionToxicologicaNueva = document.getElementById('form_id_clasificacion_toxicologica')
-            ?.selectedOptions?.[0]?.dataset.temporal === '1';
+        const fabricanteSelect = document.getElementById('form_id_fabricante');
+        const fabricanteOpcion = fabricanteSelect?.selectedOptions?.[0];
+        const fabricanteRazonSocial = fabricanteOpcion?.dataset.razonSocial?.trim() || '';
+        const fabricanteNombre = fabricanteOpcion?.dataset.nombre?.trim() || '';
+        const fabricanteVisible = fabricanteRazonSocial || fabricanteNombre || textoSelectProducto(
+            'form_id_fabricante');
+        const fabricanteNuevo = fabricanteOpcion?.dataset.temporal === '1';
+        const clasificacionQuimicaSelect = document.getElementById('form_id_clasificacion_quimica');
+        const clasificacionQuimicaOpcion = clasificacionQuimicaSelect?.selectedOptions?.[0];
+        const clasificacionQuimicaNueva = clasificacionQuimicaOpcion?.dataset.temporal === '1';
+        const clasificacionToxicologicaSelect = document.getElementById('form_id_clasificacion_toxicologica');
+        const clasificacionToxicologicaOpcion = clasificacionToxicologicaSelect?.selectedOptions?.[0];
+        const clasificacionToxicologicaNueva = clasificacionToxicologicaOpcion?.dataset.temporal === '1';
         const ingredientes = gruposPorIndiceResumenProducto('ingredientes_productos');
         const presentaciones = gruposPorIndiceResumenProducto('presentaciones');
         const registros = gruposPorIndiceResumenProducto('registros');
 
         const datosProducto = [
-            itemResumenProducto('Codigo', valorResumenProducto('#form_codigo')),
+            itemResumenProducto('Código', valorResumenProducto('#form_codigo')),
             itemResumenProducto('Nombre comercial', valorResumenProducto('#form_nombre_comercial')),
-            itemResumenProducto('Tipo de producto', valorResumenProducto('#form_tipo_producto')),
+            itemResumenProducto('Tipo de producto', textoSelectProducto('form_tipo_producto')),
             itemResumenProducto('Nombre técnico', valorResumenProducto('#form_nombre_tecnico')),
-            itemResumenProducto('Clasificación química', textoSelectProducto('form_id_clasificacion_quimica')),
             itemResumenProducto('Importador', textoSelectProducto('form_id_importador_persona')),
-            itemResumenProducto('Pais / territorio', textoSelectProducto('form_id_territorio_pais')),
-            itemResumenProducto('Fabricante', textoSelectProducto('form_id_fabricante')),
-            itemResumenProducto('Clasificación toxicológica', textoSelectProducto(
-                'form_id_clasificacion_toxicologica')),
-            itemResumenProducto('Estado del producto', valorResumenProducto('#form_estado')),
+            itemResumenProducto('País', textoSelectProducto('form_id_territorio_pais')),
         ];
 
         if (fabricanteNuevo) {
-            datosProducto.push(itemResumenProducto('Fabricante nuevo - nombre', valorResumenProducto(
-                '#form_fabricante_temporal_nombre')));
-            datosProducto.push(itemResumenProducto('Fabricante nuevo - razon social', valorResumenProducto(
-                '#form_fabricante_temporal_razon_social')));
-            datosProducto.push(itemResumenProducto('Fabricante nuevo - descripcion', valorResumenProducto(
-                '#form_fabricante_temporal_descripcion'), true));
+            datosProducto.push(bloqueCatalogoNuevoProducto('Fabricante nuevo', [
+                {
+                    etiqueta: 'Razón social',
+                    valor: valorResumenProducto('#form_fabricante_temporal_razon_social'),
+                },
+                {
+                    etiqueta: 'Nombre del fabricante',
+                    valor: valorResumenProducto('#form_fabricante_temporal_nombre'),
+                },
+                {
+                    etiqueta: 'Descripción',
+                    valor: valorResumenProducto('#form_fabricante_temporal_descripcion'),
+                },
+                {
+                    etiqueta: 'Estado al registrar',
+                    valor: 'Activo',
+                },
+            ]));
+        } else {
+            datosProducto.push(itemResumenProducto(
+                fabricanteRazonSocial ? 'Fabricante (razón social)' : 'Fabricante',
+                fabricanteVisible
+            ));
+        }
+
+        if (clasificacionQuimicaNueva) {
+            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación química nueva', [
+                {
+                    etiqueta: 'Nombre de la clasificación',
+                    valor: valorResumenProducto('#form_clasificacion_quimica_temporal_nombre'),
+                },
+                {
+                    etiqueta: 'Descripción',
+                    valor: valorResumenProducto('#form_clasificacion_quimica_temporal_descripcion'),
+                },
+                {
+                    etiqueta: 'Estado al registrar',
+                    valor: 'Activo',
+                },
+            ]));
+        } else {
+            datosProducto.push(itemResumenProducto(
+                'Clasificación química',
+                textoSelectProducto('form_id_clasificacion_quimica')
+            ));
         }
 
         if (clasificacionToxicologicaNueva) {
-            datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - código', valorResumenProducto(
-                '#form_clasificacion_toxicologica_temporal_codigo')));
-            const descripcionToxicologica = valorResumenProducto(
-                '#form_clasificacion_toxicologica_temporal_descripcion');
-            if (descripcionToxicologica && descripcionToxicologica !== 'Sin dato') {
-                datosProducto.push(itemResumenProducto('Clasificación toxicológica nueva - descripción',
-                    descripcionToxicologica));
-            }
+            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación toxicológica nueva', [
+                {
+                    etiqueta: 'Código',
+                    valor: valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo'),
+                },
+                {
+                    etiqueta: 'Descripción',
+                    valor: valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion'),
+                },
+                {
+                    etiqueta: 'Estado al registrar',
+                    valor: 'Activo',
+                },
+            ]));
+        } else {
+            datosProducto.push(itemResumenProducto(
+                'Clasificación toxicológica',
+                textoSelectProducto('form_id_clasificacion_toxicologica')
+            ));
         }
 
-        const filasIngredientes = Object.entries(ingredientes).map(([indice, ingrediente]) => [
-            Number(indice) + 1,
-            ingrediente.nombre || textoResumenProducto(ingrediente.id_ingrediente),
-            ingrediente.porcentaje !== undefined && ingrediente.porcentaje !== '' ?
-            `${formatearPorcentajeIngrediente(ingrediente.porcentaje)}%` : '',
-            ingrediente.estado || 'ACTIVO',
-        ]);
+        datosProducto.push(itemResumenProducto('Estado del producto', textoSelectProducto('form_estado')));
 
-        const filasPresentaciones = Object.entries(presentaciones).map(([indice, presentacion]) => [
-            Number(indice) + 1,
-            presentacion.cantidad,
-            textoUnidadCatalogoProducto(presentacion.id_catalogo_unidad),
-            presentacion.descripcion,
-            etiquetaResumenPresentacionProducto(indice, presentacion),
-            presentacion.id_presentacion_origen ?
-            `Reutiliza presentacion #${presentacion.id_presentacion_origen}` : 'Nueva presentacion',
-            presentacion.estado || 'ACTIVO',
-        ]);
+        const filasIngredientes = Object.entries(ingredientes).map(([indice, ingrediente]) => {
+            const esNuevo = String(ingrediente.id_ingrediente || '').startsWith('TEMP-');
+            const nombre = ingrediente.nombre || textoResumenProducto(ingrediente.id_ingrediente);
 
-        const filasRegistros = Object.entries(registros).map(([indice, registro]) => [
-            Number(indice) + 1,
-            registro.codigo_autorizacion,
-            registro.numero_lote,
-            registro.fecha_vigencia,
-            registro.cantidad,
-            textoUnidadCatalogoProducto(registro.id_catalogo_unidad),
-            textoPresentacionResumenProducto(registro.id_presentacion_temporal, presentaciones),
-            registro.estado || 'ACTIVO',
-        ]);
+            return [
+                Number(indice) + 1,
+                esNuevo ? `Nuevo ingrediente: ${nombre}` : nombre,
+                ingrediente.porcentaje !== undefined && ingrediente.porcentaje !== '' ?
+                `${formatearPorcentajeIngrediente(ingrediente.porcentaje)}%` : '',
+                ingrediente.estado || 'ACTIVO',
+            ];
+        });
 
-        destino.innerHTML = [
+        const nombreProducto = textoResumenProducto(valorResumenProducto('#form_nombre_comercial'));
+        const codigoProducto = textoResumenProducto(valorResumenProducto('#form_codigo'));
+        const resumenGeneral = `
+            <div class="producto-review-overview">
+                <div class="producto-review-overview-identity">
+                    <span>Producto listo para revisión</span>
+                    <dl class="producto-review-product-data">
+                        <div>
+                            <dt>Nombre comercial del producto</dt>
+                            <dd>${escaparHtmlProducto(nombreProducto)}</dd>
+                        </div>
+                        <div>
+                            <dt>Código del producto</dt>
+                            <dd>${escaparHtmlProducto(codigoProducto)}</dd>
+                        </div>
+                    </dl>
+                </div>
+                <dl>
+                    <div><dt>Ingredientes</dt><dd>${Object.keys(ingredientes).length}</dd></div>
+                    <div><dt>Presentaciones</dt><dd>${Object.keys(presentaciones).length}</dd></div>
+                    <div><dt>Registros</dt><dd>${Object.keys(registros).length}</dd></div>
+                </dl>
+            </div>`;
+
+        destino.innerHTML = resumenGeneral + [
             grupoResumenProducto(
                 'Datos principales del producto',
-                'Informacion general que identifica el producto que se va a registrar.',
+                'Información que identifica y clasifica el producto.',
                 datosProducto.join('')
             ),
             grupoResumenProducto(
@@ -2718,24 +3268,9 @@
                 )
             ),
             grupoResumenProducto(
-                'Presentaciones del producto',
-                'Formatos, cantidades, unidades, imagen de etiqueta y estado de cada presentacion.',
-                tablaResumenProducto(
-                    ['#', 'Cantidad', 'Unidad', 'Descripcion', 'Imagen de etiqueta', 'Origen', 'Estado'],
-                    filasPresentaciones,
-                    'No se agregaron presentaciones.'
-                )
-            ),
-            grupoResumenProducto(
-                'Registros del producto',
-                'Codigos, lotes, vigencias, cantidades y unidades declaradas para cada presentacion.',
-                tablaResumenProducto(
-                    ['#', 'Codigo autorizacion', 'Nro. de lote', 'Fecha vigencia', 'Cantidad', 'Unidad',
-                        'Presentacion seleccionada', 'Estado'
-                    ],
-                    filasRegistros,
-                    'No se agregaron registros.'
-                )
+                'Presentaciones y registros',
+                'Cada etiqueta aparece junto a la presentación y los registros que le pertenecen.',
+                resumenPresentacionesRegistrosProducto(presentaciones, registros)
             ),
         ].join('');
     }
@@ -2747,7 +3282,7 @@
         let tieneArchivosTemporales = false;
 
         new FormData(formulario).forEach((valor, clave) => {
-            // localStorage no conserva archivos reales; el PDF queda vivo en el input mientras no se recargue.
+            // El navegador no puede guardar archivos en localStorage; la imagen permanece en el formulario abierto.
             if (valor instanceof File) {
                 if (valor.name) {
                     tieneArchivosTemporales = true;
@@ -2776,7 +3311,7 @@
                 icon: 'success',
                 title: 'Avance guardado',
                 text: tieneArchivosTemporales ?
-                    'Los datos se guardaron. Los PDF se mantienen en esta pagina hasta guardar el producto; no recargue la vista.' :
+                    'Los datos se guardaron. Las imágenes permanecen en esta página hasta guardar el producto; no recargue la vista.' :
                     'El avance se guardo temporalmente en este navegador.',
                 timer: 1400,
                 showConfirmButton: false,
@@ -2788,13 +3323,151 @@
             'success',
             'Avance guardado',
             tieneArchivosTemporales ?
-            'Los PDF se mantienen en esta pagina hasta guardar el producto; no recargue la vista.' :
+            'Las imágenes permanecen en esta página hasta guardar el producto; no recargue la vista.' :
             'El avance se guardo temporalmente en este navegador.'
         );
     }
 
+    // Después de una validación vuelve al paso que contiene el primer dato por corregir.
+    function pasoConPrimerErrorProducto(errores) {
+        const primerCampo = Object.keys(errores || {})[0] || '';
+
+        if (primerCampo.startsWith('ingredientes_productos')) {
+            return 1;
+        }
+
+        if (primerCampo.startsWith('presentaciones') || primerCampo.startsWith('registros')) {
+            return 2;
+        }
+
+        return 0;
+    }
+
+    // Convierte presentaciones.0.cantidad al nombre HTML presentaciones[0][cantidad].
+    function nombreHtmlCampoProducto(campo) {
+        const partes = String(campo || '').split('.');
+        return partes.slice(1).reduce((nombre, parte) => `${nombre}[${parte}]`, partes[0] || '');
+    }
+
+    // Muestra los errores recibidos sin recargar la página ni limpiar campos o archivos.
+    function mostrarErroresGuardadoProducto(errores) {
+        const resumen = document.getElementById('productoResumenErrores');
+        const lista = document.getElementById('productoListaErrores');
+        const entradas = Object.entries(errores || {});
+
+        document.querySelectorAll('.producto-field-error').forEach((error) => error.remove());
+        document.querySelectorAll('.is-invalid').forEach((campo) => campo.classList.remove('is-invalid'));
+
+        if (resumen && lista) {
+            lista.innerHTML = entradas
+                .flatMap(([, mensajes]) => mensajes)
+                .map((mensaje) => `<li>${escaparHtmlProducto(mensaje)}</li>`)
+                .join('');
+            resumen.classList.toggle('hidden', entradas.length === 0);
+        }
+
+        entradas.forEach(([campo, mensajes]) => {
+            const nombreCampo = nombreHtmlCampoProducto(campo);
+            const elemento = document.getElementById(campo) ||
+                document.querySelector(`[name="${CSS.escape(nombreCampo)}"]`);
+
+            if (elemento) {
+                marcarErrorProducto(elemento, mensajes[0]);
+            }
+        });
+
+        mostrarPasoProducto(pasoConPrimerErrorProducto(errores));
+        resumen?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Muestra una espera que cubre el formulario mientras el servidor registra el producto.
+    function mostrarEsperaGuardadoProducto(mostrar) {
+        const overlay = document.getElementById('productoGuardandoOverlay');
+
+        if (!overlay) {
+            return;
+        }
+
+        overlay.classList.toggle('hidden', !mostrar);
+        overlay.classList.toggle('flex', mostrar);
+        overlay.setAttribute('aria-hidden', mostrar ? 'false' : 'true');
+    }
+
+    // Guarda sin recargar; una respuesta 422 deja intacto todo el formulario para corregir solo el error.
+    async function enviarProductoSinPerderDatos(event) {
+        event.preventDefault();
+
+        const formulario = event.currentTarget;
+        const boton = document.getElementById('btnProductoSiguiente');
+        const contenidoBoton = boton?.innerHTML;
+        let mantenerEsperaHastaNavegar = false;
+
+        if (formulario.dataset.enviando === '1') {
+            return;
+        }
+
+        formulario.dataset.enviando = '1';
+        mostrarEsperaGuardadoProducto(true);
+        if (boton) {
+            boton.disabled = true;
+            boton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+        }
+
+        try {
+            const respuesta = await fetch(formulario.action, {
+                method: formulario.method || 'POST',
+                body: new FormData(formulario),
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const resultado = await respuesta.json().catch(() => ({}));
+
+            if (respuesta.status === 422) {
+                mostrarErroresGuardadoProducto(resultado.errors || {});
+                return;
+            }
+
+            if (!respuesta.ok) {
+                throw new Error(resultado.message || 'No fue posible guardar el producto.');
+            }
+
+            if (productoEmbebidoTramite && resultado.producto) {
+                window.parent?.postMessage({
+                    tipo: 'producto-registrado-tramite',
+                    producto: resultado.producto,
+                }, window.location.origin);
+                notificarProducto('success', 'Producto registrado', resultado.message);
+                return;
+            }
+
+            if (!resultado.redirect) {
+                throw new Error('No se recibió la dirección para continuar.');
+            }
+
+            mantenerEsperaHastaNavegar = true;
+            window.location.assign(resultado.redirect);
+        } catch (error) {
+            notificarProducto('error', 'No se pudo guardar', error.message);
+        } finally {
+            if (!mantenerEsperaHastaNavegar) {
+                formulario.dataset.enviando = '0';
+                mostrarEsperaGuardadoProducto(false);
+
+                if (boton && document.body.contains(boton)) {
+                    boton.disabled = false;
+                    boton.innerHTML = contenidoBoton;
+                }
+            }
+        }
+    }
+
     // Inicializa eventos del wizard cuando la vista termina de cargar.
     document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('formProductoWizard')?.addEventListener('submit', enviarProductoSinPerderDatos);
+
         // Permite que las burbujas superiores del tramite cambien el paso del producto embebido.
         window.addEventListener('message', (event) => {
             if (event.origin !== window.location.origin || event.data?.tipo !== 'producto-ir-paso') {
@@ -2812,7 +3485,8 @@
         });
 
         ['form_nombre_comercial', 'form_tipo_producto', 'form_codigo', 'form_id_importador_persona',
-            'form_id_fabricante', 'form_id_clasificacion_toxicologica'
+            'form_id_fabricante', 'form_id_territorio_pais', 'form_id_clasificacion_quimica',
+            'form_id_clasificacion_toxicologica'
         ].forEach((
             id) => {
             document.getElementById(id)?.addEventListener('input', () => {
@@ -2855,9 +3529,31 @@
             document.querySelector('[data-ingrediente-trigger]')?.focus();
         });
 
+        document.querySelector('[data-ingrediente-close]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            cerrarSelectorIngredienteProducto();
+            document.querySelector('[data-ingrediente-trigger]')?.focus();
+        });
+
+        document.querySelector('[data-ingrediente-clear]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const select = document.getElementById('form_ingrediente_select');
+
+            if (select) {
+                select.value = '';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            cerrarSelectorIngredienteProducto();
+        });
+
         document.addEventListener('click', (event) => {
             if (!event.target.closest('[data-ingrediente-combobox]')) {
                 cerrarSelectorIngredienteProducto();
+            }
+
+            if (!event.target.closest('[data-producto-search-select]')) {
+                cerrarBuscadoresCatalogoProducto();
             }
         });
 
@@ -2888,7 +3584,8 @@
                 '.producto-input, .producto-select, .producto-textarea, .producto-upload-input')
             .forEach((campo) => prepararLimpiezaErrorProducto(campo));
 
-        mostrarPasoProducto(0);
+        const tieneErroresServidor = Object.keys(productoErroresLaravel).length > 0;
+        mostrarPasoProducto(tieneErroresServidor ? pasoConPrimerErrorProducto(productoErroresLaravel) : 0);
 
         // Errores devueltos por Laravel despues del submit: se pintan en el campo sin perder old().
         Object.entries(productoErroresLaravel).forEach(([campo, mensajes]) => {

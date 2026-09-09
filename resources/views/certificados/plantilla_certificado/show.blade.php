@@ -40,20 +40,14 @@
                                 src="{{ asset('storage/' . $plantilla->url_fondo) }}"
                                 alt="Plantilla del certificado"
                                 style="object-fit: {{ $ajusteFondo }};">
-                        @else
-                            <div class="plantilla-canvas-placeholder">
-                                <strong>Sin archivo visual</strong>
-                                <span>Edite la plantilla para cargar el fondo del certificado.</span>
-                            </div>
                         @endif
 
                         @foreach ($plantilla->elementos as $elemento)
                             @php
                                 $textoElemento = $elemento->texto_fijo
                                     ?: '{' . '{' . str_replace('.', '_', (string) $elemento->codigo_elemento) . '}' . '}';
-                                $usaPaddingElemento = !in_array($elemento->tipo_elemento, ['IMAGEN', 'TABLA', 'QR'], true);
-                                $paddingXElemento = (float) ($elemento->padding_x ?? ($usaPaddingElemento ? 7 : 0));
-                                $paddingYElemento = (float) ($elemento->padding_y ?? ($usaPaddingElemento ? 5 : 0));
+                                $paddingXElemento = 0;
+                                $paddingYElemento = 0;
                                 $configuracion = (array) ($elemento->configuracion ?? []);
                                 $bordeEstilo = match (strtoupper((string) data_get($configuracion, 'borde_estilo', 'SOLIDO'))) {
                                     'PUNTEADO' => 'dotted',
@@ -87,7 +81,7 @@
                                     width: {{ (int) $elemento->ancho }}px;
                                     height: {{ (int) $elemento->alto }}px;
                                     font-size: {{ (int) $elemento->tamano_letra }}px;
-                                    font-weight: {{ $elemento->negrita ? '900' : '700' }};
+                                    font-weight: {{ $elemento->negrita ? '700' : '400' }};
                                     font-style: {{ $elemento->cursiva ? 'italic' : 'normal' }};
                                     text-decoration: {{ $elemento->subrayado ? 'underline' : 'none' }};
                                     color: {{ $elemento->color_texto ?: '#0f172a' }};
@@ -132,9 +126,9 @@
                                 @elseif ($elemento->tipo_elemento === 'QR' && str_starts_with((string) $textoElemento, 'data:image'))
                                     <img src="{{ $textoElemento }}" alt="Código QR">
                                 @elseif ($elemento->tipo_elemento === 'LINEA')
-                                    <span class="plantilla-linea-contenido" style="border-top: {{ max(1, (float) data_get($configuracion, 'borde_ancho', 1)) }}px {{ $bordeEstilo === 'none' ? 'solid' : $bordeEstilo }} {{ data_get($configuracion, 'borde_color', '#0f766e') }};"></span>
+                                    <span class="plantilla-linea-contenido" style="display:block; position:absolute; left:0; right:0; top:50%; border-top: {{ max(1, (float) data_get($configuracion, 'borde_ancho', 1)) }}px {{ $bordeEstilo === 'none' ? 'solid' : $bordeEstilo }} {{ data_get($configuracion, 'borde_color', '#0f766e') }};"></span>
                                 @elseif ($elemento->tipo_elemento !== 'FORMA')
-                                    {!! nl2br(e($textoElemento)) !!}
+                                    {!! $elemento->tipo_elemento === 'TEXTO' ? $elemento->textoConEstilos($textoElemento) : nl2br(e($textoElemento)) !!}
                                 @endif
                             </div>
                         @endforeach

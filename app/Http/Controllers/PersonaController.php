@@ -149,7 +149,6 @@ class PersonaController extends Controller
             'responsables.*.fecha_nacimiento' => 'nullable|date',
             'responsables.*.genero' => ['nullable', Rule::in(['0', '1', 0, 1])],
             'responsables.*.id_ocupacion' => 'nullable|exists:ocupaciones_cob,id',
-            'responsables.*.ocupacion' => 'nullable|string|max:255',
             'responsables.*.telefonos' => 'nullable|array',
             'responsables.*.telefonos.*.id' => 'nullable|integer|exists:telefonos,id',
             'responsables.*.telefonos.*.numero' => 'required|string|max:50',
@@ -224,7 +223,7 @@ class PersonaController extends Controller
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with([
-            'natural',
+            'natural.ocupacionCob',
             'telefonos',
             'territorio',
             'rubros' => fn ($query) => $query->where('rubros.nivel_caeb', 'SUBCLASE'),
@@ -368,7 +367,6 @@ class PersonaController extends Controller
                     'apellido_casado' => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                     'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                     'genero' => $datos['form_genero'],
-                    'ocupacion' => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                 ]);
             }
 
@@ -518,15 +516,6 @@ class PersonaController extends Controller
             ->all();
 
         $persona->rubros()->sync($datosSync + $datosHistoricos);
-    }
-
-    private function descripcionOcupacionCob($idOcupacion): ?string
-    {
-        if (! $idOcupacion) {
-            return null;
-        }
-
-        return OcupacionCob::find($idOcupacion)?->descripcion_ocupacion;
     }
 
     // FUNCION PARA CONSERVAR PDF DE RESPONSABLES SI FALLA LA VALIDACION DEL FORMULARIO
@@ -859,7 +848,6 @@ class PersonaController extends Controller
                             'fecha_nacimiento' => $fechaNacimientoResponsable,
                             'genero' => $generoResponsable,
                             'id_ocupacion' => $responsable['id_ocupacion'] ?? null,
-                            'ocupacion' => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                         ]
                     );
 
@@ -892,7 +880,6 @@ class PersonaController extends Controller
                     'fecha_nacimiento' => $responsable['fecha_nacimiento'] ?? null,
                     'genero' => $responsable['genero'] ?? null,
                     'id_ocupacion' => $responsable['id_ocupacion'] ?? null,
-                    'ocupacion' => $this->descripcionOcupacionCob($responsable['id_ocupacion'] ?? null),
                 ]);
 
                 $this->registrarTelefonosPersona(
@@ -1043,7 +1030,7 @@ class PersonaController extends Controller
     public function show(Persona $persona)
     {
         $persona->load([
-            'natural',
+            'natural.ocupacionCob',
             'telefonos',
             'territorio',
             'rubros',
@@ -1068,7 +1055,7 @@ class PersonaController extends Controller
             'certificadosComoTramitador.registros.presentacion',
             'empresa.tipoEmpresa',
             // Carga responsables con todos sus datos de persona para mostrar una ficha completa.
-            'empresa.responsables.persona.natural',
+            'empresa.responsables.persona.natural.ocupacionCob',
             'empresa.responsables.persona.usuario',
             'empresa.responsables.persona.territorio',
             'empresa.responsables.persona.telefonos',
@@ -1085,13 +1072,13 @@ class PersonaController extends Controller
     public function edit(Persona $persona)
     {
         $persona->load([
-            'natural',
+            'natural.ocupacionCob',
             'telefonos',
             'territorio',
             'rubros',
             'usuario.roles',
             'empresa.tipoEmpresa',
-            'empresa.responsables.persona.natural',
+            'empresa.responsables.persona.natural.ocupacionCob',
             'empresa.responsables.persona.usuario.roles',
             'empresa.responsables.persona.territorio',
             'empresa.responsables.persona.telefonos',
@@ -1107,7 +1094,7 @@ class PersonaController extends Controller
         $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $expedidosNatural = Natural::EXPEDIDOS;
         $personas = Persona::with([
-            'natural',
+            'natural.ocupacionCob',
             'telefonos',
             'territorio',
             'rubros' => fn ($query) => $query->where('rubros.nivel_caeb', 'SUBCLASE'),
@@ -1174,7 +1161,7 @@ class PersonaController extends Controller
                     'fecha_nacimiento' => $responsable->persona?->natural?->fecha_nacimiento,
                     'genero' => $responsable->persona?->natural?->genero,
                     'id_ocupacion' => $responsable->persona?->natural?->id_ocupacion,
-                    'ocupacion' => $responsable->persona?->natural?->ocupacion,
+                    'ocupacion' => $responsable->persona?->natural?->ocupacionCob?->descripcion_ocupacion,
                     'nombre_completo' => trim(implode(' ', array_filter([
                         $responsable->persona?->natural?->nombres,
                         $responsable->persona?->natural?->apellido_paterno,
@@ -1361,7 +1348,6 @@ class PersonaController extends Controller
                         'apellido_casado' => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                         'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                         'genero' => $datos['form_genero'],
-                        'ocupacion' => $this->descripcionOcupacionCob($datos['form_id_ocupacion'] ?? null),
                     ]
                 );
             }

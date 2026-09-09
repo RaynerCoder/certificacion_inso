@@ -29,6 +29,30 @@
             display: none !important;
         }
 
+        /* Acciones compactas para abrir, cerrar y limpiar los buscadores de catálogo. */
+        .ocupacion-persona-alternar {
+            display: inline-flex;
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            color: #64748b;
+            transition: background-color 150ms ease, color 150ms ease;
+        }
+
+        .ocupacion-persona-alternar:hover,
+        .ocupacion-persona-alternar[aria-expanded="true"] {
+            background: #f0fdfa;
+            color: #0d9488;
+        }
+
+        .ocupacion-persona-alternar i {
+            pointer-events: none;
+            font-size: 12px;
+        }
+
     </style>
 
     <div class="w-full max-w-none">
@@ -192,6 +216,12 @@
                                     class="ocupacion-persona-limpiar" aria-label="Quitar ocupación seleccionada">
                                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                 </button>
+                                <button type="button" id="alternarOcupacionTramitador"
+                                    class="ocupacion-persona-alternar" aria-expanded="false"
+                                    aria-controls="resultadosOcupacionTramitador" aria-label="Abrir lista de ocupaciones"
+                                    title="Abrir lista de ocupaciones">
+                                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </button>
                             </div>
                             <div id="resultadosOcupacionTramitador" class="ocupacion-persona-resultados"></div>
                         </div>
@@ -243,6 +273,17 @@
                                 <div class="ocupacion-persona-control">
                                     <i class="fa-solid fa-magnifying-glass"></i>
                                     <input type="search" id="buscadorRubroTramitador" placeholder="Escriba el nombre del rubro" autocomplete="off">
+                                    <button type="button" id="limpiarRubroTramitador"
+                                        class="ocupacion-persona-limpiar" aria-label="Quitar todos los rubros seleccionados"
+                                        title="Quitar todos los rubros seleccionados">
+                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" id="alternarRubroTramitador"
+                                        class="ocupacion-persona-alternar" aria-expanded="false"
+                                        aria-controls="resultadosRubroTramitador" aria-label="Abrir lista de rubros"
+                                        title="Abrir lista de rubros">
+                                        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                                 <div id="resultadosRubroTramitador" class="ocupacion-persona-resultados"></div>
                             </div>
@@ -371,6 +412,7 @@
                         lista.appendChild(item);
                     });
                     document.getElementById('form_rubros_json').value = JSON.stringify(rubros);
+                    actualizarLimpiarRubro();
                 };
 
                 const urlTerritorio = (tipo, id) => {
@@ -384,9 +426,13 @@
                     const select = document.getElementById('form_id_ocupacion');
                     select.value = String(id || '');
                     const opcion = select.options[select.selectedIndex];
-                    document.getElementById('buscadorOcupacionTramitador').value = descripcion ||
+                    const buscador = document.getElementById('buscadorOcupacionTramitador');
+                    buscador.value = descripcion ||
                         (opcion?.value ? `${opcion.dataset.codigo} - ${opcion.dataset.descripcion}` : '');
-                    document.getElementById('limpiarOcupacionTramitador').classList.toggle('is-visible', Boolean(id));
+                    document.getElementById('limpiarOcupacionTramitador').classList.toggle(
+                        'is-visible',
+                        Boolean(id || buscador.value.trim())
+                    );
                 };
 
                 const agregarNivelTerritorio = async (idPadre, idSeleccionado = '') => {
@@ -548,6 +594,50 @@
                     opciones.forEach((opcion) => contenedor.appendChild(opcion));
                 };
 
+                // Mantiene sincronizados el chevrón, la accesibilidad y la lista visible de cada buscador.
+                const cambiarEstadoSelectorCatalogo = (contenedorId, botonId, abierto) => {
+                    const contenedor = document.getElementById(contenedorId);
+                    const boton = document.getElementById(botonId);
+
+                    if (!contenedor || !boton) return;
+
+                    contenedor.classList.toggle('is-open', abierto);
+                    boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+                    boton.setAttribute('aria-label', abierto ? 'Cerrar lista' : 'Abrir lista');
+                    boton.title = abierto ? 'Cerrar lista' : 'Abrir lista';
+
+                    const icono = boton.querySelector('i');
+                    if (icono) {
+                        icono.className = `fa-solid ${abierto ? 'fa-chevron-up' : 'fa-chevron-down'}`;
+                    }
+                };
+
+                const cerrarSelectoresCatalogo = (excepto = '') => {
+                    if (excepto !== 'ocupacion') {
+                        cambiarEstadoSelectorCatalogo(
+                            'contenedorOcupacionTramitador',
+                            'alternarOcupacionTramitador',
+                            false
+                        );
+                    }
+
+                    if (excepto !== 'rubro') {
+                        cambiarEstadoSelectorCatalogo(
+                            'contenedorRubroTramitador',
+                            'alternarRubroTramitador',
+                            false
+                        );
+                    }
+                };
+
+                const actualizarLimpiarRubro = () => {
+                    const buscador = document.getElementById('buscadorRubroTramitador');
+                    document.getElementById('limpiarRubroTramitador').classList.toggle(
+                        'is-visible',
+                        Boolean(buscador.value.trim() || rubros.length)
+                    );
+                };
+
                 const renderPaises = () => {
                     const texto = document.getElementById('buscadorPaisTramitador').value.toLowerCase();
                     const botones = Array.from(document.getElementById('paisTramitador').options)
@@ -582,7 +672,12 @@
                                 rubros.push({ id: Number(opcion.value), etiqueta: opcion.dataset.etiqueta });
                                 renderRubros();
                                 document.getElementById('buscadorRubroTramitador').value = '';
-                                document.getElementById('contenedorRubroTramitador').classList.remove('is-open');
+                                actualizarLimpiarRubro();
+                                cambiarEstadoSelectorCatalogo(
+                                    'contenedorRubroTramitador',
+                                    'alternarRubroTramitador',
+                                    false
+                                );
                             });
                             return boton;
                         });
@@ -617,7 +712,11 @@
                             boton.append(codigo, descripcion, marca);
                             boton.addEventListener('click', () => {
                                 seleccionarOcupacion(opcion.value);
-                                document.getElementById('contenedorOcupacionTramitador').classList.remove('is-open');
+                                cambiarEstadoSelectorCatalogo(
+                                    'contenedorOcupacionTramitador',
+                                    'alternarOcupacionTramitador',
+                                    false
+                                );
                             });
                             return boton;
                         });
@@ -640,15 +739,123 @@
 
                 const buscadorOcupacion = document.getElementById('buscadorOcupacionTramitador');
                 buscadorOcupacion.addEventListener('focus', () => {
-                    document.getElementById('contenedorOcupacionTramitador').classList.add('is-open');
+                    cerrarSelectoresCatalogo('ocupacion');
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorOcupacionTramitador',
+                        'alternarOcupacionTramitador',
+                        true
+                    );
                     renderOpcionesOcupaciones();
                 });
-                buscadorOcupacion.addEventListener('input', renderOpcionesOcupaciones);
-                document.getElementById('limpiarOcupacionTramitador').addEventListener('click', () => seleccionarOcupacion('', ''));
+                buscadorOcupacion.addEventListener('input', () => {
+                    document.getElementById('limpiarOcupacionTramitador').classList.toggle(
+                        'is-visible',
+                        Boolean(buscadorOcupacion.value.trim())
+                    );
+                    renderOpcionesOcupaciones();
+                });
+                buscadorOcupacion.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        cambiarEstadoSelectorCatalogo(
+                            'contenedorOcupacionTramitador',
+                            'alternarOcupacionTramitador',
+                            false
+                        );
+                        document.getElementById('alternarOcupacionTramitador').focus();
+                    }
+                });
+                document.getElementById('limpiarOcupacionTramitador').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    seleccionarOcupacion('', '');
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorOcupacionTramitador',
+                        'alternarOcupacionTramitador',
+                        true
+                    );
+                    renderOpcionesOcupaciones();
+                    buscadorOcupacion.focus();
+                });
+                document.getElementById('alternarOcupacionTramitador').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const contenedor = document.getElementById('contenedorOcupacionTramitador');
+                    const abrir = !contenedor.classList.contains('is-open');
+                    cerrarSelectoresCatalogo(abrir ? 'ocupacion' : '');
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorOcupacionTramitador',
+                        'alternarOcupacionTramitador',
+                        abrir
+                    );
+
+                    if (abrir) {
+                        renderOpcionesOcupaciones();
+                        buscadorOcupacion.focus();
+                    }
+                });
 
                 const buscadorRubro = document.getElementById('buscadorRubroTramitador');
-                buscadorRubro.addEventListener('focus', () => { document.getElementById('contenedorRubroTramitador').classList.add('is-open'); renderOpcionesRubros(); });
-                buscadorRubro.addEventListener('input', renderOpcionesRubros);
+                buscadorRubro.addEventListener('focus', () => {
+                    cerrarSelectoresCatalogo('rubro');
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorRubroTramitador',
+                        'alternarRubroTramitador',
+                        true
+                    );
+                    renderOpcionesRubros();
+                });
+                buscadorRubro.addEventListener('input', () => {
+                    actualizarLimpiarRubro();
+                    renderOpcionesRubros();
+                });
+                buscadorRubro.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        cambiarEstadoSelectorCatalogo(
+                            'contenedorRubroTramitador',
+                            'alternarRubroTramitador',
+                            false
+                        );
+                        document.getElementById('alternarRubroTramitador').focus();
+                    }
+                });
+                document.getElementById('limpiarRubroTramitador').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    buscadorRubro.value = '';
+                    rubros = [];
+                    renderRubros();
+                    actualizarLimpiarRubro();
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorRubroTramitador',
+                        'alternarRubroTramitador',
+                        true
+                    );
+                    renderOpcionesRubros();
+                    buscadorRubro.focus();
+                });
+                document.getElementById('alternarRubroTramitador').addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const contenedor = document.getElementById('contenedorRubroTramitador');
+                    const abrir = !contenedor.classList.contains('is-open');
+                    cerrarSelectoresCatalogo(abrir ? 'rubro' : '');
+                    cambiarEstadoSelectorCatalogo(
+                        'contenedorRubroTramitador',
+                        'alternarRubroTramitador',
+                        abrir
+                    );
+
+                    if (abrir) {
+                        renderOpcionesRubros();
+                        buscadorRubro.focus();
+                    }
+                });
+
+                // Cierra los desplegables al hacer clic fuera, como cualquier select nativo.
+                document.addEventListener('click', (event) => {
+                    const ocupacion = document.getElementById('contenedorOcupacionTramitador');
+                    const rubro = document.getElementById('contenedorRubroTramitador');
+
+                    if (!ocupacion.contains(event.target) && !rubro.contains(event.target)) {
+                        cerrarSelectoresCatalogo();
+                    }
+                });
 
                 btnBuscarPersona.addEventListener('click', buscarPersona);
 

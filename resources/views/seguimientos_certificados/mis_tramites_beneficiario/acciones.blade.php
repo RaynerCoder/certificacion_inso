@@ -4,9 +4,9 @@
         Ver trámite
     </x-wire-button>
 
-    @if ($seguimiento->certificado?->estado === 'EMITIDO')
-        <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'enviadas']) }}" amber xs>
-            Imprimir certificado
+    @if (in_array($seguimiento->certificado?->estado, ['EMITIDO', 'VENCIDO'], true) && filled($seguimiento->certificado?->url_documento))
+        <x-wire-button href="{{ route('certificados_descargar', ['certificado' => $seguimiento->certificado, 'visualizar' => 1]) }}" amber xs>
+            Ver certificado
         </x-wire-button>
     @endif
 </div>

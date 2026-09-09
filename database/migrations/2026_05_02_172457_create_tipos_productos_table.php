@@ -14,9 +14,15 @@ return new class extends Migration
         Schema::create('clasificaciones_toxicologicas', function (Blueprint $table) {
             $table->id();
 
-            $table->text('descripcion')->nullable();
-            $table->string('codigo', 150)->unique()->nullable();
+            $table->string('codigo', 150);
+            $table->string('descripcion', 255);
             $table->string('estado', 50)->nullable();
+
+            // El código puede repetirse; lo que identifica la clasificación es la combinación completa.
+            $table->unique(
+                ['codigo', 'descripcion'],
+                'clasificaciones_toxicologicas_codigo_descripcion_unique'
+            );
 
             // Auditoría
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');

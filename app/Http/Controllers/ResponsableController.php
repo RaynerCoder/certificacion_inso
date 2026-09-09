@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Responsable;
 use App\Models\Empresa;
 use App\Models\Natural;
+use App\Models\OcupacionCob;
 use App\Models\Persona;
 use App\Models\Rubro;
 use App\Models\Role;
@@ -93,7 +94,7 @@ class ResponsableController extends Controller
         $responsable->load([
             'empresa.persona.territorio',
             'empresa.tipoEmpresa',
-            'persona.natural',
+            'persona.natural.ocupacionCob',
             'persona.territorio',
             'persona.telefonos',
             'persona.rubros',
@@ -110,7 +111,7 @@ class ResponsableController extends Controller
     {
         $responsable->load([
             'empresa',
-            'persona.natural',
+            'persona.natural.ocupacionCob',
             'persona.telefonos',
             'persona.rubros',
             'persona.territorio',
@@ -118,13 +119,14 @@ class ResponsableController extends Controller
         ]);
         $empresas = Empresa::with('persona')->orderBy('razon_social')->get();
         // Un responsable de empresa se registra como persona natural.
-        $personas = Persona::with(['natural', 'telefonos', 'rubros', 'territorio'])
+        $personas = Persona::with(['natural.ocupacionCob', 'telefonos', 'rubros', 'territorio'])
             ->whereHas('natural')
             ->orderBy('id')
             ->get();
         $territorios = Territorio::orderBy('nombre')->get();
         // Se usa la tabla roles para asignar el rol del responsable.
         $roles = Role::where('estado', 1)->orderBy('name')->get();
+        $ocupacionesCob = OcupacionCob::orderBy('codigo_ocupacion')->get();
         $rubrosCatalogo = Rubro::query()
             ->whereNotNull('codigo_caeb')
             ->where('nivel_caeb', 'SUBCLASE')
@@ -138,7 +140,8 @@ class ResponsableController extends Controller
             'personas',
             'territorios',
             'roles',
-            'rubrosCatalogo'
+            'rubrosCatalogo',
+            'ocupacionesCob'
         ));
     }
 
@@ -377,7 +380,7 @@ class ResponsableController extends Controller
             'form_apellido_casado' => ['nullable', 'string', 'max:100'],
             'form_fecha_nacimiento' => ['nullable', 'date'],
             'form_genero' => ['required', 'in:0,1'],
-            'form_ocupacion' => ['nullable', 'string', 'max:255'],
+            'form_id_ocupacion' => ['nullable', 'exists:ocupaciones_cob,id'],
             'form_telefonos_json' => ['nullable', 'json'],
             'form_rubros_json' => ['nullable', 'json'],
         ], [], [
@@ -438,7 +441,7 @@ class ResponsableController extends Controller
                 'apellido_casado' => $this->mayuscula($datos['form_apellido_casado'] ?? null),
                 'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                 'genero' => $datos['form_genero'],
-                'ocupacion' => $this->mayuscula($datos['form_ocupacion'] ?? null),
+                'id_ocupacion' => $datos['form_id_ocupacion'] ?? null,
             ]
         );
 

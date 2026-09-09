@@ -31,14 +31,21 @@
                             </span>
                             <i class="fa-solid fa-chevron-down"></i>
                         </button>
+                        <button type="button" class="producto-search-clear" data-ingrediente-clear hidden
+                            title="Quitar ingrediente" aria-label="Quitar ingrediente seleccionado">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        </button>
 
                         <div class="producto-ingredient-dropdown" id="form_ingrediente_dropdown">
-                            <label class="producto-ingredient-search" for="form_ingrediente_search">
+                            <div class="producto-ingredient-search">
                                 <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                                 <input id="form_ingrediente_search" type="search" placeholder="Buscar ingrediente"
-                                    autocomplete="off" data-ingrediente-search>
-                                <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
-                            </label>
+                                    autocomplete="off" data-ingrediente-search aria-label="Buscar ingrediente">
+                                <button type="button" class="producto-search-close" data-ingrediente-close
+                                    title="Cerrar selector" aria-label="Cerrar selector de ingredientes">
+                                    <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+                                </button>
+                            </div>
                             <div class="producto-ingredient-options" id="form_ingrediente_options" role="listbox"></div>
                         </div>
                     </div>
@@ -88,8 +95,9 @@
                                     ?? $ingredienteCatalogo?->nombre
                                     ?? 'Ingrediente sin nombre';
                                 $estadoIngrediente = $ingredienteOld['estado'] ?? 'ACTIVO';
+                                $errorIngrediente = $errors->first("ingredientes_productos.$indice.id_ingrediente");
                             @endphp
-                            <tr>
+                            <tr @class(['is-invalid' => filled($errorIngrediente)])>
                                 <td class="producto-ingredient-index">{{ $loop->iteration }}</td>
                                 <td class="producto-ingredient-name">
                                     {{ $nombreIngrediente }}
@@ -102,6 +110,9 @@
                                         value="{{ $ingredienteOld['porcentaje'] ?? '' }}">
                                     <input type="hidden" name="ingredientes_productos[{{ $indice }}][estado]"
                                         value="{{ $estadoIngrediente }}">
+                                    @if ($errorIngrediente)
+                                        <p class="producto-table-field-error">{{ $errorIngrediente }}</p>
+                                    @endif
                                 </td>
                                 <td class="producto-ingredient-percentage">
                                     {{ rtrim(rtrim(number_format((float) ($ingredienteOld['porcentaje'] ?? 0), 5, '.', ''), '0'), '.') }}%

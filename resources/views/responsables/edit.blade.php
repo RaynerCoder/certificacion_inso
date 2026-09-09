@@ -46,7 +46,7 @@
                 'apellido_casado' => $natural?->apellido_casado,
                 'fecha_nacimiento' => $fechaCampo($natural?->fecha_nacimiento),
                 'genero' => is_null($natural?->genero) ? '' : (string) $natural->genero,
-                'ocupacion' => $natural?->ocupacion,
+                'id_ocupacion' => $natural?->id_ocupacion,
                 'telefonos' => $persona->telefonos->map(fn ($telefono) => [
                     'numero' => (string) $telefono->numero,
                     'tipo' => $telefono->estado ?: 'CELULAR',
@@ -692,10 +692,16 @@
                         </div>
 
                         <div>
-                            <label class="responsable-field-label" for="form_ocupacion">Ocupación</label>
-                            <input id="form_ocupacion" name="form_ocupacion" type="text" class="responsable-field"
-                                value="{{ old('form_ocupacion', $naturalActual?->ocupacion) }}">
-                            @error('form_ocupacion')
+                            <label class="responsable-field-label" for="form_id_ocupacion">Ocupación</label>
+                            <select id="form_id_ocupacion" name="form_id_ocupacion" class="responsable-field">
+                                <option value="">Seleccione una ocupación</option>
+                                @foreach ($ocupacionesCob as $ocupacionCob)
+                                    <option value="{{ $ocupacionCob->id }}" @selected((string) old('form_id_ocupacion', $naturalActual?->id_ocupacion) === (string) $ocupacionCob->id)>
+                                        {{ $ocupacionCob->codigo_ocupacion }} - {{ $ocupacionCob->descripcion_ocupacion }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('form_id_ocupacion')
                                 <p class="responsable-error">{{ $message }}</p>
                             @enderror
                         </div>
@@ -972,7 +978,7 @@
                 apellido_casado: document.getElementById('form_apellido_casado'),
                 fecha_nacimiento: document.getElementById('form_fecha_nacimiento'),
                 genero: document.getElementById('form_genero'),
-                ocupacion: document.getElementById('form_ocupacion'),
+                id_ocupacion: document.getElementById('form_id_ocupacion'),
             };
 
             function actualizarVistaRespaldoResponsable(nombre, estado, url = '', permiteQuitar = false) {

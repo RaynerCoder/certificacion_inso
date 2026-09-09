@@ -8,8 +8,19 @@
         Seguimiento
     </x-wire-button>
 
-    @if ($seguimiento->certificado?->puedeEmitirse())
-        @if ($seguimiento->certificado?->tipoCertificado?->plantillaActiva)
+    @php
+        $certificadoFinalizado = $seguimiento->certificado;
+        $esDocumentoConsultable = in_array($certificadoFinalizado?->estado, ['EMITIDO', 'VENCIDO'], true)
+            && filled($certificadoFinalizado?->url_documento);
+        $puedeAbrirEmision = $certificadoFinalizado?->puedeEmitirse() || $esDocumentoConsultable;
+    @endphp
+
+    @if ((auth()->user()?->puede('certificados.emitir') ?? false) && $puedeAbrirEmision)
+        @if ($esDocumentoConsultable)
+            <x-wire-button href="{{ route('certificados_descargar', ['certificado' => $seguimiento->certificado, 'visualizar' => 1]) }}" amber xs>
+                Ver certificado
+            </x-wire-button>
+        @elseif ($seguimiento->certificado?->tipoCertificado?->plantillaActiva)
             <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados']) }}" amber xs>
                 Emitir certificado
             </x-wire-button>

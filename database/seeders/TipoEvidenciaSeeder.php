@@ -23,6 +23,7 @@ class TipoEvidenciaSeeder extends Seeder
             6 => ['CERTIFICADO', 'Certificado', 'Referencia a un certificado previo requerido por el tramite.', 0],
             7 => ['PRODUCTO', 'Producto', 'Referencia a un producto registrado en el sistema.', 0],
             8 => ['TRAMITADOR', 'Tramitador', 'Validación de la persona autorizada para realizar trámites de una empresa.', 0],
+            9 => ['CALIFICACION', 'Calificación', 'Calificación numérica registrada por el técnico evaluador.', 0],
         ] as $id => [$codigo, $nombre, $descripcion, $tamanioMaximoMb]) {
             $this->guardar('tipos_evidencias', $id, [
                 'codigo' => $codigo,

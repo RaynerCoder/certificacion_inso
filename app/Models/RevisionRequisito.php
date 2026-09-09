@@ -17,7 +17,12 @@ class RevisionRequisito extends Model
         'id_evidencia_requisito',
         'id_usuario_revisor',
         'resultado_cumple',
+        'calificacion_obtenida',
         'estado',
+    ];
+
+    protected $casts = [
+        'calificacion_obtenida' => 'decimal:2',
     ];
 
     // Relación muchos a uno (muchas revisiones pertenecen a un requisito certificado)

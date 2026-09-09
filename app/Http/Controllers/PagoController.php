@@ -6,9 +6,9 @@ use App\Models\Certificado;
 use App\Models\Pago;
 use App\Models\Procedencia;
 use App\Models\RequisitoCertificado;
+use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class PagoController extends Controller
 {
     public function __construct(
-        private readonly GestionTramitadoresService $gestionTramitadores
+        private readonly GestionTramitadoresService $gestionTramitadores,
+        private readonly ExpedienteTramiteService $expedientesTramites
     ) {}
 
     /**
@@ -89,7 +90,7 @@ class PagoController extends Controller
                 'id_procedencia' => $datos['form_id_procedencia_pago'],
                 'tipo_pago' => $datos['form_tipo_pago'],
                 'fecha' => $datos['form_fecha_pago'],
-                'comprobante' => $this->guardarComprobantePago($request, $certificado),
+                'comprobante' => null,
                 'monto' => $datos['form_monto_pago'],
                 'id_cliente' => $certificado->id_persona_beneficiario,
                 'id_funcionario' => auth()->id(),
@@ -98,6 +99,12 @@ class PagoController extends Controller
                     ? trim($datos['form_factura_pago'])
                     : null,
             ]);
+
+            if ($request->hasFile('form_comprobante_pago')) {
+                $pago->update([
+                    'comprobante' => $this->guardarComprobantePago($request, $certificado, $pago),
+                ]);
+            }
 
             $certificado->pagos()->attach($pago->id, [
                 'id_usuario_registro' => auth()->id(),
@@ -162,7 +169,7 @@ class PagoController extends Controller
                 $funcionario->apellido_materno,
             ])))
             : null;
-        $rutaComprobante = preg_replace('#^/?storage/#', '', (string) $pago->comprobante);
+        $rutaComprobante = $this->expedientesTramites->rutaAbsoluta($pago->comprobante);
 
         return view('pagos.show', [
             'pago' => $pago,
@@ -171,8 +178,7 @@ class PagoController extends Controller
             'tipoBeneficiario' => $esEmpresa ? 'Empresa' : 'Persona natural',
             'nombreFuncionario' => $nombreFuncionario ?: 'Sin funcionario registrado',
             'cargoFuncionario' => $funcionario?->cargos?->pluck('nombre')->filter()->implode(', ') ?: 'Sin cargo registrado',
-            'tieneComprobanteDisponible' => filled($rutaComprobante)
-                && Storage::disk('public')->exists($rutaComprobante),
+            'tieneComprobanteDisponible' => filled($rutaComprobante),
         ]);
     }
 
@@ -201,11 +207,11 @@ class PagoController extends Controller
             'No tiene permiso para consultar este comprobante.'
         );
 
-        $ruta = preg_replace('#^/?storage/#', '', (string) $pago->comprobante);
+        $ruta = $this->expedientesTramites->rutaAbsoluta($pago->comprobante);
 
-        abort_if(blank($ruta) || !Storage::disk('public')->exists($ruta), 404, 'El comprobante no fue encontrado.');
+        abort_if(blank($ruta), 404, 'El comprobante no fue encontrado.');
 
-        return response()->file(Storage::disk('public')->path($ruta), [
+        return response()->file($ruta, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . basename($ruta) . '"',
         ]);
@@ -237,7 +243,7 @@ class PagoController extends Controller
                 $beneficiario?->natural?->apellido_paterno,
                 $beneficiario?->natural?->apellido_materno,
             ])));
-        $rutaComprobante = preg_replace('#^/?storage/#', '', (string) $pago->comprobante);
+        $rutaComprobante = $this->expedientesTramites->rutaAbsoluta($pago->comprobante);
 
         return view('pagos.edit', [
             'pago' => $pago,
@@ -245,8 +251,7 @@ class PagoController extends Controller
             'procedencias' => Procedencia::orderBy('codigo')->get(),
             'nombreBeneficiario' => $nombreBeneficiario ?: 'Sin nombre registrado',
             'tipoBeneficiario' => $esEmpresa ? 'Empresa' : 'Persona natural',
-            'tieneComprobanteDisponible' => filled($rutaComprobante)
-                && Storage::disk('public')->exists($rutaComprobante),
+            'tieneComprobanteDisponible' => filled($rutaComprobante),
         ]);
     }
 
@@ -301,7 +306,7 @@ class PagoController extends Controller
 
             // El comprobante actual se conserva cuando no se selecciona un PDF nuevo.
             if ($request->hasFile('form_comprobante_pago')) {
-                $cambios['comprobante'] = $this->guardarComprobantePago($request, $certificado);
+                $cambios['comprobante'] = $this->guardarComprobantePago($request, $certificado, $pago);
             }
 
             $pago->update($cambios);
@@ -340,18 +345,19 @@ class PagoController extends Controller
         //
     }
 
-    // Guarda el comprobante PDF en storage publico y devuelve la ruta consumida por las vistas.
-    private function guardarComprobantePago(Request $request, Certificado $certificado): ?string
+    // Guarda el comprobante como una entrega versionada dentro del expediente privado del trámite.
+    private function guardarComprobantePago(Request $request, Certificado $certificado, Pago $pago): ?string
     {
         if (!$request->hasFile('form_comprobante_pago')) {
             return null;
         }
 
-        $archivo = $request->file('form_comprobante_pago');
-        $nombre = 'comprobante_' . $certificado->id . '_' . now()->format('YmdHis') . '.pdf';
-        $ruta = $archivo->storeAs('pagos/' . $certificado->id, $nombre, 'public');
-
-        return 'storage/' . $ruta;
+        return $this->expedientesTramites->guardarArchivoSubido(
+            $certificado,
+            $request->file('form_comprobante_pago'),
+            ExpedienteTramiteService::COMPROBANTE_PAGO,
+            pago: $pago
+        );
     }
 
     // Relaciona el pago con el requisito configurado como PAGO para que la revision lea el dato desde evidencias_requisitos.

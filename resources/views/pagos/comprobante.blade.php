@@ -2,7 +2,11 @@
     $rutaGuardada = $comprobante ?? $pago->getRawOriginal('comprobante') ?? $pago->comprobante;
     $rutaComprobante = preg_replace('#^/?storage/#', '', (string) $rutaGuardada);
     $archivoDisponible = filled($rutaComprobante)
-        && \Illuminate\Support\Facades\Storage::disk('public')->exists($rutaComprobante);
+        && (
+            \Illuminate\Support\Facades\Storage::disk('local')->exists($rutaComprobante)
+            || \Illuminate\Support\Facades\Storage::disk('public')->exists($rutaComprobante)
+            || file_exists(public_path('storage/'.$rutaComprobante))
+        );
 @endphp
 
 @if ($archivoDisponible)

@@ -17,7 +17,9 @@ class AuthenticateUser
 
     public function __invoke(Request $request): ?User
     {
-        $this->validateCaptcha($request);
+        // CAPTCHA deshabilitado temporalmente para permitir el inicio de sesión directo.
+        // Para reactivarlo, quite el comentario de la siguiente línea.
+        // $this->validateCaptcha($request);
 
         $access = (string) $request->input(Fortify::username());
         $user = User::query()

@@ -24,7 +24,7 @@ public function updateNatural(Request $request, Persona $persona)
         'form_apellido_casado'  => 'nullable|string|max:100',
         'form_fecha_nacimiento' => 'nullable|date',
         'form_genero'           => 'required',
-        'form_ocupacion'        => 'nullable|string|max:255',
+        'form_id_ocupacion'     => 'nullable|exists:ocupaciones_cob,id',
 
         // TELEFONOS
         'telefonos' => 'nullable|array',
@@ -64,7 +64,7 @@ public function updateNatural(Request $request, Persona $persona)
                 'apellido_casado'  => $datos['form_apellido_casado'] ?? null,
                 'fecha_nacimiento' => $datos['form_fecha_nacimiento'] ?? null,
                 'genero'           => $datos['form_genero'],
-                'ocupacion'        => $datos['form_ocupacion'] ?? null,
+                'id_ocupacion'     => $datos['form_id_ocupacion'] ?? null,
             ]
         );
 

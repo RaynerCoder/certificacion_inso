@@ -141,41 +141,36 @@ class ClasificacionToxicologicaController extends Controller
                     $codigo = trim((string) $valor);
                     $descripcion = trim((string) $solicitud->input('form_descripcion', ''));
 
-                    $consulta = ClasificacionToxicologica::withTrashed()->where('codigo', $codigo);
+                    if ($descripcion === '') {
+                        return;
+                    }
+
+                    $consulta = ClasificacionToxicologica::withTrashed()
+                        ->whereRaw('LOWER(TRIM(codigo)) = ?', [mb_strtolower($codigo)])
+                        ->whereRaw('LOWER(TRIM(descripcion)) = ?', [mb_strtolower($descripcion)]);
 
                     if ($clasificacionToxicologica) {
                         $consulta->whereKeyNot($clasificacionToxicologica->id);
                     }
 
-                    $existente = $consulta->first();
-
-                    if (!$existente) {
-                        return;
-                    }
-
-                    $descripcionExistente = trim((string) $existente->descripcion);
-
-                    if (strcasecmp($descripcionExistente, $descripcion) === 0) {
+                    if ($consulta->exists()) {
                         $fallar('Ya existe una clasificación toxicológica con el mismo código y descripción.');
-                        return;
                     }
-
-                    // El código identifica de forma única a cada clasificación del catálogo.
-                    $fallar('El código ya está registrado en otra clasificación toxicológica.');
                 },
             ],
-            'form_descripcion' => 'nullable|string|max:1000',
+            'form_descripcion' => ['required', 'string', 'max:255'],
             'form_estado' => 'nullable|max:50',
+        ], [
+            'form_codigo.required' => 'El código es obligatorio.',
+            'form_descripcion.required' => 'La descripción es obligatoria.',
         ]);
     }
 
     private function datosClasificacionToxicologica(array $datos): array
     {
-        $descripcion = trim((string) ($datos['form_descripcion'] ?? ''));
-
         return [
             'codigo' => trim($datos['form_codigo']),
-            'descripcion' => $descripcion !== '' ? $descripcion : null,
+            'descripcion' => trim($datos['form_descripcion']),
             'estado' => $datos['form_estado'] ?? 'ACTIVO',
         ];
     }

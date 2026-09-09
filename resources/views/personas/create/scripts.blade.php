@@ -1283,7 +1283,7 @@
                             <h6>Datos personales del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Nacimiento', fechaCortaPersonaWizard(valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento')))}
                             ${datoResponsableRevisionPersonaWizard('Genero', generoTextoPersonaWizard(valorOcultoResumenPersonaWizard(item, 'genero')))}
-                            ${datoResponsableRevisionPersonaWizard('Ocupacion', valorOcultoResumenPersonaWizard(item, 'ocupacion') || 'Sin ocupacion')}
+                            ${datoResponsableRevisionPersonaWizard('Ocupación', textoSelectPorValorPersonaWizard('#nuevo_id_ocupacion', valorOcultoResumenPersonaWizard(item, 'id_ocupacion')) || 'Sin ocupación')}
                         </section>
 
                         <section>
@@ -3226,7 +3226,6 @@
             <input type="hidden" name="responsables[${indiceFormulario}][fecha_nacimiento]" value="${datos.fechaNacimiento || ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][genero]" value="${datos.genero ?? ''}">
             <input type="hidden" name="responsables[${indiceFormulario}][id_ocupacion]" value="${datos.idOcupacion || ''}">
-            <input type="hidden" name="responsables[${indiceFormulario}][ocupacion]" value="${datos.ocupacion || ''}">
 
             <input type="hidden" name="responsables[${indiceFormulario}][id_rol]" value="${datos.idRol || ''}">
             ${datos.urlRespaldo ? `<input type="hidden" name="responsables[${indiceFormulario}][url_respaldo]" value="${datos.urlRespaldo}">` : ''}
@@ -3772,7 +3771,6 @@
             <input type="hidden" name="responsables[${indiceResponsable}][fecha_nacimiento]" value="${responsable.fecha_nacimiento || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][genero]" value="${responsable.genero ?? ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][id_ocupacion]" value="${responsable.id_ocupacion || ''}">
-            <input type="hidden" name="responsables[${indiceResponsable}][ocupacion]" value="${responsable.ocupacion || ''}">
 
             <input type="hidden" name="responsables[${indiceResponsable}][id_rol]" value="${responsable.id_rol || ''}">
             <input type="hidden" name="responsables[${indiceResponsable}][url_respaldo]" value="${responsable.url_respaldo || ''}">

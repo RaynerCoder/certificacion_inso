@@ -12,12 +12,12 @@
         'href' => route('tipos_certificados_index'),
     ],
     [
-        'name' => 'Editar',
+        'name' => 'Configurar',
     ],
 ]">
 
     @php
-        // Catalogos enviados desde el controlador para reutilizar la misma logica visual del create.
+        // Catálogos necesarios para modificar requisitos y evidencias sin tocar los datos básicos.
         $requisitosDisponibles = $requisitos ?? collect();
         $tiposEvidenciasDisponibles = $tiposEvidencias ?? collect();
         $tiposCertificadosDisponibles = $tiposCertificadosRequeridos ?? collect();
@@ -67,6 +67,7 @@
                     'id_tipo_evidencia' => filled($item['id_tipo_evidencia'] ?? null)
                         ? (string) $item['id_tipo_evidencia']
                         : '',
+                    'calificacion_minima_aprobacion' => $item['calificacion_minima_aprobacion'] ?? '',
                     'id_tipo_certificado_requerido' => filled($item['id_tipo_certificado_requerido'] ?? null)
                         ? (string) $item['id_tipo_certificado_requerido']
                         : '',
@@ -82,15 +83,22 @@
     @endphp
 
     <div class="space-y-5">
-        {{-- Encabezado principal del formulario. --}}
+        {{-- El encabezado identifica el registro, pero el nombre y estado no se editan aquí. --}}
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="relative px-6 py-5">
                 <div class="absolute inset-x-0 top-0 h-1 bg-emerald-600"></div>
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-800">Editar Tipo de Certificado</h1>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h1 class="text-2xl font-bold tracking-tight text-slate-800">
+                                {{ $tipoCertificado->nombre }}
+                            </h1>
+                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $tipoCertificado->estado === 'ACTIVO' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600' }}">
+                                {{ $tipoCertificado->estado }}
+                            </span>
+                        </div>
                         <p class="mt-1 text-sm text-slate-500">
-                            Actualiza el certificado, sus requisitos y la evidencia que pedira el sistema.
+                            Configure el área, los requisitos y las evidencias que solicitará el sistema.
                         </p>
                     </div>
 
@@ -103,29 +111,23 @@
             </div>
         </div>
 
-        <form action="{{ route('tipos_certificados_update', $tipoCertificado) }}" method="POST"
+        <form action="{{ route('tipos_certificados_configuracion_update', $tipoCertificado) }}" method="POST"
             id="formTipoCertificadoRequisitos">
             @csrf
             @method('PUT')
 
             <div class="space-y-4">
-                {{-- 1. Datos principales que se guardan en tipos_certificados. --}}
+                {{-- 1. Datos operativos. El nombre y estado se administran desde el modal del listado. --}}
                 <section class="overflow-hidden rounded-2xl border border-teal-100 bg-white shadow-sm">
                     <div
                         class="flex items-center gap-3 border-b border-teal-100 bg-gradient-to-r from-teal-50 to-white px-5 py-3">
                         <span
                             class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold text-white">1</span>
-                        <h2 class="text-base font-bold text-teal-800">Datos principales</h2>
+                        <h2 class="text-base font-bold text-teal-800">Configuración general</h2>
                     </div>
 
                     <div class="grid grid-cols-1 gap-5 px-5 py-4 lg:grid-cols-12">
-                        <div class="lg:col-span-4">
-                            <x-wire-input label="Nombre del tipo de certificado" id="nombre" name="form_nombre"
-                                type="text" placeholder="Ejemplo: Certificado de Registro"
-                                value="{{ old('form_nombre', $tipoCertificado->nombre) }}" />
-                        </div>
-
-                        <div class="lg:col-span-5">
+                        <div class="lg:col-span-8">
                             <x-wire-native-select label="Área desde donde se iniciará el trámite" id="form_id_area"
                                 name="form_id_area">
                                 <option value="">Seleccione el área</option>
@@ -137,12 +139,14 @@
                             </x-wire-native-select>
                         </div>
 
-                        <div class="lg:col-span-3">
-                            <x-wire-native-select label="Estado" id="estado" name="form_estado">
-                                <option value="ACTIVO" @selected(old('form_estado', $tipoCertificado->estado) === 'ACTIVO')>Activo</option>
-                                <option value="INACTIVO" @selected(old('form_estado', $tipoCertificado->estado) === 'INACTIVO')>Inactivo</option>
-                            </x-wire-native-select>
+                        <div class="lg:col-span-4">
+                            <x-wire-input label="Descargas por usuario" id="limite_descargas"
+                                name="form_limite_descargas" type="number" min="0" max="65535"
+                                placeholder="Sin límite"
+                                value="{{ old('form_limite_descargas', $tipoCertificado->limite_descargas) }}" />
+                            <p class="mt-1 text-xs text-slate-500">Déjelo vacío para permitir descargas ilimitadas. Use 0 para bloquearlas.</p>
                         </div>
+
                     </div>
                 </section>
 
@@ -464,6 +468,7 @@
                         id: checkbox.value,
                         descripcion: checkbox.dataset.requisitoDescripcion,
                         id_tipo_evidencia: '',
+                        calificacion_minima_aprobacion: '',
                         id_tipo_certificado_requerido: '',
                         estado: 'ACTIVO',
                         nuevo: false,
@@ -484,6 +489,7 @@
                         id: `certificado_previo_${checkbox.value}`,
                         descripcion: checkbox.dataset.certificadoNombre,
                         id_tipo_evidencia: idTipoEvidenciaCertificado,
+                        calificacion_minima_aprobacion: '',
                         id_tipo_certificado_requerido: checkbox.value,
                         nombre_certificado_requerido: checkbox.dataset.certificadoNombre,
                         requisitos_certificado_requerido: certificado?.requisitos || [],
@@ -513,6 +519,7 @@
                     id: `nuevo_${indiceRequisitoNuevo++}`,
                     descripcion,
                     id_tipo_evidencia: '',
+                    calificacion_minima_aprobacion: '',
                     id_tipo_certificado_requerido: '',
                     estado: estadoInput.value || 'ACTIVO',
                     nuevo: true,
@@ -542,6 +549,7 @@
                 requisitosAsignados.push({
                     ...requisito,
                     id_tipo_evidencia: requisito.id_tipo_evidencia || '',
+                    calificacion_minima_aprobacion: requisito.calificacion_minima_aprobacion ?? '',
                     id_tipo_certificado_requerido: requisito.id_tipo_certificado_requerido || '',
                     nombre_certificado_requerido: requisito.nombre_certificado_requerido || '',
                     requisitos_certificado_requerido: requisito.requisitos_certificado_requerido ||
@@ -590,6 +598,7 @@
                     <input type="hidden" name="requisitos_asignados[${index}][id_requisito]" value="${requisito.nuevo ? '' : escaparHtml(requisito.id)}">
                     <input type="hidden" name="requisitos_asignados[${index}][descripcion]" value="${escaparHtml(descripcionParaGuardar)}">
                     <input type="hidden" name="requisitos_asignados[${index}][id_tipo_evidencia]" value="${escaparHtml(requisito.id_tipo_evidencia || '')}">
+                    <input type="hidden" id="calificacionMinimaRequisito-${index}" name="requisitos_asignados[${index}][calificacion_minima_aprobacion]" value="${escaparHtml(requisito.calificacion_minima_aprobacion ?? '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][id_tipo_certificado_requerido]" value="${escaparHtml(requisito.id_tipo_certificado_requerido || '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][nombre_certificado_requerido]" value="${escaparHtml(requisito.nombre_certificado_requerido || '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][nuevo]" value="${requisito.nuevo ? 1 : 0}">
@@ -685,6 +694,16 @@
                 const tipoSeleccionado = tiposEvidencias.find((item) => String(item.id) === String(idSeleccionado));
                 const opciones = tiposEvidencias.filter((tipo) => incluirCertificadoVigente || tipo.codigo !==
                     'CERTIFICADO');
+                const campoCalificacionMinima = tipoSeleccionado?.codigo === 'CALIFICACION' ? `
+                    <label class="mt-2 block text-[11px] font-bold text-slate-600">
+                        Calificación mínima de aprobación
+                        <input type="number" min="0" max="100" step="0.01"
+                            class="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                            value="${escaparHtml(requisitosAsignados[index]?.calificacion_minima_aprobacion ?? '')}"
+                            oninput="actualizarCalificacionMinima(${index}, this.value)"
+                            placeholder="Ej.: 70">
+                    </label>
+                ` : '';
 
                 return `
                     <div class="relative">
@@ -712,8 +731,18 @@
                                 `).join('')}
                                                                     </div>
                                                                 ` : ''}
+                        ${campoCalificacionMinima}
                     </div>
                 `;
+            }
+
+            // Conserva la calificación mínima mientras se edita sin volver a dibujar toda la fila.
+            function actualizarCalificacionMinima(index, valor) {
+                if (!requisitosAsignados[index]) return;
+
+                requisitosAsignados[index].calificacion_minima_aprobacion = valor;
+                const inputOculto = document.getElementById(`calificacionMinimaRequisito-${index}`);
+                if (inputOculto) inputOculto.value = valor;
             }
 
             // Abre o cierra el selector personalizado de una fila.
@@ -775,6 +804,10 @@
                 }
 
                 requisitosAsignados[index].id_tipo_evidencia = idTipoEvidencia;
+                const tipoSeleccionado = tiposEvidencias.find((item) => String(item.id) === String(idTipoEvidencia));
+                if (tipoSeleccionado?.codigo !== 'CALIFICACION') {
+                    requisitosAsignados[index].calificacion_minima_aprobacion = '';
+                }
                 window.selectorEvidenciaAbierto = null;
 
                 renderizarTablaRequisitos();

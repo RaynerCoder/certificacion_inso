@@ -232,13 +232,11 @@
                                     {{-- Muestra el PDF actual; si no se sube otro archivo se conserva esta ruta. --}}
                                     @if ($certificado->url_documento)
                                         @php
-                                            $documentoActual = \Illuminate\Support\Str::startsWith($certificado->url_documento, ['http://', 'https://'])
-                                                ? $certificado->url_documento
-                                                : asset('storage/' . $certificado->url_documento);
+                                            $documentoActual = route('certificados_descargar', $certificado);
                                         @endphp
-                                        <a href="{{ $documentoActual }}" target="_blank"
+                                        <a href="{{ $documentoActual }}"
                                             class="mt-2 inline-flex text-xs font-bold text-emerald-700 underline">
-                                            Ver documento actual
+                                            Descargar documento actual
                                         </a>
                                     @endif
 

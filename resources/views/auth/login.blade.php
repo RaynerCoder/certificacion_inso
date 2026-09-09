@@ -138,6 +138,10 @@
                             --}}
                         </div>
 
+                        {{--
+                            CAPTCHA deshabilitado temporalmente.
+                            Para reactivarlo, quite este comentario y habilite su validación y ruta.
+
                         <fieldset class="cert-captcha-box @error('captcha') cert-captcha-box--error @enderror">
                             <legend>Código de seguridad</legend>
 
@@ -183,6 +187,7 @@
                                 <p class="cert-field-error">{{ $message }}</p>
                             @enderror
                         </fieldset>
+                        --}}
 
                         <button
                             id="loginSubmit"

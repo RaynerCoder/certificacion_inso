@@ -65,6 +65,7 @@
                     'id_tipo_evidencia' => filled($item['id_tipo_evidencia'] ?? null)
                         ? (string) $item['id_tipo_evidencia']
                         : '',
+                    'calificacion_minima_aprobacion' => $item['calificacion_minima_aprobacion'] ?? '',
                     'id_tipo_certificado_requerido' => filled($item['id_tipo_certificado_requerido'] ?? null)
                         ? (string) $item['id_tipo_certificado_requerido']
                         : '',
@@ -122,7 +123,7 @@
                                 value="{{ old('form_nombre') }}" />
                         </div>
 
-                        <div class="lg:col-span-5">
+                        <div class="lg:col-span-4">
                             <x-wire-native-select label="Área desde donde se iniciará el trámite" id="form_id_area"
                                 name="form_id_area">
                                 <option value="">Seleccione el área</option>
@@ -134,7 +135,14 @@
                             </x-wire-native-select>
                         </div>
 
-                        <div class="lg:col-span-3">
+                        <div class="lg:col-span-2">
+                            <x-wire-input label="Descargas por usuario" id="limite_descargas"
+                                name="form_limite_descargas" type="number" min="0" max="65535"
+                                placeholder="Sin límite" value="{{ old('form_limite_descargas') }}" />
+                            <p class="mt-1 text-xs text-slate-500">Déjelo vacío para permitir descargas ilimitadas. Use 0 para bloquearlas.</p>
+                        </div>
+
+                        <div class="lg:col-span-2">
                             <x-wire-native-select label="Estado" id="estado" name="form_estado">
                                 <option value="ACTIVO" @selected(old('form_estado', 'ACTIVO') === 'ACTIVO')>Activo</option>
                                 <option value="INACTIVO" @selected(old('form_estado') === 'INACTIVO')>Inactivo</option>
@@ -461,6 +469,7 @@
                         id: checkbox.value,
                         descripcion: checkbox.dataset.requisitoDescripcion,
                         id_tipo_evidencia: '',
+                        calificacion_minima_aprobacion: '',
                         id_tipo_certificado_requerido: '',
                         estado: 'ACTIVO',
                         nuevo: false,
@@ -481,6 +490,7 @@
                         id: `certificado_previo_${checkbox.value}`,
                         descripcion: checkbox.dataset.certificadoNombre,
                         id_tipo_evidencia: idTipoEvidenciaCertificado,
+                        calificacion_minima_aprobacion: '',
                         id_tipo_certificado_requerido: checkbox.value,
                         nombre_certificado_requerido: checkbox.dataset.certificadoNombre,
                         requisitos_certificado_requerido: certificado?.requisitos || [],
@@ -510,6 +520,7 @@
                     id: `nuevo_${indiceRequisitoNuevo++}`,
                     descripcion,
                     id_tipo_evidencia: '',
+                    calificacion_minima_aprobacion: '',
                     id_tipo_certificado_requerido: '',
                     estado: estadoInput.value || 'ACTIVO',
                     nuevo: true,
@@ -539,6 +550,7 @@
                 requisitosAsignados.push({
                     ...requisito,
                     id_tipo_evidencia: requisito.id_tipo_evidencia || '',
+                    calificacion_minima_aprobacion: requisito.calificacion_minima_aprobacion ?? '',
                     id_tipo_certificado_requerido: requisito.id_tipo_certificado_requerido || '',
                     nombre_certificado_requerido: requisito.nombre_certificado_requerido || '',
                     requisitos_certificado_requerido: requisito.requisitos_certificado_requerido ||
@@ -587,6 +599,7 @@
                     <input type="hidden" name="requisitos_asignados[${index}][id_requisito]" value="${requisito.nuevo ? '' : escaparHtml(requisito.id)}">
                     <input type="hidden" name="requisitos_asignados[${index}][descripcion]" value="${escaparHtml(descripcionParaGuardar)}">
                     <input type="hidden" name="requisitos_asignados[${index}][id_tipo_evidencia]" value="${escaparHtml(requisito.id_tipo_evidencia || '')}">
+                    <input type="hidden" id="calificacionMinimaRequisito-${index}" name="requisitos_asignados[${index}][calificacion_minima_aprobacion]" value="${escaparHtml(requisito.calificacion_minima_aprobacion ?? '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][id_tipo_certificado_requerido]" value="${escaparHtml(requisito.id_tipo_certificado_requerido || '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][nombre_certificado_requerido]" value="${escaparHtml(requisito.nombre_certificado_requerido || '')}">
                     <input type="hidden" name="requisitos_asignados[${index}][nuevo]" value="${requisito.nuevo ? 1 : 0}">
@@ -682,6 +695,16 @@
                 const tipoSeleccionado = tiposEvidencias.find((item) => String(item.id) === String(idSeleccionado));
                 const opciones = tiposEvidencias.filter((tipo) => incluirCertificadoVigente || tipo.codigo !==
                     'CERTIFICADO');
+                const campoCalificacionMinima = tipoSeleccionado?.codigo === 'CALIFICACION' ? `
+                    <label class="mt-2 block text-[11px] font-bold text-slate-600">
+                        Calificación mínima de aprobación
+                        <input type="number" min="0" max="100" step="0.01"
+                            class="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                            value="${escaparHtml(requisitosAsignados[index]?.calificacion_minima_aprobacion ?? '')}"
+                            oninput="actualizarCalificacionMinima(${index}, this.value)"
+                            placeholder="Ej.: 70">
+                    </label>
+                ` : '';
 
                 return `
                     <div class="relative">
@@ -704,8 +727,18 @@
                                         <span class="mt-0.5 block text-[11px] leading-tight text-slate-500">${escaparHtml(tipo.nombre)}</span>
                                     </button>
                                 `).join('')}</div>` : ''}
+                        ${campoCalificacionMinima}
                     </div>
                 `;
+            }
+
+            // Conserva la calificación mínima mientras se edita sin volver a dibujar toda la fila.
+            function actualizarCalificacionMinima(index, valor) {
+                if (!requisitosAsignados[index]) return;
+
+                requisitosAsignados[index].calificacion_minima_aprobacion = valor;
+                const inputOculto = document.getElementById(`calificacionMinimaRequisito-${index}`);
+                if (inputOculto) inputOculto.value = valor;
             }
 
             // Abre o cierra el selector personalizado de una fila.
@@ -766,6 +799,10 @@
                 }
 
                 requisitosAsignados[index].id_tipo_evidencia = idTipoEvidencia;
+                const tipoSeleccionado = tiposEvidencias.find((item) => String(item.id) === String(idTipoEvidencia));
+                if (tipoSeleccionado?.codigo !== 'CALIFICACION') {
+                    requisitosAsignados[index].calificacion_minima_aprobacion = '';
+                }
                 window.selectorEvidenciaAbierto = null;
 
                 renderizarTablaRequisitos();

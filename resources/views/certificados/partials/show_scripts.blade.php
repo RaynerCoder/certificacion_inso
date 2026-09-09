@@ -9,6 +9,37 @@
             const botonesHistorial = vistaDetalleActiva.querySelectorAll('[data-requirement-history-button]');
             const swalDisponible = () => Boolean(window.Swal);
 
+            // El cierre exige completar la descripcion final antes de enviar el formulario.
+            const modalFinalizacion = document.querySelector('[data-finalization-modal]');
+            const descripcionFinal = modalFinalizacion?.querySelector('#form_descripcion_final');
+
+            function abrirModalFinalizacion() {
+                if (!modalFinalizacion) return;
+
+                modalFinalizacion.classList.add('is-open');
+                modalFinalizacion.setAttribute('aria-hidden', 'false');
+                window.setTimeout(() => descripcionFinal?.focus(), 0);
+            }
+
+            function cerrarModalFinalizacion() {
+                if (!modalFinalizacion) return;
+
+                modalFinalizacion.classList.remove('is-open');
+                modalFinalizacion.setAttribute('aria-hidden', 'true');
+            }
+
+            document.querySelectorAll('[data-open-finalization-modal]').forEach((boton) => {
+                boton.addEventListener('click', abrirModalFinalizacion);
+            });
+
+            document.querySelectorAll('[data-close-finalization-modal]').forEach((boton) => {
+                boton.addEventListener('click', cerrarModalFinalizacion);
+            });
+
+            if (modalFinalizacion?.dataset.openOnError === '1') {
+                abrirModalFinalizacion();
+            }
+
             // Selector visual de funcionario: busca por nombre/cargo/area y sincroniza el select real del formulario.
             vistaDetalleActiva.querySelectorAll('[data-technical-selector]').forEach((selector) => {
                 const selectReal = selector.querySelector('[data-technical-native]');
@@ -383,9 +414,11 @@
 
                     if (!panel || !decision || !tocado) return;
 
+                    const estadoLista = estado || 'pending';
+
                     decision.value = estado;
                     tocado.value = '1';
-                    registro.dataset.reviewState = estado;
+                    registro.dataset.reviewState = estadoLista;
                     panel.classList.toggle('is-observed', estado === 'NO');
                     panel.querySelectorAll('[data-review-choice]').forEach((opcion) => {
                         opcion.classList.toggle('is-selected', opcion.value === estado);
@@ -399,10 +432,12 @@
                     }
                     if (ayuda) ayuda.textContent = pideMotivo
                         ? 'Indique qué debe corregir el solicitante.'
-                        : 'El requisito quedará marcado como cumplido.';
+                        : (estado === 'SI'
+                            ? 'El requisito quedará marcado como cumplido.'
+                            : 'El requisito volverá a quedar pendiente de revisión.');
 
-                    pintarEstado(panel.querySelector('[data-review-detail-state]'), estado);
-                    pintarNumeroEstado(registro.querySelector('[data-review-number-state]'), estado);
+                    pintarEstado(panel.querySelector('[data-review-detail-state]'), estadoLista);
+                    pintarNumeroEstado(registro.querySelector('[data-review-number-state]'), estadoLista);
                     actualizarResumen();
                     aplicarFiltro();
 
@@ -426,6 +461,37 @@
                     panel.querySelector('[data-observation-input]')?.addEventListener('input', (evento) => {
                         evento.currentTarget.classList.remove('is-invalid');
                     });
+
+                    panel.querySelector('[data-review-calificacion]')?.addEventListener('input', (evento) => {
+                        const inputCalificacion = evento.currentTarget;
+                        const registro = registroDe(panel.dataset.reviewPanel);
+                        const decision = registro?.querySelector('[data-review-decision]');
+                        const tocado = registro?.querySelector('[data-review-touched]');
+                        const resultado = panel.querySelector('[data-review-calificacion-result]');
+                        const valor = inputCalificacion.value.trim();
+                        const calificacion = Number(valor);
+                        const calificacionMinima = Number(inputCalificacion.dataset.calificacionMinima);
+                        const tieneCalificacionValida = valor !== '' && Number.isFinite(calificacion) && calificacion >= 0 && calificacion <= 100;
+                        const estado = tieneCalificacionValida ? 'SI' : 'pending';
+
+                        if (!registro || !decision || !tocado) return;
+
+                        tocado.value = '1';
+                        decision.value = tieneCalificacionValida ? 'SI' : '';
+                        registro.dataset.reviewState = estado;
+                        inputCalificacion.classList.remove('is-invalid');
+
+                        if (resultado) {
+                            resultado.textContent = !tieneCalificacionValida
+                                ? 'Pendiente'
+                                : (calificacion >= calificacionMinima ? 'Aprobado' : 'Participación');
+                        }
+
+                        pintarEstado(panel.querySelector('[data-review-detail-state]'), estado);
+                        pintarNumeroEstado(registro.querySelector('[data-review-number-state]'), estado);
+                        actualizarResumen();
+                        aplicarFiltro();
+                    });
                 });
 
                 filtros.forEach((filtro) => {
@@ -445,19 +511,37 @@
                         const texto = panelDe(registro.dataset.reviewRecord)?.querySelector('[data-observation-input]');
                         return decision === 'NO' && !texto?.value.trim();
                     });
+                    const calificacionInvalida = tocados.find((registro) => {
+                        if (registro.dataset.reviewKind !== 'calificacion') return false;
 
-                    if (!tocados.length || sinMotivo) {
+                        const input = panelDe(registro.dataset.reviewRecord)?.querySelector('[data-review-calificacion]');
+                        const valor = input?.value.trim() ?? '';
+                        const calificacion = Number(valor);
+
+                        return valor !== '' && (!Number.isFinite(calificacion) || calificacion < 0 || calificacion > 100);
+                    });
+
+                    if (!tocados.length || sinMotivo || calificacionInvalida) {
                         evento.preventDefault();
 
-                        const mensaje = sinMotivo
+                        const mensaje = calificacionInvalida
+                            ? 'Ingrese una calificación válida entre 0 y 100.'
+                            : (sinMotivo
                             ? 'Explique el motivo del requisito marcado como No cumple.'
-                            : 'Revise al menos un requisito antes de guardar.';
+                            : 'Revise al menos un requisito antes de guardar.');
 
                         if (sinMotivo) {
                             seleccionarRequisito(sinMotivo.dataset.reviewRecord, true);
                             const textarea = panelDe(sinMotivo.dataset.reviewRecord)?.querySelector('[data-observation-input]');
                             textarea?.classList.add('is-invalid');
                             textarea?.focus();
+                        }
+
+                        if (calificacionInvalida) {
+                            seleccionarRequisito(calificacionInvalida.dataset.reviewRecord, true);
+                            const input = panelDe(calificacionInvalida.dataset.reviewRecord)?.querySelector('[data-review-calificacion]');
+                            input?.classList.add('is-invalid');
+                            input?.focus();
                         }
 
                         if (swalDisponible()) {

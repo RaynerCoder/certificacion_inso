@@ -20,6 +20,9 @@ return new class extends Migration
             // Area responsable por defecto para atender este tipo de certificado.
             $table->foreignId('id_area')->nullable()->constrained('areas')->nullOnDelete();
 
+            // Cantidad de descargas permitidas por usuario. Nulo significa sin limite.
+            $table->unsignedInteger('limite_descargas')->nullable();
+
             // Estado general del tipo de certificado: ACTIVO, INACTIVO, etc.
             $table->string('estado', 50)->default('ACTIVO');
 

@@ -6,6 +6,7 @@
 ]">
     @php
         $puedeGestionarEmision = $puedeGestionarEmision ?? false;
+        $esConsultaDocumento = !$puedeGestionarEmision && in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true);
         $vieneDeFinalizados = request('bandeja') === 'finalizados';
         $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
         $abrirModalEmision = $errors->emisionCertificado->any();
@@ -69,17 +70,18 @@
 
         $estadoClase = \App\Models\Certificado::claseEstadoCertificado($certificado->estado);
         $estadoTexto = \App\Models\Certificado::textoEstadoCertificado($certificado->estado);
-        $ultimoRevisor = $certificado->certificadoRequisitos
-            ->pluck('usuarioRevisor')
-            ->filter()
-            ->last();
+        $ultimaRevisionTramite = $certificado->certificadoRequisitos
+            ->flatMap(fn ($requisitoCertificado) => $requisitoCertificado->revisionesRequisitos)
+            ->sortByDesc('id')
+            ->first();
+        $ultimoRevisor = $ultimaRevisionTramite?->usuarioRevisor;
         $registrosPorProducto = $certificado->registros->groupBy(
             fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
         );
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
-            ? ['ancho' => 816, 'alto' => 1248, 'css' => 'legal']
+            ? ['ancho' => 816, 'alto' => 1344, 'css' => 'legal']
             : ['ancho' => 816, 'alto' => 1056, 'css' => 'letter'];
 
         if ($orientacionPlantilla === 'HORIZONTAL') {
@@ -193,7 +195,66 @@
                 ->values()
                 ->all();
         };
+        $elementosEmision = $elementosPlantilla
+            ->filter(fn ($elemento) => (bool) data_get($elemento->configuracion ?? [], 'visible', true))
+            ->map(function ($elemento) use ($resolverTextoPlantilla, $filasTablaPlantilla, $valoresPlantilla, $resolverFondoImagen) {
+                $tipo = strtoupper((string) $elemento->tipo_elemento);
+                $valor = match ($tipo) {
+                    'TEXTO' => $resolverTextoPlantilla($elemento->texto_fijo),
+                    'IMAGEN' => str_starts_with((string) $elemento->texto_fijo, 'data:image')
+                        ? $elemento->texto_fijo
+                        : $resolverFondoImagen($elemento->texto_fijo),
+                    'QR' => filled($elemento->texto_fijo)
+                        ? $elemento->texto_fijo
+                        : ($valoresPlantilla[$elemento->codigo_elemento] ?? 'QR'),
+                    'TABLA', 'FORMA', 'LINEA' => null,
+                    default => $valoresPlantilla[$elemento->codigo_elemento] ?? '',
+                };
+
+                return [
+                    'id' => $elemento->id ?? null,
+                    'tipo_elemento' => $tipo,
+                    'codigo_elemento' => $elemento->codigo_elemento ?? null,
+                    'texto_plantilla' => $elemento->texto_fijo ?? '',
+                    'valor' => $valor,
+                    'posicion_x' => (float) ($elemento->posicion_x ?? 0),
+                    'posicion_y' => (float) ($elemento->posicion_y ?? 0),
+                    'ancho' => (float) ($elemento->ancho ?? 1),
+                    'alto' => (float) ($elemento->alto ?? 1),
+                    'tamano_letra' => (float) ($elemento->tamano_letra ?? 11),
+                    'alineacion' => $elemento->alineacion ?? 'IZQUIERDA',
+                    'interlineado' => (float) ($elemento->interlineado ?? 1.25),
+                    'negrita' => (bool) ($elemento->negrita ?? false),
+                    'cursiva' => (bool) ($elemento->cursiva ?? false),
+                    'subrayado' => (bool) ($elemento->subrayado ?? false),
+                    'color_texto' => $elemento->color_texto ?? '#0f172a',
+                    'tipo_letra' => $elemento->tipo_letra ?? 'Arial',
+                    'z_index' => (int) ($elemento->z_index ?? 3),
+                    'configuracion' => (array) ($elemento->configuracion ?? []),
+                    'columnas' => collect($elemento->columnas ?? [])->map(fn ($columna) => [
+                        'codigo_campo' => $columna->codigo_campo,
+                        'titulo_columna' => $columna->titulo_columna,
+                        'ancho' => (float) ($columna->ancho ?: 25),
+                    ])->values()->all(),
+                    'filas' => $tipo === 'TABLA' ? $filasTablaPlantilla($elemento) : [],
+                ];
+            })
+            ->values()
+            ->all();
+        $datosEmisionFabric = [
+            'ancho' => $medidasPlantilla['ancho'],
+            'alto' => $medidasPlantilla['alto'],
+            'fondo' => $fondoPlantilla,
+            'ajuste_fondo' => $plantillaCertificado?->ajuste_fondo ?? 'ESTIRAR',
+            'elementos' => $elementosEmision,
+            'diseno_fabric' => $plantillaCertificado?->diseno_fabric_json,
+            'valores' => $valoresPlantillaConAlias,
+        ];
     @endphp
+
+    <script>
+        window.plantillaCertificadoEmision = @json($datosEmisionFabric);
+    </script>
 
     <style>
         .emit-shell {
@@ -249,6 +310,11 @@
             color: #ffffff;
         }
 
+        .emit-btn:disabled {
+            cursor: wait;
+            opacity: 0.55;
+        }
+
         .emit-btn-muted {
             background: #ffffff;
             border: 1px solid #cbd5e1;
@@ -270,7 +336,18 @@
         .emit-grid {
             display: grid;
             gap: 14px;
-            grid-template-columns: minmax(250px, 0.72fr) minmax(520px, 1.28fr);
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .emit-support {
+            display: grid;
+            gap: 14px;
+            grid-row: 2;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .emit-support > .emit-section-wide {
+            grid-column: 1 / -1;
         }
 
         .emit-section {
@@ -305,7 +382,7 @@
         .emit-definition {
             display: grid;
             gap: 8px;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .emit-field {
@@ -363,6 +440,8 @@
             background: #f8fafc;
             border: 1px solid #dbe4ee;
             border-radius: 8px;
+            grid-row: 1;
+            min-width: 0;
             padding: 10px;
         }
 
@@ -428,7 +507,27 @@
         }
 
         .emit-template-field.is-texto {
+            overflow: visible;
             white-space: pre-wrap;
+        }
+
+        .emit-template-fabric-svg {
+            display: block;
+            height: 100%;
+            inset: 0;
+            position: absolute;
+            width: 100%;
+            z-index: 20;
+        }
+
+        .emit-template-fabric-svg svg {
+            display: block;
+            height: 100%;
+            width: 100%;
+        }
+
+        .emit-template-fabric-canvas {
+            display: none;
         }
 
         .emit-template-field.is-texto.is-justify {
@@ -565,10 +664,14 @@
         }
 
         @media (max-width: 1024px) {
-            .emit-grid,
+            .emit-support,
             .emit-definition,
             .emit-modal-body {
                 grid-template-columns: 1fr;
+            }
+
+            .emit-support > .emit-section-wide {
+                grid-column: auto;
             }
         }
 
@@ -645,8 +748,12 @@
     <div class="emit-shell">
         <header class="emit-header">
             <div>
-                <h1 class="emit-title">Emitir certificado</h1>
-                <p class="emit-subtitle">Revise la información aprobada antes de registrar la emisión.</p>
+                <h1 class="emit-title">{{ $esConsultaDocumento ? 'Ver certificado' : 'Emitir certificado' }}</h1>
+                <p class="emit-subtitle">
+                    {{ $esConsultaDocumento
+                        ? 'Consulte o imprima el documento emitido. Sus datos de vigencia ya no pueden modificarse.'
+                        : 'Revise la información aprobada antes de registrar la emisión.' }}
+                </p>
             </div>
 
             <div class="emit-actions">
@@ -656,7 +763,8 @@
                     Volver al trámite
                 </a>
 
-                <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado>
+                <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado
+                    data-requiere-render-certificado disabled>
                     <i class="fa-solid fa-print"></i>
                     Imprimir certificado
                 </button>
@@ -684,6 +792,7 @@
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
+                <textarea name="form_documento_renderizado" data-documento-renderizado hidden></textarea>
 
                 <div class="emit-modal-head">
                     <div>
@@ -727,19 +836,25 @@
                         Vigencia indefinida
                     </label>
 
-                    <div class="emit-modal-field-full">
-                        <x-wire-textarea label="Descripción final del certificado" name="form_descripcion"
-                            placeholder="Ingrese la descripción final que acompañará la emisión.">{{ old('form_descripcion', $certificado->descripcion ?? '') }}</x-wire-textarea>
-                        @error('form_descripcion', 'emisionCertificado')
-                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                     <div class="emit-modal-field-full text-sm text-slate-600">
                         @if ($certificado->url_documento)
-                            <a class="mt-2 inline-flex text-xs font-bold text-emerald-700" href="{{ asset('storage/' . $certificado->url_documento) }}" target="_blank">
-                                Ver documento actual
-                            </a>
+                            <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                                @if ($resumenDescargas['disponible'])
+                                    <a class="inline-flex font-bold text-emerald-700"
+                                        href="{{ route('certificados_descargar', $certificado) }}">
+                                        <i class="fa-solid fa-download mr-1" aria-hidden="true"></i>
+                                        Descargar documento actual
+                                    </a>
+                                @else
+                                    <span class="font-bold text-rose-600">Límite de descargas alcanzado</span>
+                                @endif
+
+                                <span class="text-slate-500">
+                                    {{ $resumenDescargas['limite'] === null
+                                        ? $resumenDescargas['realizadas'].' descargas · Sin límite'
+                                        : $resumenDescargas['realizadas'].' de '.$resumenDescargas['limite'].' descargas' }}
+                                </span>
+                            </div>
                         @else
                             El PDF se generará automáticamente con la plantilla activa al guardar la emisión.
                         @endif
@@ -748,7 +863,7 @@
 
                 <div class="emit-modal-actions">
                     <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-emision>Cancelar</button>
-                    <button type="submit" class="emit-btn emit-btn-primary">
+                    <button type="submit" class="emit-btn emit-btn-primary" data-requiere-render-certificado disabled>
                         <i class="fa-solid fa-floppy-disk"></i>
                         Guardar emisión
                     </button>
@@ -757,7 +872,7 @@
         </div>
 
         <div class="emit-grid">
-            <div class="space-y-4">
+            <div class="emit-support">
                 <section class="emit-section">
                     <div class="emit-section-head">
                         <i class="fa-regular fa-file-lines"></i>
@@ -783,7 +898,7 @@
                                 </dd>
                             </div>
                             <div class="emit-field">
-                                <dt>Revisor</dt>
+                                <dt>Último revisor</dt>
                                 <dd>
                                     {{ $nombreFuncionario($ultimoRevisor, 'Sin revisor') }}
                                     <span class="block text-xs font-semibold text-slate-500">
@@ -822,7 +937,7 @@
                     </div>
                 </section>
 
-                <section class="emit-section">
+                <section class="emit-section emit-section-wide">
                     <div class="emit-section-head">
                         <i class="fa-solid fa-boxes-stacked"></i>
                         <h2 class="emit-section-title">Productos y registros</h2>
@@ -867,7 +982,7 @@
                     </div>
                 </section>
 
-                <section class="emit-section">
+                <section class="emit-section emit-section-wide">
                     <div class="emit-section-head">
                         <i class="fa-solid fa-list-check"></i>
                         <h2 class="emit-section-title">Requisitos aprobados</h2>
@@ -884,6 +999,12 @@
                             </thead>
                             <tbody>
                                 @foreach ($certificado->certificadoRequisitos as $requisitoCertificado)
+                                    @php
+                                        $ultimaRevisionRequisito = $requisitoCertificado->revisionesRequisitos
+                                            ->sortByDesc('id')
+                                            ->first();
+                                        $revisorRequisito = $ultimaRevisionRequisito?->usuarioRevisor;
+                                    @endphp
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
                                         <td>{{ $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado' }}</td>
@@ -894,9 +1015,9 @@
                                             </span>
                                         </td>
                                         <td>
-                                            {{ $nombreFuncionario($requisitoCertificado->usuarioRevisor, 'Sin revisor') }}
+                                            {{ $nombreFuncionario($revisorRequisito, 'Sin revisor') }}
                                             <span class="block text-xs font-semibold text-slate-500">
-                                                {{ $cargoFuncionario($requisitoCertificado->usuarioRevisor) }}
+                                                {{ $cargoFuncionario($revisorRequisito) }}
                                             </span>
                                         </td>
                                     </tr>
@@ -911,6 +1032,10 @@
                 <div class="emit-template-stage {{ $imprimirTransparente ? 'is-transparent-print' : '' }}" id="certificado-imprimible"
                     style="--emit-page-width: {{ $medidasPlantilla['ancho'] }}px; --emit-page-height: {{ $medidasPlantilla['alto'] }}px; --emit-print-width: {{ $anchoImpresion }}; --emit-print-height: {{ $altoImpresion }};">
                     <div class="emit-template-page">
+                        <canvas class="emit-template-fabric-canvas" data-certificado-fabric-lienzo hidden
+                            width="{{ $medidasPlantilla['ancho'] }}" height="{{ $medidasPlantilla['alto'] }}"></canvas>
+                        <div class="emit-template-fabric-svg" data-certificado-fabric-svg hidden aria-hidden="true"></div>
+                        <div data-certificado-html-fallback>
                         <div class="emit-template-background">
                             @if (!$imprimirTransparente && $fondoPlantilla)
                                 <img src="{{ $fondoPlantilla }}" alt="Plantilla del certificado">
@@ -927,6 +1052,7 @@
                                     'TEXTO' => $resolverTextoPlantilla($elementoPlantilla->texto_fijo),
                                     'IMAGEN' => $elementoPlantilla->texto_fijo,
                                     'TABLA' => 'TABLA',
+                                    'FORMA', 'LINEA' => 'ELEMENTO_VISUAL',
                                     'QR' => filled($elementoPlantilla->texto_fijo)
                                         ? $elementoPlantilla->texto_fijo
                                         : ($valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? 'QR'),
@@ -942,32 +1068,50 @@
                                     ? 'is-center'
                                     : ($alineacion === 'DERECHA' ? 'is-right' : ($alineacion === 'JUSTIFICADO' ? 'is-justify' : ''));
                                 $claseTipoElemento = match ($elementoPlantilla->tipo_elemento) {
-                                    'TEXTO', 'FIRMA' => 'is-texto',
+                                    'TEXTO', 'CAMPO', 'FIRMA' => 'is-texto',
                                     'IMAGEN' => 'is-imagen',
                                     'TABLA' => 'is-tabla',
                                     'QR' => 'is-qr',
+                                    'FORMA' => 'is-forma',
+                                    'LINEA' => 'is-linea',
                                     default => '',
                                 };
-                                $usaPaddingElemento = !in_array($elementoPlantilla->tipo_elemento, ['IMAGEN', 'TABLA', 'QR'], true);
-                                $paddingXElemento = (float) data_get($elementoPlantilla, 'padding_x', $usaPaddingElemento ? 7 : 0);
-                                $paddingYElemento = (float) data_get($elementoPlantilla, 'padding_y', $usaPaddingElemento ? 5 : 0);
+                                $configuracionElemento = (array) ($elementoPlantilla->configuracion ?? []);
+                                $bordeEstiloElemento = match (data_get($configuracionElemento, 'borde_estilo', 'SOLIDO')) {
+                                    'PUNTEADO' => 'dotted',
+                                    'DISCONTINUO' => 'dashed',
+                                    'DOBLE' => 'double',
+                                    'NINGUNO' => 'none',
+                                    default => 'solid',
+                                };
+                                // Fabric.js no suma relleno al contenido del Textbox. Añadirlo aquí reduce el área
+                                // útil y recorta textos aunque las coordenadas guardadas sean correctas.
+                                $paddingXElemento = 0;
+                                $paddingYElemento = 0;
                             @endphp
 
                             @if (filled($valorCampo))
                                 <div class="emit-template-field {{ $claseTipoElemento }} {{ $claseAlineacion }}"
+                                    data-elemento-id="{{ $elementoPlantilla->id }}"
                                     style="
                                         left: {{ (float) $elementoPlantilla->posicion_x }}px;
                                         top: {{ (float) $elementoPlantilla->posicion_y }}px;
                                         width: {{ (float) $elementoPlantilla->ancho }}px;
                                         height: {{ (float) $elementoPlantilla->alto }}px;
                                         font-size: {{ (int) $elementoPlantilla->tamano_letra }}px;
-                                        font-weight: {{ data_get($elementoPlantilla, 'negrita') ? 900 : 700 }};
+                                        font-weight: {{ data_get($elementoPlantilla, 'negrita') ? 700 : 400 }};
                                         font-style: {{ data_get($elementoPlantilla, 'cursiva') ? 'italic' : 'normal' }};
                                         text-decoration: {{ data_get($elementoPlantilla, 'subrayado') ? 'underline' : 'none' }};
                                         color: {{ data_get($elementoPlantilla, 'color_texto', '#0f172a') ?: '#0f172a' }};
                                         font-family: '{{ data_get($elementoPlantilla, 'tipo_letra', 'Arial') ?: 'Arial' }}', Arial, sans-serif;
                                         line-height: {{ (float) data_get($elementoPlantilla, 'interlineado', 1.25) }};
                                         padding: {{ $paddingYElemento }}px {{ $paddingXElemento }}px;
+                                        background: {{ $elementoPlantilla->tipo_elemento === 'FORMA' ? data_get($configuracionElemento, 'fondo_color', 'transparent') : 'transparent' }};
+                                        border: {{ $elementoPlantilla->tipo_elemento === 'FORMA' && $bordeEstiloElemento !== 'none' ? (float) data_get($configuracionElemento, 'borde_ancho', 0).'px '.$bordeEstiloElemento.' '.data_get($configuracionElemento, 'borde_color', '#0f766e') : '0' }};
+                                        border-radius: {{ $elementoPlantilla->tipo_elemento === 'FORMA' && data_get($configuracionElemento, 'forma') === 'ELIPSE' ? '50%' : (float) data_get($configuracionElemento, 'radio_borde', 0).'px' }};
+                                        opacity: {{ (float) data_get($configuracionElemento, 'opacidad', 1) }};
+                                        transform: rotate({{ (float) data_get($configuracionElemento, 'rotacion', 0) }}deg);
+                                        transform-origin: center center;
                                         z-index: {{ (int) data_get($elementoPlantilla, 'z_index', 3) }};
                                     ">
                                     @if ($elementoPlantilla->tipo_elemento === 'IMAGEN')
@@ -1001,13 +1145,18 @@
                                                 @endforelse
                                             </tbody>
                                         </table>
+                                    @elseif ($elementoPlantilla->tipo_elemento === 'LINEA')
+                                        <span style="display:block; position:absolute; left:0; right:0; top:50%; border-top: {{ max(1, (float) data_get($configuracionElemento, 'borde_ancho', 1)) }}px {{ $bordeEstiloElemento === 'none' ? 'solid' : $bordeEstiloElemento }} {{ data_get($configuracionElemento, 'borde_color', '#0f766e') }};"></span>
+                                    @elseif ($elementoPlantilla->tipo_elemento === 'FORMA')
                                     @else
-                                        {!! nl2br(e($valorCampo)) !!}
+                                        {!! $elementoPlantilla instanceof \App\Models\PlantillaElemento && $elementoPlantilla->tipo_elemento === 'TEXTO'
+                                            ? $elementoPlantilla->textoConEstilosResueltos($valoresPlantillaConAlias)
+                                            : nl2br(e($valorCampo)) !!}
                                     @endif
                                 </div>
                             @endif
                         @endforeach
-
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -1054,6 +1203,25 @@
                         position: relative;
                     }
 
+                    .emit-template-fabric-canvas,
+                    [data-certificado-html-fallback][hidden] {
+                        display: none !important;
+                    }
+
+                    .emit-template-fabric-svg {
+                        display: block;
+                        height: 100%;
+                        inset: 0;
+                        position: absolute;
+                        width: 100%;
+                    }
+
+                    .emit-template-fabric-svg svg {
+                        display: block;
+                        height: 100%;
+                        width: 100%;
+                    }
+
                     .emit-template-background,
                     .emit-template-background img {
                         position: absolute;
@@ -1084,6 +1252,7 @@
                     }
 
                     .emit-template-field.is-texto {
+                        overflow: visible;
                         white-space: pre-wrap;
                     }
 
@@ -1229,6 +1398,7 @@
                 const diasVigencia = document.getElementById('form_vigencia_dias');
                 const fechaFinal = document.getElementById('form_fecha_fin');
                 const vigenciaIndefinida = document.getElementById('form_vigencia_indefinida');
+                const formulario = modal?.querySelector('form');
 
                 // Los días son un apoyo del formulario: la fecha final sigue siendo el valor que se guarda.
                 const actualizarFechaFinal = () => {
@@ -1271,6 +1441,40 @@
                 diasVigencia?.addEventListener('input', actualizarFechaFinal);
                 vigenciaIndefinida?.addEventListener('change', actualizarFechaFinal);
                 actualizarFechaFinal();
+
+                const fechaVisible = (valor, textoVacio = 'Sin fecha') => {
+                    if (!valor) return textoVacio;
+                    const [anio, mes, dia] = valor.split('-');
+                    return anio && mes && dia ? `${dia}/${mes}/${anio}` : textoVacio;
+                };
+
+                let preparandoEnvio = false;
+                formulario?.addEventListener('submit', async (evento) => {
+                    if (preparandoEnvio) return;
+
+                    evento.preventDefault();
+                    if (!formulario.reportValidity()) return;
+
+                    const inicio = fechaVisible(fechaInicio?.value);
+                    const fin = vigenciaIndefinida?.checked
+                        ? 'Vigencia indefinida'
+                        : fechaVisible(fechaFinal?.value);
+                    const valores = {
+                        'certificado.fecha_inicio': inicio,
+                        'certificado_fecha_inicio': inicio,
+                        'certificado.fecha_fin': fin,
+                        'certificado_fecha_fin': fin,
+                    };
+
+                    const actualizarDocumento = window.actualizarDatosCertificadoEmision;
+                    if (typeof actualizarDocumento === 'function') {
+                        formulario.querySelectorAll('button').forEach((boton) => { boton.disabled = true; });
+                        await actualizarDocumento(valores);
+                    }
+
+                    preparandoEnvio = true;
+                    HTMLFormElement.prototype.submit.call(formulario);
+                });
             }
 
             if (document.readyState === 'loading') {

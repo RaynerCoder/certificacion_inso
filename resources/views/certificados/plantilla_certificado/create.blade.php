@@ -6,6 +6,7 @@
 ]">
     @php
         $elementosIniciales = json_decode(old('form_elementos_plantilla', '[]'), true) ?: [];
+        $disenoFabricInicial = json_decode(old('form_diseno_fabric_json', 'null'), true);
     @endphp
 
     @include('certificados.plantilla_certificado.estilo')
@@ -13,11 +14,13 @@
     <script>
         window.tiposCertificadosPlantilla = @json($tiposCertificadosPlantillaJson);
         window.elementosPlantillaIniciales = @json($elementosIniciales);
+        window.disenoFabricPlantillaInicial = @json($disenoFabricInicial);
     </script>
 
     <form class="plantilla-shell" action="{{ route('certificados_plantillas_store') }}" method="POST" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', '[]') }}">
+        <textarea name="form_diseno_fabric_json" data-plantilla-diseno-fabric-input hidden>{{ old('form_diseno_fabric_json') }}</textarea>
         <input type="hidden" name="form_quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
 
         <section class="plantilla-card">
@@ -132,56 +135,100 @@
         </section>
 
         <section class="plantilla-designer">
-            <aside class="plantilla-panel">
-                <div class="plantilla-panel-title">Campos del sistema</div>
-                <div class="plantilla-panel-body">
-                    <div class="plantilla-editor-ayuda">
-                        Haga clic en un campo para insertarlo en el texto seleccionado o arrástrelo al lienzo para colocarlo en una posición exacta.
-                    </div>
-                    <input type="search" class="plantilla-search" placeholder="Buscar campo..." data-plantilla-buscar-campo>
+            {{-- Las herramientas comparten una sola barra lateral para dejar más espacio al certificado. --}}
+            <aside class="plantilla-panel plantilla-workspace-sidebar">
+                <div class="plantilla-sidebar-tabs" role="tablist" aria-label="Herramientas del diseñador">
+                    <button type="button" class="plantilla-sidebar-tab is-active" role="tab" aria-selected="true"
+                        data-plantilla-sidebar-tab="campos">Campos</button>
+                    <button type="button" class="plantilla-sidebar-tab" role="tab" aria-selected="false"
+                        data-plantilla-sidebar-tab="propiedades">Propiedades</button>
+                    <button type="button" class="plantilla-sidebar-tab" role="tab" aria-selected="false"
+                        data-plantilla-sidebar-tab="capas">
+                        Capas <span data-plantilla-contador-capas>0</span>
+                    </button>
+                </div>
 
-                    @foreach ($camposPlantilla as $grupo => $campos)
-                        <details class="plantilla-field-group" @if ($loop->first) open @endif>
-                            <summary class="plantilla-field-title">
-                                <span>{{ $grupo }}</span>
-                                <span>{{ count($campos) }}</span>
-                            </summary>
+                <div class="plantilla-sidebar-content">
+                    <section class="plantilla-sidebar-pane is-active" data-plantilla-sidebar-pane="campos">
+                        <input type="search" class="plantilla-search" placeholder="Buscar campo..." data-plantilla-buscar-campo>
 
-                            <div class="plantilla-field-list">
-                                @foreach ($campos as $campo)
-                                    <button type="button" class="plantilla-field"
-                                        data-plantilla-campo
-                                        data-codigo="{{ $campo['codigo'] }}"
-                                        data-nombre="{{ $campo['nombre'] }}"
-                                        title="Dato interno: {{ $campo['codigo'] }}">
-                                        <span class="plantilla-field-name">{{ $campo['nombre'] }}</span>
-                                    </button>
-                                @endforeach
-                            </div>
-                        </details>
-                    @endforeach
+                        @foreach ($camposPlantilla as $grupo => $campos)
+                            <details class="plantilla-field-group" @if ($loop->first) open @endif>
+                                <summary class="plantilla-field-title">
+                                    <span>{{ $grupo }}</span>
+                                    <span>{{ count($campos) }}</span>
+                                </summary>
+
+                                <div class="plantilla-field-list">
+                                    @foreach ($campos as $campo)
+                                        <button type="button" class="plantilla-field"
+                                            data-plantilla-campo
+                                            data-codigo="{{ $campo['codigo'] }}"
+                                            data-nombre="{{ $campo['nombre'] }}"
+                                            title="Dato interno: {{ $campo['codigo'] }}">
+                                            <span class="plantilla-field-name">{{ $campo['nombre'] }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </details>
+                        @endforeach
+                        <div class="plantilla-preview-box">
+                            <div class="font-black text-emerald-700">Marcadores dinámicos</div>
+                            <p class="mt-2">
+                                Puede usar valores como
+                                <span class="plantilla-token">@{{beneficiario_nombre}}</span>
+                                y el sistema los reemplazará al emitir.
+                            </p>
+                        </div>
+                    </section>
+
+                    <section class="plantilla-sidebar-pane" data-plantilla-sidebar-pane="propiedades" hidden>
+                        <div data-plantilla-propiedades></div>
+                    </section>
+
+                    <section class="plantilla-sidebar-pane" data-plantilla-sidebar-pane="capas" hidden>
+                        <div data-plantilla-capas></div>
+                    </section>
                 </div>
             </aside>
 
-            <main class="plantilla-panel">
+            <main class="plantilla-panel plantilla-canvas-panel">
                 <div class="plantilla-panel-title">Diseñador del certificado</div>
 
                 <div class="plantilla-toolbar">
-                    <button type="button" class="plantilla-action-btn is-primary" data-plantilla-tool="texto">Agregar texto</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="tabla">Agregar tabla</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="firma">Agregar firma</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="qr">Agregar QR</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="imagen">Agregar imagen</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="forma">Agregar forma</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="linea">Agregar línea</button>
-                    <span class="plantilla-toolbar-separator"></span>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="deshacer">Deshacer</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="rehacer">Rehacer</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="duplicar">Duplicar</button>
-                    <button type="button" class="plantilla-action-btn is-danger" data-plantilla-tool="eliminar">Quitar</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="fondo">Enviar atrás</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="frente">Traer al frente</button>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="bloquear">Bloquear</button>
+                    {{-- Las acciones directas usan iconos; el nombre completo permanece en el título accesible. --}}
+                    <div class="plantilla-toolbar-group" aria-label="Agregar elementos">
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn is-primary" data-plantilla-tool="texto"
+                            title="Agregar texto" aria-label="Agregar texto"><i class="fa-solid fa-font"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="tabla"
+                            title="Agregar tabla" aria-label="Agregar tabla"><i class="fa-solid fa-table-cells"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="firma"
+                            title="Agregar firma" aria-label="Agregar firma"><i class="fa-solid fa-signature"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="qr"
+                            title="Agregar código QR" aria-label="Agregar código QR"><i class="fa-solid fa-qrcode"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="imagen"
+                            title="Agregar imagen" aria-label="Agregar imagen"><i class="fa-solid fa-image"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="forma"
+                            title="Agregar forma" aria-label="Agregar forma"><i class="fa-solid fa-shapes"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="linea"
+                            title="Agregar línea" aria-label="Agregar línea"><i class="fa-solid fa-minus"></i></button>
+                    </div>
+
+                    <span class="plantilla-toolbar-separator" aria-hidden="true"></span>
+
+                    <div class="plantilla-toolbar-group" aria-label="Edición">
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="deshacer"
+                            title="Deshacer" aria-label="Deshacer"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="rehacer"
+                            title="Rehacer" aria-label="Rehacer"><i class="fa-solid fa-rotate-right"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="duplicar"
+                            title="Duplicar selección" aria-label="Duplicar selección"><i class="fa-solid fa-copy"></i></button>
+                        <button type="button" class="plantilla-action-btn plantilla-icon-btn is-danger" data-plantilla-tool="eliminar"
+                            title="Quitar selección" aria-label="Quitar selección"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+
+                    <span class="plantilla-toolbar-separator" aria-hidden="true"></span>
+
                     <select class="plantilla-toolbar-select" data-plantilla-alinear aria-label="Alinear bloque al lienzo">
                         <option value="">Alinear...</option>
                         <option value="IZQUIERDA">A la izquierda</option>
@@ -191,50 +238,51 @@
                         <option value="CENTRO_V">Centrar vertical</option>
                         <option value="ABAJO">Abajo</option>
                     </select>
-                    <button type="button" class="plantilla-action-btn" data-plantilla-tool="grid">Cuadrícula</button>
-                    <div class="plantilla-zoom-control">
-                        <button type="button" data-plantilla-zoom="menos">-</button>
-                        <span data-plantilla-zoom-valor>100%</span>
-                        <button type="button" data-plantilla-zoom="mas">+</button>
+                    <select class="plantilla-toolbar-select" data-plantilla-seleccion aria-label="Acciones de selección">
+                        <option value="">Selección...</option>
+                        <option value="TODO">Seleccionar todo</option>
+                        <option value="AGRUPAR">Agrupar</option>
+                        <option value="DESAGRUPAR">Desagrupar</option>
+                    </select>
+                    <select class="plantilla-toolbar-select" data-plantilla-distribuir aria-label="Distribuir capas seleccionadas">
+                        <option value="">Distribuir...</option>
+                        <option value="HORIZONTAL">Horizontalmente</option>
+                        <option value="VERTICAL">Verticalmente</option>
+                    </select>
+
+                    <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="grid"
+                        title="Mostrar cuadrícula y ajustar a ella" aria-label="Mostrar cuadrícula y ajustar a ella">
+                        <i class="fa-solid fa-border-all"></i>
+                    </button>
+
+                    <div class="plantilla-zoom-control" aria-label="Control de zoom">
+                        <button type="button" data-plantilla-zoom="menos" title="Alejar" aria-label="Alejar">−</button>
+                        <button type="button" class="plantilla-zoom-fit" data-plantilla-zoom="ajustar"
+                            title="Ajustar el certificado al espacio disponible">Ajustar</button>
+                        <button type="button" class="plantilla-zoom-value" data-plantilla-zoom="restablecer"
+                            data-plantilla-zoom-valor title="Restablecer zoom al 100%">100%</button>
+                        <button type="button" data-plantilla-zoom="mas" title="Acercar" aria-label="Acercar">+</button>
                     </div>
-                    <span class="ml-auto text-xs font-bold text-slate-500">
-                        Bloques: <strong data-plantilla-contador-campos>0</strong>
-                    </span>
+
+                    <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="maximizar"
+                        title="Maximizar el área de diseño" aria-label="Maximizar el área de diseño">
+                        <i class="fa-solid fa-expand"></i>
+                    </button>
+
+                    <select class="plantilla-toolbar-select plantilla-toolbar-export" data-plantilla-exportar aria-label="Exportar vista previa">
+                        <option value="">Exportar...</option>
+                        <option value="PNG">Vista previa PNG</option>
+                        <option value="SVG">Vista previa SVG</option>
+                    </select>
                 </div>
 
                 <div class="plantilla-canvas-wrap">
-                    <div class="plantilla-canvas" data-plantilla-lienzo>
-                        <img class="plantilla-canvas-bg" data-plantilla-fondo-preview alt="Plantilla del certificado">
-                        <div class="plantilla-canvas-placeholder" data-plantilla-fondo-placeholder>
-                            <strong>Sin plantilla visual</strong>
-                            <span>Suba una imagen para verla como fondo. Si sube PDF, podrá guardarlo y verlo, pero para diseñar encima conviene usar PNG o JPG.</span>
-                        </div>
-                    </div>
-                    <div class="plantilla-image-info" data-plantilla-fondo-medidas>
-                        Sin imagen cargada para medir.
+                    <div class="plantilla-canvas-stage" data-plantilla-stage>
+                        <canvas class="plantilla-canvas" data-plantilla-lienzo width="816" height="1056"
+                            aria-label="Lienzo para diseñar el certificado"></canvas>
                     </div>
                 </div>
             </main>
-
-            <aside class="plantilla-panel plantilla-properties-panel">
-                <div class="plantilla-panel-title">Propiedades</div>
-                <div class="plantilla-panel-body">
-                    <div data-plantilla-propiedades></div>
-                    <div class="plantilla-layers-box">
-                        <div class="plantilla-layers-title">Capas del certificado</div>
-                        <div data-plantilla-capas></div>
-                    </div>
-
-                    <div class="plantilla-preview-box">
-                        <div class="font-black text-emerald-700">Vista previa de marcadores</div>
-                        <p class="mt-2">
-                            En un texto puede usar marcadores como
-                            <span class="plantilla-token">@{{beneficiario_nombre}}</span>
-                            y el sistema los reemplazará al emitir.
-                        </p>
-                    </div>
-                </div>
-            </aside>
         </section>
 
         <section class="plantilla-card">
@@ -249,5 +297,4 @@
         </section>
     </form>
 
-    @include('certificados.plantilla_certificado.script')
 </x-admin-layout>

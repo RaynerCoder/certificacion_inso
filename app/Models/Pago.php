@@ -80,4 +80,5 @@ class Pago extends Model
             ->withTimestamps()
             ->wherePivotNull('deleted_at');
     }
+
 }

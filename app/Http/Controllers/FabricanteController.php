@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Fabricante;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class FabricanteController extends Controller
 {
@@ -146,20 +145,43 @@ class FabricanteController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('fabricantes', 'nombre')->ignore($fabricante?->id),
+                function (string $atributo, mixed $valor, \Closure $fallar) use ($fabricante) {
+                    if ($this->fabricanteRepetido('nombre', (string) $valor, $fabricante)) {
+                        $fallar('Ya existe un fabricante con el mismo nombre.');
+                    }
+                },
             ],
             'form_descripcion' => 'nullable|string',
             'form_razon_social' => [
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('fabricantes', 'razon_social')->ignore($fabricante?->id),
+                function (string $atributo, mixed $valor, \Closure $fallar) use ($fabricante) {
+                    if (filled($valor) && $this->fabricanteRepetido('razon_social', (string) $valor, $fabricante)) {
+                        $fallar('Ya existe un fabricante con la misma razón social.');
+                    }
+                },
             ],
             'form_estado' => 'nullable|max:50',
-        ], [
-            'form_nombre.unique' => 'Ya existe un fabricante con el mismo nombre.',
-            'form_razon_social.unique' => 'Ya existe un fabricante con la misma razón social.',
         ]);
+    }
+
+    /**
+     * Compara los datos del fabricante sin importar mayúsculas ni espacios exteriores.
+     */
+    private function fabricanteRepetido(
+        string $campo,
+        string $valor,
+        ?Fabricante $fabricante = null,
+    ): bool {
+        $consulta = Fabricante::withTrashed()
+            ->whereRaw("LOWER(TRIM({$campo})) = ?", [mb_strtolower(trim($valor))]);
+
+        if ($fabricante) {
+            $consulta->whereKeyNot($fabricante->id);
+        }
+
+        return $consulta->exists();
     }
 
     private function datosFabricante(array $datos): array

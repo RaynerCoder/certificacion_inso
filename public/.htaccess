@@ -5,6 +5,9 @@
 
     RewriteEngine On
 
+    # Los certificados se entregan desde Laravel para validar permisos y límite de descargas.
+    RewriteRule ^storage/documentos/certificados/ - [F,L,NC]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

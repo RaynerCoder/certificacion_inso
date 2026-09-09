@@ -27,6 +27,9 @@ return new class extends Migration
             // Posicion del requisito dentro del tipo de certificado.
             $table->unsignedInteger('orden')->nullable();
 
+            // Solo se usa cuando la evidencia es CALIFICACION. En los demas requisitos permanece nulo.
+            $table->decimal('calificacion_minima_aprobacion', 5, 2)->nullable();
+
             // Estado general de la relacion: ACTIVO, INACTIVO, etc.
             $table->string('estado', 50)->default('ACTIVO');
 

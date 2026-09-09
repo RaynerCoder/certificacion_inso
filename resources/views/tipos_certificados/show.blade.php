@@ -292,11 +292,20 @@
                             <i class="fa-solid fa-arrow-left text-xs"></i>
                             <span>Volver al listado</span>
                         </a>
-                        <a href="{{ route('tipos_certificados_edit', $tipoCertificado) }}"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
-                            <i class="fa-solid fa-pen-to-square text-xs"></i>
-                            <span>Editar</span>
-                        </a>
+                        @permiso('tipos_certificados.gestionar')
+                            <a href="{{ route('tipos_certificados_index', ['editar' => $tipoCertificado->id]) }}"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                <span>Editar datos</span>
+                            </a>
+                        @endpermiso
+                        @permiso('tipos_certificados.configurar')
+                            <a href="{{ route('tipos_certificados_configuracion', $tipoCertificado) }}"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
+                                <i class="fa-solid fa-sliders text-xs"></i>
+                                <span>Configurar</span>
+                            </a>
+                        @endpermiso
                     </div>
                 </div>
             </div>
@@ -361,6 +370,12 @@
                                             {{ $tipoCertificado->area?->nombre ?? 'Sin área' }}
                                         </strong>
                                     </p>
+                                    <p class="cert-root-area">
+                                        Descargas por usuario:
+                                        <strong class="font-semibold text-slate-600">
+                                            {{ $tipoCertificado->limite_descargas === null ? 'Sin límite' : $tipoCertificado->limite_descargas }}
+                                        </strong>
+                                    </p>
                                 </article>
                             </div>
                         </section>
@@ -409,6 +424,12 @@
                                             </p>
 
                                             <p class="cert-requirement-evidence">{{ $nombreEvidencia }}</p>
+
+                                            @if ($codigoEvidencia === 'CALIFICACION' && $nodo['calificacion_minima_aprobacion'] !== null)
+                                                <p class="cert-requirement-evidence">
+                                                    Calificación mínima: {{ number_format((float) $nodo['calificacion_minima_aprobacion'], 2, ',', '.') }}
+                                                </p>
+                                            @endif
 
                                             @if (filled($nodo['area'] ?? null))
                                                 <p class="cert-requirement-area">

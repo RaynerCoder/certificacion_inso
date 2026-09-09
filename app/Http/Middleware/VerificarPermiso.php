@@ -59,6 +59,8 @@ class VerificarPermiso
             ],
             // La vista de impresión se abre desde "Mis trámites"; el controlador valida que sea propio.
             'certificados_emitir' => ['certificados.emitir', 'seguimientos_tramite.enviados'],
+            // El PDF emitido también puede consultarlo su solicitante; el controlador valida la pertenencia.
+            'certificados_descargar' => ['certificados.emitir', 'seguimientos_tramite.enviados'],
             // El controlador confirma además que el pago pertenece a un trámite visible para la cuenta.
             'pagos_comprobante' => [
                 'pagos.ver',
@@ -71,6 +73,19 @@ class VerificarPermiso
                 'seguimientos_tramite.gestionar',
                 'seguimientos_tramite.consulta_general',
             ],
+            // Ambos perfiles consultan el catálogo, pero cada modificación tiene su propia ruta.
+            'tipos_certificados_index' => [
+                'tipos_certificados.gestionar',
+                'tipos_certificados.configurar',
+            ],
+            'tipos_certificados_show' => [
+                'tipos_certificados.gestionar',
+                'tipos_certificados.configurar',
+            ],
+            'tipos_certificados_store' => 'tipos_certificados.gestionar',
+            'tipos_certificados_update_basico' => 'tipos_certificados.gestionar',
+            'tipos_certificados_configuracion' => 'tipos_certificados.configurar',
+            'tipos_certificados_configuracion_update' => 'tipos_certificados.configurar',
         ];
 
         if (isset($rutasExactas[$ruta])) {
@@ -97,7 +112,7 @@ class VerificarPermiso
             'responsables_' => 'responsables.ver',
             'tramitadores_' => 'tramitadores.ver',
             'rubros_' => 'rubros.ver',
-            'tipos_certificados_' => 'tipos_certificados.ver',
+            'tipos_certificados_' => 'tipos_certificados.gestionar',
             'requisitos_' => 'requisitos.ver',
             'certificados_plantillas_' => 'plantillas_certificados.ver',
             'certificados_emitir' => 'certificados.emitir',

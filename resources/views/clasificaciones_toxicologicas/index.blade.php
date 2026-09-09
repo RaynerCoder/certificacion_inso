@@ -21,7 +21,7 @@
         <div class="w-full max-w-xl rounded-xl bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
                 <h2 id="modalClasificacionToxicologicaTitulo" class="text-base font-black text-slate-800">Nueva clasificación toxicológica</h2>
-                <p class="mt-1 text-sm font-semibold text-slate-500">Ingrese el código y agregue una descripción si corresponde.</p>
+                <p class="mt-1 text-sm font-semibold text-slate-500">Ingrese el código y la descripción de la clasificación.</p>
             </div>
 
             <form id="formClasificacionToxicologica" action="{{ route('clasificaciones_toxicologicas_store') }}" method="POST" class="space-y-4 p-5">
@@ -30,7 +30,7 @@
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <x-wire-input label="Código" id="clasificacion_toxicologica_codigo" name="form_codigo" type="text"
-                        placeholder="Ej: CLASE II" />
+                        placeholder="Ej: CLASE II" required />
 
                     <x-wire-select label="Estado" id="clasificacion_toxicologica_estado" name="form_estado"
                         :options="[
@@ -41,8 +41,8 @@
                         option-value="id" />
                 </div>
 
-                <x-wire-textarea label="Descripción (opcional)" id="clasificacion_toxicologica_descripcion" name="form_descripcion"
-                    placeholder="Ej: Moderadamente peligroso"></x-wire-textarea>
+                <x-wire-textarea label="Descripción" id="clasificacion_toxicologica_descripcion" name="form_descripcion"
+                    placeholder="Ej: Moderadamente peligroso" required></x-wire-textarea>
 
                 <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
                     <x-wire-button type="button" gray onclick="cerrarModalClasificacionToxicologica()">

@@ -20,8 +20,8 @@ class ClasificacionToxicologicaTable extends DataTableComponent
     {
         return [
             Column::make('Id', 'id')->sortable(),
-            Column::make('Descripcion', 'descripcion')->sortable(),
-            Column::make('Codigo', 'codigo')->sortable(),
+            Column::make('Código', 'codigo')->sortable(),
+            Column::make('Descripción', 'descripcion')->sortable(),
             $this->columnaEstado(),
             $this->columnaAcciones(),
         ];

@@ -179,13 +179,6 @@
             };
         };
 
-        // Prepara el enlace del PDF guardado, sea URL externa o archivo del storage.
-        $documentoUrl = null;
-
-        if ($certificado->url_documento) {
-            $documentoUrl = $urlArchivo($certificado->url_documento);
-        }
-
         // Calcula el avance de requisitos para mostrar una lectura rapida.
         $totalRequisitos = $certificado->certificadoRequisitos->count();
         $requisitosCumplidos = $certificado->certificadoRequisitos->where('cumple', 'SI')->count();
@@ -217,20 +210,25 @@
                 ->first();
         };
 
-        $codigoEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
-            return strtoupper((string) ($evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->codigo ?? 'SIN_EVIDENCIA'));
+        $codigoEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito, $configuracionesRequisitos) {
+            $codigo = $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->codigo
+                ?? $configuracionesRequisitos->get($requisitoCertificado->id_requisito)?->tipoEvidencia?->codigo;
+
+            return strtoupper((string) ($codigo ?? 'SIN_EVIDENCIA'));
         };
 
         // Nombre registrado en el catálogo para identificar el tipo solicitado en cada requisito.
-        $nombreEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
-            $tipoEvidencia = $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia;
+        $nombreEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito, $configuracionesRequisitos) {
+            $tipoEvidencia = $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia
+                ?? $configuracionesRequisitos->get($requisitoCertificado->id_requisito)?->tipoEvidencia;
 
             return $tipoEvidencia?->nombre
                 ?: ($tipoEvidencia?->codigo ?: 'Sin tipo definido');
         };
 
-        $descripcionEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito) {
-            return $evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia?->descripcion
+        $descripcionEvidenciaRequisito = function ($requisitoCertificado) use ($evidenciaPrincipalRequisito, $configuracionesRequisitos) {
+            return ($evidenciaPrincipalRequisito($requisitoCertificado)?->tipoEvidencia
+                ?? $configuracionesRequisitos->get($requisitoCertificado->id_requisito)?->tipoEvidencia)?->descripcion
                 ?: 'Sin descripción registrada.';
         };
         $iconoEvidenciaRequisito = function (string $codigo) {
@@ -242,6 +240,7 @@
                 'CERTIFICADO' => 'fa-regular fa-file-lines',
                 'TEXTO' => 'fa-regular fa-keyboard',
                 'PRESENCIAL' => 'fa-solid fa-person',
+                'CALIFICACION' => 'fa-solid fa-graduation-cap',
                 default => 'fa-regular fa-file',
             };
         };
@@ -284,8 +283,7 @@
             return $observacionesDeRequisito($requisitoCertificado)->sortByDesc('id')->first();
         };
 
-        // Localiza el PDF o imagen usando la misma dirección desde la que se abrió el sistema.
-        // Así el archivo no depende del dominio configurado en APP_URL.
+        // Los documentos del expediente son privados y siempre pasan por una ruta autorizada.
         $urlDocumentoRequisito = function ($requisitoCertificado) {
             $evidencia = $requisitoCertificado->evidenciasRequisitos
                 ->filter(fn ($item) => in_array($item->tipoEvidencia?->codigo, ['PDF', 'IMAGEN'], true))
@@ -297,15 +295,10 @@
                     return $evidencia->valor;
                 }
 
-                $rutaPublica = ltrim($evidencia->valor, '/');
-
-                if (! \Illuminate\Support\Str::startsWith($rutaPublica, 'storage/')) {
-                    $rutaPublica = 'storage/' . $rutaPublica;
-                }
-
-                return request()->getSchemeAndHttpHost()
-                    . request()->getBaseUrl()
-                    . '/' . $rutaPublica;
+                return route('certificados_evidencias_descargar', [
+                    'certificado' => $requisitoCertificado->id_certificado,
+                    'evidenciaRequisito' => $evidencia->id,
+                ]);
             }
 
             $rutaPublica = 'storage/documentos/requisitos_certificados/' . $requisitoCertificado->id . '/documento.pdf';
@@ -321,7 +314,7 @@
             ->contains(fn ($registro) => filled($registro->producto?->id));
         // El historial tecnico no se envia al navegador del solicitante antes de notificar una correccion.
         $historialRequisitos = $mostrarRevisionRequisitos && ! $seguimientoCorreccionActual
-            ? $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario) {
+            ? $certificado->certificadoRequisitos->mapWithKeys(function ($requisitoCertificado) use ($observacionesDeRequisito, $ultimaRevisionRequisito, $nombreUsuario, $cargoUsuario, $configuracionesRequisitos) {
             $items = collect();
 
             $observacionesDeRequisito($requisitoCertificado)
@@ -340,8 +333,24 @@
                 });
 
             $ultimaRevision = $ultimaRevisionRequisito($requisitoCertificado);
+            $configuracion = $configuracionesRequisitos->get($requisitoCertificado->id_requisito);
 
-            if ($requisitoCertificado->cumple === 'SI') {
+            if ($ultimaRevision?->calificacion_obtenida !== null) {
+                $calificacion = (float) $ultimaRevision->calificacion_obtenida;
+                $calificacionMinima = (float) $configuracion?->calificacion_minima_aprobacion;
+                $resultadoCalificacion = $calificacion >= $calificacionMinima ? 'Aprobado' : 'Participación';
+
+                $items->push([
+                    'tipo' => 'Calificación registrada',
+                    'estado' => 'success',
+                    'fecha' => $ultimaRevision->created_at?->format('d/m/Y H:i') ?? 'Sin fecha',
+                    'usuario' => $nombreUsuario($ultimaRevision->usuarioRevisor, 'Sin revisor'),
+                    'cargo' => $cargoUsuario($ultimaRevision->usuarioRevisor),
+                    'texto' => 'Calificación: '.number_format($calificacion, 2, ',', '.').' · Mínima: '.number_format($calificacionMinima, 2, ',', '.').' · '.$resultadoCalificacion,
+                ]);
+            }
+
+            if ($requisitoCertificado->cumple === 'SI' && $ultimaRevision?->calificacion_obtenida === null) {
                 $items->push([
                     'tipo' => 'Cumple',
                     'estado' => 'success',
@@ -464,6 +473,7 @@
                 'return_to' => $urlRetornoProductoTramite,
             ])
             : null;
+
     @endphp
     @include('certificados.partials.show_estilos')
 
@@ -471,6 +481,16 @@
         <div class="tramite-shell">
             <header class="tramite-header">
                 <h1 class="tramite-title">Detalle y seguimiento del trámite</h1>
+
+                @if ($puedeConsultarCertificadoEmitido || ($puedeEmitirCertificado && $certificado->tipoCertificado?->plantillaActiva))
+                    <a href="{{ $puedeConsultarCertificadoEmitido
+                        ? route('certificados_descargar', ['certificado' => $certificado, 'visualizar' => 1])
+                        : route('certificados_emitir', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'finalizados')]) }}"
+                        class="tramite-btn tramite-btn-emit">
+                        <i class="fa-solid {{ in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'fa-eye' : 'fa-file-circle-check' }}"></i>
+                        {{ in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'Ver certificado emitido' : 'Emitir certificado' }}
+                    </a>
+                @endif
             </header>
 
             {{-- Resumen superior: replica la franja principal del boceto. --}}
@@ -517,7 +537,57 @@
                         </span>
                     </div>
                 </article>
+
+                @if ($resumenEvaluacionCalificaciones['aplica'])
+                    <article class="tramite-summary-item">
+                        <i class="fa-solid fa-graduation-cap tramite-summary-icon"></i>
+                        <div>
+                            <span class="tramite-summary-label">Resultado de evaluación</span>
+                            <span class="tramite-summary-value">
+                                {{ match ($resumenEvaluacionCalificaciones['resultado']) {
+                                    'APROBADO' => 'Aprobado',
+                                    'PARTICIPACION' => 'Participación',
+                                    default => 'Pendiente',
+                                } }}
+                            </span>
+                        </div>
+                    </article>
+                @endif
             </section>
+
+            @if ($puedeDescargarCertificado)
+                {{-- Documento emitido: el contador corresponde a la cuenta que inició sesión. --}}
+                <section class="mt-4 flex flex-col gap-4 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-start gap-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                            <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+                        </span>
+                        <div>
+                            <h2 class="font-bold text-slate-900">Certificado disponible</h2>
+                            <p class="mt-1 text-sm text-slate-500">
+                                @if ($resumenDescargas['limite'] === null)
+                                    {{ $resumenDescargas['realizadas'] }} descargas realizadas · Sin límite
+                                @else
+                                    {{ $resumenDescargas['realizadas'] }} de {{ $resumenDescargas['limite'] }} descargas utilizadas
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+                    @if ($resumenDescargas['disponible'])
+                        <a href="{{ route('certificados_descargar', $certificado) }}"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 sm:w-auto">
+                            <i class="fa-solid fa-download" aria-hidden="true"></i>
+                            Descargar certificado
+                        </a>
+                    @else
+                        <span class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-500 sm:w-auto">
+                            <i class="fa-solid fa-ban" aria-hidden="true"></i>
+                            Límite alcanzado
+                        </span>
+                    @endif
+                </section>
+            @endif
 
             {{-- SECCION 4: revisión de requisitos. El formulario conserva los nombres que espera el controlador. --}}
             @if ($mostrarRevisionRequisitos)
@@ -578,11 +648,28 @@
                                             <div class="review-requirement-list-body" data-review-list>
                                                 @foreach ($requisitosParaRevision as $requisitoCertificado)
                                                     @php
+                                                        $configuracionRequisito = $configuracionesRequisitos->get($requisitoCertificado->id_requisito);
+                                                        $esRequisitoCalificacion = mb_strtoupper((string) $configuracionRequisito?->tipoEvidencia?->codigo) === 'CALIFICACION';
+                                                        $ultimaRevisionCalificacion = $requisitoCertificado->revisionesRequisitos
+                                                            ->where('estado', 'ACTIVO')
+                                                            ->whereNotNull('calificacion_obtenida')
+                                                            ->sortByDesc('id')
+                                                            ->first();
+                                                        $calificacionActual = old(
+                                                            "requisitos_revision.$loop->index.calificacion_obtenida",
+                                                            $ultimaRevisionCalificacion?->calificacion_obtenida
+                                                        );
+                                                        $esNuevaRevision = $requisitoCertificado->estado === 'PENDIENTE_REVISION';
+                                                        $decisionGuardada = $esNuevaRevision
+                                                            ? ''
+                                                            : ($esRequisitoCalificacion && $calificacionActual !== null && $calificacionActual !== ''
+                                                                ? 'SI'
+                                                                : ($requisitoCertificado->cumple === 'SI'
+                                                                    ? 'SI'
+                                                                    : ($requisitoCertificado->cumple === 'NO' ? 'NO' : '')));
                                                         $decisionActual = old(
                                                             "requisitos_revision.$loop->index.cumple",
-                                                            $requisitoCertificado->cumple === 'SI'
-                                                                ? 'SI'
-                                                                : ($requisitoCertificado->cumple === 'NO' ? 'NO' : '')
+                                                            $decisionGuardada
                                                         );
                                                         $tituloRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito no encontrado';
                                                         $estadoFiltro = $decisionActual ?: 'pending';
@@ -591,6 +678,7 @@
                                                     <article class="review-requirement-item"
                                                         data-review-record="{{ $requisitoCertificado->id }}"
                                                         data-review-state="{{ $estadoFiltro }}"
+                                                        data-review-kind="{{ $esRequisitoCalificacion ? 'calificacion' : 'decision' }}"
                                                         data-review-search-text="{{ \Illuminate\Support\Str::lower($tituloRequisito) }}">
                                                         <input type="hidden" name="requisitos_revision[{{ $loop->index }}][id]" value="{{ $requisitoCertificado->id }}">
                                                         <input type="hidden" name="requisitos_revision[{{ $loop->index }}][tocado]" value="{{ old("requisitos_revision.$loop->index.tocado", '0') }}" data-review-touched>
@@ -610,28 +698,50 @@
                                         </aside>
 
                                         <div class="review-requirement-detail">
-                                            @foreach ($requisitosParaRevision as $requisitoCertificado)
-                                                @php
+                                                @foreach ($requisitosParaRevision as $requisitoCertificado)
+                                                    @php
+                                                    $configuracionRequisito = $configuracionesRequisitos->get($requisitoCertificado->id_requisito);
+                                                    $esRequisitoCalificacion = mb_strtoupper((string) $configuracionRequisito?->tipoEvidencia?->codigo) === 'CALIFICACION';
+                                                    $ultimaRevisionCalificacion = $requisitoCertificado->revisionesRequisitos
+                                                        ->where('estado', 'ACTIVO')
+                                                        ->whereNotNull('calificacion_obtenida')
+                                                        ->sortByDesc('id')
+                                                        ->first();
+                                                    $calificacionActual = old(
+                                                        "requisitos_revision.$loop->index.calificacion_obtenida",
+                                                        $ultimaRevisionCalificacion?->calificacion_obtenida
+                                                    );
                                                     $documentoRequisito = $urlDocumentoRequisito($requisitoCertificado);
                                                     $evidenciaPrincipal = $evidenciaPrincipalRequisito($requisitoCertificado);
-                                                    $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
-                                                    $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
+                                                    $codigoEvidencia = $esRequisitoCalificacion ? 'CALIFICACION' : $codigoEvidenciaRequisito($requisitoCertificado);
+                                                    $nombreEvidencia = $esRequisitoCalificacion ? 'Calificación' : $nombreEvidenciaRequisito($requisitoCertificado);
                                                     $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
-                                                    $descripcionEvidencia = $descripcionEvidenciaRequisito($requisitoCertificado);
+                                                    $descripcionEvidencia = $esRequisitoCalificacion
+                                                        ? 'El técnico registra la calificación obtenida por el participante.'
+                                                        : $descripcionEvidenciaRequisito($requisitoCertificado);
                                                     $esFilaPago = $requisitoTieneEvidencia($requisitoCertificado, 'PAGO');
                                                     $comprobantePagoPrincipal = $pagoPrincipalTramite?->comprobante
                                                         ? route('pagos_comprobante', $pagoPrincipalTramite)
                                                         : null;
                                                     $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
+                                                    $esNuevaRevision = $requisitoCertificado->estado === 'PENDIENTE_REVISION';
+                                                    $decisionGuardada = $esNuevaRevision
+                                                        ? ''
+                                                        : ($esRequisitoCalificacion && $calificacionActual !== null && $calificacionActual !== ''
+                                                            ? 'SI'
+                                                            : ($requisitoCertificado->cumple === 'SI'
+                                                                ? 'SI'
+                                                                : ($requisitoCertificado->cumple === 'NO' ? 'NO' : '')));
                                                     $decisionActual = old(
                                                         "requisitos_revision.$loop->index.cumple",
-                                                        $requisitoCertificado->cumple === 'SI'
-                                                            ? 'SI'
-                                                            : ($requisitoCertificado->cumple === 'NO' ? 'NO' : '')
+                                                        $decisionGuardada
                                                     );
+                                                    $observacionGuardada = $esNuevaRevision
+                                                        ? ''
+                                                        : ($ultimaObservacion?->observacion ?? '');
                                                     $observacionActual = old(
                                                         "requisitos_revision.$loop->index.observacion",
-                                                        $ultimaObservacion?->observacion
+                                                        $observacionGuardada
                                                     );
                                                     $observacionDeOtro = $ultimaObservacion
                                                         && (int) ($ultimaObservacion->revisionRequisito?->id_usuario_revisor) !== (int) auth()->id();
@@ -662,7 +772,12 @@
                                                             <p>{{ $descripcionEvidencia }}</p>
 
                                                             <div class="review-evidence-preview">
-                                                                @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
+                                                                @if ($esRequisitoCalificacion)
+                                                                    <div class="review-evidence-reference">
+                                                                        <i class="fa-solid fa-graduation-cap"></i>
+                                                                        <span>Calificación mínima: {{ number_format((float) $configuracionRequisito->calificacion_minima_aprobacion, 2, ',', '.') }}</span>
+                                                                    </div>
+                                                                @elseif ($codigoEvidencia === 'PDF' && $documentoRequisito)
                                                                     <iframe src="{{ $documentoRequisito }}#toolbar=0&navpanes=0" title="Evidencia PDF: {{ $tituloRequisito }}" loading="lazy"></iframe>
                                                                     <div class="review-evidence-preview-actions">
                                                                         <span><i class="fa-regular fa-file-pdf"></i> Evidencia presentada</span>
@@ -712,14 +827,46 @@
                                                         </div>
 
                                                         <div class="review-decision-column">
+                                                        @if ($esRequisitoCalificacion)
+                                                            <h4>Calificación obtenida</h4>
+                                                            <div class="review-note-field">
+                                                                <input type="number"
+                                                                    name="requisitos_revision[{{ $loop->index }}][calificacion_obtenida]"
+                                                                    value="{{ $calificacionActual }}"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="0.01"
+                                                                    inputmode="decimal"
+                                                                    placeholder="Ej.: 75"
+                                                                    data-review-calificacion
+                                                                    data-calificacion-minima="{{ $configuracionRequisito->calificacion_minima_aprobacion }}">
+                                                                <p>
+                                                                    Resultado: <strong data-review-calificacion-result>
+                                                                        @if ($calificacionActual === null || $calificacionActual === '')
+                                                                            Pendiente
+                                                                        @elseif ((float) $calificacionActual >= (float) $configuracionRequisito->calificacion_minima_aprobacion)
+                                                                            Aprobado
+                                                                        @else
+                                                                            Participación
+                                                                        @endif
+                                                                    </strong>
+                                                                </p>
+                                                            </div>
+                                                            <p class="review-decision-help">Una calificación registrada completa el requisito. La calificación mínima define el resultado del certificado.</p>
+                                                        @else
                                                             <h4>¿Cumple el requisito?</h4>
                                                             <div class="review-decision-options">
                                                                 <button type="button" class="is-yes {{ $decisionActual === 'SI' ? 'is-selected' : '' }}" value="SI" data-review-choice><i class="fa-regular fa-circle-check"></i> Sí</button>
                                                                 <button type="button" class="is-no {{ $decisionActual === 'NO' ? 'is-selected' : '' }}" value="NO" data-review-choice><i class="fa-regular fa-circle-xmark"></i> No</button>
+                                                                <button type="button" class="is-pending {{ blank($decisionActual) ? 'is-selected' : '' }}" value="" data-review-choice><i class="fa-regular fa-clock"></i> Pendiente</button>
                                                             </div>
 
                                                             <p class="review-decision-help" data-review-decision-help>
-                                                                {{ $decisionActual === 'NO' ? 'Indique qué debe corregir el solicitante.' : 'Seleccione el resultado de la revisión.' }}
+                                                                {{ $decisionActual === 'NO'
+                                                                    ? 'Indique qué debe corregir el solicitante.'
+                                                                    : ($decisionActual === 'SI'
+                                                                        ? 'El requisito quedará marcado como cumplido.'
+                                                                        : 'El requisito está pendiente de revisión.') }}
                                                             </p>
 
                                                             <div class="review-observation-field" data-review-observation @if ($decisionActual !== 'NO') hidden @endif>
@@ -734,6 +881,7 @@
                                                                     <small>Al guardar se registrará una nueva observación.</small>
                                                                 @endif
                                                             </div>
+                                                        @endif
                                                         </div>
                                                     </div>
                                                 </section>
@@ -761,10 +909,7 @@
                                         @endif
 
                                         @if ($puedeFinalizarTramite)
-                                            <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
-                                                @unless ($tramiteRequiereHabilitarTramitador) form="form-finalizar-tramite" @endunless
-                                                class="tramite-btn tramite-btn-finish"
-                                                @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
+                                            <button type="button" class="tramite-btn tramite-btn-finish" data-open-finalization-modal>
                                                 <i class="fa-solid fa-circle-check"></i>
                                                 Finalizar trámite
                                             </button>
@@ -873,12 +1018,66 @@
                                 </div>
                             @endif
                             @if ($puedeFinalizarTramite)
-                                <form id="form-finalizar-tramite" action="{{ route('seguimientos_finalizar_tramite', $seguimientoTecnicoActual) }}" method="POST">
+                                <form id="form-finalizar-tramite"
+                                    action="{{ route('seguimientos_finalizar_tramite', $seguimientoTecnicoActual) }}"
+                                    method="POST"
+                                    data-prevent-double-submit
+                                    data-loading-button="Finalizando...">
                                     @csrf
                                     @if ($tramiteRequiereHabilitarTramitador)
                                         <input type="hidden" name="form_aceptar_tramitador" id="aceptar-tramitador" value="">
                                     @endif
                                 </form>
+
+                                <div class="tramite-modal {{ $errors->has('form_descripcion_final') ? 'is-open' : '' }}"
+                                    data-finalization-modal
+                                    @if ($errors->has('form_descripcion_final')) data-open-on-error="1" @endif
+                                    aria-hidden="{{ $errors->has('form_descripcion_final') ? 'false' : 'true' }}">
+                                    <div class="tramite-modal-backdrop" data-close-finalization-modal></div>
+                                    <section class="tramite-modal-panel tramite-modal-panel-finalization"
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-labelledby="tituloFinalizarTramite">
+                                        <div class="tramite-modal-head">
+                                            <div>
+                                                <h2 id="tituloFinalizarTramite" class="tramite-card-title">
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    Finalizar trámite
+                                                </h2>
+                                                <p>Registre la descripción final antes de cerrar el trámite.</p>
+                                            </div>
+                                            <button type="button" class="tramite-modal-close" data-close-finalization-modal aria-label="Cerrar">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="tramite-finalization-field">
+                                            <label for="form_descripcion_final">Descripción final del trámite <span>*</span></label>
+                                            <textarea id="form_descripcion_final"
+                                                name="form_descripcion_final"
+                                                form="form-finalizar-tramite"
+                                                maxlength="2000"
+                                                rows="5"
+                                                required
+                                                placeholder="Escriba el resultado final del trámite.">{{ old('form_descripcion_final') }}</textarea>
+                                            <small>Campo obligatorio. Máximo 2000 caracteres.</small>
+                                            @error('form_descripcion_final')
+                                                <p class="tramite-finalization-error">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="tramite-actions-row mt-5">
+                                            <button type="button" class="tramite-btn tramite-btn-muted" data-close-finalization-modal>Cancelar</button>
+                                            <button type="{{ $tramiteRequiereHabilitarTramitador ? 'button' : 'submit' }}"
+                                                form="form-finalizar-tramite"
+                                                class="tramite-btn tramite-btn-finish"
+                                                @if ($tramiteRequiereHabilitarTramitador) data-confirmar-tramitador @endif>
+                                                <i class="fa-regular fa-floppy-disk"></i>
+                                                Guardar y finalizar trámite
+                                            </button>
+                                        </div>
+                                    </section>
+                                </div>
                             @endif
                         @elseif ($seguimientoCorreccionActual)
                             {{-- El solicitante corrige cada requisito segun el tipo de evidencia configurado. --}}
@@ -1284,7 +1483,7 @@
                                 </div>
 
                                 <div class="tramite-payment-field-12">
-                                    <label class="cert-show-label" for="form_comprobante_pago">Comprobante PDF</label>
+                                    <label class="cert-show-label" for="form_comprobante_pago">Comprobante PDF <span class="font-normal text-slate-500">(opcional)</span></label>
                                     <div class="tramite-payment-pdf @error('form_comprobante_pago') is-invalid @enderror">
                                         <input id="form_comprobante_pago" name="form_comprobante_pago" type="file" accept="application/pdf,.pdf" class="hidden" data-payment-pdf-input>
                                         <span class="tramite-payment-pdf-icon"><i class="fa-regular fa-file-pdf"></i></span>
@@ -1496,7 +1695,8 @@
                             </dl>
                         </article>
 
-                        @if ($requiereProductoTramite)
+                        {{-- Productos y registros técnicos son información interna y no se envían al solicitante. --}}
+                        @if (! $esSolicitante && $requiereProductoTramite)
                         <article class="tramite-detail-panel tramite-panel-productos is-wide">
                             {{-- SECCION 2: productos asociados al tramite. Cada producto se despliega para no repetir informacion en pantalla. --}}
                             <div class="tramite-section-title-row">
@@ -1702,7 +1902,8 @@
                         </article>
                         @endif
 
-                        @if ($requierePagoTramite)
+                        {{-- Pagos, comprobantes y datos de validación solo son visibles para personal interno. --}}
+                        @if (! $esSolicitante && $requierePagoTramite)
                         <article class="tramite-detail-panel tramite-panel-pagos is-wide">
                             {{-- SECCION 3: pagos relacionados al tramite. Solo se muestra lo guardado en la base de datos. --}}
                             <div class="tramite-section-title-row">
@@ -1787,7 +1988,11 @@
                                                     @php
                                                         $rutaComprobantePago = preg_replace('#^/?storage/#', '', (string) $pago->comprobante);
                                                         $comprobantePagoDisponible = filled($rutaComprobantePago)
-                                                            && \Illuminate\Support\Facades\Storage::disk('public')->exists($rutaComprobantePago);
+                                                            && (
+                                                                \Illuminate\Support\Facades\Storage::disk('local')->exists($rutaComprobantePago)
+                                                                || \Illuminate\Support\Facades\Storage::disk('public')->exists($rutaComprobantePago)
+                                                                || file_exists(public_path('storage/'.$rutaComprobantePago))
+                                                            );
                                                     @endphp
                                                     @if ($comprobantePagoDisponible)
                                                         <a href="{{ route('pagos_comprobante', $pago) }}" target="_blank" class="tramite-doc-link tramite-payment-document-link">
@@ -1844,7 +2049,7 @@
                     }
 
                     confirmacion.value = '1';
-                    formulario.submit();
+                    formulario.requestSubmit();
                 });
             });
         </script>

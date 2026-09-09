@@ -64,7 +64,7 @@
         $catalogos = [
             ['titulo' => 'Personas y empresas', 'permiso' => 'personas.ver', 'ruta' => $ruta('personas_index')],
             ['titulo' => 'Productos', 'permiso' => 'productos.ver', 'ruta' => $ruta('productos_index')],
-            ['titulo' => 'Tipos de certificado', 'permiso' => 'tipos_certificados.ver', 'ruta' => $ruta('tipos_certificados_index')],
+            ['titulo' => 'Tipos de certificado', 'permiso' => ['tipos_certificados.gestionar', 'tipos_certificados.configurar'], 'ruta' => $ruta('tipos_certificados_index')],
             ['titulo' => 'Requisitos', 'permiso' => 'requisitos.ver', 'ruta' => $ruta('requisitos_index')],
             ['titulo' => 'Plantillas', 'permiso' => 'plantillas_certificados.ver', 'ruta' => $ruta('certificados_plantillas_index')],
             ['titulo' => 'Pagos', 'permiso' => 'pagos.ver', 'ruta' => $ruta('pagos_index')],

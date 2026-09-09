@@ -25,7 +25,6 @@ return new class extends Migration
             $table->dateTime('fecha_nacimiento')->nullable();
             $table->tinyInteger('genero')->comment('1=masculino, 0=femenino');
             $table->foreignId('id_ocupacion')->nullable()->constrained('ocupaciones_cob');
-            $table->string('ocupacion', 255)->nullable();
 
             // Auditoria
             $table->foreignId('id_usuario_registro')->nullable()->constrained('users');

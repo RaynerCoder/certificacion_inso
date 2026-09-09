@@ -24,7 +24,13 @@ class PlantillaCertificado extends Model
         'ajuste_fondo',
         'fondo_trabajo',
         'imprimir_transparente',
+        'diseno_fabric_json',
         'estado',
+    ];
+
+    protected $casts = [
+        'imprimir_transparente' => 'boolean',
+        'diseno_fabric_json' => 'array',
     ];
 
     // Relación muchos a uno (muchas plantillas pertenecen a un tipo de certificado)

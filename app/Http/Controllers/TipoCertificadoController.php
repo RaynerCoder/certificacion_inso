@@ -20,108 +20,43 @@ class TipoCertificadoController extends Controller
      */
     public function index()
     {
-        $tiposCertificados = TipoCertificado::all();
-        return view('tipos_certificados.index', compact('tiposCertificados'));
+        return view('tipos_certificados.index');
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        // Solo mostramos requisitos activos para asociarlos al tipo de certificado.
-        $requisitos = Requisito::query()
-            ->where('estado', 'ACTIVO')
-            ->orderBy('descripcion')
-            ->get();
-
-        // Tipos de evidencias activos para definir como se cumplira cada requisito.
-        $tiposEvidencias = TipoEvidencia::query()
-            ->where('estado', 'ACTIVO')
-            ->orderBy('nombre')
-            ->get();
-
-        // Tipos de certificados activos que pueden ser exigidos como certificados previos.
-        $tiposCertificadosRequeridos = TipoCertificado::query()
-            ->with([
-                'tipoCertificadoRequisitos.requisito',
-                'tipoCertificadoRequisitos.tipoEvidencia',
-                'tipoCertificadoRequisitos.dependenciasRequisitos.tipoCertificadoRequerido',
-            ])
-            ->where('estado', 'ACTIVO')
-            ->orderBy('nombre')
-            ->get();
-
-        // Areas activas para definir que unidad atendera este tipo de certificado.
-        $areas = Area::query()
-            ->where('estado', 1)
-            ->orderBy('nombre')
-            ->get();
-
-        return view('tipos_certificados.create', compact(
-            'requisitos',
-            'tiposEvidencias',
-            'tiposCertificadosRequeridos',
-            'areas'
-        ));
-    }
-
-    /**
-     * Store a newly created resource in storage.
+     * Registra únicamente los datos básicos enviados desde el modal del listado.
      */
     public function store(Request $solicitud)
     {
         $datos = $solicitud->validate([
-            'form_nombre' => ['required','string','max:255',
-                Rule::unique('tipos_certificados', 'nombre'),],
-            'form_id_area' => ['required', 'integer', 'exists:areas,id'],
+            'form_nombre' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('tipos_certificados', 'nombre'),
+            ],
             'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
-            'requisitos_asignados' => ['nullable', 'array'],
-            'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
-            'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
-            'requisitos_asignados.*.id_tipo_certificado_requerido' => ['nullable', 'integer', 'exists:tipos_certificados,id'],
-            'requisitos_asignados.*.descripcion' => ['nullable', 'string'],
-            'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
-            'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
         ], [
             'form_nombre.unique' => 'El nombre del tipo de certificado ya está registrado.',
         ], [
             'form_nombre' => 'nombre del tipo de certificado',
-            'form_id_area' => 'area responsable',
             'form_estado' => 'estado',
         ]);
 
-        $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
-
         try {
-            DB::beginTransaction();
-
-            // Primero se registra el tipo de certificado
-            $tipoCertificado = TipoCertificado::create([
+            TipoCertificado::create([
                 'nombre' => $this->mayuscula($datos['form_nombre']),
-                'id_area' => $datos['form_id_area'],
                 'estado' => $datos['form_estado'],
             ]);
 
-            // Luego se registran los requisitos nuevos y la relacion en requisitos_tipos_certificados.
-            $this->guardarRequisitosDelTipoCertificado(
-                $tipoCertificado,
-                $solicitud->input('requisitos_asignados', [])
-            );
-
-            DB::commit();
-
             session()->flash('swal', [
-                'title' => 'Bien hecho',
-                'text'  => 'El tipo de certificado se registro correctamente.',
-                'icon'  => 'success',
+                'title' => 'Tipo de certificado creado',
+                'text' => 'Los datos básicos se registraron correctamente.',
+                'icon' => 'success',
             ]);
 
             return redirect()->route('tipos_certificados_index');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return back()
                 ->with('error', 'No se pudo registrar el tipo de certificado.')
                 ->withInput()
@@ -129,9 +64,48 @@ class TipoCertificadoController extends Controller
         }
     }
 
+    /**
+     * Modifica nombre y estado sin tocar la configuración técnica del certificado.
+     */
+    public function actualizarDatosBasicos(Request $solicitud, TipoCertificado $tipoCertificado)
+    {
+        $datos = $solicitud->validate([
+            'form_id_tipo_certificado' => [
+                'required',
+                'integer',
+                Rule::in([$tipoCertificado->id]),
+            ],
+            'form_nombre' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('tipos_certificados', 'nombre')->ignore($tipoCertificado->id),
+            ],
+            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
+        ], [
+            'form_nombre.unique' => 'El nombre del tipo de certificado ya está registrado.',
+        ], [
+            'form_nombre' => 'nombre del tipo de certificado',
+            'form_estado' => 'estado',
+        ]);
+
+        $tipoCertificado->update([
+            'nombre' => $this->mayuscula($datos['form_nombre']),
+            'estado' => $datos['form_estado'],
+        ]);
+
+        session()->flash('swal', [
+            'title' => 'Datos actualizados',
+            'text' => 'El nombre y el estado se actualizaron correctamente.',
+            'icon' => 'success',
+        ]);
+
+        return redirect()->route('tipos_certificados_index');
+    }
 
 
-    // FUNCION PARA CONVERTIR TEXTO A MAYUSCULAS
+
+    // Los nombres del catálogo se guardan con un formato uniforme.
     private function mayuscula(?string $texto): ?string
     {
         if ($texto === null) {
@@ -139,16 +113,16 @@ class TipoCertificadoController extends Controller
         }
 
         return mb_strtoupper(trim($texto), 'UTF-8');
-    }    
+    }
 
-
-
-    
     // METODO PARA REGISTRAR REQUISITOS DE UN TIPO DE CERTIFICADO
     // Se crea requisitos nuevos si hace falta y llena la tabla pivote.
     private function guardarRequisitosDelTipoCertificado(TipoCertificado $tipoCertificado, array $requisitosAsignados): void
     {
         $requisitosProcesados = [];
+        $codigosEvidencias = TipoEvidencia::query()
+            ->whereIn('id', collect($requisitosAsignados)->pluck('id_tipo_evidencia')->filter()->unique())
+            ->pluck('codigo', 'id');
 
         foreach ($requisitosAsignados as $item) {
             $esNuevo = (bool) ($item['nuevo'] ?? false);
@@ -159,6 +133,10 @@ class TipoCertificadoController extends Controller
                 : null;
             $idTipoCertificadoRequerido = filled($item['id_tipo_certificado_requerido'] ?? null)
                 ? (int) $item['id_tipo_certificado_requerido']
+                : null;
+            $codigoTipoEvidencia = $idTipoEvidencia ? $codigosEvidencias->get($idTipoEvidencia) : null;
+            $calificacionMinima = $codigoTipoEvidencia === 'CALIFICACION'
+                ? (float) $item['calificacion_minima_aprobacion']
                 : null;
 
             // Si el usuario creo un requisito nuevo, primero se guarda en requisitos.
@@ -192,6 +170,7 @@ class TipoCertificadoController extends Controller
                 'id_tipo_certificado' => $tipoCertificado->id,
                 'id_tipo_evidencia' => $idTipoEvidencia,
                 'orden' => count($requisitosProcesados) + 1,
+                'calificacion_minima_aprobacion' => $calificacionMinima,
                 'estado' => $estado,
             ]);
 
@@ -240,6 +219,12 @@ class TipoCertificadoController extends Controller
             if (filled($idTipoCertificadoRequerido) && blank($idTipoEvidencia)) {
                 throw ValidationException::withMessages([
                     'requisitos_asignados' => 'Seleccione el tipo de evidencia para los requisitos que dependen de un certificado previo.',
+                ]);
+            }
+
+            if ($codigoTipoEvidencia === 'CALIFICACION' && blank($item['calificacion_minima_aprobacion'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'requisitos_asignados' => 'Ingrese la calificación mínima de aprobación para los requisitos de tipo CALIFICACIÓN.',
                 ]);
             }
         }
@@ -348,6 +333,7 @@ class TipoCertificadoController extends Controller
                     'tipo' => $tipoCertificadoRequerido ? 'certificado' : 'requisito',
                     'evidencia_codigo' => $asignacion->tipoEvidencia?->codigo ?? 'SIN_EVIDENCIA',
                     'evidencia_nombre' => $asignacion->tipoEvidencia?->nombre ?? 'Sin evidencia',
+                    'calificacion_minima_aprobacion' => $asignacion->calificacion_minima_aprobacion,
                     'estado' => $asignacion->estado ?? 'ACTIVO',
                     'area' => $tipoCertificadoRequerido?->area?->nombre,
                     'hijos' => [],
@@ -371,15 +357,16 @@ class TipoCertificadoController extends Controller
         return [
             'nombre' => $tipoCertificado->nombre,
             'area' => $tipoCertificado->area?->nombre,
+            'limite_descargas' => $tipoCertificado->limite_descargas,
             'estado' => $tipoCertificado->estado,
             'requisitos' => $requisitos,
         ];
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Abre la configuración técnica sin permitir cambios en nombre o estado.
      */
-    public function edit(TipoCertificado $tipoCertificado)
+    public function configurar(TipoCertificado $tipoCertificado)
     {
         // Carga los requisitos ya asignados para pintar la relacion actual en la vista edit.
         $tipoCertificado->load(
@@ -426,6 +413,7 @@ class TipoCertificadoController extends Controller
                     'id' => (string) $asignacion->id_requisito,
                     'descripcion' => $asignacion->requisito?->descripcion ?? 'Requisito no encontrado',
                     'id_tipo_evidencia' => $asignacion->id_tipo_evidencia ? (string) $asignacion->id_tipo_evidencia : '',
+                    'calificacion_minima_aprobacion' => $asignacion->calificacion_minima_aprobacion,
                     'orden' => $asignacion->orden,
                     'id_tipo_certificado_requerido' => $dependencia?->id_tipo_certificado_requerido
                         ? (string) $dependencia->id_tipo_certificado_requerido
@@ -449,29 +437,24 @@ class TipoCertificadoController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Guarda área, descargas, requisitos y evidencias del tipo de certificado.
      */
-    public function update(Request $solicitud, TipoCertificado $tipoCertificado)
+    public function actualizarConfiguracion(Request $solicitud, TipoCertificado $tipoCertificado)
     {
-        $datos = $solicitud->validate(['form_nombre' => ['required','string','max:255',
-                Rule::unique('tipos_certificados', 'nombre')
-                    ->ignore($tipoCertificado->id),
-            ],
+        $datos = $solicitud->validate([
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
-            'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
+            'form_limite_descargas' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
             'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
+            'requisitos_asignados.*.calificacion_minima_aprobacion' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'requisitos_asignados.*.id_tipo_certificado_requerido' => ['nullable', 'integer', 'exists:tipos_certificados,id'],
             'requisitos_asignados.*.descripcion' => ['nullable', 'string'],
             'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
             'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
-        ], [
-            'form_nombre.unique' => 'El nombre del tipo de certificado ya está registrado.',
-        ], [
-            'form_nombre' => 'nombre del tipo de certificado',
+        ], [], [
             'form_id_area' => 'area responsable',
-            'form_estado' => 'estado',
+            'form_limite_descargas' => 'límite de descargas',
         ]);
 
         $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
@@ -479,11 +462,10 @@ class TipoCertificadoController extends Controller
         try {
             DB::beginTransaction();
 
-            // Actualiza los datos principales del tipo de certificado.
+            // Nombre y estado se administran desde el modal y no forman parte de esta operación.
             $tipoCertificado->update([
-                'nombre' => $this->mayuscula($datos['form_nombre']),
                 'id_area' => $datos['form_id_area'],
-                'estado' => $datos['form_estado'],
+                'limite_descargas' => $datos['form_limite_descargas'] ?? null,
             ]);
 
             // Reemplaza los requisitos asociados por la nueva seleccion del usuario.
@@ -495,7 +477,7 @@ class TipoCertificadoController extends Controller
             DB::commit();
             session()->flash('swal', [
                 'title' => 'Bien hecho',
-                'text'  => 'El tipo de certificado y sus requisitos se actualizaron correctamente.',
+                'text'  => 'La configuración del tipo de certificado se actualizó correctamente.',
                 'icon'  => 'success',
             ]);
             return redirect()->route('tipos_certificados_index');
@@ -504,78 +486,9 @@ class TipoCertificadoController extends Controller
         catch (\Exception $e) {
             DB::rollBack();
             return back()
-                ->with('error', 'No se pudo actualizar el tipo de certificado.')
+                ->with('error', 'No se pudo actualizar la configuración del tipo de certificado.')
                 ->withInput()
-                ->with('tipo_certificado_editar', $tipoCertificado->id);
+                ->with('tipo_certificado_configurar', $tipoCertificado->id);
         }
-    }
-
-    /**
-     * Elimina lógicamente el tipo de certificado después de dejarlo Inactivo.
-     */
-    public function destroy(TipoCertificado $tipoCertificado)
-    {
-        $relacionesEncontradas = $this->relacionesQueImpidenEliminar($tipoCertificado);
-
-        if ($relacionesEncontradas !== []) {
-            session()->flash('swal', [
-                'title' => 'No se puede eliminar',
-                'text' => 'El tipo de certificado está relacionado con otros datos.',
-                'icon' => 'error',
-            ]);
-
-            return redirect()->route('tipos_certificados_index');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $tipoCertificado->update(['estado' => 'INACTIVO']);
-            $tipoCertificado->delete();
-
-            DB::commit();
-
-            session()->flash('swal', [
-                'title' => 'Eliminado',
-                'text' => 'El tipo de certificado se eliminó correctamente.',
-                'icon' => 'success',
-            ]);
-
-            return redirect()->route('tipos_certificados_index');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()
-                ->route('tipos_certificados_index')
-                ->with('error', 'No se pudo eliminar el tipo de certificado.');
-        }
-    }
-
-    /**
-     * Revisa las relaciones que todavía utilizan el tipo de certificado.
-     */
-    private function relacionesQueImpidenEliminar(TipoCertificado $tipoCertificado): array
-    {
-        $relacionesEncontradas = [];
-
-        if ($tipoCertificado->certificados()->withTrashed()->exists()) {
-            $relacionesEncontradas[] = 'certificados';
-        }
-
-        // Las configuraciones eliminadas se conservan como historial y no bloquean el catálogo.
-        if ($tipoCertificado->tipoCertificadoRequisitos()->exists()) {
-            $relacionesEncontradas[] = 'requisitos configurados';
-        }
-
-        if ($tipoCertificado->dependenciasDondeEsRequerido()->exists()) {
-            $relacionesEncontradas[] = 'dependencias de certificados';
-        }
-
-        if ($tipoCertificado->plantillasCertificados()->exists()) {
-            $relacionesEncontradas[] = 'plantillas';
-        }
-
-        return $relacionesEncontradas;
     }
 }

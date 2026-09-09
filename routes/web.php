@@ -1,14 +1,18 @@
 <?php
 
-use App\Http\Controllers\Auth\LoginCaptchaController;
+// use App\Http\Controllers\Auth\LoginCaptchaController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/menu');
 
-// Limita la regeneracion de imagenes sin afectar los intentos normales de acceso.
-Route::get('/seguridad/captcha-login', LoginCaptchaController::class)
-    ->middleware(['guest', 'throttle:30,1'])
-    ->name('captcha.login');
+/*
+| CAPTCHA del inicio de sesión deshabilitado temporalmente.
+| Descomente también el controlador importado arriba para volver a utilizarlo.
+|
+| Route::get('/seguridad/captcha-login', LoginCaptchaController::class)
+|     ->middleware(['guest', 'throttle:30,1'])
+|     ->name('captcha.login');
+*/
 
 // Vista publica del frontend. Los territorios se leen del catalogo existente;
 // el formulario todavia no guarda preinscripciones porque no existe esa tabla.

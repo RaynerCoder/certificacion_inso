@@ -3,27 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Models\Certificado;
+use App\Models\EvidenciaRequisito;
 use App\Models\NotificacionTramite;
 use App\Models\Persona;
 use App\Models\PlantillaCertificado;
 use App\Models\PlantillaElemento;
 use App\Models\Procedencia;
 use App\Models\RequisitoCertificado;
+use App\Models\RequisitoTipoCertificado;
 use App\Models\TipoCertificado;
 use App\Models\User;
+use App\Services\DescargaCertificadoService;
+use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CertificadoController extends Controller
 {
-    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
+    public function __construct(
+        private GestionTramitadoresService $gestionTramitadores,
+        private DescargaCertificadoService $descargasCertificados,
+        private ExpedienteTramiteService $expedientesTramites
+    ) {}
 
     /**
      * Display a listing of the resource.
@@ -263,9 +270,15 @@ class CertificadoController extends Controller
                 'fecha_inicio' => $datos['form_fecha_inicio'] ?? null,
                 'fecha_fin' => $datos['form_fecha_fin'] ?? null,
                 'descripcion' => $datos['form_descripcion'] ?? null,
-                'url_documento' => $this->guardarDocumentoCertificado($solicitud),
+                'url_documento' => null,
                 'estado' => $datos['form_estado'],
             ]);
+
+            if ($solicitud->hasFile('form_url_documento')) {
+                $certificado->update([
+                    'url_documento' => $this->guardarDocumentoCertificado($solicitud, $certificado),
+                ]);
+            }
 
             // Luego se guardan los requisitos evaluados para ese certificado.
             $this->guardarRequisitosCertificado(
@@ -307,11 +320,11 @@ class CertificadoController extends Controller
 
         $certificado->load([
             'tipoCertificado',
-            'beneficiario.natural',
+            'beneficiario.natural.ocupacionCob',
             'beneficiario.empresa.tipoEmpresa',
             'beneficiario.territorio',
             'beneficiario.usuario',
-            'tramitador.natural',
+            'tramitador.natural.ocupacionCob',
             'tramitador.empresa.tipoEmpresa',
             'tramitador.territorio',
             'tramitador.usuario',
@@ -339,6 +352,14 @@ class CertificadoController extends Controller
             'seguimientos.usuarioSiguiente.roles',
             'seguimientos.usuarioSiguiente.funcionario.cargos',
         ]);
+
+        // Esta configuracion indica que control debe mostrar cada requisito durante la revision.
+        $configuracionesRequisitos = RequisitoTipoCertificado::query()
+            ->with('tipoEvidencia')
+            ->where('id_tipo_certificado', $certificado->id_tipo_certificado)
+            ->where('estado', 'ACTIVO')
+            ->get()
+            ->keyBy('id_requisito');
 
         $usuarioActual = auth()->user();
         $usuarioActual?->loadMissing('funcionario.cargos');
@@ -466,8 +487,8 @@ class CertificadoController extends Controller
         // Boton de emision: aparece despues de finalizar el tramite.
         $puedeEmitirCertificado = ! $consultaGeneral
             && $esUsuarioInterno
-            && ($usuarioActual?->puede('certificados.emitir') ?? false)
-            && $certificado->puedeEmitirse();
+            && $this->usuarioPuedeEmitirCertificado($certificado);
+        $puedeConsultarCertificadoEmitido = $this->usuarioPuedeImprimirCertificado($certificado);
 
         // Funcionarios disponibles para asignar/derivar desde el detalle del tramite.
         // Se usa users + funcionario + cargos activos, asi puede volver al jefe UTHSI u otro cargo INSO.
@@ -492,6 +513,12 @@ class CertificadoController extends Controller
         // Procedencias disponibles para registrar el pago desde el detalle del tramite.
         $procedenciasPago = Procedencia::orderBy('codigo')->get();
 
+        // El límite se cuenta por cuenta de usuario para que beneficiario y tramitador no se afecten entre sí.
+        $resumenDescargas = $this->descargasCertificados->resumen($certificado, $usuarioActual);
+        $puedeDescargarCertificado = filled($certificado->url_documento)
+            && $this->usuarioPuedeDescargarCertificado($certificado);
+        $resumenEvaluacionCalificaciones = $certificado->resumenEvaluacionCalificaciones();
+
         $vistaDetalle = request('bandeja') === 'enviadas'
             ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
             : 'certificados.show';
@@ -514,8 +541,13 @@ class CertificadoController extends Controller
             'puedeFinalizarTramite',
             'tramiteRequiereHabilitarTramitador',
             'puedeEmitirCertificado',
+            'puedeConsultarCertificadoEmitido',
+            'puedeDescargarCertificado',
+            'resumenDescargas',
             'tecnicosDerivacion',
-            'procedenciasPago'
+            'procedenciasPago',
+            'configuracionesRequisitos',
+            'resumenEvaluacionCalificaciones'
         ));
     }
 
@@ -533,11 +565,13 @@ class CertificadoController extends Controller
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
         $valoresPlantilla = $this->valoresPlantillaCertificado($certificado);
+        $resumenDescargas = $this->descargasCertificados->resumen($certificado, auth()->user());
 
         return view('certificados.emitir_certificado.create', compact(
             'certificado',
             'plantillaCertificado',
             'valoresPlantilla',
+            'resumenDescargas',
             'puedeGestionarEmision'
         ));
     }
@@ -559,6 +593,21 @@ class CertificadoController extends Controller
         }
 
         $datos = $this->validarEmisionCertificado($solicitud, $certificado);
+        $medidasBasePlantilla = $this->medidasLienzoPlantilla(
+            $plantillaCertificado->tamano_papel,
+            $plantillaCertificado->orientacion
+        );
+        $imagenRenderizada = $this->validarImagenRenderizada(
+            $datos['form_documento_renderizado'],
+            (int) ($plantillaCertificado->ancho_lienzo_px ?: $medidasBasePlantilla['ancho']),
+            (int) ($plantillaCertificado->alto_lienzo_px ?: $medidasBasePlantilla['alto'])
+        );
+
+        if (! $imagenRenderizada) {
+            throw ValidationException::withMessages([
+                'form_documento_renderizado' => 'No se pudo validar el diseño final. Recargue la página antes de emitir.',
+            ])->errorBag('emisionCertificado');
+        }
 
         if ($certificado->estado !== 'EMITIDO') {
             $fechaFin = $this->resolverFechaFinEmision($solicitud, $datos);
@@ -567,15 +616,17 @@ class CertificadoController extends Controller
             $certificado->fill([
                 'fecha_inicio' => $datos['form_fecha_inicio'],
                 'fecha_fin' => $fechaFin,
-                'descripcion' => $datos['form_descripcion'] ?? null,
                 'estado' => 'EMITIDO',
             ]);
 
             $certificado->update([
                 'fecha_inicio' => $certificado->fecha_inicio,
                 'fecha_fin' => $certificado->fecha_fin,
-                'descripcion' => $certificado->descripcion,
-                'url_documento' => $this->generarDocumentoEmitido($certificado, $plantillaCertificado),
+                'url_documento' => $this->generarDocumentoEmitido(
+                    $certificado,
+                    $plantillaCertificado,
+                    $imagenRenderizada
+                ),
                 'estado' => 'EMITIDO',
             ]);
         }
@@ -589,6 +640,98 @@ class CertificadoController extends Controller
         return redirect()->route('certificados_emitir', [
             'certificado' => $certificado,
             'bandeja' => $solicitud->input('form_bandeja', 'finalizados'),
+        ]);
+    }
+
+    // ENTREGA EL PDF Y GUARDA QUIEN LO DESCARGÓ
+    // El archivo nunca se expone con una URL directa; primero se valida acceso y límite.
+    public function descargar(Request $solicitud, Certificado $certificado)
+    {
+        $usuario = auth()->user();
+        $certificado->loadMissing('tipoCertificado', 'beneficiario.usuario', 'tramitador.usuario', 'seguimientos');
+
+        if (! $usuario || ! $this->usuarioPuedeDescargarCertificado($certificado)) {
+            abort(403, 'No tiene permiso para descargar este certificado.');
+        }
+
+        $rutaDocumento = $this->descargasCertificados->rutaDocumento($certificado);
+
+        if (! $rutaDocumento) {
+            return back()->with('error', 'El documento del certificado no está disponible.');
+        }
+
+        $soloVisualizar = $solicitud->boolean('visualizar');
+
+        // Ver el PDF en pantalla no consume el límite. Solo se registra una descarga real.
+        if (! $soloVisualizar && ! $solicitud->isMethod('head')) {
+            try {
+                $this->descargasCertificados->registrar($certificado, $usuario);
+            } catch (\RuntimeException $error) {
+                return back()->with('error', $error->getMessage());
+            }
+        }
+
+        if ($soloVisualizar) {
+            return response()->file($rutaDocumento, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.$this->descargasCertificados->nombreDocumento($certificado).'"',
+                'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+                'Pragma' => 'no-cache',
+            ]);
+        }
+
+        return response()->download(
+            $rutaDocumento,
+            $this->descargasCertificados->nombreDocumento($certificado),
+            [
+                'Content-Type' => 'application/pdf',
+                'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+                'Pragma' => 'no-cache',
+            ]
+        );
+    }
+
+    // Entrega una evidencia del expediente sin publicar la carpeta privada.
+    public function descargarEvidencia(
+        Request $solicitud,
+        Certificado $certificado,
+        EvidenciaRequisito $evidenciaRequisito
+    ) {
+        $evidenciaRequisito->loadMissing('requisitoCertificado');
+
+        abort_unless(
+            (int) $evidenciaRequisito->requisitoCertificado?->id_certificado === (int) $certificado->id,
+            404
+        );
+
+        $usuario = $solicitud->user();
+        $puedeConsultarComoFuncionario = $usuario?->puede([
+            'certificados.ver',
+            'seguimientos_tramite.ver',
+            'seguimientos_tramite.registrados',
+            'seguimientos_tramite.atender',
+            'seguimientos_tramite.gestionar',
+            'seguimientos_tramite.consulta_general',
+        ]);
+
+        abort_unless(
+            $usuario && ($puedeConsultarComoFuncionario
+                || $this->gestionTramitadores->usuarioPuedeConsultarTramite($usuario, $certificado)),
+            403,
+            'No tiene permiso para consultar esta evidencia.'
+        );
+
+        $ruta = $this->expedientesTramites->rutaAbsoluta($evidenciaRequisito->valor);
+
+        abort_if(blank($ruta), 404, 'La evidencia no fue encontrada.');
+
+        $nombre = basename($ruta);
+        $nombre = str_replace(['"', "\r", "\n"], '', $nombre);
+
+        return response()->file($ruta, [
+            'Content-Type' => File::mimeType($ruta) ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.$nombre.'"',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
         ]);
     }
 
@@ -656,7 +799,7 @@ class CertificadoController extends Controller
             DB::beginTransaction();
 
             // Si no se sube otro PDF, se conserva el documento anterior.
-            $rutaDocumento = $this->guardarDocumentoCertificado($solicitud) ?? $certificado->url_documento;
+            $rutaDocumento = $this->guardarDocumentoCertificado($solicitud, $certificado) ?? $certificado->url_documento;
 
             $certificado->update([
                 'id_tipo_certificado' => $datos['form_id_tipo_certificado'],
@@ -851,6 +994,9 @@ class CertificadoController extends Controller
                 ['codigo' => 'certificado.fecha_fin', 'nombre' => 'Fecha final'],
                 ['codigo' => 'certificado.descripcion', 'nombre' => 'Descripción del trámite'],
                 ['codigo' => 'certificado.estado', 'nombre' => 'Estado del certificado'],
+                ['codigo' => 'evaluacion.resultado', 'nombre' => 'Resultado de la evaluación'],
+                ['codigo' => 'evaluacion.calificaciones', 'nombre' => 'Calificaciones obtenidas'],
+                ['codigo' => 'evaluacion.calificaciones_minimas', 'nombre' => 'Calificaciones mínimas'],
                 ['codigo' => 'tipo_certificado.nombre', 'nombre' => 'Tipo de certificado'],
                 ['codigo' => 'area.nombre', 'nombre' => 'Área responsable'],
             ],
@@ -992,6 +1138,7 @@ class CertificadoController extends Controller
             'form_quitar_fondo_plantilla' => ['nullable', 'boolean'],
             'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
             'form_elementos_plantilla' => ['nullable', 'string'],
+            'form_diseno_fabric_json' => ['nullable', 'json', 'max:10000000'],
         ], [], [
             'form_id_tipo_certificado' => 'tipo de certificado',
             'form_nombre' => 'nombre de la plantilla',
@@ -1033,13 +1180,18 @@ class CertificadoController extends Controller
                 : $solicitud->boolean('form_imprimir_transparente');
         }
 
+        if (Schema::hasColumn('plantillas_certificados', 'diseno_fabric_json')) {
+            $disenoFabric = json_decode((string) ($datos['form_diseno_fabric_json'] ?? ''), true);
+            $datosPlantilla['diseno_fabric_json'] = is_array($disenoFabric) ? $disenoFabric : null;
+        }
+
         return $datosPlantilla;
     }
 
     private function medidasLienzoPlantilla(string $tamanoPapel, string $orientacion): array
     {
         $medidas = strtoupper($tamanoPapel) === 'OFICIO'
-            ? ['ancho' => 816, 'alto' => 1248]
+            ? ['ancho' => 816, 'alto' => 1344]
             : ['ancho' => 816, 'alto' => 1056];
 
         if (strtoupper($orientacion) === 'HORIZONTAL') {
@@ -1258,11 +1410,22 @@ class CertificadoController extends Controller
                 : 'SOLIDO',
             'radio_borde' => max(0, min(100, (float) ($configuracion['radio_borde'] ?? 0))),
             'bloqueado' => (bool) ($configuracion['bloqueado'] ?? false),
+            // El nombre y la visibilidad pertenecen al panel de capas; se guardan dentro del JSON existente.
+            'nombre_capa' => mb_substr(trim((string) ($configuracion['nombre_capa'] ?? '')), 0, 100),
+            // El identificador permite conservar grupos de capas sin crear tablas adicionales.
+            'grupo' => preg_replace('/[^a-zA-Z0-9_-]/', '', mb_substr((string) ($configuracion['grupo'] ?? ''), 0, 80)),
+            'visible' => (bool) ($configuracion['visible'] ?? true),
             'forma' => in_array($forma, ['RECTANGULO', 'ELIPSE'], true) ? $forma : 'RECTANGULO',
             'ajuste_imagen' => in_array($ajusteImagen, ['CONTENER', 'CUBRIR', 'ESTIRAR'], true)
                 ? $ajusteImagen
                 : 'CONTENER',
         ];
+
+        if ($tipoElemento === 'TEXTO') {
+            $resultado['estilos_texto'] = $this->normalizarEstilosTextoPlantilla(
+                is_array($configuracion['estilos_texto'] ?? null) ? $configuracion['estilos_texto'] : []
+            );
+        }
 
         if ($tipoElemento !== 'TABLA') {
             return $resultado;
@@ -1293,6 +1456,47 @@ class CertificadoController extends Controller
                 ? $alineacionVertical
                 : 'MEDIO',
         ];
+
+        return $resultado;
+    }
+
+    /**
+     * Normaliza los estilos por carácter generados por Fabric.js.
+     * Solo admite negrita, cursiva y subrayado para evitar CSS arbitrario.
+     */
+    private function normalizarEstilosTextoPlantilla(array $estilos): array
+    {
+        $resultado = [];
+        $cantidad = 0;
+
+        foreach ($estilos as $indiceLinea => $caracteres) {
+            if (!ctype_digit((string) $indiceLinea) || !is_array($caracteres)) {
+                continue;
+            }
+
+            foreach ($caracteres as $indiceCaracter => $estilo) {
+                if ($cantidad >= 5000 || !ctype_digit((string) $indiceCaracter) || !is_array($estilo)) {
+                    continue;
+                }
+
+                $estiloSeguro = [];
+                if (in_array($estilo['fontWeight'] ?? null, ['bold', 'normal'], true)) {
+                    $estiloSeguro['fontWeight'] = $estilo['fontWeight'];
+                }
+                if (in_array($estilo['fontStyle'] ?? null, ['italic', 'normal'], true)) {
+                    $estiloSeguro['fontStyle'] = $estilo['fontStyle'];
+                }
+                if (array_key_exists('underline', $estilo) && is_bool($estilo['underline'])) {
+                    $estiloSeguro['underline'] = $estilo['underline'];
+                }
+                if ($estiloSeguro === []) {
+                    continue;
+                }
+
+                $resultado[(string) $indiceLinea][(string) $indiceCaracter] = $estiloSeguro;
+                $cantidad++;
+            }
+        }
 
         return $resultado;
     }
@@ -1363,13 +1567,14 @@ class CertificadoController extends Controller
             'form_fecha_fin' => ['nullable', 'date', 'after_or_equal:form_fecha_inicio'],
             'form_vigencia_dias' => ['nullable', 'integer', 'min:1', 'max:36500'],
             'form_vigencia_indefinida' => ['nullable', 'boolean'],
-            'form_descripcion' => ['nullable', 'string'],
+            // Es obligatorio para que el PDF salga del mismo render Fabric.js mostrado al funcionario.
+            'form_documento_renderizado' => ['required', 'string', 'max:50000000'],
             'bandeja' => ['nullable', 'string', 'max:30'],
         ], [], [
             'form_fecha_inicio' => 'fecha de inicio',
             'form_fecha_fin' => 'fecha final',
             'form_vigencia_dias' => 'días de vigencia',
-            'form_descripcion' => 'descripcion final',
+            'form_documento_renderizado' => 'render final de la plantilla',
         ]);
     }
 
@@ -1395,30 +1600,30 @@ class CertificadoController extends Controller
         ])->errorBag('emisionCertificado');
     }
 
-    private function generarDocumentoEmitido(Certificado $certificado, PlantillaCertificado $plantillaCertificado): string
+    private function generarDocumentoEmitido(
+        Certificado $certificado,
+        PlantillaCertificado $plantillaCertificado,
+        ?string $imagenRenderizada = null
+    ): string
     {
-        $documento = $this->datosDocumentoEmitido($certificado, $plantillaCertificado);
-        $nombreArchivo = 'certificado_'.$certificado->id.'_'.now()->format('Ymd_His').'.pdf';
-        $ruta = 'documentos/certificados/'.$nombreArchivo;
-
+        $documento = $this->datosDocumentoEmitido($certificado, $plantillaCertificado, $imagenRenderizada);
         $pdf = Pdf::loadView('certificados.emitir_certificado.documento_pdf', compact('documento'))
             ->setPaper($documento['papel'], $documento['orientacion']);
 
-        Storage::disk('public')->put($ruta, $pdf->output());
-
-        // Mantiene visible el archivo en instalaciones locales donde public/storage no es un enlace simbólico.
-        $rutaStorage = storage_path('app/public/'.$ruta);
-        $rutaPublica = public_path('storage/'.$ruta);
-        File::ensureDirectoryExists(dirname($rutaPublica));
-
-        if (File::exists($rutaStorage)) {
-            File::copy($rutaStorage, $rutaPublica);
-        }
-
-        return $ruta;
+        return $this->expedientesTramites->guardarContenido(
+            $certificado,
+            $pdf->output(),
+            ExpedienteTramiteService::CERTIFICADO_EMITIDO,
+            'pdf',
+            'certificado_'.$certificado->id.'_'.now()->format('Ymd_His').'.pdf'
+        );
     }
 
-    private function datosDocumentoEmitido(Certificado $certificado, PlantillaCertificado $plantillaCertificado): array
+    private function datosDocumentoEmitido(
+        Certificado $certificado,
+        PlantillaCertificado $plantillaCertificado,
+        ?string $imagenRenderizada = null
+    ): array
     {
         $medidas = $this->medidasLienzoPlantilla(
             $plantillaCertificado->tamano_papel,
@@ -1437,26 +1642,71 @@ class CertificadoController extends Controller
             'alto' => (int) ($plantillaCertificado->alto_lienzo_px ?: $medidas['alto']),
             'papel' => strtoupper($plantillaCertificado->tamano_papel) === 'OFICIO' ? 'legal' : 'letter',
             'orientacion' => strtoupper($plantillaCertificado->orientacion) === 'HORIZONTAL' ? 'landscape' : 'portrait',
+            'ajuste_fondo' => match (strtoupper((string) ($plantillaCertificado->ajuste_fondo ?? 'ESTIRAR'))) {
+                'CONTENER' => 'contain',
+                'CUBRIR' => 'cover',
+                default => 'fill',
+            },
+            'imagen_renderizada' => $this->validarImagenRenderizada(
+                $imagenRenderizada,
+                (int) ($plantillaCertificado->ancho_lienzo_px ?: $medidas['ancho']),
+                (int) ($plantillaCertificado->alto_lienzo_px ?: $medidas['alto'])
+            ),
             'fondo' => $plantillaCertificado->imprimir_transparente
                 ? null
                 : $this->fondoPlantillaBase64($plantillaCertificado->url_fondo),
+            'valores' => $valoresConAlias,
             'elementos' => $plantillaCertificado->elementosActivos
+                ->filter(fn (PlantillaElemento $elemento) => (bool) data_get($elemento->configuracion, 'visible', true))
                 ->map(fn (PlantillaElemento $elemento) => $this->elementoDocumentoEmitido($elemento, $valores, $valoresConAlias))
                 ->values(),
         ];
     }
 
-    private function elementoDocumentoEmitido(PlantillaElemento $elemento, array $valores, array $valoresConAlias): array
+    private function validarImagenRenderizada(?string $imagen, int $anchoEsperado, int $altoEsperado): ?string
+    {
+        if (! is_string($imagen)
+            || ! preg_match('/^data:image\/png;base64,([A-Za-z0-9+\/\r\n]+={0,2})$/', $imagen, $coincidencias)) {
+            return null;
+        }
+
+        $contenido = base64_decode($coincidencias[1], true);
+        if ($contenido === false || strlen($contenido) > 36_000_000) {
+            return null;
+        }
+
+        $medidas = @getimagesizefromstring($contenido);
+        if (! is_array($medidas) || ($medidas['mime'] ?? null) !== 'image/png') {
+            return null;
+        }
+
+        $ancho = (int) ($medidas[0] ?? 0);
+        $alto = (int) ($medidas[1] ?? 0);
+        $proporcionEsperada = $altoEsperado > 0 ? $anchoEsperado / $altoEsperado : 0;
+        $proporcionImagen = $alto > 0 ? $ancho / $alto : 0;
+
+        if ($ancho < 100 || $alto < 100 || $ancho * $alto > 20_000_000
+            || abs($proporcionImagen - $proporcionEsperada) > 0.01) {
+            return null;
+        }
+
+        return $imagen;
+    }
+
+    private function elementoDocumentoEmitido(
+        PlantillaElemento $elemento,
+        array $valores,
+        array $valoresConAlias
+    ): array
     {
         $tipoElemento = $elemento->tipo_elemento;
         $valor = match ($tipoElemento) {
             'TEXTO' => $this->resolverMarcadoresDocumento((string) $elemento->texto_fijo, $valoresConAlias),
             'IMAGEN' => $this->fondoPlantillaBase64($elemento->texto_fijo),
             'QR' => $elemento->texto_fijo ?: ($valores[$elemento->codigo_elemento] ?? ''),
-            'TABLA' => null,
+            'TABLA', 'FORMA', 'LINEA' => null,
             default => $valores[$elemento->codigo_elemento] ?? '',
         };
-
         return [
             'elemento' => $elemento,
             'valor' => $valor,
@@ -1577,28 +1827,18 @@ class CertificadoController extends Controller
     }
 
     // GUARDA PDF DEL CERTIFICADO
-    // Retorna la ruta relativa para publicarla luego con asset('storage/...').
-    private function guardarDocumentoCertificado(Request $solicitud): ?string
+    // El documento queda privado; la ruta de descarga valida usuario y límite.
+    private function guardarDocumentoCertificado(Request $solicitud, Certificado $certificado): ?string
     {
         if (! $solicitud->hasFile('form_url_documento')) {
             return null;
         }
 
-        $archivo = $solicitud->file('form_url_documento');
-        $nombreArchivo = 'certificado_'.now()->format('Ymd_His').'_'.uniqid().'.pdf';
-
-        $ruta = $archivo->storeAs('documentos/certificados', $nombreArchivo, 'public');
-
-        // Si no existe el enlace public/storage, se copia para que el PDF sea visible en Laragon.
-        $rutaStorage = storage_path('app/public/'.$ruta);
-        $rutaPublica = public_path('storage/'.$ruta);
-        File::ensureDirectoryExists(dirname($rutaPublica));
-
-        if (File::exists($rutaStorage)) {
-            File::copy($rutaStorage, $rutaPublica);
-        }
-
-        return $ruta;
+        return $this->expedientesTramites->guardarArchivoSubido(
+            $certificado,
+            $solicitud->file('form_url_documento'),
+            ExpedienteTramiteService::CERTIFICADO_ADJUNTO
+        );
     }
 
     // GUARDA REQUISITOS DEL CERTIFICADO
@@ -1652,12 +1892,12 @@ class CertificadoController extends Controller
     {
         return [
             'tipoCertificado.area',
-            'beneficiario.natural',
+            'beneficiario.natural.ocupacionCob',
             'beneficiario.empresa.tipoEmpresa',
             'beneficiario.territorio',
             'beneficiario.usuario',
             'beneficiario.telefonos',
-            'tramitador.natural',
+            'tramitador.natural.ocupacionCob',
             'tramitador.empresa.tipoEmpresa',
             'tramitador.territorio',
             'tramitador.usuario',
@@ -1716,6 +1956,15 @@ class CertificadoController extends Controller
         $usuarioValidadorPago = $primerPago?->funcionarioUsuario;
         $usuarioFirmaArea = $usuarioDestino ?: $usuarioRevisor ?: $usuarioOrigen;
         $usuarioDirector = $this->usuarioDirectorPlantilla();
+        $resumenCalificaciones = $certificado->resumenEvaluacionCalificaciones();
+        $resultadoEvaluacion = match ($resumenCalificaciones['resultado']) {
+            'APROBADO' => 'APROBADO',
+            'PARTICIPACION' => 'PARTICIPADO',
+            'PENDIENTE' => 'Pendiente',
+            default => 'No aplica',
+        };
+        $calificacionesObtenidas = $resumenCalificaciones['detalles']->pluck('calificacion_obtenida')->filter(fn ($calificacion) => $calificacion !== null);
+        $calificacionesMinimas = $resumenCalificaciones['detalles']->pluck('calificacion_minima')->filter(fn ($calificacion) => $calificacion !== null);
 
         return [
             'certificado.codigo' => $certificado->codigo ?: 'Sin código',
@@ -1723,6 +1972,9 @@ class CertificadoController extends Controller
             'certificado.fecha_fin' => $certificado->fecha_fin?->format('d/m/Y') ?: 'Sin fecha',
             'certificado.descripcion' => $certificado->descripcion ?: 'Sin descripción',
             'certificado.estado' => Certificado::textoEstadoCertificado($certificado->estado),
+            'evaluacion.resultado' => $resultadoEvaluacion,
+            'evaluacion.calificaciones' => $calificacionesObtenidas->isEmpty() ? 'Sin calificación' : $calificacionesObtenidas->implode(', '),
+            'evaluacion.calificaciones_minimas' => $calificacionesMinimas->isEmpty() ? 'Sin calificación mínima' : $calificacionesMinimas->implode(', '),
             'tipo_certificado.nombre' => $certificado->tipoCertificado?->nombre ?: 'Sin tipo',
             'area.nombre' => $certificado->tipoCertificado?->area?->nombre ?: 'Sin área',
 
@@ -1733,6 +1985,7 @@ class CertificadoController extends Controller
             'beneficiario.telefono' => $beneficiario?->telefonos?->first()?->numero ?: 'Sin teléfono',
             'beneficiario.territorio' => $beneficiario?->territorio?->nombre ?: 'Sin territorio',
             'beneficiario.tipo_persona' => $beneficiario?->empresa ? 'Empresa' : 'Persona natural',
+            'natural.ocupacion' => $beneficiario?->natural?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación',
 
             'tramitador.nombre' => $tramitador ? $this->nombrePersona($tramitador) : 'Sin tramitador',
             'tramitador.documento' => $this->documentoPersona($tramitador),
@@ -1856,6 +2109,7 @@ class CertificadoController extends Controller
 
         return (bool) $usuario
             && $certificado->puedeEmitirse()
+            && $usuario->puede('certificados.emitir')
             && (
                 $usuario->tieneRol('administrador')
                 || $usuario->tieneRol('funcionario')
@@ -1863,16 +2117,31 @@ class CertificadoController extends Controller
             );
     }
 
-    // Permite imprimir desde "Mis trámites" sin habilitar acciones internas de emisión.
+    // Permite consultar el documento ya emitido, incluso cuando su vigencia terminó.
+    // Esta autorización no permite modificar fechas ni generar una nueva emisión.
     private function usuarioPuedeImprimirCertificado(Certificado $certificado): bool
     {
         $usuario = auth()->user();
 
-        if (! $usuario || ! $certificado->puedeEmitirse()) {
+        if (! $usuario
+            || ! in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true)
+            || blank($certificado->url_documento)) {
             return false;
         }
 
+        $usuario->loadMissing('funcionario.cargos');
         $certificado->loadMissing('beneficiario.usuario', 'tramitador.usuario');
+
+        $esUsuarioInterno = $usuario->puede('certificados.emitir')
+            && (
+                $usuario->tieneRol('administrador')
+                || $usuario->tieneRol('funcionario')
+                || $this->usuarioTieneCargoActivo($usuario)
+            );
+
+        if ($esUsuarioInterno) {
+            return true;
+        }
 
         return collect([
             $certificado->beneficiario?->usuarioAcceso(),
@@ -1880,6 +2149,29 @@ class CertificadoController extends Controller
         ])
             ->filter()
             ->contains(fn ($usuarioVinculado) => (int) $usuarioVinculado->id === (int) $usuario->id);
+    }
+
+    // Autoriza la descarga tanto al solicitante vinculado como al personal interno del sistema.
+    private function usuarioPuedeDescargarCertificado(Certificado $certificado): bool
+    {
+        $usuario = auth()->user();
+        $usuario?->loadMissing('funcionario.cargos');
+
+        if (! $usuario) {
+            return false;
+        }
+
+        $esUsuarioInterno = $usuario->tieneRol('administrador')
+            || $usuario->tieneRol('funcionario')
+            || $this->usuarioTieneCargoActivo($usuario);
+
+        if ($esUsuarioInterno) {
+            return true;
+        }
+
+        // El solicitante recibe el documento una vez emitido; si vence conserva su respaldo histórico.
+        return in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true)
+            && $this->gestionTramitadores->usuarioPuedeConsultarTramite($usuario, $certificado);
     }
 
     // USUARIOS A NOTIFICAR

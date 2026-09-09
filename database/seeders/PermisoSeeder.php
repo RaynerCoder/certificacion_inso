@@ -35,7 +35,7 @@ class PermisoSeeder extends Seeder
             18 => 'responsables.ver',
             19 => 'tramitadores.ver',
             20 => 'tipos_empresas.ver',
-            21 => 'tipos_certificados.ver',
+            21 => 'tipos_certificados.gestionar',
             22 => 'requisitos.ver',
             23 => 'tipos_evidencias.ver',
             24 => 'plantillas_certificados.ver',
@@ -54,6 +54,7 @@ class PermisoSeeder extends Seeder
             37 => 'reportes.ver',
             38 => 'seguimientos_tramite.registrados',
             39 => 'tramitadores.validar',
+            40 => 'tipos_certificados.configurar',
         ] as $id => $nombre) {
             $this->guardar('permisos', $id, [
                 'nombre' => $nombre,

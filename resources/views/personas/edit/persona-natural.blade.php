@@ -67,8 +67,14 @@
 
             </x-wire-native-select>
 
-            <x-wire-input label="Ocupación" name="form_ocupacion" placeholder="Ocupación"
-                value="{{ old('form_ocupacion') }}" />
+            <x-wire-native-select label="Ocupación" name="form_id_ocupacion" id="form_id_ocupacion">
+                <option value="">Seleccione una ocupación</option>
+                @foreach (($ocupacionesCob ?? collect()) as $ocupacionCob)
+                    <option value="{{ $ocupacionCob->id }}" @selected((string) old('form_id_ocupacion', $persona->natural?->id_ocupacion) === (string) $ocupacionCob->id)>
+                        {{ $ocupacionCob->codigo_ocupacion }} - {{ $ocupacionCob->descripcion_ocupacion }}
+                    </option>
+                @endforeach
+            </x-wire-native-select>
         </div>
     </div>
 </div>

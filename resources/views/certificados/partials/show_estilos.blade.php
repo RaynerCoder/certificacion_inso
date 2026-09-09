@@ -1711,6 +1711,54 @@
             color: #0f172a;
         }
 
+        .tramite-modal-panel-finalization {
+            max-width: 620px;
+            width: min(620px, 100%);
+        }
+
+        .tramite-finalization-field {
+            display: grid;
+            gap: 7px;
+        }
+
+        .tramite-finalization-field label {
+            color: #0f172a;
+            font-size: .84rem;
+            font-weight: 800;
+        }
+
+        .tramite-finalization-field label span,
+        .tramite-finalization-error {
+            color: #dc2626;
+        }
+
+        .tramite-finalization-field textarea {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            color: #0f172a;
+            font-size: .88rem;
+            min-height: 120px;
+            padding: 11px 12px;
+            resize: vertical;
+            width: 100%;
+        }
+
+        .tramite-finalization-field textarea:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, .12);
+            outline: none;
+        }
+
+        .tramite-finalization-field small {
+            color: #64748b;
+            font-size: .75rem;
+        }
+
+        .tramite-finalization-error {
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
         .tramite-payment-form-grid {
             display: grid;
             gap: 14px;
@@ -4800,7 +4848,7 @@
         .review-decision-options {
             display: grid;
             gap: 6px;
-            grid-template-columns: repeat(2, max-content);
+            grid-template-columns: repeat(3, max-content);
             margin-top: 12px;
             width: fit-content;
         }
@@ -4832,8 +4880,50 @@
             color: #dc2626;
         }
 
+        .review-decision-options .is-pending.is-selected {
+            background: #fffbeb;
+            border-color: #f59e0b;
+            color: #b45309;
+        }
+
         .review-decision-help {
             margin-top: 14px;
+        }
+
+        .review-note-field {
+            margin-top: 12px;
+        }
+
+        .review-note-field input {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 800;
+            min-height: 42px;
+            padding: 8px 11px;
+            width: min(100%, 220px);
+        }
+
+        .review-note-field input:focus {
+            border-color: #059669;
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+            outline: 0;
+        }
+
+        .review-note-field input.is-invalid {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+        }
+
+        .review-note-field p {
+            color: #64748b;
+            font-size: 0.78rem;
+            margin-top: 8px;
+        }
+
+        .review-note-field strong {
+            color: #047857;
         }
 
         .review-observation-field {

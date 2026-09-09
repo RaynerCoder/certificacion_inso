@@ -244,7 +244,7 @@
                 </div>
                 <div class="resp-detail-field">
                     <span class="resp-detail-label">Ocupacion</span>
-                    <span class="resp-detail-value">{{ $natural?->ocupacion ?: 'Sin ocupacion' }}</span>
+                    <span class="resp-detail-value">{{ $natural?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación' }}</span>
                 </div>
             </div>
         </section>

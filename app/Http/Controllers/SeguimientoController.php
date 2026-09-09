@@ -20,9 +20,9 @@ use App\Models\TipoCertificado;
 use App\Models\TipoEvidencia;
 use App\Models\User;
 use App\Services\GestionTramitadoresService;
+use App\Services\ExpedienteTramiteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -35,7 +35,10 @@ class SeguimientoController extends Controller
 
     // Este servicio concentra reglas de beneficiario/tramitador.
     // Se usa para saber si un usuario puede ver, corregir o enviar tramites de una empresa.
-    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
+    public function __construct(
+        private GestionTramitadoresService $gestionTramitadores,
+        private ExpedienteTramiteService $expedientesTramites
+    ) {}
 
     public function index(Request $request)
     {
@@ -191,8 +194,9 @@ class SeguimientoController extends Controller
                 'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
                 'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
                 'codigo' => $codigo,
-                // La fecha no se solicita al usuario: se registra el momento exacto de envío.
-                'fecha_inicio' => now(),
+                // Estas fechas pertenecen a la vigencia del certificado y se completan al emitirlo.
+                // El inicio del tramite ya queda registrado en seguimientos.fecha_inicio.
+                'fecha_inicio' => null,
                 'fecha_fin' => null,
                 'descripcion' => $descripcion,
                 'url_documento' => null,
@@ -567,9 +571,8 @@ class SeguimientoController extends Controller
         $funcionario = Funcionario::query()
             ->with('usuario')
             ->whereKey($datos['form_id_funcionario'])
-            ->where('estado', 1)
-            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
-            ->whereHas('cargos', fn ($query) => $query->where('estado', 1))
+            ->whereHas('usuario', fn ($query) => $query->where('users.estado', 1))
+            ->whereHas('cargos', fn ($query) => $query->where('cargos.estado', 1))
             ->first();
 
         if (! $funcionario?->usuario) {
@@ -669,9 +672,8 @@ class SeguimientoController extends Controller
         $funcionarioDestino = Funcionario::query()
             ->with('usuario')
             ->whereKey($datos['form_id_funcionario_destino'])
-            ->where('estado', 1)
-            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
-            ->whereHas('cargos', fn ($query) => $query->where('estado', 1))
+            ->whereHas('usuario', fn ($query) => $query->where('users.estado', 1))
+            ->whereHas('cargos', fn ($query) => $query->where('cargos.estado', 1))
             ->first();
 
         if (! $funcionarioDestino?->usuario) {
@@ -750,7 +752,7 @@ class SeguimientoController extends Controller
     }
 
     // REVISION TECNICA DE REQUISITOS
-    // Guarda los checks de cumple/no cumple. No notifica al solicitante hasta presionar el boton de correccion.
+    // Guarda la decisión manual o la calificación, según la evidencia configurada para cada requisito.
     public function revisarTecnico(Request $request, Seguimiento $seguimiento)
     {
         $datos = $request->validate([
@@ -759,10 +761,12 @@ class SeguimientoController extends Controller
             'requisitos_revision.*.tocado' => ['nullable', 'in:0,1'],
             // La revision puede ser parcial: cada funcionario marca solo lo que reviso.
             'requisitos_revision.*.cumple' => ['nullable', 'in:SI,NO'],
+            'requisitos_revision.*.calificacion_obtenida' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'requisitos_revision.*.observacion' => ['nullable', 'string', 'max:1000'],
         ], [], [
             'requisitos_revision' => 'requisitos',
             'requisitos_revision.*.cumple' => 'cumplimiento',
+            'requisitos_revision.*.calificacion_obtenida' => 'calificación obtenida',
             'requisitos_revision.*.observacion' => 'observacion tecnica',
         ]);
 
@@ -770,15 +774,65 @@ class SeguimientoController extends Controller
             return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
         }
 
-        $requisitosMarcados = collect($datos['requisitos_revision'])
-            ->filter(fn ($item) => ($item['tocado'] ?? '0') === '1' && filled($item['cumple'] ?? null))
+        $certificado = $seguimiento->certificado()->firstOrFail();
+        $itemsTocados = collect($datos['requisitos_revision'])
+            ->filter(fn ($item) => ($item['tocado'] ?? '0') === '1')
             ->values();
 
-        if ($requisitosMarcados->isEmpty()) {
+        if ($itemsTocados->isEmpty()) {
             return back()
                 ->withErrors(['requisitos_revision' => 'Seleccione al menos un requisito para guardar la revision.'])
                 ->withInput();
         }
+
+        // Los requisitos se vuelven a buscar dentro del certificado actual para impedir ids manipulados.
+        $requisitosPorId = RequisitoCertificado::query()
+            ->where('id_certificado', $certificado->id)
+            ->whereIn('id', $itemsTocados->pluck('id'))
+            ->get()
+            ->keyBy('id');
+
+        if ($requisitosPorId->count() !== $itemsTocados->count()) {
+            throw ValidationException::withMessages([
+                'requisitos_revision' => 'Uno de los requisitos no pertenece a este tramite.',
+            ]);
+        }
+
+        $configuracionesPorRequisito = RequisitoTipoCertificado::query()
+            ->with('tipoEvidencia')
+            ->where('id_tipo_certificado', $certificado->id_tipo_certificado)
+            ->whereIn('id_requisito', $requisitosPorId->pluck('id_requisito'))
+            ->where('estado', 'ACTIVO')
+            ->get()
+            ->keyBy('id_requisito');
+
+        $requisitosMarcados = $itemsTocados->map(function ($item) use ($requisitosPorId, $configuracionesPorRequisito) {
+            $requisito = $requisitosPorId->get((int) $item['id']);
+            $configuracion = $configuracionesPorRequisito->get((int) $requisito->id_requisito);
+            $esCalificacion = mb_strtoupper((string) $configuracion?->tipoEvidencia?->codigo) === 'CALIFICACION';
+            // Una decision vacia enviada como campo tocado restablece el requisito a pendiente.
+            $esPendiente = blank($item['cumple'] ?? null)
+                && (! $esCalificacion || blank($item['calificacion_obtenida'] ?? null));
+
+            if ($esCalificacion && ! $esPendiente && blank($item['calificacion_obtenida'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'requisitos_revision' => 'Ingrese la calificación obtenida antes de guardar la revisión.',
+                ]);
+            }
+
+            if ($esCalificacion && ! $esPendiente && $configuracion?->calificacion_minima_aprobacion === null) {
+                throw ValidationException::withMessages([
+                    'requisitos_revision' => 'El requisito de calificación no tiene configurada una calificación mínima de aprobación.',
+                ]);
+            }
+
+            return array_merge($item, [
+                '_requisito' => $requisito,
+                '_configuracion' => $configuracion,
+                '_es_calificacion' => $esCalificacion,
+                '_es_pendiente' => $esPendiente,
+            ]);
+        });
 
         $observacionesPendientes = $requisitosMarcados
             ->filter(fn ($item) => ($item['cumple'] ?? null) === 'NO' && blank($item['observacion'] ?? null));
@@ -795,29 +849,37 @@ class SeguimientoController extends Controller
             $hayObservados = false;
 
             foreach ($requisitosMarcados as $item) {
-                $requisitoCertificado = RequisitoCertificado::query()
-                    ->where('id_certificado', $seguimiento->id_certificado)
-                    ->findOrFail($item['id']);
-
-                $cumple = $item['cumple'];
+                $requisitoCertificado = $item['_requisito'];
+                $esCalificacion = $item['_es_calificacion'];
+                $esPendiente = $item['_es_pendiente'];
+                $calificacionObtenida = $esCalificacion && ! $esPendiente
+                    ? round((float) $item['calificacion_obtenida'], 2)
+                    : null;
+                // Una calificación registrada completa el requisito; el mínimo define el resultado del certificado.
+                $cumple = $esPendiente ? null : ($esCalificacion ? 'SI' : $item['cumple']);
                 $observacion = trim($item['observacion'] ?? '');
 
                 $requisitoCertificado->update([
                     'cumple' => $cumple,
                     // REVISION_OBSERVADA guarda la observacion sin notificar todavia al solicitante.
-                    'estado' => $cumple === 'SI' ? 'ACTIVO' : 'REVISION_OBSERVADA',
+                    'estado' => $esPendiente
+                        ? 'PENDIENTE_REVISION'
+                        : ($cumple === 'SI' ? 'ACTIVO' : 'REVISION_OBSERVADA'),
                 ]);
 
                 // Cada revision queda registrada como historial tecnico del requisito.
                 $revision = RevisionRequisito::create([
                     'id_requisito_certificado' => $requisitoCertificado->id,
-                    'id_evidencia_requisito' => $requisitoCertificado->evidenciasRequisitos()->latest('id')->value('id'),
+                    'id_evidencia_requisito' => $esCalificacion
+                        ? null
+                        : $requisitoCertificado->evidenciasRequisitos()->latest('id')->value('id'),
                     'id_usuario_revisor' => auth()->id(),
-                    'resultado_cumple' => $cumple,
+                    'resultado_cumple' => $esPendiente ? 'PENDIENTE' : $cumple,
+                    'calificacion_obtenida' => $calificacionObtenida,
                     'estado' => 'ACTIVO',
                 ]);
 
-                if ($cumple === 'NO') {
+                if (! $esPendiente && $cumple === 'NO') {
                     $hayObservados = true;
 
                     // La observacion pertenece a la revision exacta, tal como esta en el diagrama.
@@ -829,8 +891,9 @@ class SeguimientoController extends Controller
                 }
             }
 
-            $certificado = $seguimiento->certificado()->firstOrFail();
             $certificado->load('certificadoRequisitos');
+            $hayObservados = $certificado->certificadoRequisitos
+                ->contains(fn ($requisito) => $requisito->estado === 'REVISION_OBSERVADA');
             $todosRequisitosCumplen = $certificado->certificadoRequisitos
                 ->every(fn ($requisito) => $requisito->cumple === 'SI');
 
@@ -867,6 +930,12 @@ class SeguimientoController extends Controller
             return back()->with('error', 'Este tramite no esta asignado al tecnico actual.');
         }
 
+        $datos = $request->validate([
+            'form_descripcion_final' => ['required', 'string', 'max:2000'],
+        ], [], [
+            'form_descripcion_final' => 'descripcion final del tramite',
+        ]);
+
         try {
             DB::beginTransaction();
 
@@ -896,7 +965,6 @@ class SeguimientoController extends Controller
 
             $certificado->update([
                 'estado' => 'APROBADO',
-                'fecha_fin' => now(),
             ]);
 
             $seguimiento->update([
@@ -910,7 +978,7 @@ class SeguimientoController extends Controller
                 'fecha_inicio' => now(),
                 'fecha_derivacion' => now(),
                 'fecha_final' => now(),
-                'descripcion_final' => null,
+                'descripcion_final' => trim($datos['form_descripcion_final']),
                 'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => auth()->id(),
@@ -1188,6 +1256,11 @@ class SeguimientoController extends Controller
             $textos = $request->input('textos_correccion', []);
             $soloGuardar = $datos['form_accion_correccion'] === 'guardar';
             $requisitosObservados = $certificado->certificadoRequisitos->where('cumple', 'NO');
+            $idsRequisitosObservados = $requisitosObservados
+                ->pluck('id_requisito')
+                ->filter()
+                ->values()
+                ->all();
 
             if (! $tecnicoDestinoId) {
                 DB::rollBack();
@@ -1250,6 +1323,20 @@ class SeguimientoController extends Controller
                     'estado' => 'PENDIENTE_REVISION',
                 ]);
             }
+
+            // La observacion anterior se conserva en el historial, pero ya no pertenece
+            // a la nueva revision iniciada con el reenvio del solicitante.
+            ObservacionRequisito::query()
+                ->whereHas('revisionRequisito.requisitoCertificado', function ($query) use ($certificado, $idsRequisitosObservados) {
+                    $query->where('id_certificado', $certificado->id)
+                        ->whereIn('id_requisito', $idsRequisitosObservados);
+                })
+                ->where('estado', 'ACTIVA')
+                ->update([
+                    'estado' => 'INACTIVA',
+                    'id_usuario_modificacion' => auth()->id(),
+                    'updated_at' => now(),
+                ]);
 
             $certificado->update(['estado' => 'EN_REVISION']);
 
@@ -2073,6 +2160,7 @@ class SeguimientoController extends Controller
         foreach ($asignacionesRequisitos as $asignacion) {
             $idRequisito = $asignacion->id_requisito;
             $idTipoEvidencia = $asignacion->id_tipo_evidencia;
+            $codigoEvidencia = mb_strtoupper((string) $asignacion->tipoEvidencia?->codigo);
             $claveProceso = 'asignacion_'.$asignacion->id;
 
             if (! $idRequisito || in_array($claveProceso, $procesados, true)) {
@@ -2088,9 +2176,8 @@ class SeguimientoController extends Controller
                 'estado' => 'PENDIENTE_REVISION',
             ]);
 
-            // Deja marcada la evidencia que este requisito debe cumplir.
-            // El valor se llenara cuando se adjunte o valide el dato correspondiente.
-            if ($idTipoEvidencia) {
+            // CALIFICACION se registra durante la revisión técnica y no necesita una fila vacía de evidencia.
+            if ($idTipoEvidencia && $codigoEvidencia !== 'CALIFICACION') {
                 EvidenciaRequisito::firstOrCreate(
                     [
                         'id_requisito_certificado' => $requisitoCertificado->id,
@@ -2113,7 +2200,6 @@ class SeguimientoController extends Controller
                 );
             }
 
-            $codigoEvidencia = mb_strtoupper((string) $asignacion->tipoEvidencia?->codigo);
             $valorTexto = $valoresTexto[$asignacion->id] ?? '';
 
             if ($codigoEvidencia === 'TEXTO' && $valorTexto !== '') {
@@ -2128,57 +2214,45 @@ class SeguimientoController extends Controller
         }
     }
 
-    // GUARDA EL ARCHIVO DE UN REQUISITO
-    // No crea columnas nuevas: el archivo se ubica por el id de requisitos_certificados.
+    // Guarda cada archivo en la carpeta privada del requisito sin sobrescribir otro documento.
     private function guardarDocumentoRequisito(
         $archivo,
         RequisitoCertificado $requisitoCertificado,
         ?int $idTipoEvidencia,
         bool $mantenerHistorial = false
     ): void {
-        $extension = mb_strtolower($archivo->getClientOriginalExtension() ?: 'pdf');
-        $nombreArchivo = $mantenerHistorial
-            ? 'documento_'.now()->format('YmdHis').'.'.$extension
-            : 'documento.'.$extension;
-
-        $ruta = $archivo->storeAs(
-            'tramites/'.$requisitoCertificado->id_certificado.'/requisitos/'.$requisitoCertificado->id,
-            $nombreArchivo,
-            'public'
-        );
-
-        $rutaStorage = storage_path('app/public/'.$ruta);
-        $rutaPublica = public_path('storage/'.$ruta);
-        File::ensureDirectoryExists(dirname($rutaPublica));
-
-        if (File::exists($rutaStorage)) {
-            File::copy($rutaStorage, $rutaPublica);
-        }
-
         $datosEvidencia = [
-            'valor' => 'storage/'.$ruta,
+            'valor' => null,
             'estado' => 'REGISTRADO',
             'id_usuario_registro' => auth()->id(),
             'id_usuario_modificacion' => auth()->id(),
         ];
 
         if ($mantenerHistorial) {
-            EvidenciaRequisito::create([
+            $evidencia = EvidenciaRequisito::create([
                 'id_requisito_certificado' => $requisitoCertificado->id,
                 'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('PDF'),
             ] + $datosEvidencia);
-
-            return;
+        } else {
+            // En el registro inicial se actualiza la evidencia configurada; en correcciones se crea historial.
+            $evidencia = EvidenciaRequisito::updateOrCreate(
+                [
+                    'id_requisito_certificado' => $requisitoCertificado->id,
+                    'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('PDF'),
+                ],
+                $datosEvidencia
+            );
         }
 
-        // En el registro inicial se actualiza la evidencia configurada; en correcciones se crea historial.
-        EvidenciaRequisito::updateOrCreate(
-            [
-                'id_requisito_certificado' => $requisitoCertificado->id,
-                'id_tipo_evidencia' => $idTipoEvidencia ?: $this->idTipoEvidencia('PDF'),
-            ],
-            $datosEvidencia
+        $certificado = $requisitoCertificado->certificado()->firstOrFail();
+        $ruta = $this->expedientesTramites->guardarArchivoSubido(
+            $certificado,
+            $archivo,
+            ExpedienteTramiteService::EVIDENCIA_REQUISITO,
+            $requisitoCertificado
         );
+
+        $evidencia->update(['valor' => $ruta]);
     }
 
     // Usa la evidencia configurada mas reciente para saber que debe corregir el solicitante.
