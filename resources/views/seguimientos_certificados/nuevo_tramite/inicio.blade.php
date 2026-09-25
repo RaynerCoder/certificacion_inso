@@ -165,13 +165,6 @@
                         </div>
                     </div>
 
-                    @unless ($tramitadorBloqueado)
-                        <label class="tramite-mini-check">
-                            <input type="checkbox" id="mismoBeneficiario">
-                            <span>Beneficiario y tramitador son la misma persona</span>
-                        </label>
-                    @endunless
-
                     <x-input-error for="form_id_persona_tramitador" class="mt-2" />
                 </div>
                 @endif

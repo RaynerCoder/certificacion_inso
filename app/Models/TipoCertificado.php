@@ -10,18 +10,34 @@ class TipoCertificado extends Model
 {
     use SoftDeletes, Auditable;
 
+    // Define si el tipo genera un documento para toda la solicitud o uno por cada lote registrado.
+    public const MODOS_EMISION = [
+        'UNICO_POR_TRAMITE' => 'Un certificado por trámite',
+        'POR_LOTE' => 'Un certificado por lote',
+    ];
+
     protected $table = 'tipos_certificados';
 
     protected $fillable = [
         'nombre',
         'id_area',
         'limite_descargas',
+        'modo_emision',
+        'prefijo_numero_certificado',
+        'siguiente_correlativo',
         'estado',
     ];
 
     protected $casts = [
         'limite_descargas' => 'integer',
+        'siguiente_correlativo' => 'integer',
     ];
+
+    // Evita que las vistas repitan los códigos técnicos de la forma de emisión.
+    public function textoModoEmision(): string
+    {
+        return self::MODOS_EMISION[$this->modo_emision] ?? self::MODOS_EMISION['UNICO_POR_TRAMITE'];
+    }
 
     // Relación muchos a uno (muchos tipos de certificados pertenecen a un área)
     public function area()

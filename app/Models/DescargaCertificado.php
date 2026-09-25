@@ -12,6 +12,7 @@ class DescargaCertificado extends Model
 
     protected $fillable = [
         'id_certificado',
+        'id_certificado_emitido',
         'id_usuario',
         'fecha_descarga',
     ];
@@ -24,6 +25,12 @@ class DescargaCertificado extends Model
     public function certificado()
     {
         return $this->belongsTo(Certificado::class, 'id_certificado');
+    }
+
+    // Documento específico descargado. Es nulo para descargas históricas.
+    public function certificadoEmitido()
+    {
+        return $this->belongsTo(CertificadoEmitido::class, 'id_certificado_emitido');
     }
 
     // Cuenta que realizó la descarga.

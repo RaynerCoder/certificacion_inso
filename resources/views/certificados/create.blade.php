@@ -149,13 +149,6 @@
                                 </div>
 
                                 <div class="cert-span-4">
-                                    {{-- El codigo queda como dato editable; no se genera desde la vista. --}}
-                                    <x-wire-input label="Codigo del certificado" id="codigo" name="form_codigo"
-                                        placeholder="CERT-IMP-2026-000123"
-                                        value="{{ old('form_codigo', $certificado->codigo ?? '') }}" />
-                                </div>
-
-                                <div class="cert-span-4">
                                     <x-wire-native-select label="Estado" id="estado" name="form_estado" required>
                                         <option value="">
                                             Seleccione un estado
@@ -207,45 +200,6 @@
                                     @error('form_id_persona_tramitador')
                                         <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
                                     @enderror
-                                </div>
-                            </div>
-
-                            {{-- Tercera fila: fechas y documento final del certificado. --}}
-                            <div class="cert-grid-twelve">
-                                <div class="cert-span-3">
-                                    <x-wire-input label="Fecha de vigencia inicial" id="fecha_inicio"
-                                        name="form_fecha_inicio" type="date"
-                                        value="{{ old('form_fecha_inicio', isset($certificado->fecha_inicio) ? \Illuminate\Support\Carbon::parse($certificado->fecha_inicio)->format('Y-m-d') : '') }}" />
-                                </div>
-
-                                <div class="cert-span-3">
-                                    <x-wire-input label="Fecha de vigencia final" id="fecha_fin" name="form_fecha_fin"
-                                        type="date"
-                                        value="{{ old('form_fecha_fin', isset($certificado->fecha_fin) ? \Illuminate\Support\Carbon::parse($certificado->fecha_fin)->format('Y-m-d') : '') }}" />
-                                </div>
-
-                                <div class="cert-span-6">
-                                    {{-- Se mantiene el nombre form_url_documento para que el backend pueda guardar la ruta del PDF en url_documento. --}}
-                                    <x-wire-input type="file" label="Documento PDF" id="documento_pdf"
-                                        name="form_url_documento" accept="application/pdf,.pdf" />
-
-                                    {{-- <p class="mt-1 text-xs text-slate-500">
-                                        Seleccione un archivo PDF. Al guardar, el sistema debe almacenar la ruta del
-                                        archivo.
-                                    </p> --}}
-
-                                    {{-- Boton compacto: evita que la vista previa del PDF ocupe espacio dentro del formulario. --}}
-                                    <div
-                                        class="mt-3 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <p id="pdfFileName" class="text-xs font-semibold text-slate-500">
-                                            Sin archivo seleccionado.
-                                        </p>
-                                        <button type="button" id="btnVerPdf" onclick="abrirModalPdf()"
-                                            class="cert-pdf-button hidden">
-                                            {!! $icon('document', 'cert-svg-sm') !!}
-                                            <span>Ver PDF</span>
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
 

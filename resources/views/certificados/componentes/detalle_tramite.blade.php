@@ -1712,6 +1712,31 @@
                                     </a>
                                 @endif
                             </div>
+
+                            @if ($puedeGestionarProductosTramite && $registrosDisponiblesTramite->isNotEmpty())
+                                <form action="{{ route('certificados_registros_existentes_vincular', $certificado) }}" method="POST"
+                                    class="mb-4 flex flex-col gap-2 rounded-lg border border-cyan-200 bg-cyan-50 p-3 md:flex-row md:items-end">
+                                    @csrf
+                                    <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'recibidas') }}">
+                                    <label class="block flex-1 text-sm font-semibold text-slate-700">
+                                        Vincular registro existente
+                                        <select name="form_id_registro" class="mt-1 block w-full rounded-md border-slate-300 text-sm" required>
+                                            <option value="">Seleccione producto, lote y presentación</option>
+                                            @foreach ($registrosDisponiblesTramite as $registroDisponible)
+                                                <option value="{{ $registroDisponible->id }}">
+                                                    {{ $registroDisponible->producto?->nombre_comercial ?: 'Sin producto' }}
+                                                    · Lote {{ $registroDisponible->numero_lote ?: 'Sin lote' }}
+                                                    · {{ $registroDisponible->presentacion?->descripcion ?: 'Sin presentación' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                    <button type="submit" class="tramite-product-register-btn">
+                                        <i class="fa-solid fa-link"></i>
+                                        Vincular al trámite
+                                    </button>
+                                </form>
+                            @endif
                             <div class="tramite-product-list">
                                 @forelse ($registrosPorProducto as $grupoRegistros)
                                     @php

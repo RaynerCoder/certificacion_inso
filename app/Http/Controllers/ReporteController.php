@@ -75,8 +75,8 @@ class ReporteController extends Controller
                 'tramitador.empresa',
                 'tramitador.natural',
             ])
-            ->when($filtros['fecha_desde'], fn ($query) => $query->whereDate('fecha_inicio', '>=', $filtros['fecha_desde']))
-            ->when($filtros['fecha_hasta'], fn ($query) => $query->whereDate('fecha_inicio', '<=', $filtros['fecha_hasta']))
+            ->when($filtros['fecha_desde'], fn ($query) => $query->whereDate('created_at', '>=', $filtros['fecha_desde']))
+            ->when($filtros['fecha_hasta'], fn ($query) => $query->whereDate('created_at', '<=', $filtros['fecha_hasta']))
             ->when($filtros['id_tipo_certificado'], fn ($query) => $query->where('id_tipo_certificado', $filtros['id_tipo_certificado']))
             ->when($filtros['estado'], fn ($query) => $query->where('estado', $filtros['estado']))
             ->when($filtros['id_area'], function ($query) use ($filtros) {
@@ -151,8 +151,8 @@ class ReporteController extends Controller
     private function tramitesPorMes(Collection $certificados): Collection
     {
         return $certificados
-            ->filter(fn ($certificado) => $certificado->fecha_inicio)
-            ->groupBy(fn ($certificado) => Carbon::parse($certificado->fecha_inicio)->format('Y-m'))
+            ->filter(fn ($certificado) => $certificado->created_at)
+            ->groupBy(fn ($certificado) => Carbon::parse($certificado->created_at)->format('Y-m'))
             ->map(fn (Collection $grupo, string $mes) => [
                 'mes' => Carbon::createFromFormat('Y-m', $mes)->translatedFormat('M Y'),
                 'total' => $grupo->count(),
@@ -171,8 +171,8 @@ class ReporteController extends Controller
             ->whereHas('observacionesRequisitos')
             ->whereHas('requisitoCertificado.certificado', function ($query) use ($filtros) {
                 $query
-                    ->when($filtros['fecha_desde'], fn ($consulta) => $consulta->whereDate('fecha_inicio', '>=', $filtros['fecha_desde']))
-                    ->when($filtros['fecha_hasta'], fn ($consulta) => $consulta->whereDate('fecha_inicio', '<=', $filtros['fecha_hasta']))
+                    ->when($filtros['fecha_desde'], fn ($consulta) => $consulta->whereDate('created_at', '>=', $filtros['fecha_desde']))
+                    ->when($filtros['fecha_hasta'], fn ($consulta) => $consulta->whereDate('created_at', '<=', $filtros['fecha_hasta']))
                     ->when($filtros['id_tipo_certificado'], fn ($consulta) => $consulta->where('id_tipo_certificado', $filtros['id_tipo_certificado']))
                     ->when($filtros['estado'], fn ($consulta) => $consulta->where('estado', $filtros['estado']))
                     ->when($filtros['id_area'], function ($consulta) use ($filtros) {
@@ -201,8 +201,8 @@ class ReporteController extends Controller
             ->whereIn('estado', ['PENDIENTE', 'EN_REVISION', 'DERIVADO', 'CORRECCION_RECIBIDA'])
             ->whereHas('certificado', function ($query) use ($filtros) {
                 $query
-                    ->when($filtros['fecha_desde'], fn ($consulta) => $consulta->whereDate('fecha_inicio', '>=', $filtros['fecha_desde']))
-                    ->when($filtros['fecha_hasta'], fn ($consulta) => $consulta->whereDate('fecha_inicio', '<=', $filtros['fecha_hasta']))
+                    ->when($filtros['fecha_desde'], fn ($consulta) => $consulta->whereDate('created_at', '>=', $filtros['fecha_desde']))
+                    ->when($filtros['fecha_hasta'], fn ($consulta) => $consulta->whereDate('created_at', '<=', $filtros['fecha_hasta']))
                     ->when($filtros['id_tipo_certificado'], fn ($consulta) => $consulta->where('id_tipo_certificado', $filtros['id_tipo_certificado']))
                     ->when($filtros['estado'], fn ($consulta) => $consulta->where('estado', $filtros['estado']));
             })
@@ -249,7 +249,7 @@ class ReporteController extends Controller
     private function promedioDias(Collection $certificados): int
     {
         $dias = $certificados
-            ->map(fn ($certificado) => $this->diasEntreFechas($certificado->fecha_inicio, $certificado->fecha_fin))
+            ->map(fn ($certificado) => $this->diasEntreFechas($certificado->created_at, $certificado->emisiones->last()?->fecha_fin))
             ->filter(fn ($dias) => $dias !== null);
 
         return $dias->count() > 0 ? (int) round($dias->avg()) : 0;
@@ -266,7 +266,7 @@ class ReporteController extends Controller
 
     private function diasDesdeInicio(Certificado $certificado): int
     {
-        return $this->diasEntreFechas($certificado->fecha_inicio, now()) ?? 0;
+        return $this->diasEntreFechas($certificado->created_at, now()) ?? 0;
     }
 
     private function diasDesdeFecha($fecha): int

@@ -376,6 +376,12 @@
                                             {{ $tipoCertificado->limite_descargas === null ? 'Sin límite' : $tipoCertificado->limite_descargas }}
                                         </strong>
                                     </p>
+                                    <p class="cert-root-area">
+                                        Forma de emisión:
+                                        <strong class="font-semibold text-slate-600">
+                                            {{ $tipoCertificado->textoModoEmision() }}
+                                        </strong>
+                                    </p>
                                 </article>
                             </div>
                         </section>

@@ -28,6 +28,8 @@ use App\Models\Certificado;
 use App\Http\Controllers\TipoEvidenciaController;
 use App\Http\Controllers\TramitadorController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\OpenBCBController;
+
 use Illuminate\Support\Facades\Route;
 
 
@@ -270,11 +272,15 @@ Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController:
 Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
+Route::post('/certificados/{certificado}/registros-existentes', [CertificadoController::class, 'vincularRegistroExistente'])
+    ->name('certificados_registros_existentes_vincular');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')
     ->middleware('permiso:certificados.emitir');
 Route::get('/certificados/{certificado}/descargar', [CertificadoController::class, 'descargar'])
     ->name('certificados_descargar');
+Route::get('/certificados/{certificado}/emitidos/{emision}/descargar', [CertificadoController::class, 'descargarEmitido'])
+    ->name('certificados_emitidos_descargar');
 Route::get('/certificados/{certificado}/evidencias/{evidenciaRequisito}/archivo', [CertificadoController::class, 'descargarEvidencia'])
     ->name('certificados_evidencias_descargar');
 Route::get('/certificados/{certificado}/edit', [CertificadoController::class, 'edit'])->name('certificados_edit');
@@ -532,3 +538,9 @@ Route::post('/registros', [RegistroController::class, 'store'])->name('registros
 Route::get('/registros/{registro}/edit', [RegistroController::class, 'edit'])->name('registros_edit');
 Route::put('/registros/{registro}', [RegistroController::class, 'update'])->name('registros_update');
 Route::delete('/registros/{registro}', [RegistroController::class, 'destroy'])->name('registros_destroy');
+
+
+/* =========================
+   SERVICIOS DEL OPENBCB
+========================= */
+Route::get('/openbcb/probar', [OpenBCBController::class, 'probar'])->name('openbcb_probar');

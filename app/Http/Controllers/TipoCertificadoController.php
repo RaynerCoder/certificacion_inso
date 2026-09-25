@@ -437,13 +437,16 @@ class TipoCertificadoController extends Controller
     }
 
     /**
-     * Guarda área, descargas, requisitos y evidencias del tipo de certificado.
+     * Guarda área, forma de emisión, descargas, requisitos y evidencias del tipo de certificado.
      */
     public function actualizarConfiguracion(Request $solicitud, TipoCertificado $tipoCertificado)
     {
         $datos = $solicitud->validate([
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
             'form_limite_descargas' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'form_modo_emision' => ['required', Rule::in(array_keys(TipoCertificado::MODOS_EMISION))],
+            'form_prefijo_numero_certificado' => ['nullable', 'string', 'max:100'],
+            'form_siguiente_correlativo' => ['required', 'integer', 'min:1', 'max:999999999'],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
             'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
@@ -455,6 +458,9 @@ class TipoCertificadoController extends Controller
         ], [], [
             'form_id_area' => 'area responsable',
             'form_limite_descargas' => 'límite de descargas',
+            'form_modo_emision' => 'forma de emisión',
+            'form_prefijo_numero_certificado' => 'prefijo del número de certificado',
+            'form_siguiente_correlativo' => 'siguiente correlativo',
         ]);
 
         $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
@@ -466,6 +472,9 @@ class TipoCertificadoController extends Controller
             $tipoCertificado->update([
                 'id_area' => $datos['form_id_area'],
                 'limite_descargas' => $datos['form_limite_descargas'] ?? null,
+                'modo_emision' => $datos['form_modo_emision'],
+                'prefijo_numero_certificado' => $datos['form_prefijo_numero_certificado'] ?? null,
+                'siguiente_correlativo' => $datos['form_siguiente_correlativo'],
             ]);
 
             // Reemplaza los requisitos asociados por la nueva seleccion del usuario.

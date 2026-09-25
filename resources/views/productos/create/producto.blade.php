@@ -14,8 +14,12 @@
                                 'form_id_importador_persona',
                                 request('form_id_importador_persona')
                             );
+                            // El controlador entrega este texto calculado; el fallback conserva una etiqueta clara.
+                            $detalleImportador = $persona->detalle_importador
+                                ?? ($persona->empresa ? 'Empresa' : 'Persona natural');
                         @endphp
-                        <option value="{{ $persona->id }}" @selected((string) $importadorSeleccionado === (string) $persona->id)>
+                        <option value="{{ $persona->id }}" data-producto-detalle="{{ $detalleImportador }}"
+                            @selected((string) $importadorSeleccionado === (string) $persona->id)>
                             {{ $nombrePersonaProducto($persona) }}
                         </option>
                     @endforeach

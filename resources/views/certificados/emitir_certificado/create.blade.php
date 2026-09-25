@@ -6,6 +6,8 @@
 ]">
     @php
         $puedeGestionarEmision = $puedeGestionarEmision ?? false;
+        $registroSeleccionado = $registroSeleccionado ?? null;
+        $esEmisionPorLote = $certificado->tipoCertificado?->modo_emision === 'POR_LOTE';
         $esConsultaDocumento = !$puedeGestionarEmision && in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true);
         $vieneDeFinalizados = request('bandeja') === 'finalizados';
         $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
@@ -78,6 +80,11 @@
         $registrosPorProducto = $certificado->registros->groupBy(
             fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
         );
+        $filasLote = $certificado->certificadosRegistros
+            ->filter(fn ($fila) => $fila->registro && filled($fila->registro->numero_lote));
+        $puedeCrearEmision = $esEmisionPorLote
+            ? $registroSeleccionado && ! $registroSeleccionado->emision
+            : $certificado->emisiones->isEmpty();
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
@@ -770,7 +777,7 @@
                 </button>
 
                 @if ($puedeGestionarEmision)
-                    @if ($certificado->estado !== 'EMITIDO')
+                    @if ($puedeCrearEmision)
                         <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-emision>
                             <i class="fa-solid fa-file-circle-check"></i>
                             Emitir certificado
@@ -792,6 +799,9 @@
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
+                @if ($registroSeleccionado)
+                    <input type="hidden" name="form_id_certificado_registro" value="{{ $registroSeleccionado->id }}">
+                @endif
                 <textarea name="form_documento_renderizado" data-documento-renderizado hidden></textarea>
 
                 <div class="emit-modal-head">
@@ -805,6 +815,12 @@
                 </div>
 
                 <div class="emit-modal-body">
+                    @if ($esEmisionPorLote)
+                        <div class="emit-modal-field-full rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-900">
+                            Se emitirá el certificado del lote <strong>{{ $registroSeleccionado?->registro?->numero_lote }}</strong>
+                            · {{ $registroSeleccionado?->registro?->producto?->nombre_comercial ?: 'Sin producto' }}.
+                        </div>
+                    @endif
                     <div>
                         <x-wire-input id="form_fecha_inicio" label="Fecha de inicio" name="form_fecha_inicio" type="date"
                             value="{{ old('form_fecha_inicio', $certificado->fecha_inicio?->format('Y-m-d') ?: now()->format('Y-m-d')) }}" />
@@ -873,6 +889,32 @@
 
         <div class="emit-grid">
             <div class="emit-support">
+                @if ($esEmisionPorLote)
+                    <section class="emit-section">
+                        <div class="emit-section-head">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                            <h2 class="emit-section-title">Lotes del trámite</h2>
+                        </div>
+                        <div class="p-3 space-y-2 text-sm">
+                            @forelse ($filasLote as $filaLote)
+                                @php($yaEmitido = (bool) $filaLote->emision)
+                                <a class="block rounded-lg border px-3 py-2 {{ (int) $registroSeleccionado?->id === (int) $filaLote->id ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200' }}"
+                                    href="{{ route('certificados_emitir', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'finalizados'), 'registro' => $filaLote->id]) }}">
+                                    <div class="font-semibold">Lote {{ $filaLote->registro->numero_lote }}</div>
+                                    <div class="text-xs text-slate-600">{{ $filaLote->registro->producto?->nombre_comercial ?: 'Sin producto' }} · {{ $filaLote->registro->presentacion?->descripcion ?: 'Sin presentación' }}</div>
+                                    <div class="mt-1 text-xs font-semibold {{ $yaEmitido ? 'text-emerald-700' : 'text-amber-700' }}">
+                                        {{ $yaEmitido ? 'Emitido: '.$filaLote->emision->numero_certificado : 'Pendiente de emisión' }}
+                                    </div>
+                                    @if ($yaEmitido)
+                                        <span class="mt-1 inline-block text-xs font-semibold text-emerald-700">Documento registrado</span>
+                                    @endif
+                                </a>
+                            @empty
+                                <p class="text-sm text-rose-600">No hay lotes válidos vinculados al trámite.</p>
+                            @endforelse
+                        </div>
+                    </section>
+                @endif
                 <section class="emit-section">
                     <div class="emit-section-head">
                         <i class="fa-regular fa-file-lines"></i>

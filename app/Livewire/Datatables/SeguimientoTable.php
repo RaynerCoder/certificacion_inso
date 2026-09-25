@@ -179,11 +179,11 @@ class SeguimientoTable extends DataTableComponent
     private function columnaCodigoTramite(): Column
     {
         return Column::make('Código trámite', 'id_certificado')
-            ->format(fn ($valor, $fila) => $fila->certificado?->codigo ?: 'Sin código')
+            ->format(fn ($valor) => $valor ? '#'.$valor : 'Sin ID')
             ->searchable(function (Builder $query, string $search) {
-                $query->orWhereHas('certificado', function (Builder $consulta) use ($search) {
-                    $consulta->where('codigo', 'like', '%' . $search . '%');
-                });
+                if (ctype_digit($search)) {
+                    $query->orWhere('id_certificado', (int) $search);
+                }
             });
     }
 
@@ -469,8 +469,7 @@ class SeguimientoTable extends DataTableComponent
     private function htmlFechasTramite(Seguimiento $seguimiento): string
     {
         $fechaInicio = $seguimiento->fecha_inicio ?: $seguimiento->created_at;
-        $fechaFinal = $this->ultimoMovimiento($seguimiento)?->fecha_final
-            ?: $seguimiento->certificado?->fecha_fin;
+        $fechaFinal = $this->ultimoMovimiento($seguimiento)?->fecha_final;
 
         return '<div class="min-w-[140px] text-sm leading-5">'
             . '<div><span class="font-black text-slate-700">Inicio:</span> ' . e($this->formatearFechaHora($fechaInicio)) . '</div>'

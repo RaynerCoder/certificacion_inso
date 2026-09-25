@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Certificado;
+use App\Models\CertificadoEmitido;
 use App\Models\DescargaCertificado;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -65,9 +66,12 @@ class DescargaCertificadoService
     /**
      * Busca primero el almacenamiento privado y mantiene compatibilidad con documentos anteriores.
      */
-    public function rutaDocumento(Certificado $certificado): ?string
+    public function rutaDocumento(Certificado|CertificadoEmitido $certificado): ?string
     {
-        $ruta = $this->normalizarRuta($certificado->url_documento);
+        $urlDocumento = $certificado instanceof Certificado
+            ? ($certificado->emisiones()->latest('id')->value('url_documento'))
+            : $certificado->url_documento;
+        $ruta = $this->normalizarRuta($urlDocumento);
 
         if ($ruta === null) {
             return null;
@@ -86,9 +90,11 @@ class DescargaCertificadoService
         return File::exists($rutaPublicaAnterior) ? $rutaPublicaAnterior : null;
     }
 
-    public function nombreDocumento(Certificado $certificado): string
+    public function nombreDocumento(Certificado|CertificadoEmitido $certificado): string
     {
-        $codigo = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $certificado->codigo);
+        $codigo = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($certificado instanceof CertificadoEmitido
+            ? $certificado->numero_certificado
+            : $certificado->codigo));
 
         return 'certificado_'.trim($codigo, '_').'.pdf';
     }

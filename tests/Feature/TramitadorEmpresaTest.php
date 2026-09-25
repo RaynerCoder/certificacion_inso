@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\SeguimientoController;
 use App\Models\Ambito;
 use App\Models\Empresa;
 use App\Models\Funcionario;
@@ -17,11 +18,243 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class TramitadorEmpresaTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_registro_interno_separa_empresa_beneficiaria_de_sus_personas_tramitadoras(): void
+    {
+        $funcionario = User::factory()->create(['estado' => 1]);
+        $rolFuncionario = Role::firstOrCreate(
+            ['slug' => 'funcionario'],
+            ['name' => 'Funcionario', 'estado' => 1]
+        );
+        $funcionario->roles()->attach($rolFuncionario->id);
+
+        $ambito = Ambito::create(['nombre' => 'Ámbito interno', 'estado' => 1]);
+        $territorio = Territorio::create([
+            'id_ambito' => $ambito->id,
+            'nombre' => 'Territorio interno',
+            'codigo' => 'T-INTERNO',
+            'estado' => 'ACTIVO',
+        ]);
+        $tipoEmpresa = TipoEmpresa::create(['descripcion' => 'Empresa interna', 'estado' => 'ACTIVO']);
+        $personaEmpresa = Persona::create([
+            'nit' => 'NIT-EMPRESA-INTERNA',
+            'correo' => 'empresa.beneficiaria@example.com',
+            'id_territorio' => $territorio->id,
+            'estado' => 'ACTIVO',
+        ]);
+        $empresa = Empresa::create([
+            'id_persona' => $personaEmpresa->id,
+            'id_tipo_empresa' => $tipoEmpresa->id,
+            'razon_social' => 'EMPRESA BENEFICIARIA',
+            'matricula' => 'MAT-EMPRESA-INTERNA',
+            'estado' => 'ACTIVO',
+        ]);
+
+        $representante = $this->crearPersonaNatural($territorio, '10001', 'REPRESENTANTE', 'LEGAL');
+        $tramitador = $this->crearPersonaNatural($territorio, '10002', 'TRAMITADOR', 'AUTORIZADO');
+        $personaSinEmpresa = $this->crearPersonaNatural($territorio, '10003', 'BENEFICIARIO', 'NATURAL');
+        $rolRepresentante = Role::firstOrCreate(
+            ['slug' => 'solicitante'],
+            ['name' => 'Solicitante', 'estado' => 1]
+        );
+        $rolTramitador = Role::firstOrCreate(
+            ['slug' => 'tramitador'],
+            ['name' => 'Tramitador', 'estado' => 1]
+        );
+
+        Responsable::create([
+            'id_empresa' => $empresa->id,
+            'id_persona' => $representante->id,
+            'id_rol' => $rolRepresentante->id,
+            'fecha_registro' => now()->toDateString(),
+            'estado' => 'ACTIVO',
+        ]);
+        Responsable::create([
+            'id_empresa' => $empresa->id,
+            'id_persona' => $tramitador->id,
+            'id_rol' => $rolTramitador->id,
+            'fecha_registro' => now()->toDateString(),
+            'estado' => 'ACTIVO',
+        ]);
+
+        $this->actingAs($funcionario);
+        $controlador = app(SeguimientoController::class);
+        $metodo = new \ReflectionMethod($controlador, 'datosFormularioTramite');
+        $datos = $metodo->invoke($controlador);
+
+        $idsBeneficiarios = collect($datos['personas'])->pluck('id');
+        $this->assertTrue($idsBeneficiarios->contains($personaEmpresa->id));
+        $this->assertTrue($idsBeneficiarios->contains($personaSinEmpresa->id));
+        $this->assertFalse($idsBeneficiarios->contains($representante->id));
+        $this->assertFalse($idsBeneficiarios->contains($tramitador->id));
+
+        $opcionesTramitador = collect($datos['tramitadoresPorBeneficiario'][$personaEmpresa->id]);
+        $this->assertSame(
+            'Representante legal',
+            $opcionesTramitador->firstWhere('id', $representante->id)['detalle'] ?? null
+        );
+        $this->assertSame(
+            'Tramitador autorizado',
+            $opcionesTramitador->firstWhere('id', $tramitador->id)['detalle'] ?? null
+        );
+        $this->assertFalse($opcionesTramitador->contains('id', $personaEmpresa->id));
+    }
+
+    public function test_registro_interno_no_acepta_una_empresa_como_su_propio_tramitador(): void
+    {
+        $funcionario = User::factory()->create(['estado' => 1]);
+        $rolFuncionario = Role::firstOrCreate(
+            ['slug' => 'funcionario'],
+            ['name' => 'Funcionario', 'estado' => 1]
+        );
+        $funcionario->roles()->attach($rolFuncionario->id);
+        [, $empresa, $territorio] = $this->crearEmpresaConPermisos();
+        $representante = $this->crearPersonaNatural($territorio, '10004', 'OTRO', 'REPRESENTANTE');
+        $rolRepresentante = Role::where('slug', 'solicitante')->firstOrFail();
+        Responsable::create([
+            'id_empresa' => $empresa->id,
+            'id_persona' => $representante->id,
+            'id_rol' => $rolRepresentante->id,
+            'fecha_registro' => now()->toDateString(),
+            'estado' => 'ACTIVO',
+        ]);
+
+        $this->actingAs($funcionario);
+        $controlador = app(SeguimientoController::class);
+        $metodo = new \ReflectionMethod($controlador, 'resolverTramitadorDelBeneficiario');
+
+        $this->expectException(ValidationException::class);
+        $metodo->invoke(
+            $controlador,
+            $funcionario,
+            $empresa->id_persona,
+            $empresa->id_persona
+        );
+    }
+
+    public function test_empresa_sin_representante_legal_no_puede_iniciar_tramites(): void
+    {
+        $funcionario = User::factory()->create(['estado' => 1]);
+        $rolFuncionario = Role::firstOrCreate(
+            ['slug' => 'funcionario'],
+            ['name' => 'Funcionario', 'estado' => 1]
+        );
+        $funcionario->roles()->attach($rolFuncionario->id);
+        [, $empresa, $territorio, $rolTramitador] = $this->crearEmpresaConPermisos();
+        $tramitador = $this->crearPersonaNatural($territorio, '10005', 'SOLO', 'TRAMITADOR');
+        Responsable::create([
+            'id_empresa' => $empresa->id,
+            'id_persona' => $tramitador->id,
+            'id_rol' => $rolTramitador->id,
+            'fecha_registro' => now()->toDateString(),
+            'estado' => 'ACTIVO',
+        ]);
+
+        $this->actingAs($funcionario);
+        $controlador = app(SeguimientoController::class);
+        $datosFormulario = new \ReflectionMethod($controlador, 'datosFormularioTramite');
+        $datos = $datosFormulario->invoke($controlador);
+
+        $this->assertFalse(collect($datos['personas'])->contains('id', $empresa->id_persona));
+
+        $resolverTramitador = new \ReflectionMethod($controlador, 'resolverTramitadorDelBeneficiario');
+        $this->expectException(ValidationException::class);
+        $resolverTramitador->invoke(
+            $controlador,
+            $funcionario,
+            $empresa->id_persona,
+            $tramitador->id
+        );
+    }
+
+    public function test_representante_externo_tramita_para_su_empresa_con_la_relacion_visible(): void
+    {
+        $usuarioRepresentante = User::factory()->create(['estado' => 1]);
+        [$empresa, $territorio] = $this->crearEmpresaBasica('EMPRESA EXTERNA');
+        $personaRepresentante = $this->crearPersonaNatural(
+            $territorio,
+            '10006',
+            'REPRESENTANTE',
+            'EXTERNO',
+            $usuarioRepresentante
+        );
+        $rolRepresentante = Role::firstOrCreate(
+            ['slug' => 'solicitante'],
+            ['name' => 'Solicitante', 'estado' => 1]
+        );
+        Responsable::create([
+            'id_empresa' => $empresa->id,
+            'id_persona' => $personaRepresentante->id,
+            'id_rol' => $rolRepresentante->id,
+            'fecha_registro' => now()->toDateString(),
+            'estado' => 'ACTIVO',
+        ]);
+
+        $this->actingAs($usuarioRepresentante);
+        $controlador = app(SeguimientoController::class);
+        $datosFormulario = new \ReflectionMethod($controlador, 'datosFormularioTramite');
+        $datos = $datosFormulario->invoke($controlador);
+        $opcion = collect($datos['tramitadoresPorBeneficiario'][$empresa->id_persona])->first();
+
+        $this->assertSame($empresa->id_persona, $datos['beneficiarioAutomatico']['id']);
+        $this->assertTrue($datos['beneficiarioBloqueado']);
+        $this->assertTrue($datos['tramitadorBloqueado']);
+        $this->assertSame($personaRepresentante->id, $opcion['id']);
+        $this->assertSame('Representante legal', $opcion['detalle']);
+
+        $resolverTramitador = new \ReflectionMethod($controlador, 'resolverTramitadorDelBeneficiario');
+        $idResuelto = $resolverTramitador->invoke(
+            $controlador,
+            $usuarioRepresentante,
+            $empresa->id_persona,
+            $empresa->id_persona
+        );
+
+        $this->assertSame($personaRepresentante->id, $idResuelto);
+    }
+
+    public function test_persona_natural_externa_sin_empresa_es_beneficiaria_y_tramitadora(): void
+    {
+        $usuario = User::factory()->create(['estado' => 1]);
+        $ambito = Ambito::create(['nombre' => 'Ámbito natural', 'estado' => 1]);
+        $territorio = Territorio::create([
+            'id_ambito' => $ambito->id,
+            'nombre' => 'Territorio natural',
+            'codigo' => 'T-NATURAL',
+            'estado' => 'ACTIVO',
+        ]);
+        $persona = $this->crearPersonaNatural(
+            $territorio,
+            '10007',
+            'PERSONA',
+            'INDEPENDIENTE',
+            $usuario
+        );
+
+        $this->actingAs($usuario);
+        $controlador = app(SeguimientoController::class);
+        $datosFormulario = new \ReflectionMethod($controlador, 'datosFormularioTramite');
+        $datos = $datosFormulario->invoke($controlador);
+        $opcion = collect($datos['tramitadoresPorBeneficiario'][$persona->id])->first();
+
+        $this->assertSame($persona->id, $datos['beneficiarioAutomatico']['id']);
+        $this->assertTrue($datos['beneficiarioBloqueado']);
+        $this->assertTrue($datos['tramitadorBloqueado']);
+        $this->assertSame($persona->id, $opcion['id']);
+        $this->assertSame('Beneficiario y tramitador', $opcion['detalle']);
+
+        $resolverTramitador = new \ReflectionMethod($controlador, 'resolverTramitadorDelBeneficiario');
+        $this->assertSame(
+            $persona->id,
+            $resolverTramitador->invoke($controlador, $usuario, $persona->id, null)
+        );
+    }
 
     public function test_la_busqueda_por_ci_entrega_los_datos_de_la_persona_existente(): void
     {
@@ -627,6 +860,57 @@ class TramitadorEmpresaTest extends TestCase
         $usuario->roles()->attach($rolEmpresa->id);
 
         return [$usuario, $empresa, $territorio, $rolTramitador];
+    }
+
+    private function crearPersonaNatural(
+        Territorio $territorio,
+        string $ci,
+        string $nombres,
+        string $apellido,
+        ?User $usuario = null
+    ): Persona {
+        $persona = Persona::create([
+            'id_usuario' => $usuario?->id,
+            'correo' => strtolower($nombres.'.'.$apellido).'@example.com',
+            'id_territorio' => $territorio->id,
+            'estado' => 'ACTIVO',
+        ]);
+        Natural::create([
+            'id_persona' => $persona->id,
+            'ci' => $ci,
+            'nombres' => $nombres,
+            'apellido_paterno' => $apellido,
+            'genero' => 1,
+        ]);
+
+        return $persona;
+    }
+
+    private function crearEmpresaBasica(string $razonSocial): array
+    {
+        $ambito = Ambito::create(['nombre' => 'Ámbito '.uniqid(), 'estado' => 1]);
+        $territorio = Territorio::create([
+            'id_ambito' => $ambito->id,
+            'nombre' => 'Territorio '.uniqid(),
+            'codigo' => uniqid('T-'),
+            'estado' => 'ACTIVO',
+        ]);
+        $tipoEmpresa = TipoEmpresa::create(['descripcion' => 'Tipo '.uniqid(), 'estado' => 'ACTIVO']);
+        $personaEmpresa = Persona::create([
+            'correo' => uniqid('empresa-').'@example.com',
+            'nit' => uniqid('NIT-'),
+            'id_territorio' => $territorio->id,
+            'estado' => 'ACTIVO',
+        ]);
+        $empresa = Empresa::create([
+            'id_persona' => $personaEmpresa->id,
+            'id_tipo_empresa' => $tipoEmpresa->id,
+            'razon_social' => $razonSocial,
+            'matricula' => uniqid('MAT-'),
+            'estado' => 'ACTIVO',
+        ]);
+
+        return [$empresa, $territorio];
     }
 
     private function crearValidador(): User

@@ -13,8 +13,10 @@ use App\Models\Persona;
 use App\Models\Presentacion;
 use App\Models\Producto;
 use App\Models\Registro;
+use App\Models\Responsable;
 use App\Models\Territorio;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -37,8 +39,10 @@ class ProductoController extends Controller
      */
     public function create(Request $request)
     {
+        $tramiteOrigen = null;
+
         if ($request->filled('form_id_certificado')) {
-            $certificado = Certificado::findOrFail($request->integer('form_id_certificado'));
+            $certificado = Certificado::with('tipoCertificado')->findOrFail($request->integer('form_id_certificado'));
 
             if (!$certificado->requiereEvidencia('PRODUCTO')) {
                 return redirect()
@@ -48,9 +52,14 @@ class ProductoController extends Controller
                     ])
                     ->with('error', 'Este tramite no tiene producto configurado como requisito.');
             }
+
+            $tramiteOrigen = $certificado;
         }
 
-        return view('productos.create', $this->datosFormularioProducto());
+        return view('productos.create', array_merge(
+            $this->datosFormularioProducto(),
+            compact('tramiteOrigen')
+        ));
     }
 
     /**
@@ -321,8 +330,7 @@ class ProductoController extends Controller
                 ->get(),
             'territorios' => Territorio::query()
                 ->where('estado', 'ACTIVO')->where('id_ambito', 1)->orderBy('nombre')->get(),
-            'importadores' => Persona::with(['natural', 'empresa'])
-                ->where('estado', 'ACTIVO')->orderBy('id')->get(),
+            'importadores' => $this->importadoresDisponibles(),
             // Se trae primero el registro más antiguo; la vista agrupa nombres equivalentes y luego los ordena.
             'ingredientes' => Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('id')->get(),
             'clasificacionesQuimicas' => ClasificacionQuimica::query()
@@ -331,6 +339,130 @@ class ProductoController extends Controller
                 ->where('estado', 'ACTIVO')->orderBy('tipo')->orderBy('nombre')->get(),
             'presentacionesCatalogo' => $presentacionesCatalogo,
         ];
+    }
+
+    /**
+     * Carga los importadores junto con el dato que explica cómo está vinculada cada persona.
+     * El ID que se envía al formulario no cambia: esta información solo mejora el selector.
+     */
+    private function importadoresDisponibles(): Collection
+    {
+        return Persona::query()
+            ->with([
+                'natural',
+                'empresa.persona',
+                'empresa.responsables.persona.natural',
+                'empresa.responsables.rol',
+                'responsabilidadesEmpresariales.empresa.persona',
+                'responsabilidadesEmpresariales.rol',
+            ])
+            ->where('estado', 'ACTIVO')
+            ->orderBy('id')
+            ->get()
+            ->each(function (Persona $persona) {
+                // Atributo temporal para la vista; no se guarda en la tabla personas.
+                $persona->setAttribute('detalle_importador', $this->detalleImportador($persona));
+            });
+    }
+
+    /**
+     * Resume qué representa una opción dentro del selector de importadores.
+     */
+    private function detalleImportador(Persona $persona): string
+    {
+        if ($persona->empresa) {
+            return $this->detalleEmpresaImportadora($persona);
+        }
+
+        if ($persona->natural) {
+            return $this->detallePersonaNaturalImportadora($persona);
+        }
+
+        return 'Persona sin clasificación';
+    }
+
+    /**
+     * Una empresa se identifica con sus representantes legales activos.
+     */
+    private function detalleEmpresaImportadora(Persona $personaEmpresa): string
+    {
+        $empresa = $personaEmpresa->empresa;
+        $representantes = $empresa->responsables
+            ->filter(fn (Responsable $responsable) => $this->relacionEmpresarialActiva($responsable, $empresa))
+            ->filter(fn (Responsable $responsable) => $responsable->rol?->slug === 'solicitante')
+            ->map(fn (Responsable $responsable) => $this->nombrePersonaImportador($responsable->persona))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($representantes->isEmpty()) {
+            return 'Empresa · Sin representante legal activo';
+        }
+
+        $etiqueta = $representantes->count() === 1 ? 'Representante legal' : 'Representantes legales';
+
+        return 'Empresa · '.$etiqueta.': '.$representantes->implode(', ');
+    }
+
+    /**
+     * Para una persona natural muestra cada empresa donde tiene una autorización vigente.
+     */
+    private function detallePersonaNaturalImportadora(Persona $persona): string
+    {
+        $detalles = $persona->responsabilidadesEmpresariales
+            ->filter(fn (Responsable $responsable) => $this->relacionEmpresarialActiva($responsable))
+            ->groupBy('id_empresa')
+            ->map(function (Collection $relaciones) {
+                $empresa = $relaciones->first()?->empresa;
+                $roles = $relaciones->pluck('rol.slug')->filter()->unique();
+                $tipoRelacion = match (true) {
+                    $roles->contains('solicitante') && $roles->contains('tramitador') => 'Representante legal y tramitador autorizado',
+                    $roles->contains('solicitante') => 'Representante legal',
+                    default => 'Tramitador autorizado',
+                };
+                $nombreEmpresa = trim((string) $empresa?->razon_social) ?: 'Empresa #'.$relaciones->first()?->id_empresa;
+
+                return $tipoRelacion.' de '.$nombreEmpresa;
+            })
+            ->values();
+
+        return $detalles->isNotEmpty() ? $detalles->implode(' · ') : 'Persona natural';
+    }
+
+    /**
+     * Una relación sirve para el selector solo si la relación, el rol, la persona y la empresa siguen activos.
+     */
+    private function relacionEmpresarialActiva(Responsable $responsable, $empresa = null): bool
+    {
+        $empresa ??= $responsable->empresa;
+        $rol = $responsable->rol;
+        $persona = $responsable->persona;
+
+        return in_array((string) $responsable->estado, ['1', 'ACTIVO'], true)
+            && $rol
+            && in_array((string) $rol->estado, ['1', 'ACTIVO'], true)
+            && in_array($rol->slug, ['solicitante', 'tramitador'], true)
+            && $persona
+            && in_array((string) $persona->estado, ['1', 'ACTIVO'], true)
+            && (bool) $persona->natural
+            && $empresa
+            && in_array((string) $empresa->estado, ['1', 'ACTIVO'], true)
+            && $empresa->persona
+            && in_array((string) $empresa->persona->estado, ['1', 'ACTIVO'], true);
+    }
+
+    /**
+     * Genera el nombre legible de una persona natural para mostrarlo debajo de una empresa.
+     */
+    private function nombrePersonaImportador(Persona $persona): string
+    {
+        $nombre = trim(implode(' ', array_filter([
+            $persona->natural?->nombres,
+            $persona->natural?->apellido_paterno,
+            $persona->natural?->apellido_materno,
+        ])));
+
+        return $nombre ?: 'Persona #'.$persona->id;
     }
 
     /**
@@ -1178,6 +1310,23 @@ class ProductoController extends Controller
             }
 
             $registrosAgregados[$claveRegistro] = true;
+        }
+
+        // Para tipos que emiten un documento por lote, el lote es obligatorio:
+        // esta misma fila será la que identifique el certificado a emitir.
+        if ($request->filled('form_id_certificado')) {
+            $certificado = Certificado::with('tipoCertificado')->find($request->integer('form_id_certificado'));
+
+            if ($certificado?->tipoCertificado?->modo_emision === 'POR_LOTE') {
+                foreach ($request->input('registros', []) as $indice => $registroDato) {
+                    if (blank($registroDato['numero_lote'] ?? null)) {
+                        $validador->errors()->add(
+                            "registros.$indice.numero_lote",
+                            'El número de lote es obligatorio porque este trámite emite un certificado por lote.'
+                        );
+                    }
+                }
+            }
         }
     }
 

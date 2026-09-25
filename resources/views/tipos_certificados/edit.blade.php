@@ -127,7 +127,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 gap-5 px-5 py-4 lg:grid-cols-12">
-                        <div class="lg:col-span-8">
+                        <div class="lg:col-span-5">
                             <x-wire-native-select label="Área desde donde se iniciará el trámite" id="form_id_area"
                                 name="form_id_area">
                                 <option value="">Seleccione el área</option>
@@ -140,11 +140,39 @@
                         </div>
 
                         <div class="lg:col-span-4">
+                            <x-wire-native-select label="Forma de emisión" id="form_modo_emision"
+                                name="form_modo_emision">
+                                @foreach (\App\Models\TipoCertificado::MODOS_EMISION as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected(old('form_modo_emision', $tipoCertificado->modo_emision ?? 'UNICO_POR_TRAMITE') === $valor)>
+                                        {{ $etiqueta }}
+                                    </option>
+                                @endforeach
+                            </x-wire-native-select>
+                            <p class="mt-1 text-xs text-slate-500">
+                                Use emisión por lote únicamente cuando cada lote de la solicitud requiera su propio certificado.
+                            </p>
+                        </div>
+
+                        <div class="lg:col-span-3">
                             <x-wire-input label="Descargas por usuario" id="limite_descargas"
                                 name="form_limite_descargas" type="number" min="0" max="65535"
                                 placeholder="Sin límite"
                                 value="{{ old('form_limite_descargas', $tipoCertificado->limite_descargas) }}" />
                             <p class="mt-1 text-xs text-slate-500">Déjelo vacío para permitir descargas ilimitadas. Use 0 para bloquearlas.</p>
+                        </div>
+
+                        <div class="lg:col-span-6">
+                            <x-wire-input label="Prefijo del número de certificado" id="form_prefijo_numero_certificado"
+                                name="form_prefijo_numero_certificado" maxlength="100" placeholder="Ej.: CAP-07-2026-"
+                                value="{{ old('form_prefijo_numero_certificado', $tipoCertificado->prefijo_numero_certificado) }}" />
+                            <p class="mt-1 text-xs text-slate-500">Se conserva tal cual; el sistema añade el correlativo al final.</p>
+                        </div>
+
+                        <div class="lg:col-span-3">
+                            <x-wire-input label="Siguiente correlativo" id="form_siguiente_correlativo"
+                                name="form_siguiente_correlativo" type="number" min="1" max="999999999"
+                                value="{{ old('form_siguiente_correlativo', $tipoCertificado->siguiente_correlativo ?? 1) }}" />
+                            <p class="mt-1 text-xs text-slate-500">Se incrementa automáticamente al emitir.</p>
                         </div>
 
                     </div>

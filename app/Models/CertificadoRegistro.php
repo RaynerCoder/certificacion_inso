@@ -27,4 +27,10 @@ class CertificadoRegistro extends Model
     {
         return $this->belongsTo(Registro::class, 'id_registro');
     }
+
+    // Una fila de lote solo puede originar un certificado emitido.
+    public function emision()
+    {
+        return $this->hasOne(CertificadoEmitido::class, 'id_certificado_registro');
+    }
 }

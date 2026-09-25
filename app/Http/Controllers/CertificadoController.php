@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Certificado;
+use App\Models\CertificadoEmitido;
+use App\Models\CertificadoRegistro;
 use App\Models\EvidenciaRequisito;
 use App\Models\NotificacionTramite;
 use App\Models\Persona;
@@ -11,6 +13,7 @@ use App\Models\PlantillaElemento;
 use App\Models\Procedencia;
 use App\Models\RequisitoCertificado;
 use App\Models\RequisitoTipoCertificado;
+use App\Models\Registro;
 use App\Models\TipoCertificado;
 use App\Models\User;
 use App\Services\DescargaCertificadoService;
@@ -39,6 +42,7 @@ class CertificadoController extends Controller
     {
         // Antes de listar se actualizan los certificados que ya pasaron su fecha final.
         Certificado::actualizarCertificadosEstadosVencidos();
+        CertificadoEmitido::actualizarEstadosVencidos();
 
         return view('certificados.index');
     }
@@ -46,6 +50,7 @@ class CertificadoController extends Controller
     public function emitidos()
     {
         Certificado::actualizarCertificadosEstadosVencidos();
+        CertificadoEmitido::actualizarEstadosVencidos();
 
         return view('certificados.emitir_certificado.index');
     }
@@ -266,19 +271,9 @@ class CertificadoController extends Controller
                 'id_tipo_certificado' => $datos['form_id_tipo_certificado'],
                 'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
                 'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
-                'codigo' => $this->mayuscula($datos['form_codigo']),
-                'fecha_inicio' => $datos['form_fecha_inicio'] ?? null,
-                'fecha_fin' => $datos['form_fecha_fin'] ?? null,
                 'descripcion' => $datos['form_descripcion'] ?? null,
-                'url_documento' => null,
                 'estado' => $datos['form_estado'],
             ]);
-
-            if ($solicitud->hasFile('form_url_documento')) {
-                $certificado->update([
-                    'url_documento' => $this->guardarDocumentoCertificado($solicitud, $certificado),
-                ]);
-            }
 
             // Luego se guardan los requisitos evaluados para ese certificado.
             $this->guardarRequisitosCertificado(
@@ -343,6 +338,13 @@ class CertificadoController extends Controller
             'registros.producto.presentaciones.catalogoUnidad',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
+            'certificadosRegistros.registro.producto.clasificacionToxicologica',
+            'certificadosRegistros.registro.producto.fabricante',
+            'certificadosRegistros.registro.producto.clasificacionQuimica',
+            'certificadosRegistros.registro.presentacion.catalogoUnidad',
+            'certificadosRegistros.registro.catalogoUnidad',
+            'certificadosRegistros.emision',
+            'emisiones.certificadoRegistro.registro.producto',
             'pagos.procedencia',
             'pagos.clientePersona.natural',
             'pagos.clientePersona.empresa',
@@ -519,6 +521,23 @@ class CertificadoController extends Controller
             && $this->usuarioPuedeDescargarCertificado($certificado);
         $resumenEvaluacionCalificaciones = $certificado->resumenEvaluacionCalificaciones();
 
+        // Registros ya existentes del mismo beneficiario que aún no pertenecen a otro trámite.
+        // Permite reutilizar una ficha/lote válida sin volver a crear producto, presentación o registro.
+        $puedeGestionarProductosTramite = $requiereProductoTramite
+            && ! $esSolicitante
+            && ($puedeAsignarTecnico || $puedeRevisarRequisitos);
+        $registrosDisponiblesTramite = $puedeGestionarProductosTramite
+            ? Registro::query()
+                ->with(['producto', 'presentacion.catalogoUnidad'])
+                ->where('estado', 'ACTIVO')
+                ->whereHas('producto', fn ($query) => $query
+                    ->where('estado', 'ACTIVO')
+                    ->where('id_importador_persona', $certificado->id_persona_beneficiario))
+                ->whereDoesntHave('certificadosRegistros')
+                ->orderByDesc('id')
+                ->get()
+            : collect();
+
         $vistaDetalle = request('bandeja') === 'enviadas'
             ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
             : 'certificados.show';
@@ -547,8 +566,52 @@ class CertificadoController extends Controller
             'tecnicosDerivacion',
             'procedenciasPago',
             'configuracionesRequisitos',
-            'resumenEvaluacionCalificaciones'
+            'resumenEvaluacionCalificaciones',
+            'puedeGestionarProductosTramite',
+            'registrosDisponiblesTramite'
         ));
+    }
+
+    /**
+     * Vincula un registro existente al trámite sin duplicar producto, presentación ni lote.
+     */
+    public function vincularRegistroExistente(Request $solicitud, Certificado $certificado)
+    {
+        $usuario = $solicitud->user();
+        $puedeGestionar = $usuario
+            && $usuario->puede('seguimientos_tramite.gestionar')
+            && $certificado->requiereEvidencia('PRODUCTO')
+            && $certificado->seguimientos()
+                ->where('estado', 'ACTIVO')
+                ->whereNull('fecha_derivacion')
+                ->where('id_usuario_siguiente', $usuario->id)
+                ->exists();
+
+        abort_unless($puedeGestionar, 403, 'No puede relacionar productos con este trámite.');
+
+        $datos = $solicitud->validate([
+            'form_id_registro' => ['required', 'integer', 'exists:registros,id'],
+            'form_bandeja' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $registro = Registro::query()
+            ->with('producto')
+            ->where('estado', 'ACTIVO')
+            ->whereHas('producto', fn ($query) => $query
+                ->where('estado', 'ACTIVO')
+                ->where('id_importador_persona', $certificado->id_persona_beneficiario))
+            ->findOrFail($datos['form_id_registro']);
+
+        if ($registro->certificadosRegistros()->exists()) {
+            return back()->with('error', 'Este registro ya está relacionado con otro trámite.');
+        }
+
+        $certificado->registros()->syncWithoutDetaching([$registro->id]);
+
+        return redirect()->route('certificados_show', [
+            'certificado' => $certificado,
+            'bandeja' => $datos['form_bandeja'] ?? 'recibidas',
+        ])->with('success', 'El registro existente fue vinculado al trámite.');
     }
 
     // VISTA DE EMISION DEL CERTIFICADO
@@ -564,7 +627,9 @@ class CertificadoController extends Controller
         }
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
-        $valoresPlantilla = $this->valoresPlantillaCertificado($certificado);
+        $registroSeleccionado = $this->registroSeleccionadoParaEmision($certificado, request()->integer('registro'));
+        $emisionSeleccionada = $registroSeleccionado?->emision;
+        $valoresPlantilla = $this->valoresPlantillaCertificado($certificado, $emisionSeleccionada, $registroSeleccionado);
         $resumenDescargas = $this->descargasCertificados->resumen($certificado, auth()->user());
 
         return view('certificados.emitir_certificado.create', compact(
@@ -572,7 +637,9 @@ class CertificadoController extends Controller
             'plantillaCertificado',
             'valoresPlantilla',
             'resumenDescargas',
-            'puedeGestionarEmision'
+            'puedeGestionarEmision',
+            'registroSeleccionado',
+            'emisionSeleccionada'
         ));
     }
 
@@ -609,27 +676,58 @@ class CertificadoController extends Controller
             ])->errorBag('emisionCertificado');
         }
 
-        if ($certificado->estado !== 'EMITIDO') {
-            $fechaFin = $this->resolverFechaFinEmision($solicitud, $datos);
+        DB::transaction(function () use ($certificado, $plantillaCertificado, $datos, $solicitud, $imagenRenderizada) {
+            $tramite = Certificado::query()
+                ->with($this->relacionesParaEmision())
+                ->lockForUpdate()
+                ->findOrFail($certificado->id);
 
-            // Se asignan los valores antes de generar el archivo para que la plantilla use los datos definitivos.
-            $certificado->fill([
+            $registroSeleccionado = $this->registroSeleccionadoParaEmision(
+                $tramite,
+                isset($datos['form_id_certificado_registro']) ? (int) $datos['form_id_certificado_registro'] : null
+            );
+
+            if ($registroSeleccionado?->emision) {
+                throw ValidationException::withMessages([
+                    'form_id_certificado_registro' => 'El lote seleccionado ya tiene un certificado emitido.',
+                ])->errorBag('emisionCertificado');
+            }
+
+            if ($tramite->tipoCertificado?->modo_emision !== 'POR_LOTE' && $tramite->emisiones()->exists()) {
+                throw ValidationException::withMessages([
+                    'form_documento_renderizado' => 'Este trámite ya tiene su certificado emitido.',
+                ])->errorBag('emisionCertificado');
+            }
+
+            $fechaFin = $this->resolverFechaFinEmision($solicitud, $datos);
+            $emision = CertificadoEmitido::create([
+                'id_certificado' => $tramite->id,
+                'id_certificado_registro' => $registroSeleccionado?->id,
+                'id_plantilla_certificado' => $plantillaCertificado->id,
+                'orden_emision' => ((int) $tramite->emisiones()->lockForUpdate()->max('orden_emision')) + 1,
+                'numero_certificado' => $this->siguienteNumeroCertificado($tramite->tipoCertificado),
+                'fecha_emision' => now(),
                 'fecha_inicio' => $datos['form_fecha_inicio'],
                 'fecha_fin' => $fechaFin,
+                'vigencia_indefinida' => $solicitud->boolean('form_vigencia_indefinida'),
                 'estado' => 'EMITIDO',
             ]);
+            $emision->setRelation('certificadoRegistro', $registroSeleccionado);
 
-            $certificado->update([
-                'fecha_inicio' => $certificado->fecha_inicio,
-                'fecha_fin' => $certificado->fecha_fin,
+            $emision->update([
                 'url_documento' => $this->generarDocumentoEmitido(
-                    $certificado,
+                    $tramite,
+                    $emision,
                     $plantillaCertificado,
                     $imagenRenderizada
                 ),
-                'estado' => 'EMITIDO',
             ]);
-        }
+
+            // El trámite se considera emitido al completar todos sus lotes requeridos.
+            if ($this->tramiteCompletoParaEmision($tramite)) {
+                $tramite->update(['estado' => 'EMITIDO']);
+            }
+        });
 
         session()->flash('swal', [
             'title' => 'Certificado emitido',
@@ -640,6 +738,7 @@ class CertificadoController extends Controller
         return redirect()->route('certificados_emitir', [
             'certificado' => $certificado,
             'bandeja' => $solicitud->input('form_bandeja', 'finalizados'),
+            'registro' => $datos['form_id_certificado_registro'] ?? null,
         ]);
     }
 
@@ -689,6 +788,38 @@ class CertificadoController extends Controller
                 'Pragma' => 'no-cache',
             ]
         );
+    }
+
+    // Descarga un documento concreto cuando un trámite tiene emisiones por lote.
+    public function descargarEmitido(Request $solicitud, Certificado $certificado, CertificadoEmitido $emision)
+    {
+        abort_unless((int) $emision->id_certificado === (int) $certificado->id, 404);
+
+        $usuario = auth()->user();
+        $certificado->loadMissing('tipoCertificado', 'beneficiario.usuario', 'tramitador.usuario', 'seguimientos');
+        abort_unless($usuario && $this->usuarioPuedeDescargarCertificado($certificado), 403);
+
+        $rutaDocumento = $this->descargasCertificados->rutaDocumento($emision);
+        abort_unless($rutaDocumento, 404, 'El documento emitido no está disponible.');
+
+        if (! $solicitud->boolean('visualizar') && ! $solicitud->isMethod('head')) {
+            \App\Models\DescargaCertificado::create([
+                'id_certificado' => $certificado->id,
+                'id_certificado_emitido' => $emision->id,
+                'id_usuario' => $usuario->id,
+                'fecha_descarga' => now(),
+            ]);
+        }
+
+        $cabeceras = [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return $solicitud->boolean('visualizar')
+            ? response()->file($rutaDocumento, $cabeceras + ['Content-Disposition' => 'inline; filename="'.$this->descargasCertificados->nombreDocumento($emision).'"'])
+            : response()->download($rutaDocumento, $this->descargasCertificados->nombreDocumento($emision), $cabeceras);
     }
 
     // Entrega una evidencia del expediente sin publicar la carpeta privada.
@@ -798,18 +929,11 @@ class CertificadoController extends Controller
         try {
             DB::beginTransaction();
 
-            // Si no se sube otro PDF, se conserva el documento anterior.
-            $rutaDocumento = $this->guardarDocumentoCertificado($solicitud, $certificado) ?? $certificado->url_documento;
-
             $certificado->update([
                 'id_tipo_certificado' => $datos['form_id_tipo_certificado'],
                 'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
                 'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
-                'codigo' => $this->mayuscula($datos['form_codigo']),
-                'fecha_inicio' => $datos['form_fecha_inicio'] ?? null,
-                'fecha_fin' => $datos['form_fecha_fin'] ?? null,
                 'descripcion' => $datos['form_descripcion'] ?? null,
-                'url_documento' => $rutaDocumento,
                 'estado' => $datos['form_estado'],
             ]);
 
@@ -1529,18 +1653,7 @@ class CertificadoController extends Controller
             'form_id_tipo_certificado' => ['required', 'exists:tipos_certificados,id'],
             'form_id_persona_beneficiario' => ['required', 'exists:personas,id'],
             'form_id_persona_tramitador' => ['required', 'exists:personas,id'],
-            'form_codigo' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('certificados', 'codigo')
-                    ->ignore($certificado?->id)
-                    ->whereNull('deleted_at'),
-            ],
-            'form_fecha_inicio' => ['nullable', 'date'],
-            'form_fecha_fin' => ['nullable', 'date', 'after_or_equal:form_fecha_inicio'],
             'form_descripcion' => ['nullable', 'string'],
-            'form_url_documento' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
             'form_estado' => ['required', Rule::in(array_keys(Certificado::ESTADOS_CERTIFICADO))],
             'requisitos_certificados' => ['nullable', 'array'],
             'requisitos_certificados.*.id_requisito' => ['required', 'exists:requisitos,id'],
@@ -1550,10 +1663,6 @@ class CertificadoController extends Controller
             'form_id_tipo_certificado' => 'tipo de certificado',
             'form_id_persona_beneficiario' => 'persona beneficiaria',
             'form_id_persona_tramitador' => 'persona tramitadora',
-            'form_codigo' => 'codigo del certificado',
-            'form_fecha_inicio' => 'fecha de vigencia inicial',
-            'form_fecha_fin' => 'fecha de vigencia final',
-            'form_url_documento' => 'documento PDF',
             'form_estado' => 'estado',
         ]);
     }
@@ -1567,6 +1676,7 @@ class CertificadoController extends Controller
             'form_fecha_fin' => ['nullable', 'date', 'after_or_equal:form_fecha_inicio'],
             'form_vigencia_dias' => ['nullable', 'integer', 'min:1', 'max:36500'],
             'form_vigencia_indefinida' => ['nullable', 'boolean'],
+            'form_id_certificado_registro' => ['nullable', 'integer'],
             // Es obligatorio para que el PDF salga del mismo render Fabric.js mostrado al funcionario.
             'form_documento_renderizado' => ['required', 'string', 'max:50000000'],
             'bandeja' => ['nullable', 'string', 'max:30'],
@@ -1602,11 +1712,12 @@ class CertificadoController extends Controller
 
     private function generarDocumentoEmitido(
         Certificado $certificado,
+        CertificadoEmitido $emision,
         PlantillaCertificado $plantillaCertificado,
         ?string $imagenRenderizada = null
     ): string
     {
-        $documento = $this->datosDocumentoEmitido($certificado, $plantillaCertificado, $imagenRenderizada);
+        $documento = $this->datosDocumentoEmitido($certificado, $emision, $plantillaCertificado, $imagenRenderizada);
         $pdf = Pdf::loadView('certificados.emitir_certificado.documento_pdf', compact('documento'))
             ->setPaper($documento['papel'], $documento['orientacion']);
 
@@ -1615,12 +1726,13 @@ class CertificadoController extends Controller
             $pdf->output(),
             ExpedienteTramiteService::CERTIFICADO_EMITIDO,
             'pdf',
-            'certificado_'.$certificado->id.'_'.now()->format('Ymd_His').'.pdf'
+            'certificado_'.preg_replace('/[^A-Za-z0-9_-]+/', '_', $emision->numero_certificado).'_'.now()->format('Ymd_His').'.pdf'
         );
     }
 
     private function datosDocumentoEmitido(
         Certificado $certificado,
+        CertificadoEmitido $emision,
         PlantillaCertificado $plantillaCertificado,
         ?string $imagenRenderizada = null
     ): array
@@ -1629,7 +1741,7 @@ class CertificadoController extends Controller
             $plantillaCertificado->tamano_papel,
             $plantillaCertificado->orientacion
         );
-        $valores = $this->valoresPlantillaCertificado($certificado);
+        $valores = $this->valoresPlantillaCertificado($certificado, $emision, $emision->certificadoRegistro);
         $valoresConAlias = array_merge(
             $valores,
             collect($valores)
@@ -1911,6 +2023,13 @@ class CertificadoController extends Controller
             'registros.producto.clasificacionQuimica',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
+            'certificadosRegistros.registro.producto.clasificacionToxicologica',
+            'certificadosRegistros.registro.producto.fabricante',
+            'certificadosRegistros.registro.producto.clasificacionQuimica',
+            'certificadosRegistros.registro.presentacion.catalogoUnidad',
+            'certificadosRegistros.registro.catalogoUnidad',
+            'certificadosRegistros.emision',
+            'emisiones.certificadoRegistro.registro.producto',
             'pagos.procedencia',
             'seguimientos.usuarioOrigen.funcionario.cargos',
             'seguimientos.usuarioSiguiente.funcionario.cargos',
@@ -1935,11 +2054,18 @@ class CertificadoController extends Controller
 
     // VALORES PARA PLANTILLA
     // La clave debe coincidir con el codigo_elemento guardado en plantillas_elementos.
-    private function valoresPlantillaCertificado(Certificado $certificado): array
+    private function valoresPlantillaCertificado(
+        Certificado $certificado,
+        ?CertificadoEmitido $emision = null,
+        ?CertificadoRegistro $certificadoRegistro = null
+    ): array
     {
         $beneficiario = $certificado->beneficiario;
         $tramitador = $certificado->tramitador;
-        $registros = $certificado->registros;
+        // En emisión por lote, la plantilla solo usa el registro que originará este documento.
+        $registros = $certificadoRegistro?->registro
+            ? collect([$certificadoRegistro->registro])
+            : $certificado->registros;
         $primerRegistro = $registros->first();
         $primerPago = $certificado->pagos->first();
         $ultimoSeguimiento = $certificado->seguimientos->sortByDesc('id')->first();
@@ -1967,9 +2093,11 @@ class CertificadoController extends Controller
         $calificacionesMinimas = $resumenCalificaciones['detalles']->pluck('calificacion_minima')->filter(fn ($calificacion) => $calificacion !== null);
 
         return [
-            'certificado.codigo' => $certificado->codigo ?: 'Sin código',
-            'certificado.fecha_inicio' => $certificado->fecha_inicio?->format('d/m/Y') ?: 'Sin fecha',
-            'certificado.fecha_fin' => $certificado->fecha_fin?->format('d/m/Y') ?: 'Sin fecha',
+            'certificado.codigo' => $emision?->numero_certificado ?: ($certificado->codigo ?: 'Sin código'),
+            'certificado.fecha_inicio' => $emision?->fecha_inicio?->format('d/m/Y') ?: ($certificado->fecha_inicio?->format('d/m/Y') ?: 'Sin fecha'),
+            'certificado.fecha_fin' => $emision?->fecha_fin?->format('d/m/Y') ?: ($certificado->fecha_fin?->format('d/m/Y') ?: 'Sin fecha'),
+            'emision.numero_certificado' => $emision?->numero_certificado ?: 'Se asignará al emitir',
+            'emision.fecha' => $emision?->fecha_emision?->format('d/m/Y') ?: now()->format('d/m/Y'),
             'certificado.descripcion' => $certificado->descripcion ?: 'Sin descripción',
             'certificado.estado' => Certificado::textoEstadoCertificado($certificado->estado),
             'evaluacion.resultado' => $resultadoEvaluacion,
@@ -2051,6 +2179,61 @@ class CertificadoController extends Controller
         ];
     }
 
+    /**
+     * Resuelve la fila que corresponde al documento actual. Un trámite único no
+     * lleva fila; un trámite por lote exige una fila activa del mismo trámite.
+     */
+    private function registroSeleccionadoParaEmision(Certificado $certificado, ?int $idCertificadoRegistro): ?CertificadoRegistro
+    {
+        $porLote = $certificado->tipoCertificado?->modo_emision === 'POR_LOTE';
+
+        if (! $porLote) {
+            return null;
+        }
+
+        $registros = $certificado->certificadosRegistros
+            ->filter(fn (CertificadoRegistro $fila) => $fila->registro && filled($fila->registro->numero_lote));
+        $registro = $idCertificadoRegistro
+            ? $registros->firstWhere('id', $idCertificadoRegistro)
+            : ($registros->first(fn (CertificadoRegistro $fila) => ! $fila->emision) ?: $registros->first());
+
+        if (! $registro || ! $registro->registro || blank($registro->registro->numero_lote)) {
+            throw ValidationException::withMessages([
+                'form_id_certificado_registro' => 'Seleccione un lote válido del trámite antes de emitir.',
+            ])->errorBag('emisionCertificado');
+        }
+
+        return $registro;
+    }
+
+    // Un trámite por lote termina de emitirse cuando cada fila vinculada tiene su documento.
+    private function tramiteCompletoParaEmision(Certificado $certificado): bool
+    {
+        if ($certificado->tipoCertificado?->modo_emision !== 'POR_LOTE') {
+            return $certificado->emisiones()->exists();
+        }
+
+        $lotes = $certificado->certificadosRegistros()
+            ->whereHas('registro', fn ($query) => $query->whereNotNull('numero_lote')->where('numero_lote', '!=', ''))
+            ->count();
+
+        return $lotes > 0 && $certificado->emisiones()
+            ->whereNotNull('id_certificado_registro')
+            ->count() >= $lotes;
+    }
+
+    // Reserva el correlativo dentro de la misma transacción para evitar números duplicados.
+    private function siguienteNumeroCertificado(TipoCertificado $tipoCertificado): string
+    {
+        $tipoBloqueado = TipoCertificado::query()->lockForUpdate()->findOrFail($tipoCertificado->id);
+        $correlativo = max(1, (int) ($tipoBloqueado->siguiente_correlativo ?? 1));
+        $prefijo = trim((string) ($tipoBloqueado->prefijo_numero_certificado ?? ''));
+
+        $tipoBloqueado->update(['siguiente_correlativo' => $correlativo + 1]);
+
+        return $prefijo === '' ? (string) $correlativo : $prefijo.$correlativo;
+    }
+
     private function usuarioDirectorPlantilla(): ?User
     {
         return User::query()
@@ -2125,7 +2308,7 @@ class CertificadoController extends Controller
 
         if (! $usuario
             || ! in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true)
-            || blank($certificado->url_documento)) {
+            || ! $certificado->emisiones()->whereNotNull('url_documento')->exists()) {
             return false;
         }
 

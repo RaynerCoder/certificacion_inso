@@ -14,18 +14,8 @@ class Certificado extends Model
         'id_tipo_certificado',
         'id_persona_beneficiario',
         'id_persona_tramitador',
-        'codigo',
-        'fecha_inicio',
-        'fecha_fin',
         'descripcion',
-        'url_documento',
         'estado',
-    ];
-
-    // Estas columnas guardan fecha y hora; Carbon permite usarlas sin conversiones manuales.
-    protected $casts = [
-        'fecha_inicio' => 'datetime',
-        'fecha_fin' => 'datetime',
     ];
 
     public const ESTADOS_CERTIFICADO = [
@@ -43,10 +33,7 @@ class Certificado extends Model
     // Solo un certificado ya emitido puede vencer; si vence hoy sigue vigente durante el dia.
     public function debeMarcarseComoVencido(): bool
     {
-        return in_array($this->estado, ['EMITIDO', 'VENCIDO'], true)
-            && $this->fecha_fin
-            && $this->fecha_fin->toDateString() < now()->toDateString()
-            && !in_array($this->estado, ['ANULADO', 'RECHAZADO'], true);
+        return false;
     }
 
 
@@ -248,15 +235,7 @@ class Certificado extends Model
     // --- Revisa el listado: vence por fecha y ajusta APROBADO/OBSERVADO segun requisitos --- 
     public static function actualizarCertificadosEstadosVencidos(): int
     {
-        $datosVencido = ['estado' => 'VENCIDO'];
         $datosObservado = ['estado' => 'OBSERVADO'];
-
-        // La vigencia comienza con la emision: un tramite aprobado aun no puede vencer.
-        $vencidos = static::query()
-            ->whereNotNull('fecha_fin')
-            ->where('estado', 'EMITIDO')
-            ->whereDate('fecha_fin', '<', now()->toDateString())
-            ->update($datosVencido);
 
         // Antes de emitirse, el estado observado depende de los requisitos y no de la vigencia.
         $observados = static::query()
@@ -274,7 +253,7 @@ class Certificado extends Model
             })
             ->update($datosObservado);
 
-        return $vencidos + $observados;
+        return $observados;
     }
 
 
@@ -420,6 +399,41 @@ class Certificado extends Model
     public function descargas()
     {
         return $this->hasMany(DescargaCertificado::class, 'id_certificado');
+    }
+
+    // Documentos oficiales emitidos desde este trámite.
+    public function emisiones()
+    {
+        return $this->hasMany(CertificadoEmitido::class, 'id_certificado')
+            ->orderBy('orden_emision')
+            ->orderBy('id');
+    }
+
+    // Compatibilidad visual: el trámite se identifica por su ID, no guarda código propio.
+    public function getCodigoAttribute(): string
+    {
+        return $this->id ? '#'.$this->id : 'Sin ID';
+    }
+
+    // Las fechas y PDF oficiales pertenecen a certificados_emitidos.
+    // Estos accesores evitan consultas a columnas eliminadas en vistas antiguas.
+    public function getFechaInicioAttribute()
+    {
+        return $this->created_at;
+    }
+
+    public function getFechaFinAttribute()
+    {
+        return $this->relationLoaded('emisiones')
+            ? $this->emisiones->last()?->fecha_fin
+            : null;
+    }
+
+    public function getUrlDocumentoAttribute(): ?string
+    {
+        return $this->relationLoaded('emisiones')
+            ? $this->emisiones->last()?->url_documento
+            : null;
     }
 
 }

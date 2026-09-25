@@ -20,7 +20,6 @@
         const selectorBeneficiario = document.querySelector('[data-tramite-select="beneficiario"]');
         const selectorTramitador = document.querySelector('[data-tramite-select="tramitador"]');
         const selectorTipoCertificado = document.querySelector('[data-tramite-select="tipo-certificado"]');
-        const mismoBeneficiario = document.getElementById('mismoBeneficiario');
         const contenedorRequisitos = document.getElementById('contenedorDocumentosTramite');
         const progresoTexto = document.getElementById('requisitosProgresoTexto');
         const progresoBarra = document.getElementById('requisitosProgresoBar');
@@ -516,50 +515,6 @@
             });
         }
 
-        // Ajusta el check que permite usar al beneficiario como tramitador.
-        // Persona natural: siempre se usa la misma persona.
-        // Empresa: el usuario decide si corresponde.
-        function actualizarCheckMismoBeneficiario(beneficiario, cambioBeneficiario, valorTramitadorActual) {
-            if (!mismoBeneficiario) {
-                return;
-            }
-
-            const esPersonaNatural = beneficiario?.tipo === 'NATURAL';
-
-            if (!beneficiario?.id) {
-                mismoBeneficiario.checked = false;
-                mismoBeneficiario.disabled = false;
-                return;
-            }
-
-            if (esPersonaNatural) {
-                mismoBeneficiario.checked = true;
-                mismoBeneficiario.disabled = true;
-                return;
-            }
-
-            // En empresas el check se reinicia al cambiar de beneficiario.
-            mismoBeneficiario.disabled = false;
-            if (cambioBeneficiario) {
-                mismoBeneficiario.checked = String(valorTramitadorActual || '') === String(beneficiario.id);
-            }
-        }
-
-        // Agrega el beneficiario a la lista de tramitadores cuando el check esta marcado.
-        function opcionesConBeneficiario(opciones, beneficiario, incluirBeneficiario) {
-            if (!incluirBeneficiario || !beneficiario?.id) {
-                return opciones;
-            }
-
-            const yaExiste = opciones.some((opcion) => String(opcion.id) === String(beneficiario.id));
-
-            if (yaExiste) {
-                return opciones;
-            }
-
-            return [beneficiario, ...opciones];
-        }
-
         // Carga tramitadores segun el beneficiario seleccionado.
         function cargarTramitadoresDelBeneficiario() {
             if (!beneficiarioSelect || !tramitadorSelect || !selectorTramitador) {
@@ -573,22 +528,27 @@
             const opcionesEmpresa = Array.isArray(opcionesServidor) ? opcionesServidor : Object.values(opcionesServidor);
             const valorActual = String(tramitadorSelect.value || tramitadorSeleccionadoServidor || '');
             const cambioBeneficiario = idBeneficiario !== idBeneficiarioAnterior;
-
-            actualizarCheckMismoBeneficiario(beneficiario, cambioBeneficiario, valorActual);
-
-            const usarMismoBeneficiario = Boolean(idBeneficiario && (esPersonaNatural || mismoBeneficiario?.checked));
-            const opciones = opcionesConBeneficiario(opcionesEmpresa, beneficiario, usarMismoBeneficiario);
+            const opciones = opcionesEmpresa;
             const valorExiste = opciones.some((opcion) => String(opcion.id) === String(valorActual));
 
             cargarOpcionesSelector(selectorTramitador, opciones);
 
-            if (usarMismoBeneficiario) {
+            // Una persona natural tramita para si misma. Si el beneficiario es empresa,
+            // solo se aceptan las personas vinculadas que llegaron desde el servidor.
+            if (idBeneficiario && esPersonaNatural) {
                 seleccionarOpcionTramite(selectorTramitador, idBeneficiario, false);
                 idBeneficiarioAnterior = idBeneficiario;
                 return;
             }
 
-            seleccionarOpcionTramite(selectorTramitador, valorExiste ? valorActual : '', false);
+            const valorPredeterminado = cambioBeneficiario && opciones.length === 1
+                ? String(opciones[0].id)
+                : '';
+            seleccionarOpcionTramite(
+                selectorTramitador,
+                valorExiste ? valorActual : valorPredeterminado,
+                false
+            );
             idBeneficiarioAnterior = idBeneficiario;
         }
 
@@ -1013,7 +973,6 @@
             cargarTiposCertificadosDelBeneficiario();
         });
         tipoSelect?.addEventListener('change', renderRequisitos);
-        mismoBeneficiario?.addEventListener('change', cargarTramitadoresDelBeneficiario);
 
         // Estado inicial del formulario al abrir la pagina.
         setTimeout(() => {

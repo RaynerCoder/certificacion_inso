@@ -507,6 +507,15 @@
         line-height: 20px;
     }
 
+    .producto-search-selected-detail {
+        display: block;
+        margin-top: 1px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 15px;
+    }
+
     .producto-catalog-search .producto-ingredient-search {
         min-height: 42px;
     }
@@ -711,6 +720,18 @@
 
     .producto-ingredient-option-copy {
         min-width: 0;
+    }
+
+    .producto-ingredient-option-detail {
+        display: block;
+        overflow: hidden;
+        margin-top: 2px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .producto-ingredient-option-check {

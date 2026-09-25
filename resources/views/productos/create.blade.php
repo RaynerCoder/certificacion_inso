@@ -68,7 +68,14 @@
 
     $importadoresCatalogo =
         $importadores ??
-        \App\Models\Persona::with(['natural', 'empresa'])
+        \App\Models\Persona::with([
+            'natural',
+            'empresa.persona',
+            'empresa.responsables.persona.natural',
+            'empresa.responsables.rol',
+            'responsabilidadesEmpresariales.empresa.persona',
+            'responsabilidadesEmpresariales.rol',
+        ])
             ->where('estado', 'ACTIVO')
             ->orderBy('id')
             ->get();
@@ -266,6 +273,17 @@
     <input type="hidden" name="form_id_certificado" value="{{ $productoCertificadoOrigen }}">
     <input type="hidden" name="form_bandeja" value="{{ $productoBandejaOrigen }}">
     <input type="hidden" name="form_retorno" value="{{ $productoRetornoSeguro }}">
+
+    @if ($tramiteOrigen ?? null)
+        <div class="mx-6 mt-5 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+            <strong>Registro para el trámite {{ $tramiteOrigen->codigo }}.</strong>
+            @if ($tramiteOrigen->tipoCertificado?->modo_emision === 'POR_LOTE')
+                Cada fila de registro debe tener un número de lote: cada lote podrá emitir su propio certificado.
+            @else
+                Este tipo emite un único certificado para todo el trámite; los registros se conservarán como respaldo.
+            @endif
+        </div>
+    @endif
 
     @unless ($productoEmbebido)
         {{-- Encabezado principal: se oculta cuando Producto se carga dentro del trámite. --}}
@@ -896,12 +914,15 @@
         lista.innerHTML = opciones.map((opcion) => {
             const seleccionado = String(select.value) === String(opcion.value);
 
+            const detalle = opcion.dataset.productoDetalle?.trim() || '';
+
             return `
                 <button type="button" class="producto-ingredient-option ${seleccionado ? 'is-selected' : ''}"
                     data-producto-search-option="${escaparHtmlProducto(opcion.value)}" role="option"
                     aria-selected="${seleccionado ? 'true' : 'false'}">
                     <span class="producto-ingredient-option-copy">
                         <strong>${escaparHtmlProducto(opcion.textContent.trim())}</strong>
+                        ${detalle ? `<small class="producto-ingredient-option-detail">${escaparHtmlProducto(detalle)}</small>` : ''}
                     </span>
                     ${seleccionado ? '<i class="fa-solid fa-check producto-ingredient-option-check" aria-hidden="true"></i>' : ''}
                 </button>`;
@@ -933,7 +954,12 @@
         const textoVacio = select.options[0]?.textContent?.trim() || 'Seleccione una opción';
 
         if (etiqueta) {
-            etiqueta.textContent = select.value ? opcion?.textContent?.trim() || textoVacio : textoVacio;
+            const nombre = select.value ? opcion?.textContent?.trim() || textoVacio : textoVacio;
+            const detalle = select.value ? opcion?.dataset.productoDetalle?.trim() || '' : '';
+
+            etiqueta.innerHTML = detalle
+                ? `<strong>${escaparHtmlProducto(nombre)}</strong><small class="producto-search-selected-detail">${escaparHtmlProducto(detalle)}</small>`
+                : `<strong>${escaparHtmlProducto(nombre)}</strong>`;
         }
 
         if (botonLimpiar) {
@@ -961,7 +987,7 @@
                 <button type="button" class="producto-ingredient-trigger" data-producto-search-trigger
                     aria-expanded="false" aria-controls="${escaparHtmlProducto(idDesplegable)}">
                     <span class="producto-ingredient-trigger-text">
-                        <strong data-producto-search-label></strong>
+                        <span data-producto-search-label></span>
                     </span>
                     <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </button>

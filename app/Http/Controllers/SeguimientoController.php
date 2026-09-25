@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\GestionTramitadoresService;
 use App\Services\ExpedienteTramiteService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -162,7 +163,6 @@ class SeguimientoController extends Controller
         try {
             DB::beginTransaction();
 
-            $codigo = $this->generarCodigoTramite();
             $estado = 'EN_REVISION';
 
             $areaDestino = $tipoCertificado->area;
@@ -193,13 +193,7 @@ class SeguimientoController extends Controller
                 'id_tipo_certificado' => $tipoCertificado->id,
                 'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
                 'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
-                'codigo' => $codigo,
-                // Estas fechas pertenecen a la vigencia del certificado y se completan al emitirlo.
-                // El inicio del tramite ya queda registrado en seguimientos.fecha_inicio.
-                'fecha_inicio' => null,
-                'fecha_fin' => null,
                 'descripcion' => $descripcion,
-                'url_documento' => null,
                 'estado' => $estado,
             ]);
 
@@ -452,7 +446,7 @@ class SeguimientoController extends Controller
                     'id' => $notificacion->id,
                     'titulo' => $notificacion->titulo,
                     'mensaje' => $notificacion->mensaje ?? '',
-                    'codigo' => $certificado?->codigo ?? '',
+                    'codigo' => $certificado ? '#'.$certificado->id : '',
                     'categoria' => $esValidacionTramitador ? 'tramitador' : 'tramite',
                     'tipo' => $esValidacionTramitador ? 'Validación de tramitador' : ($certificado?->tipoCertificado?->nombre ?? 'Trámite'),
                     'beneficiario' => $esValidacionTramitador
@@ -1467,27 +1461,26 @@ class SeguimientoController extends Controller
         $beneficiarioBloqueado = ! $registroInterno && $personas->count() === 1;
         $beneficiarioAutomatico = $beneficiarioBloqueado ? $personas->first() : null;
 
-        // El solicitante externo no puede cambiar el tramitador desde la vista.
-        // Para funcionarios se conserva la lista de tramitadores autorizados por empresa.
+        // Construye las opciones válidas de cada beneficiario en un solo lugar.
+        // Externo: queda únicamente la persona autenticada.
+        // Interno: aparecen el representante legal y los tramitadores autorizados.
         $tramitadoresPorBeneficiario = $personasBase->mapWithKeys(function (Persona $persona) use ($tramitadorAutomatico) {
-            if ($tramitadorAutomatico) {
-                return [$persona->id => collect([$tramitadorAutomatico])];
-            }
-
             if ($persona->empresa) {
-                $tramitadores = $persona->empresa->responsables
-                    ->filter(fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable))
-                    ->map(fn (Responsable $responsable) => $this->opcionPersonaTramite($responsable->persona))
-                    ->filter(fn (array $opcion) => filled($opcion['id']))
-                    ->unique('id')
-                    ->values();
-
-                return [$persona->id => $tramitadores];
+                return [
+                    $persona->id => $this->opcionesTramitadoresEmpresa(
+                        $persona,
+                        $tramitadorAutomatico['id'] ?? null
+                    ),
+                ];
             }
 
             return [
                 $persona->id => collect([
-                    $this->opcionPersonaTramite($persona),
+                    $this->opcionPersonaTramite(
+                        $persona,
+                        null,
+                        $tramitadorAutomatico ? 'Beneficiario y tramitador' : 'Persona natural'
+                    ),
                 ]),
             ];
         });
@@ -1544,7 +1537,11 @@ class SeguimientoController extends Controller
 
     // OPCION DE PERSONA PARA SELECTS DEL INICIO DE TRAMITE
     // Centraliza id, nombre y tipo para que los selects muestren una descripcion debajo de cada item.
-    private function opcionPersonaTramite(?Persona $persona, ?string $detalleEmpresa = null): array
+    private function opcionPersonaTramite(
+        ?Persona $persona,
+        ?string $detalleEmpresa = null,
+        ?string $detallePersonaNatural = null
+    ): array
     {
         if (! $persona) {
             return [
@@ -1562,9 +1559,52 @@ class SeguimientoController extends Controller
             'nombre' => $this->nombrePersona($persona),
             'detalle' => $esEmpresa
                 ? $this->detalleRepresentanteLegalEmpresa($persona, $detalleEmpresa)
-                : 'Persona natural',
+                : ($detallePersonaNatural ?: 'Persona natural'),
             'tipo' => $esEmpresa ? 'EMPRESA' : 'NATURAL',
         ];
+    }
+
+    /**
+     * Devuelve las personas naturales que pueden tramitar por una empresa.
+     * El segundo parámetro se usa en el acceso externo para conservar únicamente
+     * a la persona autenticada; en el registro interno se omite para mostrar todas.
+     */
+    private function opcionesTramitadoresEmpresa(
+        Persona $beneficiario,
+        ?int $idPersonaPermitida = null
+    ): Collection {
+        if (! $this->empresaTieneRepresentanteLegalActivo($beneficiario)) {
+            return collect();
+        }
+
+        return $beneficiario->empresa->responsables
+            ->filter(fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable))
+            ->when($idPersonaPermitida, fn (Collection $relaciones) => $relaciones
+                ->where('id_persona', $idPersonaPermitida))
+            ->groupBy('id_persona')
+            // El representante legal se muestra antes que los tramitadores autorizados.
+            ->sortBy(fn (Collection $relaciones) => $relaciones->contains(
+                fn (Responsable $responsable) => $responsable->rol?->slug === 'solicitante'
+            ) ? 0 : 1)
+            ->map(fn (Collection $relaciones) => $this->opcionPersonaTramite(
+                $relaciones->first()?->persona,
+                null,
+                $this->detalleRelacionEmpresa($relaciones)
+            ))
+            ->filter(fn (array $opcion) => filled($opcion['id']))
+            ->values();
+    }
+
+    // Una persona puede tener ambos vínculos; la etiqueta evita perder esa información en el selector.
+    private function detalleRelacionEmpresa(Collection $relaciones): string
+    {
+        $roles = $relaciones->pluck('rol.slug')->filter()->unique();
+
+        return match (true) {
+            $roles->contains('solicitante') && $roles->contains('tramitador') => 'Representante legal y tramitador autorizado',
+            $roles->contains('solicitante') => 'Representante legal',
+            default => 'Tramitador autorizado',
+        };
     }
 
     // En el selector de beneficiarios la empresa muestra quién puede representarla legalmente.
@@ -1577,7 +1617,8 @@ class SeguimientoController extends Controller
                     && (string) $responsable->rol->estado === '1'
                     && $responsable->rol->slug === 'solicitante';
                 $personaActiva = $responsable->persona
-                    && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true);
+                    && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true)
+                    && (bool) $responsable->persona->natural;
 
                 return $relacionActiva && $rolActivo && $personaActiva;
             })
@@ -1626,9 +1667,54 @@ class SeguimientoController extends Controller
             && (string) $rol->estado === '1'
             && in_array($rol->slug, ['tramitador', 'solicitante'], true);
         $personaActiva = $responsable->persona
-            && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true);
+            && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true)
+            && (bool) $responsable->persona->natural;
 
         return $estadoActivo && $rolAutoriza && $personaActiva;
+    }
+
+    /**
+     * Regla obligatoria para cualquier trámite empresarial.
+     * Un tramitador autorizado puede realizar la gestión, pero no sustituye la existencia
+     * del representante legal registrado con el rol solicitante.
+     */
+    private function empresaTieneRepresentanteLegalActivo(Persona $personaEmpresa): bool
+    {
+        $empresa = $personaEmpresa->empresa;
+
+        if (! $empresa || ! in_array((string) $empresa->estado, ['1', 'ACTIVO'], true)) {
+            return false;
+        }
+
+        return $empresa->responsables->contains(function (Responsable $responsable) {
+            return in_array((string) $responsable->estado, ['1', 'ACTIVO'], true)
+                && $responsable->rol
+                && (string) $responsable->rol->estado === '1'
+                && $responsable->rol->slug === 'solicitante'
+                && $responsable->persona
+                && in_array((string) $responsable->persona->estado, ['1', 'ACTIVO'], true)
+                && (bool) $responsable->persona->natural;
+        });
+    }
+
+    // Evita que un representante o tramitador empresarial se duplique como beneficiario personal.
+    private function personaNaturalVinculadaAUnaEmpresa(Persona $persona): bool
+    {
+        if (! $persona->natural) {
+            return false;
+        }
+
+        return Responsable::query()
+            ->where('id_persona', $persona->id)
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('rol', fn ($rol) => $rol
+                ->where('estado', 1)
+                ->whereIn('slug', ['solicitante', 'tramitador']))
+            ->whereHas('empresa', fn ($empresa) => $empresa
+                ->whereIn('estado', ['1', 'ACTIVO'])
+                ->whereHas('persona', fn ($personaEmpresa) => $personaEmpresa
+                    ->whereIn('estado', ['1', 'ACTIVO'])))
+            ->exists();
     }
 
     // Reconoce a la persona que puede actuar como representante legal o tramitador.
@@ -1734,13 +1820,31 @@ class SeguimientoController extends Controller
 
     private function beneficiariosVisiblesParaIniciarTramite($personasBase)
     {
+        // Una empresa sin representante legal activo no puede iniciar trámites y por eso
+        // tampoco se ofrece en el selector, independientemente de quién abra el formulario.
+        $personasHabilitadas = $personasBase
+            ->filter(fn (Persona $persona) => ! $persona->empresa
+                || $this->empresaTieneRepresentanteLegalActivo($persona));
+
         if ($this->usuarioPuedeAtenderTramites()) {
-            return $personasBase;
+            // En el registro interno, una persona vinculada a una empresa actua como su
+            // representante o tramitador; no debe duplicarse como beneficiaria individual.
+            $idsPersonasVinculadas = $personasBase
+                ->filter(fn (Persona $persona) => $persona->empresa)
+                ->flatMap(fn (Persona $persona) => $persona->empresa->responsables)
+                ->filter(fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable))
+                ->pluck('id_persona')
+                ->map(fn ($id) => (int) $id);
+
+            return $personasHabilitadas
+                ->reject(fn (Persona $persona) => $persona->natural
+                    && $idsPersonasVinculadas->contains((int) $persona->id))
+                ->values();
         }
 
         $idsPermitidos = $this->idsBeneficiariosPermitidosParaUsuario(auth()->user());
 
-        return $personasBase
+        return $personasHabilitadas
             ->whereIn('id', $idsPermitidos)
             ->values();
     }
@@ -1800,12 +1904,18 @@ class SeguimientoController extends Controller
     private function resolverTramitadorDelBeneficiario(?User $usuario, int $idBeneficiario, ?int $idTramitador): int
     {
         $beneficiario = Persona::query()
-            ->with(['empresa.responsables.rol'])
+            ->with(['empresa.responsables.rol', 'empresa.responsables.persona.natural'])
             ->find($idBeneficiario);
 
         if (! $beneficiario) {
             throw ValidationException::withMessages([
                 'form_id_persona_beneficiario' => 'El beneficiario seleccionado no es válido.',
+            ]);
+        }
+
+        if ($beneficiario->empresa && ! $this->empresaTieneRepresentanteLegalActivo($beneficiario)) {
+            throw ValidationException::withMessages([
+                'form_id_persona_beneficiario' => 'La empresa no puede iniciar trámites porque no tiene un representante legal activo.',
             ]);
         }
 
@@ -1819,6 +1929,7 @@ class SeguimientoController extends Controller
             }
 
             $personaUsuario = Persona::query()
+                ->with('natural')
                 ->where('id_usuario', $usuario?->id)
                 ->where('estado', 'ACTIVO')
                 ->first();
@@ -1829,11 +1940,39 @@ class SeguimientoController extends Controller
                 ]);
             }
 
+            if ($beneficiario->empresa) {
+                $relacionValida = $personaUsuario->natural
+                    && $beneficiario->empresa->responsables->contains(
+                        fn (Responsable $responsable) => $this->responsableAutorizadoParaTramitar($responsable)
+                            && (int) $responsable->id_persona === (int) $personaUsuario->id
+                    );
+
+                if (! $relacionValida) {
+                    throw ValidationException::withMessages([
+                        'form_id_persona_tramitador' => 'Su cuenta no es representante legal ni tramitador autorizado de la empresa.',
+                    ]);
+                }
+            }
+
+            // En solicitudes externas el backend ignora cualquier ID recibido y conserva
+            // siempre a la persona autenticada como quien realiza el trámite.
             return $personaUsuario->id;
         }
 
-        if (! $beneficiario->empresa || $idBeneficiario === $idTramitador) {
+        if (! $beneficiario->empresa) {
+            if ($this->personaNaturalVinculadaAUnaEmpresa($beneficiario)) {
+                throw ValidationException::withMessages([
+                    'form_id_persona_beneficiario' => 'Esta persona está vinculada a una empresa; seleccione la empresa como beneficiaria.',
+                ]);
+            }
+
             return $idBeneficiario;
+        }
+
+        if ($idBeneficiario === $idTramitador) {
+            throw ValidationException::withMessages([
+                'form_id_persona_tramitador' => 'Para una empresa debe seleccionar a su representante legal o a un tramitador autorizado.',
+            ]);
         }
 
         if (! $idTramitador) {
@@ -2417,23 +2556,6 @@ class SeguimientoController extends Controller
             ->whereIn('id_requisito_certificado', $requisitosObservados->pluck('id')->all())
             ->latest('id')
             ->value('id_usuario_revisor');
-    }
-
-    // CODIGO INTERNO PARA CUMPLIR LA COLUMNA OBLIGATORIA
-    // No se muestra como codigo de solicitud; solo evita guardar certificados.codigo vacio.
-    private function generarCodigoTramite(): string
-    {
-        $prefijo = 'TRM-'.now()->format('Y').'-';
-        $numero = Certificado::withTrashed()
-            ->where('codigo', 'like', $prefijo.'%')
-            ->count() + 1;
-
-        do {
-            $codigo = $prefijo.str_pad((string) $numero, 6, '0', STR_PAD_LEFT);
-            $numero++;
-        } while (Certificado::withTrashed()->where('codigo', $codigo)->exists());
-
-        return $codigo;
     }
 
     // AGRUPA OBSERVACIONES DEL FORMULARIO

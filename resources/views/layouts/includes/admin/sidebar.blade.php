@@ -206,28 +206,28 @@
             'active' => $activo(['pagos_']),
             'permission' => ['pagos.ver', 'pagos.validar'],
         ],
-        [
-            // El modulo queda visible solo para personal INSO mientras se completa su logica.
-            'name' => 'Capacitaciones',
-            'description' => 'Cursos y preinscripciones',
-            'icon' => 'fa-solid fa-chalkboard-user',
-            'active' => $activo(['capacitaciones_']),
-            'visible' => $esFuncionarioInso,
-            'submenu' => [
-                [
-                    'name' => 'Capacitaciones',
-                    'icon' => 'fa-solid fa-calendar-days',
-                    'href' => $href('capacitaciones_index'),
-                    'active' => request()->routeIs('capacitaciones_index'),
-                ],
-                [
-                    'name' => 'Preinscripciones',
-                    'icon' => 'fa-solid fa-user-check',
-                    'href' => $href('capacitaciones_preinscripciones_index'),
-                    'active' => request()->routeIs('capacitaciones_preinscripciones_index'),
-                ],
-            ],
-        ],
+        // [
+        //     // El modulo queda visible solo para personal INSO mientras se completa su logica.
+        //     'name' => 'Capacitaciones',
+        //     'description' => 'Cursos y preinscripciones',
+        //     'icon' => 'fa-solid fa-chalkboard-user',
+        //     'active' => $activo(['capacitaciones_']),
+        //     'visible' => $esFuncionarioInso,
+        //     'submenu' => [
+        //         [
+        //             'name' => 'Capacitaciones',
+        //             'icon' => 'fa-solid fa-calendar-days',
+        //             'href' => $href('capacitaciones_index'),
+        //             'active' => request()->routeIs('capacitaciones_index'),
+        //         ],
+        //         [
+        //             'name' => 'Preinscripciones',
+        //             'icon' => 'fa-solid fa-user-check',
+        //             'href' => $href('capacitaciones_preinscripciones_index'),
+        //             'active' => request()->routeIs('capacitaciones_preinscripciones_index'),
+        //         ],
+        //     ],
+        // ],
         [
             'name' => 'OpenBCB',
             'description' => 'Prototipo QR y VUCE',

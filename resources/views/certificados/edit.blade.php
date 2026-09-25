@@ -149,13 +149,6 @@
                                 </div>
 
                                 <div class="cert-span-4">
-                                    {{-- El codigo queda como dato editable; no se genera desde la vista. --}}
-                                    <x-wire-input label="Codigo del certificado" id="codigo" name="form_codigo"
-                                        placeholder="CERT-IMP-2026-000123"
-                                        value="{{ old('form_codigo', $certificado->codigo ?? '') }}" />
-                                </div>
-
-                                <div class="cert-span-4">
                                     <x-wire-native-select label="Estado" id="estado" name="form_estado" required>
                                         <option value="">
                                             Seleccione un estado
@@ -210,7 +203,8 @@
                                 </div>
                             </div>
 
-                            {{-- Tercera fila: fechas y documento final del certificado. --}}
+                            {{-- La vigencia y el PDF se registran únicamente durante la emisión. --}}
+                            @if (false)
                             <div class="cert-grid-twelve">
                                 <div class="cert-span-3">
                                     <x-wire-input label="Fecha de vigencia inicial" id="fecha_inicio"
@@ -259,6 +253,7 @@
                                     </div>
                                 </div>
                             </div>
+                            @endif
 
                             {{-- Cuarta fila: descripcion completa en una fila propia para mejorar lectura. --}}
                             <div class="cert-grid-twelve">
