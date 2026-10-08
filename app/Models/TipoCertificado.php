@@ -22,13 +22,17 @@ class TipoCertificado extends Model
         'nombre',
         'id_area',
         'limite_descargas',
+        'costo',
+
         'modo_emision',
         'prefijo_numero_certificado',
         'siguiente_correlativo',
+
         'estado',
     ];
 
     protected $casts = [
+        'costo' => 'decimal:2',
         'limite_descargas' => 'integer',
         'siguiente_correlativo' => 'integer',
     ];

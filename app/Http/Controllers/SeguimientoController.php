@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Models\Pago;
 
 class SeguimientoController extends Controller
 {
@@ -60,10 +61,8 @@ class SeguimientoController extends Controller
         ]);
     }
 
-    /**
-     * Relaciona cada opción del menú Trámites con su vista y el filtro de su tabla.
-     * Al agregar otra bandeja, se registra aquí y luego se crea su filtro en SeguimientoTable.
-     */
+    // Relaciona cada opción del menú Trámites con su vista y el filtro de su tabla.
+    // Al agregar otra bandeja, se registra aquí y luego se crea su filtro en SeguimientoTable.
     private function configuracionBandejaTramites(Request $request): array
     {
         return match (true) {
@@ -114,89 +113,66 @@ class SeguimientoController extends Controller
         };
     }
 
-    /**
-     * Abre el formulario para iniciar una solicitud de tramite.
-     */
+    // Abre el formulario para iniciar una solicitud de tramite.
     public function create()
     {
         // El inicio de tramite solo requiere solicitante, tipo y documentos.
-        // El pago queda para una revision posterior del funcionario/tecnico.
+        // Si el certificado requiere pago, el trámite se guarda pendiente antes de enviarlo a revisión.
         return view('seguimientos_certificados.nuevo_tramite.create', array_merge(
             $this->datosFormularioTramite(),
             ['tokenFormulario' => $this->crearTokenEnvioTramite()]
         ));
     }
 
-    /**
-     * Registra el tramite inicial, sus requisitos y el primer movimiento de seguimiento.
-     */
+    // Registra el tramite inicial, sus requisitos y el primer movimiento de seguimiento.
+    // Flujo:
+    // 1. Valida los datos del formulario.
+    // 2. Obtiene el tipo de certificado y sus requisitos.
+    // 3. Verifica si el trámite requiere pago.
+    // 4. Registra el certificado y sus requisitos.
+    // 5. Si requiere pago, crea el pago pendiente.
+    // 6. Si no requiere pago, envía el trámite al área responsable.
     public function store(Request $solicitud)
     {
-        $datos = $this->validarTramite($solicitud);
+        // 1. Validar y preparar los datos enviados desde el formulario.
+        $datos = $this->validarDatosInicialesDelTramite($solicitud);
 
-        // Esta validacion tambien cubre peticiones hechas sin usar la pantalla del sistema.
-        $this->validarQueUsuarioPuedeRegistrarBeneficiario(
-            $solicitud->user(),
-            (int) $datos['form_id_persona_beneficiario']
-        );
-
-        // El tramitador final se decide en backend para no confiar en datos manipulados desde la vista.
-        $datos['form_id_persona_tramitador'] = $this->resolverTramitadorDelBeneficiario(
-            $solicitud->user(),
-            (int) $datos['form_id_persona_beneficiario'],
-            isset($datos['form_id_persona_tramitador']) ? (int) $datos['form_id_persona_tramitador'] : null
-        );
-
-        $this->validarCertificadosPrevios(
-            (int) $datos['form_id_persona_beneficiario'],
+        // 2. Obtener la configuración del tipo de certificado seleccionado.
+        $tipoCertificado = $this->buscarTipoCertificadoActivo(
             (int) $datos['form_id_tipo_certificado']
         );
 
-        $tipoCertificado = $this->buscarTipoCertificadoActivo((int) $datos['form_id_tipo_certificado']);
-        $asignacionesRequisitos = $this->requisitosConfiguradosDelTipoCertificado((int) $tipoCertificado->id);
+        $asignacionesRequisitos = $this->requisitosConfiguradosDelTipoCertificado(
+            (int) $tipoCertificado->id
+        );
 
+        // 3. Saber si el trámite debe esperar un pago antes de entrar a revisión.
+        $tramiteRequierePago = $this->tramiteRequierePago($asignacionesRequisitos);
+
+        $this->validarCostoDelCertificado($tipoCertificado, $tramiteRequierePago);
         $this->validarArchivosSubidosDeRequisitos($solicitud, $asignacionesRequisitos);
         $this->validarTextosIngresadosDeRequisitos($solicitud, $asignacionesRequisitos);
-
         $this->validarTokenEnvioTramite($solicitud);
 
         try {
             DB::beginTransaction();
 
-            $estado = 'EN_REVISION';
-
-            $areaDestino = $tipoCertificado->area;
-
-            if (! $areaDestino) {
-                throw new \Exception('El tipo de certificado no tiene un area configurada para iniciar el tramite.');
-            }
-
-            if ((string) $areaDestino->estado !== '1' && (string) $areaDestino->estado !== 'ACTIVO') {
-                throw new \Exception('El area configurada para este tipo de certificado no esta activa.');
-            }
-
-            // El receptor inicial se calcula desde areas, cargos, funcionarios y usuarios activos.
-            $usuarioDestino = $this->usuarioReceptorArea((int) $areaDestino->id);
-
-            if (! $usuarioDestino) {
-                throw new \Exception('No existe un funcionario activo para recibir solicitudes en el area seleccionada.');
-            }
-
-            $descripcion = $this->descripcionTramite(
-                $datos['form_descripcion'] ?? null,
-                $solicitud->input('requisitos_certificados', [])
+            // 4. Definir el estado inicial y, cuando corresponda, el funcionario receptor.
+            $estadoInicial = $tramiteRequierePago ? 'PENDIENTE_PAGO' : 'EN_REVISION';
+            [$areaDestino, $usuarioDestino] = $this->obtenerDestinoInicialDelTramite(
+                $tipoCertificado,
+                $tramiteRequierePago
             );
 
-            // La solicitud del tramite se guarda en certificados porque esa tabla ya representa
-            // la autorizacion/certificado solicitada por beneficiario, tramitador y tipo.
-            $certificado = Certificado::create([
-                'id_tipo_certificado' => $tipoCertificado->id,
-                'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
-                'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
-                'descripcion' => $descripcion,
-                'estado' => $estado,
-            ]);
+            // 5. Registrar la solicitud principal.
+            $certificado = $this->registrarCertificado(
+                $solicitud,
+                $datos,
+                $tipoCertificado,
+                $estadoInicial
+            );
 
+            // 6. Guardar los documentos y textos correspondientes a los requisitos.
             $this->guardarRequisitosTramite(
                 $certificado,
                 $asignacionesRequisitos,
@@ -205,61 +181,238 @@ class SeguimientoController extends Controller
                 $this->valoresTextoPorRequisitoConfigurado($solicitud)
             );
 
-            // Primer movimiento del flujo: el tramite queda enviado al responsable inicial del area.
-            Seguimiento::create([
-                'id_seguimiento_padre' => null,
-                'id_certificado' => $certificado->id,
-                'fecha_inicio' => now(),
-                'fecha_derivacion' => null,
-                'fecha_final' => null,
-                // La descripción final solo se registra cuando un usuario proporciona ese dato.
-                'descripcion_final' => null,
-                // La referencia queda vacía porque el formulario inicial no solicita ese dato.
-                'referencia' => null,
-                'id_usuario_anterior' => null,
-                'id_usuario_origen' => auth()->id(),
-                'id_usuario_siguiente' => $usuarioDestino->id,
-                'estado' => 'ACTIVO',
-            ]);
+            if ($tramiteRequierePago) {
+                // Registra el monto que deberá pagarse mediante OpenBCB.
+                $this->registrarPagoPendiente($certificado, $tipoCertificado);
 
-            // Notifica solamente al responsable inicial para que atienda la nueva solicitud.
-            $this->notificarTramiteRecibido($certificado, $usuarioDestino, $areaDestino);
+                // Permite encontrar el trámite aunque el usuario salga sin pagar.
+                $this->registrarSeguimientoPendientePago($certificado);
+            } 
+            else {
+                // El trámite entra directamente al flujo de revisión.
+                $this->registrarSeguimientoInicial($certificado, $usuarioDestino);
+                $this->notificarTramiteRecibido($certificado, $usuarioDestino, $areaDestino);
+            }
 
             DB::commit();
             $this->consumirTokenEnvioTramite($solicitud);
 
-            // Mensaje unico para evitar alertas duplicadas al volver a la bandeja.
+            return $this->respuestaDespuesDeRegistrarTramite($solicitud, $certificado, $tramiteRequierePago);
+        } 
+        catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->respuestaErrorRegistro($solicitud, $e);
+        }
+    }
+
+    // Valida los datos principales del formulario y determina quién realiza el trámite.
+    private function validarDatosInicialesDelTramite(Request $solicitud): array
+    {
+        $datos = $this->validarTramite($solicitud);
+
+        // Evita que desde el navegador se intente registrar un trámite para
+        // un beneficiario que el usuario autenticado no tiene permitido utilizar.
+        $this->validarQueUsuarioPuedeRegistrarBeneficiario(
+            $solicitud->user(),
+            (int) $datos['form_id_persona_beneficiario']
+        );
+
+        // El tramitador se determina nuevamente en el backend por seguridad.
+        $datos['form_id_persona_tramitador'] = $this->resolverTramitadorDelBeneficiario(
+            $solicitud->user(),
+            (int) $datos['form_id_persona_beneficiario'],
+            isset($datos['form_id_persona_tramitador'])
+                ? (int) $datos['form_id_persona_tramitador']
+                : null
+        );
+
+        $this->validarCertificadosPrevios(
+            (int) $datos['form_id_persona_beneficiario'],
+            (int) $datos['form_id_tipo_certificado']
+        );
+
+        return $datos;
+    }
+
+    // Indica si los requisitos del certificado incluyen un pago.
+    private function tramiteRequierePago(Collection $asignacionesRequisitos): bool
+    {
+        return $asignacionesRequisitos->contains(function ($asignacionRequisito) {
+            return strtoupper((string) $asignacionRequisito->tipoEvidencia?->codigo) === 'PAGO';
+        });
+    }
+
+    // Verifica que exista un costo válido cuando el certificado requiere pago.
+    private function validarCostoDelCertificado(TipoCertificado $tipoCertificado, bool $tramiteRequierePago): void
+    {
+        if ($tramiteRequierePago && (float) $tipoCertificado->costo <= 0) {
+            throw ValidationException::withMessages([
+                'form_id_tipo_certificado' => 'Este tipo de certificado no tiene un costo configurado.',
+            ]);
+        }
+    }
+
+    // Obtiene el área y funcionario que recibirán inicialmente el trámite.
+    // Si existe un pago pendiente, todavía no se asigna a ningún funcionario.
+    private function obtenerDestinoInicialDelTramite(TipoCertificado $tipoCertificado, bool $tramiteRequierePago): array
+    {
+        if ($tramiteRequierePago) {
+            return [null, null];
+        }
+
+        $areaDestino = $tipoCertificado->area;
+
+        if (! $areaDestino) {
+            throw new \Exception('El tipo de certificado no tiene un area configurada para iniciar el tramite.');
+        }
+
+        if ((string) $areaDestino->estado !== '1' && (string) $areaDestino->estado !== 'ACTIVO') {
+            throw new \Exception('El area configurada para este tipo de certificado no esta activa.');
+        }
+
+        $usuarioDestino = $this->usuarioReceptorArea((int) $areaDestino->id);
+
+        if (! $usuarioDestino) {
+            throw new \Exception('No existe un funcionario activo para recibir solicitudes en el area seleccionada.');
+        }
+
+        return [$areaDestino, $usuarioDestino];
+    }
+
+    // Registra la solicitud principal en la tabla certificados.
+    private function registrarCertificado(
+        Request $solicitud,
+        array $datos,
+        TipoCertificado $tipoCertificado,
+        string $estadoInicial
+    ): Certificado {
+        $descripcion = $this->descripcionTramite(
+            $datos['form_descripcion'] ?? null,
+            $solicitud->input('requisitos_certificados', [])
+        );
+
+        return Certificado::create([
+            'id_tipo_certificado' => $tipoCertificado->id,
+            'id_persona_beneficiario' => $datos['form_id_persona_beneficiario'],
+            'id_persona_tramitador' => $datos['form_id_persona_tramitador'],
+            'descripcion' => $descripcion,
+            'estado' => $estadoInicial,
+        ]);
+    }
+
+    // Crea el pago pendiente y lo relaciona con el certificado.
+    private function registrarPagoPendiente(Certificado $certificado, TipoCertificado $tipoCertificado): void{
+        $pago = Pago::create([
+            'id_procedencia' => 1,
+            'tipo_pago' => 'QR',
+            'fecha' => now()->toDateString(),
+            'comprobante' => null,
+            'monto' => $tipoCertificado->costo,
+            'id_cliente' => $certificado->id_persona_beneficiario,
+            'id_funcionario' => null,
+            'fecha_validacion' => null,
+            'factura' => null,
+        ]);
+
+        $certificado->pagos()->attach($pago->id, [
+            'id_usuario_registro' => auth()->id(),
+            'id_usuario_modificacion' => auth()->id(),
+        ]);
+    }
+
+    // Registra el trámite sin asignarlo a revisión mientras falta el pago.
+    private function registrarSeguimientoPendientePago(Certificado $certificado): void {
+        Seguimiento::create([
+            'id_seguimiento_padre' => null,
+            'id_certificado' => $certificado->id,
+            'fecha_inicio' => now(),
+            'fecha_derivacion' => null,
+            'fecha_final' => null,
+            'descripcion_final' => null,
+            'referencia' => null,
+            'id_usuario_anterior' => null,
+
+            // Usuario que inició el trámite.
+            'id_usuario_origen' => auth()->id(),
+
+            // Todavía no se asigna a un funcionario.
+            'id_usuario_siguiente' => null,
+
+            // Espera la confirmación del pago.
+            'estado' => 'PENDIENTE_PAGO',
+        ]);
+    }
+
+    // Registra el primer movimiento del seguimiento cuando el trámite entra a revisión.
+    private function registrarSeguimientoInicial(Certificado $certificado, User $usuarioDestino): void
+    {
+        Seguimiento::create([
+            'id_seguimiento_padre' => null,
+            'id_certificado' => $certificado->id,
+            'fecha_inicio' => now(),
+            'fecha_derivacion' => null,
+            'fecha_final' => null,
+            'descripcion_final' => null,
+            'referencia' => null,
+            'id_usuario_anterior' => null,
+            'id_usuario_origen' => auth()->id(),
+            'id_usuario_siguiente' => $usuarioDestino->id,
+            'estado' => 'ACTIVO',
+        ]);
+    }
+
+    // Envía al usuario al pago o a su bandeja, según los requisitos del trámite.
+    private function respuestaDespuesDeRegistrarTramite(Request $solicitud, Certificado $certificado, bool $tramiteRequierePago) {
+        if ($tramiteRequierePago) {
             session()->flash('swal', [
-                'title' => 'Tramite registrado',
-                'text' => 'La solicitud fue enviada y derivada al area correspondiente.',
+                'title' => 'Trámite guardado',
+                'text' => 'La solicitud fue guardada. Ahora debe completar el pago.',
                 'icon' => 'success',
             ]);
 
-            // Si el usuario autenticado es el solicitante real, va a su bandeja "Mis tramites".
-            // Si un funcionario INSO cargo el tramite por primera vez, va a seguimiento general.
-            $rutaDestino = $this->rutaDespuesDeRegistrarTramite($solicitud->user());
+            $urlDestino = route('pagos_openbcb_mostrar_pago', [
+                'certificado' => $certificado->id,
+            ]);
+        } else {
+            session()->flash('swal', [
+                'title' => 'Trámite registrado',
+                'text' => 'La solicitud fue enviada al área correspondiente.',
+                'icon' => 'success',
+            ]);
 
-            if ($solicitud->expectsJson()) {
-                return response()->json(['redirect' => route($rutaDestino)]);
-            }
+            $rutaDestino = $this->rutaDespuesDeRegistrarTramite(
+                $solicitud->user()
+            );
 
-            return redirect()->route($rutaDestino);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            if ($solicitud->expectsJson()) {
-                return response()->json([
-                    'message' => 'No se pudo iniciar el tramite.',
-                    'errors' => [
-                        'formulario' => ['No se pudo iniciar el tramite. '.$e->getMessage()],
-                    ],
-                ], 422);
-            }
-
-            return back()
-                ->with('error', 'No se pudo iniciar el tramite. '.$e->getMessage())
-                ->withInput();
+            $urlDestino = route($rutaDestino);
         }
+
+        // El formulario puede enviar una petición normal o mediante JavaScript.
+        if ($solicitud->expectsJson()) {
+            return response()->json([
+                'redirect' => $urlDestino,
+            ]);
+        }
+
+        return redirect()->to($urlDestino);
+    }
+
+    // Devuelve la respuesta cuando ocurre un error durante el registro.
+    private function respuestaErrorRegistro(Request $solicitud, \Exception $e)
+    {
+        if ($solicitud->expectsJson()) {
+            return response()->json([
+                'message' => 'No se pudo iniciar el tramite.',
+                'errors' => [
+                    'formulario' => ['No se pudo iniciar el tramite. '.$e->getMessage()],
+                ],
+            ], 422);
+        }
+
+        return back()
+            ->with('error', 'No se pudo iniciar el tramite. '.$e->getMessage())
+            ->withInput();
     }
 
     // Crea un token de un solo uso para evitar registros repetidos por doble clic o reenvio del formulario.
@@ -299,15 +452,11 @@ class SeguimientoController extends Controller
         session()->put(self::TOKENS_INICIO_TRAMITE, $tokens);
     }
 
-    /**
-     * Abre el detalle completo del tramite desde la fila de seguimiento.
-     */
+    // Abre el detalle completo del tramite desde la fila de seguimiento.
     public function show(Seguimiento $seguimiento)
     {
-        /*
-         * Ver tramite usa el detalle existente del certificado.
-         * No se crea otra vista para mantener el flujo en los archivos ya existentes.
-         */
+        // Ver tramite usa el detalle existente del certificado.
+        // No se crea otra vista para mantener el flujo en los archivos ya existentes.
         if (! $seguimiento->certificado) {
             return redirect()
                 ->route('seguimientos_index')
@@ -1380,26 +1529,20 @@ class SeguimientoController extends Controller
         }
     }
 
-    /**
-     * No se usa por ahora: el seguimiento se modifica con acciones especificas
-     * como asignar, derivar, revisar o reenviar correcciones.
-     */
+    // No se usa por ahora: el seguimiento se modifica con acciones especificas
+    // como asignar, derivar, revisar o reenviar correcciones.
     public function edit(Seguimiento $seguimiento)
     {
         abort(404);
     }
 
-    /**
-     * No se usa por ahora: evita actualizaciones genericas sobre el historial.
-     */
+    // No se usa por ahora: evita actualizaciones genericas sobre el historial.
     public function update(Request $request, Seguimiento $seguimiento)
     {
         abort(404);
     }
 
-    /**
-     * No se elimina historial de seguimiento desde CRUD generico.
-     */
+    // No se elimina historial de seguimiento desde CRUD generico.
     public function destroy(Seguimiento $seguimiento)
     {
         abort(404);
@@ -1564,11 +1707,9 @@ class SeguimientoController extends Controller
         ];
     }
 
-    /**
-     * Devuelve las personas naturales que pueden tramitar por una empresa.
-     * El segundo parámetro se usa en el acceso externo para conservar únicamente
-     * a la persona autenticada; en el registro interno se omite para mostrar todas.
-     */
+    // Devuelve las personas naturales que pueden tramitar por una empresa.
+    // El segundo parámetro se usa en el acceso externo para conservar únicamente
+    // a la persona autenticada; en el registro interno se omite para mostrar todas.
     private function opcionesTramitadoresEmpresa(
         Persona $beneficiario,
         ?int $idPersonaPermitida = null
@@ -1673,11 +1814,9 @@ class SeguimientoController extends Controller
         return $estadoActivo && $rolAutoriza && $personaActiva;
     }
 
-    /**
-     * Regla obligatoria para cualquier trámite empresarial.
-     * Un tramitador autorizado puede realizar la gestión, pero no sustituye la existencia
-     * del representante legal registrado con el rol solicitante.
-     */
+    // Regla obligatoria para cualquier trámite empresarial.
+    // Un tramitador autorizado puede realizar la gestión, pero no sustituye la existencia
+    // del representante legal registrado con el rol solicitante.
     private function empresaTieneRepresentanteLegalActivo(Persona $personaEmpresa): bool
     {
         $empresa = $personaEmpresa->empresa;
@@ -1763,9 +1902,13 @@ class SeguimientoController extends Controller
             ->select('id_persona_beneficiario', 'id_tipo_certificado')
             ->whereIn('id_persona_beneficiario', $idsPersonas)
             ->where('estado', 'EMITIDO')
-            ->where(function ($query) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', now()->toDateString());
+            ->whereHas('emisiones', function ($query) {
+                // El certificado previo debe tener al menos un documento emitido y vigente.
+                $query->where('estado', 'EMITIDO')
+                    ->where(function ($vigencia) {
+                        $vigencia->where('vigencia_indefinida', true)
+                            ->orWhereDate('fecha_fin', '>=', today()->toDateString());
+                    });
             })
             ->get()
             ->groupBy('id_persona_beneficiario')
@@ -1797,9 +1940,13 @@ class SeguimientoController extends Controller
         $certificadosVigentes = Certificado::query()
             ->where('id_persona_beneficiario', $idBeneficiario)
             ->where('estado', 'EMITIDO')
-            ->where(function ($query) {
-                $query->whereNull('fecha_fin')
-                    ->orWhereDate('fecha_fin', '>=', now()->toDateString());
+            ->whereHas('emisiones', function ($query) {
+                // El certificado previo debe tener al menos un documento emitido y vigente.
+                $query->where('estado', 'EMITIDO')
+                    ->where(function ($vigencia) {
+                        $vigencia->where('vigencia_indefinida', true)
+                            ->orWhereDate('fecha_fin', '>=', today()->toDateString());
+                    });
             })
             ->pluck('id_tipo_certificado')
             ->map(fn ($id) => (int) $id);

@@ -81,4 +81,14 @@ class Pago extends Model
             ->wherePivotNull('deleted_at');
     }
 
+
+    // Relacion uno a muchos (un pago puede tener muchos códigos QR de OpenBCB)
+    public function codigosQrOpenBcb()
+    {
+        return $this->hasMany(
+            PagoOpenBcb::class,
+            'id_pago'
+        );
+    }    
+
 }

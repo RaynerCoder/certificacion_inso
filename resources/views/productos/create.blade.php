@@ -1,13 +1,24 @@
 @php
-    // Modo embebido: permite usar solo el formulario dentro de otro flujo, sin cargar el layout completo.
-    $productoEmbebido = $productoEmbebido ?? request()->boolean('embebido');
+    /*
+     * ================================================================
+     * DATOS DE CONTEXTO DE LA VISTA
+     * ================================================================
+     *
+     * $productoEnEdicion:
+     *   Contiene el producto enviado por el controlador cuando se está editando.
+     *   Si se registra un producto nuevo, su valor será null.
+     *
+     * $modoEdicionProducto:
+     *   Permite usar la misma vista para registrar y editar.
+     */
     $productoEnEdicion = $producto ?? null;
     $modoEdicionProducto = filled($productoEnEdicion);
 
     /*
-     * Origen del formulario:
-     * - Desde Productos: vuelve al listado.
-     * - Desde un trámite: vuelve al detalle del trámite que abrió este formulario.
+     * DATOS DEL FLUJO DE RETORNO
+     *
+     * Estos valores indican desde qué pantalla se abrió el formulario
+     * y a qué pantalla debe volver el usuario después de guardar o cancelar.
      */
     $productoCertificadoOrigen = old('form_id_certificado', request('form_id_certificado'));
     $productoBandejaOrigen = old('form_bandeja', request('bandeja', 'recibidas'));
@@ -24,8 +35,7 @@
     }
 @endphp
 
-@if (!$productoEmbebido)
-    <x-admin-layout title="Productos | Certificador" :breadcrumbs="[
+<x-admin-layout title="Productos | Certificador" :breadcrumbs="[
         [
             'name' => 'Menu',
             'href' => route('admin_dashboard'),
@@ -38,64 +48,27 @@
             'name' => $modoEdicionProducto ? 'Editar Producto' : 'Registrar Producto',
         ],
     ]">
-@endif
 
 @php
     /*
-     * Catalogos para armar la vista.
-     * Cuando se implemente el guardado se pueden mover estas consultas al controlador.
+     * ================================================================
+     * DATOS RECIBIDOS DESDE EL CONTROLADOR
+     * ================================================================
+     *
+     * El controlador consulta estos catálogos y los envía a la vista.
+     * Aquí NO se vuelve a consultar la base de datos.
+     *
+     * Las variables con sufijo "Catalogo" se usan únicamente para
+     * mostrar opciones en selects, buscadores y tablas del formulario.
      */
-    $clasificacionesToxicologicasCatalogo =
-        $clasificacionesToxicologicas ??
-        \App\Models\ClasificacionToxicologica::query()->where('estado', 'ACTIVO')->orderBy('codigo')->get();
+    $clasificacionesToxicologicasCatalogo = $clasificacionesToxicologicas;
+    $fabricantesCatalogo = $fabricantes;
+    $territoriosCatalogo = $territorios;
+    $importadoresCatalogo = $importadores;
+    $ingredientesCatalogo = $ingredientes;
+    $clasificacionesQuimicasCatalogo = $clasificacionesQuimicas;
 
-    $fabricantesCatalogo =
-        $fabricantes ??
-        \App\Models\Fabricante::query()
-            ->where('estado', 'ACTIVO')
-            ->orderByRaw('CASE WHEN razon_social IS NULL OR razon_social = ? THEN 1 ELSE 0 END', [''])
-            ->orderBy('razon_social')
-            ->orderBy('nombre')
-            ->get();
-
-    /*
-     * Para productos se guarda id_territorio_pais, por eso este catalogo
-     * muestra solo territorios cuyo ambito es Pais.
-     */
-    $territoriosCatalogo = isset($territorios)
-        ? collect($territorios)->where('id_ambito', 1)->sortBy('nombre')->values()
-        : \App\Models\Territorio::query()->where('estado', 'ACTIVO')->where('id_ambito', 1)->orderBy('nombre')->get();
-
-    $importadoresCatalogo =
-        $importadores ??
-        \App\Models\Persona::with([
-            'natural',
-            'empresa.persona',
-            'empresa.responsables.persona.natural',
-            'empresa.responsables.rol',
-            'responsabilidadesEmpresariales.empresa.persona',
-            'responsabilidadesEmpresariales.rol',
-        ])
-            ->where('estado', 'ACTIVO')
-            ->orderBy('id')
-            ->get();
-
-    $ingredientesCatalogo = collect(
-        $ingredientes ?? \App\Models\Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('id')->get()
-    )
-        // Los registros antiguos con el mismo nombre se muestran como una sola opción.
-        ->unique(fn($ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
-        ->sortBy(fn($ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
-        ->values();
-
-    $clasificacionesQuimicasCatalogo =
-        $clasificacionesQuimicas ??
-        \App\Models\ClasificacionQuimica::query()->where('estado', 'ACTIVO')->orderBy('nombre')->get();
-
-    $catalogosMedidas =
-        $catalogosMedidas ??
-        \App\Models\CatalogoMedida::query()->where('estado', 'ACTIVO')->orderBy('tipo')->orderBy('nombre')->get();
-
+    // Del catálogo general de medidas se conservan solo las unidades de medida.
     $catalogosUnidades = $catalogosMedidas->where('tipo', 'unidad de medida')->values();
 
     $nombreCatalogoUnidad = function ($idCatalogoUnidad) use ($catalogosMedidas) {
@@ -107,18 +80,6 @@
 
         return trim($catalogo->nombre . ($catalogo->abreviatura ? ' (' . $catalogo->abreviatura . ')' : ''));
     };
-
-    /*
-     * Catalogo usado solo como apoyo visual para reutilizar presentaciones ya registradas.
-     * La vista las filtra por importador y por el codigo/nombre del producto actual.
-     */
-    $presentacionesCatalogo =
-        $presentacionesCatalogo ??
-        \App\Models\Presentacion::with(['producto', 'catalogoUnidad'])
-            ->where('estado', 'ACTIVO')
-            ->whereHas('producto', fn($consulta) => $consulta->where('estado', 'ACTIVO'))
-            ->orderByDesc('id')
-            ->get();
 
     /*
      * Devuelve el nombre visible de una persona.
@@ -143,7 +104,17 @@
         return $nombreNatural ?: 'Persona #' . $persona?->id;
     };
 
-    // Atajos de vista: pintan errores de Laravel sin repetir logica en cada campo.
+    /*
+     * ================================================================
+     * DATOS RECUPERADOS DESPUÉS DE UNA VALIDACIÓN
+     * ================================================================
+     *
+     * old(...) recupera lo que el usuario había escrito cuando Laravel
+     * devuelve el formulario por un error de validación.
+     *
+     * Si no existen datos old(), se utilizan los datos iniciales enviados
+     * por el controlador (por ejemplo, al editar un producto).
+     */
     $claseErrorProducto = fn(string $campo) => $errors->has($campo) ? ' is-invalid' : '';
     $ingredientesOld = old('ingredientes_productos', $ingredientesIniciales ?? []);
     $presentacionesOld = old('presentaciones', $presentacionesIniciales ?? []);
@@ -181,53 +152,38 @@
     };
 @endphp
 
-{{-- En tramite se usa el formulario preparado en seguimientos/producto. --}}
-@include($productoEmbebido ? 'seguimientos_certificados.producto.estilos' : 'productos.create.estilos')
-
-@if ($productoEmbebido)
-    <style>
-        /* Ajuste visual solo para el formulario cargado dentro de Nuevo Trámite. */
-        body {
-            margin: 0;
-            background: #ffffff;
-        }
-
-        .producto-wizard {
-            gap: 12px;
-        }
-    </style>
-@endif
+@include('productos.create.estilos')
 
 @if (session('success'))
-    {{-- Mensaje de guardado: en modo embebido confirma que el producto ya fue creado. --}}
     <div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
         {{ session('success') }}
     </div>
 @endif
 
-@if ($productoEmbebido && session('producto_creado_tramite'))
-    <script>
-        /*
-         * Avisa al formulario de tramite que el producto ya fue guardado.
-         * El parent solo usa estos datos para mostrar un resumen visual al usuario.
-         */
-        window.parent?.postMessage({
-            tipo: 'producto-registrado-tramite',
-            producto: @json(session('producto_creado_tramite')),
-        }, window.location.origin);
-    </script>
-@endif
-
 <form id="formProductoWizard"
-    action="{{ $modoEdicionProducto ? route('productos_update', $productoEnEdicion) : route('productos_store', $productoEmbebido ? ['embebido' => 1] : []) }}"
-    method="POST" enctype="multipart/form-data" class="producto-wizard" autocomplete="off"
-    @if ($productoEmbebido) target="productoSubmitFrame" @endif>
+    action="{{ $modoEdicionProducto ? route('productos_update', $productoEnEdicion) : route('productos_store') }}"
+    method="POST" enctype="multipart/form-data" class="producto-wizard" autocomplete="off">
     @csrf
     @if ($modoEdicionProducto)
         @method('PUT')
     @endif
 
-    {{-- Datos temporales de catalogos creados desde modales; el controlador los usa al guardar el producto. --}}
+    {{--
+        ================================================================
+        DATOS GENERADOS DESDE LOS MODALES
+        ================================================================
+
+        Estos campos ocultos NO vienen del controlador.
+
+        Se llenan en JavaScript cuando el usuario crea temporalmente:
+        - un fabricante,
+        - una clasificación toxicológica,
+        - una clasificación química,
+        - o una unidad de medida.
+
+        Al enviar el formulario, el controlador recibe estos valores y
+        decide si corresponde registrar el nuevo dato en la base de datos.
+    --}}
     <input type="hidden" id="form_fabricante_temporal_nombre" name="form_fabricante_temporal_nombre"
         value="{{ old('form_fabricante_temporal_nombre') }}">
     <input type="hidden" id="form_fabricante_temporal_razon_social" name="form_fabricante_temporal_razon_social"
@@ -247,7 +203,7 @@
         name="form_clasificacion_quimica_temporal_descripcion"
         value="{{ old('form_clasificacion_quimica_temporal_descripcion') }}">
 
-    {{-- Unidad temporal de PRESENTACIÓN --}}
+    {{-- Datos de una nueva unidad creada desde el modal para la PRESENTACIÓN. --}}
     <input type="hidden" id="form_presentacion_unidad_temporal_id" name="form_presentacion_unidad_temporal_id"
         value="{{ old('form_presentacion_unidad_temporal_id') }}">
 
@@ -258,7 +214,7 @@
         name="form_presentacion_unidad_temporal_abreviatura"
         value="{{ old('form_presentacion_unidad_temporal_abreviatura') }}">
 
-    {{-- Unidad temporal de REGISTRO --}}
+    {{-- Datos de una nueva unidad creada desde el modal para el REGISTRO. --}}
     <input type="hidden" id="form_registro_unidad_temporal_id" name="form_registro_unidad_temporal_id"
         value="{{ old('form_registro_unidad_temporal_id') }}">
 
@@ -269,7 +225,11 @@
         name="form_registro_unidad_temporal_abreviatura"
         value="{{ old('form_registro_unidad_temporal_abreviatura') }}">
 
-    {{-- Origen del flujo: permite volver a la pantalla que abrió Producto y relacionarlo al trámite. --}}
+    {{--
+        DATOS DE ORIGEN DEL FLUJO
+        Se envían al controlador para conservar la relación con el trámite
+        y saber a qué pantalla debe regresar el usuario después de guardar.
+    --}}
     <input type="hidden" name="form_id_certificado" value="{{ $productoCertificadoOrigen }}">
     <input type="hidden" name="form_bandeja" value="{{ $productoBandejaOrigen }}">
     <input type="hidden" name="form_retorno" value="{{ $productoRetornoSeguro }}">
@@ -285,58 +245,54 @@
         </div>
     @endif
 
-    @unless ($productoEmbebido)
-        {{-- Encabezado principal: se oculta cuando Producto se carga dentro del trámite. --}}
-        <div class="producto-header">
-            <div class="px-6 py-6">
-                <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold tracking-tight text-slate-800">
-                            {{ $modoEdicionProducto ? 'Editar producto' : 'Registrar nuevo producto' }}
-                        </h1>
-                        <p class="mt-2 text-sm leading-relaxed text-slate-500">
-                            {{ $modoEdicionProducto
-                                ? 'Actualice los datos principales y revise sus ingredientes, presentaciones y registros.'
-                                : 'Complete el producto, sus ingredientes y presentaciones. Luego puede preparar la autorización.' }}
-                        </p>
-                    </div>
+    <div class="producto-header">
+        <div class="px-6 py-6">
+            <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">
+                        {{ $modoEdicionProducto ? 'Editar producto' : 'Registrar nuevo producto' }}
+                    </h1>
+                    <p class="mt-2 text-sm leading-relaxed text-slate-500">
+                        {{ $modoEdicionProducto
+                            ? 'Actualice los datos principales y revise sus ingredientes, presentaciones y registros.'
+                            : 'Complete el producto, sus ingredientes y presentaciones. Luego puede preparar la autorización.' }}
+                    </p>
                 </div>
             </div>
         </div>
+    </div>
 
-        {{-- Burbujas horizontales: en modo embebido las burbujas las maneja el trámite. --}}
-        <div class="producto-stepper-card">
-            <div class="producto-stepper" id="productoStepper">
-                <button type="button" class="producto-burbuja" data-producto-ir="0">
-                    <span class="producto-circulo">1</span>
-                    <span>Producto</span>
-                </button>
-                <button type="button" class="producto-burbuja" data-producto-ir="1">
-                    <span class="producto-circulo">2</span>
-                    <span>Ingredientes</span>
-                </button>
-                <button type="button" class="producto-burbuja" data-producto-ir="2">
-                    <span class="producto-circulo">3</span>
-                    <span>Registro y presentación</span>
-                </button>
-                <button type="button" class="producto-burbuja" data-producto-ir="3">
-                    <span class="producto-circulo">4</span>
-                    <span>Revisión</span>
-                </button>
-            </div>
+    <div class="producto-stepper-card">
+        <div class="producto-stepper" id="productoStepper">
+            <button type="button" class="producto-burbuja" data-producto-ir="0">
+                <span class="producto-circulo">1</span>
+                <span>Producto</span>
+            </button>
+            <button type="button" class="producto-burbuja" data-producto-ir="1">
+                <span class="producto-circulo">2</span>
+                <span>Ingredientes</span>
+            </button>
+            <button type="button" class="producto-burbuja" data-producto-ir="2">
+                <span class="producto-circulo">3</span>
+                <span>Registro y presentación</span>
+            </button>
+            <button type="button" class="producto-burbuja" data-producto-ir="3">
+                <span class="producto-circulo">4</span>
+                <span>Revisión</span>
+            </button>
         </div>
-    @endunless
+    </div>
 
     {{-- Este bloque también recibe errores sin recargar la página para conservar todo lo ingresado. --}}
-        <div id="productoResumenErrores"
-            class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 {{ $errors->any() ? '' : 'hidden' }}">
-            <p class="text-sm font-black">No se pudo guardar. Revise estos datos:</p>
-            <ul id="productoListaErrores" class="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
+    <div id="productoResumenErrores"
+        class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 {{ $errors->any() ? '' : 'hidden' }}">
+        <p class="text-sm font-black">No se pudo guardar. Revise estos datos:</p>
+        <ul id="productoListaErrores" class="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
 
     <div class="producto-layout">
         <section class="producto-card">
@@ -359,31 +315,19 @@
 
             <div class="producto-body">
                 {{-- Paso 1: datos principales de productos. --}}
-                @include(
-                    $productoEmbebido
-                        ? 'seguimientos_certificados.producto.producto'
-                        : 'productos.create.producto')
+                @include('productos.create.producto')
 
                 {{-- Paso 2: tabla pivote ingredientes_productos. --}}
-                @include(
-                    $productoEmbebido
-                        ? 'seguimientos_certificados.producto.ingredientes'
-                        : 'productos.create.ingredientes')
+                @include('productos.create.ingredientes')
 
                 {{-- Paso 3: presentaciones del producto. --}}
-                @include(
-                    $productoEmbebido
-                        ? 'seguimientos_certificados.producto.presentaciones'
-                        : 'productos.create.presentaciones')
+                @include('productos.create.presentaciones')
 
                 {{-- Los registros se agregan dentro del paso de presentaciones para mantener la relacion. --}}
                 {{-- @include('productos.create.registros') --}}
 
                 {{-- Paso 4: resumen antes de guardar producto. --}}
-                @include(
-                    $productoEmbebido
-                        ? 'seguimientos_certificados.producto.revision'
-                        : 'productos.create.revision')
+                @include('productos.create.revision')
 
             </div>
 
@@ -392,13 +336,11 @@
                 <div></div>
 
                 <div class="producto-action-buttons">
-                    @if (!$productoEmbebido)
-                        {{-- Sale del wizard sin enviar datos al controlador. --}}
-                        <a href="{{ $productoRetornoSeguro }}" class="producto-btn producto-btn-secondary">
-                            <i class="fa-solid fa-arrow-left"></i>
-                            Salir sin guardar
-                        </a>
-                    @endif
+                    {{-- Sale del wizard sin enviar datos al controlador. --}}
+                    <a href="{{ $productoRetornoSeguro }}" class="producto-btn producto-btn-secondary">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Salir sin guardar
+                    </a>
 
                     <button type="button" id="btnProductoAnterior" class="producto-btn producto-btn-secondary"
                         onclick="cambiarPasoProducto(-1)">
@@ -430,7 +372,8 @@
     class="fixed inset-0 z-[20000] hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]"
     role="dialog" aria-modal="true" aria-labelledby="productoGuardandoTitulo" aria-hidden="true">
     <div class="flex max-w-sm items-center gap-4 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-2xl">
-        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-lg text-teal-700">
+        <span
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-lg text-teal-700">
             <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
         </span>
         <div>
@@ -440,12 +383,9 @@
     </div>
 </div>
 
-@if ($productoEmbebido)
-    {{-- El producto se guarda en un iframe oculto para no sacar al usuario del trámite actual. --}}
-    <iframe name="productoSubmitFrame" class="hidden" title="Guardado de producto"></iframe>
-@endif
-
-{{-- Modal visual para fabricante. No guarda en base de datos todavia; solo permite dejar preparada la vista. --}}
+{{-- MODAL: captura temporalmente los datos de un nuevo fabricante.
+         Los datos se guardan en campos ocultos y recién se envían al controlador
+         cuando se guarda el producto completo. --}}
 <div class="producto-modal" id="modalFabricanteProducto">
     <div class="producto-modal-card is-compact">
         <div class="producto-modal-head">
@@ -491,7 +431,8 @@
     </div>
 </div>
 
-{{-- Permite agregar una clasificación toxicológica sin salir del formulario. --}}
+{{-- MODAL: captura temporalmente una nueva clasificación toxicológica.
+         No guarda directamente en base de datos; prepara los datos para el controlador. --}}
 <div class="producto-modal" id="modalClasificacionToxicologica">
     <div class="producto-modal-card is-compact">
         <div class="producto-modal-head">
@@ -514,7 +455,8 @@
             </div>
 
             <div>
-                <label class="producto-field-label" for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
+                <label class="producto-field-label"
+                    for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
                 <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
                     placeholder="Ej: Moderadamente peligroso">
             </div>
@@ -531,7 +473,8 @@
     </div>
 </div>
 
-{{-- Permite agregar una clasificación química sin salir del formulario. --}}
+{{-- MODAL: captura temporalmente una nueva clasificación química.
+         No guarda directamente en base de datos; prepara los datos para el controlador. --}}
 <div class="producto-modal" id="modalClasificacionQuimica">
     <div class="producto-modal-card is-compact">
         <div class="producto-modal-head">
@@ -572,7 +515,8 @@
     </div>
 </div>
 
-{{-- Modal visual para unidad de medida. --}}
+{{-- MODAL: permite crear temporalmente una unidad de medida para presentación o registro.
+         La unidad se envía al controlador junto con el producto y se registra al guardar. --}}
 <div class="producto-modal" id="modalUnidadProducto">
     <div class="producto-modal-card is-compact">
 
@@ -630,7 +574,9 @@
     </div>
 </div>
 
-{{-- Modal visual para ingrediente. --}}
+
+{{-- MODAL: permite agregar temporalmente un ingrediente que no existe en el catálogo.
+         La opción queda disponible en el formulario y se envía al controlador al guardar. --}}
 <div class="producto-modal" id="modalIngredienteProducto">
     <div class="producto-modal-card is-compact">
         <div class="producto-modal-head">
@@ -664,6 +610,55 @@
     </div>
 </div>
 
+
+{{-- MODAL: permite escribir un nuevo tipo de envase.
+         El valor se agrega al selector de la presentación y se enviará dentro
+         de presentaciones[...] cuando se guarde el producto. --}}
+<div class="producto-modal" id="modalTipoEnvaseProducto">
+    <div class="producto-modal-card is-compact">
+
+        <div class="producto-modal-head">
+            <div class="producto-modal-title-row">
+                <span class="producto-modal-icon">
+                    <i class="fa-solid fa-box-open"></i>
+                </span>
+
+                <div>
+                    <h3 class="producto-modal-title">Nuevo tipo de envase</h3>
+                    <p class="producto-modal-subtitle">
+                        Escriba el tipo de envase que utilizará esta presentación.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="producto-modal-body">
+            <div>
+                <label class="producto-field-label" for="modal_tipo_envase_nombre">
+                    Tipo de envase
+                </label>
+
+                <input class="producto-input" id="modal_tipo_envase_nombre" type="text" maxlength="150"
+                    placeholder="Ej: Frasco, Bidón, Aerosol o Bolsa">
+            </div>
+        </div>
+
+        <div class="producto-modal-actions">
+            <button type="button" class="producto-btn producto-btn-secondary"
+                onclick="cerrarModalProducto('modalTipoEnvaseProducto')">
+                Cancelar
+            </button>
+
+            <button type="button" class="producto-btn producto-btn-primary"
+                onclick="agregarTipoEnvaseTemporalProducto()">
+                <i class="fa-solid fa-plus"></i>
+                Agregar tipo de envase
+            </button>
+        </div>
+    </div>
+</div>
+
+
 {{-- La etiqueta se revisa en grande sin salir del formulario. --}}
 <div class="producto-modal" id="modalEtiquetaImagenProducto" aria-hidden="true">
     <div class="producto-modal-card is-image" role="dialog" aria-modal="true"
@@ -681,17 +676,17 @@
 
             <div class="producto-image-modal-actions">
                 <div class="producto-image-zoom-tools" role="group" aria-label="Zoom de la etiqueta">
-                    <button type="button" onclick="cambiarZoomEtiquetaProducto(-0.25)"
-                        title="Alejar imagen" aria-label="Alejar imagen">
+                    <button type="button" onclick="cambiarZoomEtiquetaProducto(-0.25)" title="Alejar imagen"
+                        aria-label="Alejar imagen">
                         <i class="fa-solid fa-magnifying-glass-minus"></i>
                     </button>
                     <output id="etiquetaImagenZoomValor" aria-live="polite">100%</output>
-                    <button type="button" onclick="cambiarZoomEtiquetaProducto(0.25)"
-                        title="Acercar imagen" aria-label="Acercar imagen">
+                    <button type="button" onclick="cambiarZoomEtiquetaProducto(0.25)" title="Acercar imagen"
+                        aria-label="Acercar imagen">
                         <i class="fa-solid fa-magnifying-glass-plus"></i>
                     </button>
-                    <button type="button" onclick="restablecerZoomEtiquetaProducto()"
-                        title="Restablecer tamaño" aria-label="Restablecer tamaño">
+                    <button type="button" onclick="restablecerZoomEtiquetaProducto()" title="Restablecer tamaño"
+                        aria-label="Restablecer tamaño">
                         <i class="fa-solid fa-compress"></i>
                     </button>
                 </div>
@@ -713,53 +708,34 @@
 </div>
 
 <script>
-    // Guarda el paso actual del wizard para mostrar una sola seccion a la vez.
+    // MANTIENE EL ESTADO DEL FORMULARIO
+    // conserva índices y valores temporales mientras la página permanece abierta.
     let productoPasoActual = 0;
 
-    // Contadores usados para crear nombres de arrays dinamicos sin repetir indices.
     let productoIngredienteIndice = {{ $siguienteIngrediente }};
     let productoPresentacionIndice = {{ $siguientePresentacion }};
     let productoRegistroIndice = {{ $siguienteRegistro }};
+
     let productoRegistroEditandoId = null;
+
     let productoEtiquetaPreviewUrl = null;
     let productoEtiquetaOrigenActual = null;
     let productoEtiquetaZoom = 1;
-    let productoEtiquetaTamanoBase = { ancho: 0, alto: 0 };
+    let productoEtiquetaTamanoBase = {
+        ancho: 0,
+        alto: 0
+    };
     const productoEtiquetaUrls = {};
     const productoEtiquetaOldUrls = {};
+    // ERRORES RECIBIDOS DESDE LARAVEL
+    // contiene los mensajes generados por la validación del controlador en una carga anterior.
     const productoErroresLaravel = @json($errors->messages());
-    const productoEmbebidoTramite = @json($productoEmbebido);
-    const productoModoEdicion = @json($modoEdicionProducto);
 
-    // Entradas del formulario separadas por modulo para evitar mezclar ids entre producto, ingredientes y registro.
-    const productoCamposFormulario = {
-        producto: {
-            codigo: 'form_codigo',
-            nombreComercial: 'form_nombre_comercial',
-            fabricante: 'form_id_fabricante',
-            clasificacionToxicologica: 'form_id_clasificacion_toxicologica',
-        },
-        ingrediente: {
-            select: 'form_ingrediente_select',
-            porcentaje: 'form_ingrediente_porcentaje',
-            estado: 'form_ingrediente_estado',
-        },
-        presentacion: {
-            cantidad: 'form_presentacion_cantidad',
-            unidad: 'form_presentacion_unidad',
-            etiqueta: 'form_presentacion_etiqueta',
-            descripcion: 'form_presentacion_descripcion',
-            estado: 'form_presentacion_estado',
-        },
-        registro: {
-            codigoAutorizacion: 'form_registro_codigo_autorizacion',
-            numeroLote: 'form_registro_numero_lote',
-            fechaVigencia: 'form_registro_fecha_vigencia',
-            cantidad: 'form_registro_cantidad',
-            unidad: 'form_registro_unidad',
-            estado: 'form_registro_estado',
-        },
-    };
+    // indica si el formulario está modificando un producto existente.
+    const productoModoEdicion = @json($modoEdicionProducto);
+    // NAVEGACIÓN DEL FORMULARIO
+    // controla los pasos del wizard. No registra ni modifica datos en la base de datos.
+    // ========================================================================
 
     const productoTitulos = [
         ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
@@ -770,12 +746,16 @@
 
     const productoColoresPaso = ['is-blue', 'is-teal', 'is-amber', 'is-teal'];
 
-    // Muestra el paso solicitado y actualiza burbujas, botones y resumen lateral.
+    // MUESTRA UN PASO DEL FORMULARIO
+    // muestra el paso indicado y actualiza burbujas, encabezado, botones y resumen.
+    // indice: 0=Producto, 1=Ingredientes, 2=Registro y presentación, 3=Revisión.
+    // Ejemplo: mostrarPasoProducto(2) abre el paso Registro y presentación.
     function mostrarPasoProducto(indice) {
         const pasos = document.querySelectorAll('[data-producto-step]');
         const burbujas = document.querySelectorAll('[data-producto-ir]');
         const ultimoPaso = productoTitulos.length - 1;
 
+        // limita el índice para impedir pasos menores a 0 o mayores al último disponible.
         productoPasoActual = Math.max(0, Math.min(indice, ultimoPaso));
 
         pasos.forEach((paso) => {
@@ -802,9 +782,9 @@
 
         const botonSiguiente = document.getElementById('btnProductoSiguiente');
         if (productoPasoActual === ultimoPaso) {
-            botonSiguiente.innerHTML = productoModoEdicion
-                ? '<i class="fa-solid fa-floppy-disk"></i> Actualizar producto'
-                : '<i class="fa-solid fa-floppy-disk"></i> Guardar producto';
+            botonSiguiente.innerHTML = productoModoEdicion ?
+                '<i class="fa-solid fa-floppy-disk"></i> Actualizar producto' :
+                '<i class="fa-solid fa-floppy-disk"></i> Guardar producto';
         } else if (productoPasoActual === 2) {
             botonSiguiente.innerHTML = 'Continuar a revisión <i class="fa-solid fa-chevron-right"></i>';
         } else {
@@ -813,16 +793,12 @@
 
         actualizarResumenProducto();
 
-        // Si el formulario esta dentro de un tramite, sincroniza la burbuja superior del padre.
-        if (productoEmbebidoTramite) {
-            window.parent?.postMessage({
-                tipo: 'producto-paso-tramite',
-                paso: productoPasoActual,
-            }, window.location.origin);
-        }
     }
 
-    // Avanza o retrocede segun el valor enviado por los botones inferiores.
+    // CAMBIA AL PASO ANTERIOR O SIGUIENTE
+    // recibe 1 para avanzar o -1 para retroceder.
+    // si el usuario avanza desde el último paso, envía el formulario para guardar.
+    // Ejemplo: cambiarPasoProducto(1) avanza; cambiarPasoProducto(-1) retrocede.
     function cambiarPasoProducto(direccion) {
         const ultimoPaso = productoTitulos.length - 1;
 
@@ -835,7 +811,9 @@
         mostrarPasoProducto(productoPasoActual + direccion);
     }
 
-    // Evita que valores escritos por el usuario rompan la tabla dinamica del wizard.
+
+    // ESCAPA TEXTO PARA HTML
+    // evita que un texto ingresado por el usuario se interprete como etiquetas HTML.
     function escaparHtmlProducto(valor) {
         return String(valor ?? '')
             .replaceAll('&', '&amp;')
@@ -845,12 +823,17 @@
             .replaceAll("'", '&#039;');
     }
 
-    // Normaliza texto para comparar codigo/nombre de producto sin depender de mayusculas o espacios dobles.
+    // NORMALIZA TEXTO PARA BUSCAR Y COMPARAR
+    // convierte a minúsculas, elimina espacios al inicio/final y reduce espacios repetidos.
+    // Ejemplo: '  Frasco   Plástico ' se compara como 'frasco plástico'.
     function normalizarTextoProducto(valor) {
+        // ?? usa cadena vacía cuando valor es null/undefined; luego normaliza espacios.
         return String(valor ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
-    // Mantiene sincronizados el select real y el buscador visible del catálogo.
+    // SINCRONIZA UN SELECT CON SU BUSCADOR VISUAL
+    // select es el <select> real que contiene el dato enviado al controlador.
+    // valorSeleccionado es el valor que se desea seleccionar; null conserva la selección actual.
     function sincronizarBuscadorProducto(select, valorSeleccionado = null) {
         if (!select) {
             return;
@@ -863,7 +846,9 @@
         actualizarBuscadorCatalogoProducto(select);
     }
 
-    // Actualiza un selector de unidad sin modificar el otro campo del formulario.
+    // ASIGNA UNA UNIDAD AL SELECTOR INDICADO
+    // idSelect identifica si se modifica la unidad de presentación o la unidad de registro.
+    // valor corresponde al id o valor de la unidad que debe quedar seleccionada.
     function establecerUnidadProducto(idSelect, valor = '') {
         const select = document.getElementById(idSelect);
 
@@ -874,7 +859,8 @@
         sincronizarBuscadorProducto(select, String(valor ?? ''));
     }
 
-    // Cierra uno o todos los buscadores de catálogo sin alterar la opción seleccionada.
+    // CIERRA LOS BUSCADORES DE CATÁLOGO
+    // excepto permite dejar abierto un buscador específico; null cierra todos.
     function cerrarBuscadoresCatalogoProducto(excepto = null) {
         document.querySelectorAll('[data-producto-search-select]').forEach((contenedor) => {
             if (contenedor === excepto) {
@@ -891,7 +877,9 @@
         });
     }
 
-    // Dibuja las opciones del catálogo que coinciden con el texto escrito.
+    // MUESTRA LAS OPCIONES QUE COINCIDEN CON LA BÚSQUEDA
+    // lee el texto escrito en el buscador y dibuja únicamente las opciones coincidentes.
+    // al seleccionar una opción actualiza el <select> real que se enviará al controlador.
     function renderizarOpcionesBuscadorProducto(contenedor) {
         const select = document.getElementById(contenedor?.dataset.productoSearchSelect || '');
         const lista = contenedor?.querySelector('[data-producto-search-options]');
@@ -931,14 +919,18 @@
         lista.querySelectorAll('[data-producto-search-option]').forEach((boton) => {
             boton.addEventListener('click', () => {
                 select.value = boton.dataset.productoSearchOption || '';
-                select.dispatchEvent(new Event('change', { bubbles: true }));
+                // dispara manualmente change para ejecutar la misma lógica que una selección hecha por el usuario.
+                select.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
                 actualizarBuscadorCatalogoProducto(select);
                 cerrarBuscadoresCatalogoProducto();
             });
         });
     }
 
-    // Refleja en el control visible el texto que realmente conserva el select.
+    // ACTUALIZA EL TEXTO VISIBLE DE UN BUSCADOR DE CATÁLOGO
+    // refleja en el control visual la opción que actualmente está seleccionada en el <select> real.
     function actualizarBuscadorCatalogoProducto(select) {
         const contenedor = document.querySelector(
             `[data-producto-search-select="${CSS.escape(select?.id || '')}"]`
@@ -957,9 +949,9 @@
             const nombre = select.value ? opcion?.textContent?.trim() || textoVacio : textoVacio;
             const detalle = select.value ? opcion?.dataset.productoDetalle?.trim() || '' : '';
 
-            etiqueta.innerHTML = detalle
-                ? `<strong>${escaparHtmlProducto(nombre)}</strong><small class="producto-search-selected-detail">${escaparHtmlProducto(detalle)}</small>`
-                : `<strong>${escaparHtmlProducto(nombre)}</strong>`;
+            etiqueta.innerHTML = detalle ?
+                `<strong>${escaparHtmlProducto(nombre)}</strong><small class="producto-search-selected-detail">${escaparHtmlProducto(detalle)}</small>` :
+                `<strong>${escaparHtmlProducto(nombre)}</strong>`;
         }
 
         if (botonLimpiar) {
@@ -970,7 +962,9 @@
         renderizarOpcionesBuscadorProducto(contenedor);
     }
 
-    // Convierte cualquier select marcado en el mismo buscador compacto usado por Ingredientes.
+    // CREA LOS BUSCADORES VISUALES DE LOS SELECTS
+    // transforma cada select marcado con data-producto-buscador en un control buscable.
+    // el select original no se elimina porque su valor es el que se envía al controlador.
     function inicializarBuscadoresProducto() {
         document.querySelectorAll('[data-producto-buscador]').forEach((select) => {
             if (document.querySelector(`[data-producto-search-select="${CSS.escape(select.id)}"]`)) {
@@ -1026,6 +1020,7 @@
                 if (abrir) {
                     buscador.value = '';
                     renderizarOpcionesBuscadorProducto(contenedor);
+                    // espera a que el desplegable sea visible antes de colocar el cursor en el buscador.
                     requestAnimationFrame(() => buscador.focus());
                 }
             });
@@ -1034,7 +1029,10 @@
             botonLimpiar?.addEventListener('click', (event) => {
                 event.stopPropagation();
                 select.value = '';
-                select.dispatchEvent(new Event('change', { bubbles: true }));
+                // dispara manualmente change para ejecutar la misma lógica que una selección hecha por el usuario.
+                select.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
                 actualizarBuscadorCatalogoProducto(select);
                 cerrarBuscadoresCatalogoProducto();
             });
@@ -1054,16 +1052,21 @@
         });
     }
 
+    // guarda temporalmente qué selector de unidad abrió el modal.
+    // sus valores esperados son form_presentacion_unidad o form_registro_unidad.
     let unidadSelectDestinoProducto = null;
-
+    // ABRE EL MODAL PARA CREAR UNA UNIDAD TEMPORAL
+    // idSelectDestino indica qué selector recibirá la nueva unidad.
+    // Ejemplo: puede ser form_presentacion_unidad o form_registro_unidad.
     function abrirModalUnidadProducto(idSelectDestino) {
 
         unidadSelectDestinoProducto = idSelectDestino;
 
         abrirModalProducto('modalUnidadProducto');
     }
-
-
+    // AGREGA UNA UNIDAD CREADA DESDE EL MODAL
+    // valida nombre y abreviatura, evita duplicados y agrega la unidad al selector correspondiente.
+    // también llena campos ocultos para que el controlador pueda registrar la unidad al guardar el producto.
     function agregarUnidadTemporalProducto() {
 
         const nombreInput =
@@ -1100,6 +1103,7 @@
             return;
         }
 
+        // TEMP-* identifica una opción que todavía no existe en base de datos.
         const valorTemporal = `TEMP-${Date.now()}`;
 
         const textoVisible = abreviatura ?
@@ -1164,6 +1168,67 @@
         unidadSelectDestinoProducto = null;
     }
 
+
+    // ABRE EL MODAL PARA CREAR UN TIPO DE ENVASE
+    // solo abre el modal y coloca el cursor en el campo de nombre.
+    function abrirModalTipoEnvaseProducto() {
+        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+
+        if (!selectorTipoEnvase) {
+            return;
+        }
+
+        abrirModalProducto('modalTipoEnvaseProducto');
+
+        requestAnimationFrame(() => {
+            document.getElementById('modal_tipo_envase_nombre')?.focus();
+        });
+    }
+
+
+    // AGREGA EL TIPO DE ENVASE ESCRITO EN EL MODAL
+    // valida el texto, evita duplicados y lo agrega al selector de la presentación.
+    // el valor se enviará dentro de presentaciones[...] al guardar el producto.
+    function agregarTipoEnvaseTemporalProducto() {
+        const campoNombre = document.getElementById('modal_tipo_envase_nombre');
+        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+        const tipoEnvase = campoNombre?.value.trim().replace(/\s+/g, ' ') || '';
+
+        if (!campoNombre || !selectorTipoEnvase) {
+            return;
+        }
+
+        if (!tipoEnvase) {
+            marcarErrorProducto(campoNombre, 'Ingrese el tipo de envase.');
+            return;
+        }
+
+        const tipoEnvaseYaExiste = Array.from(selectorTipoEnvase.options)
+            .filter((opcion) => opcion.value)
+            .some((opcion) =>
+                normalizarTextoProducto(opcion.value) === normalizarTextoProducto(tipoEnvase)
+            );
+
+        if (tipoEnvaseYaExiste) {
+            marcarErrorProducto(
+                campoNombre,
+                'Ese tipo de envase ya existe. Selecciónelo de la lista.'
+            );
+            return;
+        }
+
+        // crea y deja seleccionada una nueva opción usando el mismo texto como value y etiqueta visible.
+        const opcionNueva = new Option(tipoEnvase, tipoEnvase, true, true);
+        selectorTipoEnvase.add(opcionNueva);
+
+        // Actualiza el buscador visual que acompaña al select.
+        sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvase);
+
+        limpiarErrorProducto(campoNombre);
+        cerrarModalProducto('modalTipoEnvaseProducto');
+    }
+    // OBTIENE EL TEXTO VISIBLE DE UNA UNIDAD
+    // recibe el id o valor de una unidad y devuelve el nombre mostrado en sus selectores.
     function textoUnidadCatalogoProducto(idUnidad) {
         if (!idUnidad) {
             return '';
@@ -1176,7 +1241,8 @@
         return opcion?.dataset.texto || opcion?.textContent?.trim() || '';
     }
 
-    // En la revisión identifica una unidad temporal sin usar términos ambiguos como "origen".
+    // PREPARA EL TEXTO DE UNA UNIDAD PARA LA REVISIÓN
+    // si la unidad es temporal, indica que será registrada cuando se guarde el producto.
     function textoUnidadRevisionProducto(idUnidad) {
         const texto = textoUnidadCatalogoProducto(idUnidad);
 
@@ -1185,7 +1251,8 @@
             texto;
     }
 
-    // Muestra avisos del wizard con SweetAlert y deja alert como respaldo si la libreria no carga.
+    // MUESTRA UN MENSAJE AL USUARIO
+    // recibe icono, título y mensaje; usa SweetAlert y deja alert() como respaldo.
     function notificarProducto(icono, titulo, mensaje) {
         if (window.Swal) {
             Swal.fire({
@@ -1202,6 +1269,10 @@
     }
 
     // Devuelve el elemento visible que debe marcarse cuando un input oculto tiene un error.
+    // OBTIENE EL CONTROL VISIBLE QUE DEBE MOSTRAR UN ERROR
+    // algunos selects e inputs reales están ocultos porque tienen una interfaz personalizada.
+    // esta función devuelve el elemento visible que debe resaltarse.
+
     function objetivoErrorProducto(campo) {
         if (!campo) {
             return null;
@@ -1225,8 +1296,11 @@
         return campo;
     }
 
-    // Marca un campo como invalido y muestra un mensaje corto debajo del control.
+    // MARCA UN CAMPO COMO INVÁLIDO
+    // recibe el id o elemento del campo y el mensaje que debe mostrarse debajo.
+    // devuelve false para poder usarse directamente dentro de una validación.
     function marcarErrorProducto(idCampo, mensaje) {
+        // permite llamar la función enviando un id de campo o directamente el elemento HTML.
         const campo = typeof idCampo === 'string' ? document.getElementById(idCampo) : idCampo;
         const objetivo = objetivoErrorProducto(campo);
 
@@ -1237,9 +1311,9 @@
         objetivo.classList.add('is-invalid');
 
         const errorDentroDelControl = objetivo.matches('td, tr');
-        let error = errorDentroDelControl
-            ? objetivo.querySelector(':scope > .producto-field-error')
-            : objetivo.nextElementSibling;
+        let error = errorDentroDelControl ?
+            objetivo.querySelector(':scope > .producto-field-error') :
+            objetivo.nextElementSibling;
 
         if (!error || !error.classList.contains('producto-field-error')) {
             error = document.createElement('p');
@@ -1256,8 +1330,10 @@
         return false;
     }
 
-    // Limpia el error visual apenas el usuario corrige o cambia el campo.
+    // LIMPIA EL ERROR VISUAL DE UN CAMPO
+    // elimina la clase de error y el mensaje asociado cuando el usuario corrige el dato.
     function limpiarErrorProducto(idCampo) {
+        // permite llamar la función enviando un id de campo o directamente el elemento HTML.
         const campo = typeof idCampo === 'string' ? document.getElementById(idCampo) : idCampo;
         const objetivo = objetivoErrorProducto(campo);
 
@@ -1268,15 +1344,17 @@
         campo?.classList.remove('is-invalid');
         objetivo.classList.remove('is-invalid');
 
-        const error = objetivo.matches('td, tr')
-            ? objetivo.querySelector(':scope > .producto-field-error')
-            : objetivo.nextElementSibling;
+        const error = objetivo.matches('td, tr') ?
+            objetivo.querySelector(':scope > .producto-field-error') :
+            objetivo.nextElementSibling;
         if (error?.classList.contains('producto-field-error')) {
             error.remove();
         }
     }
 
-    // Valida requerido para campos normales y select.
+    // VALIDA QUE UN CAMPO OBLIGATORIO TENGA VALOR
+    // recibe el id del campo y el mensaje de error.
+    // devuelve true si tiene valor y false si está vacío.
     function validarRequeridoProducto(idCampo, mensaje) {
         const campo = document.getElementById(idCampo);
         if (campo?.value?.trim()) {
@@ -1287,9 +1365,12 @@
         return marcarErrorProducto(campo, mensaje);
     }
 
-    // Valida numeros para evitar porcentajes/cantidades vacias, negativas o fuera de rango.
+    // VALIDA UN CAMPO NUMÉRICO
+    // permite definir un mínimo y un máximo; null significa que ese límite no se aplica.
+    // devuelve true cuando el número cumple las condiciones.
     function validarNumeroProducto(idCampo, mensaje, minimo = null, maximo = null) {
         const campo = document.getElementById(idCampo);
+        // convierte el valor textual del input a número para validar mínimos y máximos.
         const numero = Number(campo?.value);
 
         if (!campo?.value || Number.isNaN(numero)) {
@@ -1312,7 +1393,8 @@
         return true;
     }
 
-    // Conecta un campo al limpiador de errores para que el aviso desaparezca al corregirlo.
+    // ACTIVA LA LIMPIEZA AUTOMÁTICA DE ERRORES
+    // agrega eventos al campo para retirar el error cuando el usuario escribe o cambia su valor.
     function prepararLimpiezaErrorProducto(campo) {
         if (!campo) {
             return;
@@ -1326,7 +1408,9 @@
         });
     }
 
-    // Evita avanzar cuando el paso actual tiene datos principales incompletos o mal escritos.
+    // VALIDA LOS CAMPOS DEL PASO INDICADO
+    // indicePaso identifica el paso que se revisará antes de continuar.
+    // actualmente el paso 0 valida los datos principales del producto.
     function validarPasoProducto(indicePaso) {
         if (indicePaso !== 0) {
             return true;
@@ -1352,7 +1436,10 @@
         return valido;
     }
 
-    // Mantiene sincronizados el nombre, los botones y la miniatura de la etiqueta.
+
+
+    // ACTUALIZA LA VISTA DE LA ETIQUETA
+    // muestra el archivo seleccionado y sus acciones disponibles.
     function actualizarControlEtiquetaActual(nombreArchivo, tieneImagen, urlImagen = '') {
         const nombre = document.getElementById('presentacionEtiquetaNombre');
         const botonVista = document.getElementById('presentacionEtiquetaPreview');
@@ -1393,12 +1480,14 @@
         }
     }
 
-    // Deja el control listo para una nueva presentacion sin tocar las filas ya agregadas.
+    // REINICIA EL CONTROL DE ETIQUETA
+    // devuelve el selector y la vista previa de etiqueta a su estado inicial.
     function reiniciarControlEtiquetaActual() {
         actualizarControlEtiquetaActual('Sin imagen seleccionada.', false);
     }
 
-    // Quita la imagen seleccionada antes de agregar la presentacion a la tabla.
+    // QUITA LA ETIQUETA SELECCIONADA DE LA PRESENTACIÓN
+    // limpia el archivo, la vista previa y las referencias temporales utilizadas por el navegador.
     function limpiarEtiquetaPresentacionProducto() {
         const etiqueta = document.getElementById('form_presentacion_etiqueta');
         const origen = document.getElementById('form_presentacion_origen_id');
@@ -1418,6 +1507,7 @@
 
         bloquearCamposPresentacionProducto(false);
         if (productoEtiquetaPreviewUrl) {
+            // libera de memoria la URL temporal creada anteriormente por el navegador.
             URL.revokeObjectURL(productoEtiquetaPreviewUrl);
             productoEtiquetaPreviewUrl = null;
         }
@@ -1426,13 +1516,15 @@
         limpiarErrorProducto(etiqueta);
         reiniciarControlEtiquetaActual();
     }
-
+    // VERIFICA SI EL ARCHIVO DE ETIQUETA ES UNA IMAGEN
+    // devuelve true únicamente cuando el archivo seleccionado tiene un tipo MIME de imagen.
     function esImagenEtiquetaProducto(archivo) {
         const tiposPermitidos = ['image/jpeg', 'image/png', 'image/webp'];
         return tiposPermitidos.includes(archivo?.type) || /\.(jpe?g|png|webp)$/i.test(archivo?.name || '');
     }
 
-    // Prepara una vista previa local de la etiqueta antes de agregarla a la tabla.
+    // ACTUALIZA LA VISTA PREVIA DE LA ETIQUETA
+    // toma el archivo seleccionado, valida que sea imagen y crea una URL temporal para mostrarlo.
     function actualizarVistaPreviaEtiquetaProducto() {
         const etiqueta = document.getElementById('form_presentacion_etiqueta');
         const archivo = etiqueta?.files?.[0] ?? null;
@@ -1440,6 +1532,7 @@
         limpiarErrorProducto(etiqueta);
 
         if (productoEtiquetaPreviewUrl) {
+            // libera de memoria la URL temporal creada anteriormente por el navegador.
             URL.revokeObjectURL(productoEtiquetaPreviewUrl);
             productoEtiquetaPreviewUrl = null;
         }
@@ -1460,7 +1553,9 @@
         actualizarControlEtiquetaActual(archivo.name, true, productoEtiquetaPreviewUrl);
     }
 
-    // Muestra solo presentaciones del importador seleccionado y del producto que se esta registrando.
+    // FILTRA LAS PRESENTACIONES DISPONIBLES
+    // muestra únicamente las presentaciones del catálogo que corresponden a los datos actuales del producto.
+
     function filtrarPresentacionesCatalogoProducto() {
         const catalogo = document.getElementById('form_presentacion_catalogo');
         const importadorId = document.getElementById('form_id_importador_persona')?.value || '';
@@ -1495,7 +1590,8 @@
         }
     }
 
-    // Al elegir una presentacion registrada, autocompleta los campos que pertenecen a presentaciones.
+    // CARGA UNA PRESENTACIÓN EXISTENTE EN EL FORMULARIO
+    // al seleccionar una presentación del catálogo copia sus datos en los campos form_presentacion_*.
     function autocompletarPresentacionProducto() {
         const catalogo = document.getElementById('form_presentacion_catalogo');
         const opcion = catalogo?.options[catalogo.selectedIndex];
@@ -1522,24 +1618,51 @@
         }
 
         if (productoEtiquetaPreviewUrl) {
+            // libera de memoria la URL temporal creada anteriormente por el navegador.
             URL.revokeObjectURL(productoEtiquetaPreviewUrl);
             productoEtiquetaPreviewUrl = null;
         }
 
         document.getElementById('form_presentacion_cantidad').value = opcion.dataset.cantidad || '';
         establecerUnidadProducto('form_presentacion_unidad', opcion.dataset.unidadId || '');
+
+        // Obtiene el tipo de envase guardado en la presentación seleccionada.
+        // Ejemplo: "Frasco", "Bidón" o "Aerosol".
+        const tipoEnvaseGuardado = opcion.dataset.tipoEnvase || '';
+        const selectorTipoEnvase = document.getElementById(
+            'form_presentacion_tipo_envase'
+        );
+
+        if (selectorTipoEnvase) {
+            // Una presentación antigua puede tener un tipo de envase que aún no aparece
+            // en el selector. Se agrega solo a esta pantalla para poder mostrarlo.
+            const tipoEnvaseExiste = Array.from(selectorTipoEnvase.options).some((opcionEnvase) => opcionEnvase
+                .value === tipoEnvaseGuardado);
+
+            if (tipoEnvaseGuardado && !tipoEnvaseExiste) {
+                const nuevaOpcion = new Option(
+                    tipoEnvaseGuardado,
+                    tipoEnvaseGuardado
+                );
+                selectorTipoEnvase.add(nuevaOpcion);
+            }
+
+            // Selecciona el envase correspondiente y actualiza el buscador visual.
+            sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvaseGuardado);
+        }
+
         document.getElementById('form_presentacion_descripcion').value = opcion.dataset.descripcion || '';
         document.getElementById('form_presentacion_estado').value = opcion.dataset.estado || 'ACTIVO';
 
         productoEtiquetaOrigenActual = opcion.dataset.etiquetaUrl ? {
-                id: esTemporal ? opcion.dataset.temporalIndice : opcion.value,
-                url: opcion.dataset.etiquetaUrl,
-                nombre: opcion.dataset.etiquetaNombre || 'Etiqueta registrada',
-            } :
-            null;
+            id: esTemporal ? opcion.dataset.temporalIndice : opcion.value,
+            url: opcion.dataset.etiquetaUrl,
+            nombre: opcion.dataset.etiquetaNombre || 'Etiqueta registrada',
+        } : null;
 
         actualizarControlEtiquetaActual(
-            productoEtiquetaOrigenActual ? productoEtiquetaOrigenActual.nombre : 'Presentación sin imagen registrada.',
+            productoEtiquetaOrigenActual ? productoEtiquetaOrigenActual.nombre :
+            'Presentación sin imagen registrada.',
             Boolean(productoEtiquetaOrigenActual),
             productoEtiquetaOrigenActual?.url || ''
         );
@@ -1548,7 +1671,8 @@
         bloquearCamposPresentacionProducto(true);
     }
 
-    // Bloquea o libera los campos propios de presentacion; el registro siempre queda editable.
+    // BLOQUEA O HABILITA LOS CAMPOS DE PRESENTACIÓN
+    // bloquear=true impide modificar una presentación existente; false permite editar una nueva.
     function bloquearCamposPresentacionProducto(bloquear) {
         ['form_presentacion_cantidad', 'form_presentacion_unidad', 'form_presentacion_descripcion'].forEach((id) => {
             const campo = document.getElementById(id);
@@ -1587,7 +1711,8 @@
         }
     }
 
-    // Limpia solamente los datos de presentación para comenzar una nueva sin salir del paso actual.
+    // PREPARA LOS CAMPOS PARA UNA NUEVA PRESENTACIÓN
+    // limpia la presentación anterior y deja los controles listos para ingresar nuevos datos.
     function prepararNuevaPresentacionProducto() {
         const catalogo = document.getElementById('form_presentacion_catalogo');
 
@@ -1595,15 +1720,27 @@
             catalogo.value = '';
         }
 
+        // Limpia los datos de la presentación anterior para iniciar una nueva.
         document.getElementById('form_presentacion_cantidad').value = '';
+
+        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+
+        if (selectorTipoEnvase) {
+            // Quita el envase anterior y actualiza el buscador visual.
+            sincronizarBuscadorProducto(selectorTipoEnvase, '');
+        }
+
         establecerUnidadProducto('form_presentacion_unidad');
+
         document.getElementById('form_presentacion_descripcion').value = '';
         document.getElementById('form_presentacion_estado').value = 'ACTIVO';
         limpiarEtiquetaPresentacionProducto();
         document.getElementById('form_presentacion_cantidad')?.focus();
     }
 
-    // Crea una opcion temporal para reutilizar una presentacion agregada sin volver a guardarla duplicada.
+    // AGREGA UNA PRESENTACIÓN TEMPORAL AL SELECTOR
+    // indicePresentacion identifica la posición usada en presentaciones[...].
+    // datos contiene los valores visibles de la presentación recién creada.
     function registrarOpcionTemporalPresentacionProducto(indicePresentacion, datos) {
         const catalogo = document.getElementById('form_presentacion_catalogo');
 
@@ -1622,6 +1759,7 @@
         opcion.dataset.cantidad = datos.cantidad || '';
         opcion.dataset.unidadId = datos.id_catalogo_unidad || '';
         opcion.dataset.unidadTexto = datos.unidad_texto || '';
+        opcion.dataset.tipoEnvase = datos.tipo_envase || '';
         opcion.dataset.descripcion = datos.descripcion || '';
         opcion.dataset.estado = datos.estado || 'ACTIVO';
         opcion.dataset.etiquetaUrl = datos.etiquetaUrl || '';
@@ -1630,8 +1768,10 @@
         catalogo.appendChild(opcion);
     }
 
-    // Busca si la presentacion ya existe en el formulario para que el nuevo registro apunte a esa misma fila logica.
-    function buscarIndicePresentacionTemporalProducto(origenId, cantidad, idCatalogoUnidad, descripcion) {
+    // BUSCA SI UNA PRESENTACIÓN TEMPORAL YA EXISTE
+    // compara origen, cantidad, unidad, descripción y tipo de envase.
+    // devuelve el índice existente o null cuando no encuentra coincidencia.
+    function buscarIndicePresentacionTemporalProducto(origenId, cantidad, idCatalogoUnidad, descripcion, tipoEnvase) {
         if (origenId) {
             const origenExistente = document.querySelector(
                 `#presentacionesOcultasProducto input[name$="[id_presentacion_origen]"][value="${CSS.escape(origenId)}"]`
@@ -1646,6 +1786,7 @@
             normalizarTextoProducto(cantidad),
             normalizarTextoProducto(idCatalogoUnidad),
             normalizarTextoProducto(descripcion),
+            normalizarTextoProducto(tipoEnvase),
         ].join('|');
 
         for (const bloque of document.querySelectorAll('#presentacionesOcultasProducto [data-presentacion-temporal]')) {
@@ -1657,6 +1798,8 @@
                     `input[name="presentaciones[${indice}][id_catalogo_unidad]"]`)?.value),
                 normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][descripcion]"]`)
                     ?.value),
+                normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][tipo_envase]"]`)
+                    ?.value),
             ].join('|');
 
             if (claveActual === claveNueva) {
@@ -1667,7 +1810,8 @@
         return null;
     }
 
-    // Guarda los campos reales de presentacion una sola vez aunque se agreguen varios registros.
+    // CREA LOS INPUTS QUE SE ENVIARÁN COMO PRESENTACIÓN
+    // genera los campos hidden presentaciones[indice][...] que posteriormente recibe el controlador.
     function crearCamposOcultosPresentacionProducto(indicePresentacion, datos) {
         const contenedor = document.getElementById('presentacionesOcultasProducto');
 
@@ -1684,13 +1828,16 @@
                 <input type="hidden" name="presentaciones[${indicePresentacion}][descripcion]" value="${escaparHtmlProducto(datos.descripcion)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][estado]" value="${escaparHtmlProducto(datos.estado)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][id_presentacion_origen]" value="${escaparHtmlProducto(datos.origenId)}">
+                <input type="hidden" name="presentaciones[${indicePresentacion}][tipo_envase]" value="${escaparHtmlProducto(datos.tipo_envase)}">
                 <span class="presentacion-etiqueta-input"></span>
             `;
 
         contenedor.appendChild(bloque);
     }
 
-    // Evita agregar dos veces el mismo registro para una misma presentacion.
+    // VERIFICA SI UN REGISTRO YA FUE AGREGADO
+    // compara los datos principales del registro dentro de la presentación indicada.
+    // devuelve true cuando encuentra una fila equivalente.
     function existeRegistroDuplicadoProducto(indicePresentacion, codigo, numeroLote, fechaVigencia, cantidad,
         idCatalogoUnidad) {
         const claveNueva = [
@@ -1720,7 +1867,8 @@
             });
     }
 
-    // Mantiene sincronizados el archivo, los botones y la miniatura de una fila recuperada por Laravel.
+    // RECUPERA UNA ETIQUETA DESPUÉS DE UNA VALIDACIÓN O EDICIÓN
+    // permite volver a mostrar una etiqueta que ya estaba registrada sin obligar a seleccionarla nuevamente.
     function actualizarEtiquetaOldProducto(input) {
         const archivo = input?.files?.[0] ?? null;
         const celda = input?.closest('.producto-table-etiqueta-cell');
@@ -1755,7 +1903,11 @@
                 placeholder.hidden = Boolean(urlInicial);
             }
             if (urlInicial) {
-                productoEtiquetaOldUrls[input.id] = { url: urlInicial, nombre: nombreInicial, esTemporal: false };
+                productoEtiquetaOldUrls[input.id] = {
+                    url: urlInicial,
+                    nombre: nombreInicial,
+                    esTemporal: false
+                };
             }
             return;
         }
@@ -1790,7 +1942,8 @@
         }
     }
 
-    // Abre la imagen de una fila recuperada por Laravel.
+    // ABRE UNA ETIQUETA RECUPERADA EN EL VISOR
+    // idInput identifica el input que contiene la URL inicial de la etiqueta registrada.
     function abrirModalEtiquetaOldProducto(idInput) {
         const input = document.getElementById(idInput);
         const datos = productoEtiquetaOldUrls[idInput] || (input?.dataset.urlInicial ? {
@@ -1806,7 +1959,8 @@
         mostrarEtiquetaEnModalProducto(datos.url, datos.nombre);
     }
 
-    // Abre la imagen actual o la que pertenece a una fila ya agregada.
+    // ABRE LA ETIQUETA DE UNA PRESENTACIÓN EN EL VISOR
+    // indice identifica la presentación; null utiliza la etiqueta que se está cargando actualmente.
     function abrirModalEtiquetaProducto(indice = null) {
         const datosFila = indice !== null ? productoEtiquetaUrls[indice] : null;
         const url = datosFila?.url || productoEtiquetaPreviewUrl || productoEtiquetaOrigenActual?.url;
@@ -1822,7 +1976,8 @@
 
         mostrarEtiquetaEnModalProducto(url, nombre);
     }
-
+    // MUESTRA UNA IMAGEN DENTRO DEL MODAL DE ETIQUETA
+    // url indica la imagen y nombre es el texto mostrado en el encabezado.
     function mostrarEtiquetaEnModalProducto(url, nombre) {
         const imagen = document.getElementById('etiquetaImagenPreview');
         const modal = document.getElementById('modalEtiquetaImagenProducto');
@@ -1834,6 +1989,7 @@
         imagen.onload = prepararZoomEtiquetaProducto;
         imagen.src = url;
         document.getElementById('etiquetaImagenModalNombre').textContent = nombre || 'Imagen de etiqueta';
+        // is-open es la clase CSS utilizada por esta vista para hacer visible el modal.
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
 
@@ -1842,7 +1998,8 @@
         }
     }
 
-    // Conserva como 100% el tamaño que cabe completo dentro de la vista previa.
+    // PREPARA EL TAMAÑO BASE PARA EL ZOOM
+    // calcula el tamaño inicial de la imagen una vez que termina de cargar.
     function prepararZoomEtiquetaProducto() {
         const imagen = document.getElementById('etiquetaImagenPreview');
         const escenario = document.getElementById('etiquetaImagenStage');
@@ -1874,17 +2031,20 @@
             aplicarZoomEtiquetaProducto();
         });
     }
-
+    // AUMENTA O DISMINUYE EL ZOOM DE LA ETIQUETA
+    // cambio se suma al zoom actual; por ejemplo 0.25 aumenta y -0.25 disminuye.
     function cambiarZoomEtiquetaProducto(cambio) {
         productoEtiquetaZoom = Math.min(3, Math.max(0.5, productoEtiquetaZoom + cambio));
         aplicarZoomEtiquetaProducto();
     }
-
+    // RESTABLECE EL ZOOM DE LA ETIQUETA
+    // vuelve la imagen al nivel de zoom 1, equivalente al 100%.
     function restablecerZoomEtiquetaProducto() {
         productoEtiquetaZoom = 1;
         aplicarZoomEtiquetaProducto();
     }
-
+    // APLICA EL NIVEL DE ZOOM A LA IMAGEN
+    // actualiza el tamaño visible de la etiqueta y el porcentaje mostrado en pantalla.
     function aplicarZoomEtiquetaProducto() {
         const imagen = document.getElementById('etiquetaImagenPreview');
         const escenario = document.getElementById('etiquetaImagenStage');
@@ -1917,7 +2077,8 @@
         });
     }
 
-    // Cierra la vista previa sin borrar la imagen seleccionada.
+    // CIERRA EL VISOR DE ETIQUETA
+    // oculta el modal y restablece el zoom para la próxima apertura.
     function cerrarModalEtiquetaProducto() {
         const modal = document.getElementById('modalEtiquetaImagenProducto');
         modal?.classList.remove('is-open');
@@ -1925,7 +2086,11 @@
         restablecerZoomEtiquetaProducto();
     }
 
-    // Agrega un ingrediente a la tabla y crea inputs hidden para enviarlo al controlador.
+    // AGREGA UN INGREDIENTE AL PRODUCTO
+    // toma los datos form_ingrediente_*, los valida y crea una fila con ingredientes_productos[indice][...].
+    // esos inputs son los que finalmente recibirá el controlador.
+
+
     function agregarIngredienteProducto() {
         const select = document.getElementById('form_ingrediente_select');
         const porcentaje = document.getElementById('form_ingrediente_porcentaje');
@@ -1984,7 +2149,8 @@
     }
 
 
-    // Mantiene una presentación uniforme para porcentajes enteros y decimales.
+    // FORMATEA EL PORCENTAJE DE UN INGREDIENTE
+    // evita decimales innecesarios y conserva hasta cinco decimales cuando existen.
     function formatearPorcentajeIngrediente(valor) {
         const porcentaje = Number(valor);
 
@@ -1998,7 +2164,8 @@
         });
     }
 
-    // Muestra el total de porcentajes agregados y avisa cuando supera 100%.
+    // CALCULA EL PORCENTAJE TOTAL DE INGREDIENTES
+    // suma todas las filas, actualiza la barra visual y muestra aviso cuando el total supera 100%.
     function actualizarTotalPorcentajeIngredientesProducto() {
         const total = Array.from(document.querySelectorAll(
             '#tablaIngredientesProducto input[name*="[porcentaje]"]'
@@ -2021,282 +2188,508 @@
             barra.classList.toggle('is-over-limit', total > 100);
         }
     }
-    // Agrega una presentacion y su registro en una sola accion visual.
-    // Internamente se envian dos arrays porque la base de datos guarda presentaciones y registros por separado.
+
+    // AGREGA UNA PRESENTACIÓN Y UN REGISTRO
+    // valida los datos y agrega una fila para enviar al controlador al guardar el producto.
     function agregarPresentacionRegistroProducto() {
-        const cantidadPresentacion = document.getElementById('form_presentacion_cantidad');
-        const unidadPresentacion = document.getElementById('form_presentacion_unidad');
-        const etiqueta = document.getElementById('form_presentacion_etiqueta');
-        const descripcion = document.getElementById('form_presentacion_descripcion');
-        const estadoPresentacion = document.getElementById('form_presentacion_estado');
-        const origenPresentacion = document.getElementById('form_presentacion_origen_id');
-        const codigo = document.getElementById('form_registro_codigo_autorizacion');
-        const numeroLote = document.getElementById('form_registro_numero_lote');
-        const fechaVigencia = document.getElementById('form_registro_fecha_vigencia');
-        const cantidadRegistro = document.getElementById('form_registro_cantidad');
-        const unidadRegistro = document.getElementById('form_registro_unidad');
-        const estadoRegistro = document.getElementById('form_registro_estado');
-        const catalogoPresentacion = document.getElementById('form_presentacion_catalogo');
-        const opcionPresentacion = catalogoPresentacion?.options[catalogoPresentacion.selectedIndex];
-        const indiceTemporalSeleccionado = opcionPresentacion?.dataset.temporalPresentacion === '1' ?
-            opcionPresentacion.dataset.temporalIndice :
-            null;
-        const archivoEtiqueta = etiqueta?.files?.[0] ?? null;
-        const origenId = origenPresentacion?.value || '';
-        const indiceExistente = indiceTemporalSeleccionado ?? buscarIndicePresentacionTemporalProducto(
-            origenId,
-            cantidadPresentacion.value,
-            unidadPresentacion.value,
-            descripcion.value
-        );
-        const reutilizaPresentacion = indiceExistente !== null && indiceExistente !== undefined;
-        const tieneEtiquetaOrigen = Boolean(origenId && productoEtiquetaOrigenActual?.id === origenId &&
-            productoEtiquetaOrigenActual?.url);
-        const tieneEtiquetaTemporal = Boolean(reutilizaPresentacion && productoEtiquetaUrls[indiceExistente]?.url);
-        const productoNombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
-        const productoCodigo = document.getElementById('form_codigo')?.value || 'Sin codigo';
+        const datos = obtenerDatosRegistroPresentacionProducto();
 
-        const cantidadValida = validarNumeroProducto('form_presentacion_cantidad', 'Ingrese una cantidad valida.', 1);
-        const unidadValida = validarRequeridoProducto('form_presentacion_unidad', 'Ingrese la unidad.');
-        if (!cantidadValida || !unidadValida) {
+        if (!validarRegistroPresentacionProducto(datos)) {
             return;
         }
 
-        if (!archivoEtiqueta && !tieneEtiquetaOrigen && !tieneEtiquetaTemporal) {
-            marcarErrorProducto(etiqueta, 'Seleccione la imagen de la etiqueta.');
-            return;
-        }
+        const datosPreparados = prepararRegistroPresentacionProducto(datos);
 
-        if (archivoEtiqueta && !esImagenEtiquetaProducto(archivoEtiqueta)) {
-            marcarErrorProducto(etiqueta, 'Seleccione una imagen JPG, PNG o WEBP.');
+        if (existeRegistroDuplicadoProducto(
+                datosPreparados.indicePresentacion,
+                datosPreparados.registro.codigoAutorizacion,
+                datosPreparados.registro.numeroLote,
+                datosPreparados.registro.fechaVigencia,
+                datosPreparados.registro.cantidad,
+                datosPreparados.registro.unidadId
+            )) {
+            marcarErrorProducto(
+                datosPreparados.campos.codigoAutorizacion,
+                'Este registro ya fue agregado para la presentación seleccionada.'
+            );
+
             return;
         }
 
         document.getElementById('sinRegistrosPresentacionesProducto')?.remove();
 
-        const indicePresentacion = reutilizaPresentacion ? Number(indiceExistente) : productoPresentacionIndice;
-        const indiceRegistro = productoRegistroIndice;
-        const idRegistroEditando = productoRegistroEditandoId || '';
-        const textoUnidadPresentacion = textoUnidadCatalogoProducto(unidadPresentacion.value);
-        const textoUnidadRegistro = textoUnidadCatalogoProducto(unidadRegistro.value);
-        const presentacionValor = `${cantidadPresentacion.value} ${textoUnidadPresentacion}`.trim();
-        const presentacionDescripcion = descripcion.value.trim();
-        const presentacionTexto = `${presentacionValor}${presentacionDescripcion ? ' - ' + presentacionDescripcion : ''}`;
-        const etiquetaUrl = archivoEtiqueta ?
-            (productoEtiquetaPreviewUrl || URL.createObjectURL(archivoEtiqueta)) :
-            (productoEtiquetaOrigenActual?.url || productoEtiquetaUrls[indicePresentacion]?.url);
-        const etiquetaNombre = archivoEtiqueta ?
-            archivoEtiqueta.name :
-            (productoEtiquetaOrigenActual?.nombre || productoEtiquetaUrls[indicePresentacion]?.nombre ||
-                'Imagen de etiqueta');
-        if (existeRegistroDuplicadoProducto(
-                indicePresentacion,
-                codigo.value,
-                numeroLote.value,
-                fechaVigencia.value,
-                cantidadRegistro.value,
-                unidadRegistro.value
-            )) {
-            marcarErrorProducto(codigo, 'Este registro ya fue agregado para la presentacion seleccionada.');
-            return;
+        if (!datosPreparados.reutilizaPresentacion) {
+            guardarPresentacionNuevaProducto(datosPreparados);
         }
 
-        if (!reutilizaPresentacion) {
-            productoEtiquetaUrls[indicePresentacion] = {
-                url: etiquetaUrl,
-                nombre: etiquetaNombre,
-            };
+        const fila = crearFilaRegistroProducto(datosPreparados);
 
-            crearCamposOcultosPresentacionProducto(indicePresentacion, {
-                cantidad: cantidadPresentacion.value,
-                id_catalogo_unidad: unidadPresentacion.value,
-                unidad_texto: textoUnidadPresentacion,
-                descripcion: descripcion.value,
-                estado: estadoPresentacion.value,
-                origenId,
-            });
-        }
+        document
+            .getElementById('tablaRegistrosPresentacionesProducto')
+            .appendChild(fila);
 
-        const fila = document.createElement('tr');
-        fila.dataset.tipoFila = 'registro';
-        fila.dataset.presentacionIndice = indicePresentacion;
-        fila.dataset.presentacionTexto = presentacionTexto;
+        guardarEtiquetaPresentacionProducto(datosPreparados);
 
-        /* El formulario embebido conserva su tabla resumida; el módulo principal usa la tabla compacta. */
-        if (productoEmbebidoTramite) {
-            fila.innerHTML = `
-                <td>${indiceRegistro + 1}</td>
-                <td>
-                    <strong class="presentacion-producto-nombre">${escaparHtmlProducto(productoNombre)}</strong>
-                    <small class="presentacion-producto-codigo">${escaparHtmlProducto(productoCodigo)}</small>
-                </td>
-                <td>
-                    <strong>${escaparHtmlProducto(codigo.value || 'Sin código')}</strong>
-                    <small>${escaparHtmlProducto(numeroLote.value || 'Sin lote')}</small>
-                </td>
-                <td>${escaparHtmlProducto(fechaVigencia.value || 'Sin fecha')}</td>
-                <td>${escaparHtmlProducto(cantidadRegistro.value || '-')}</td>
-                <td>${escaparHtmlProducto(textoUnidadRegistro || 'Sin unidad')}</td>
-                <td>
-                    <div class="producto-table-presentacion">
-                        <strong>${escaparHtmlProducto(presentacionValor)}</strong>
-                        ${presentacionDescripcion ? `<small class="producto-table-descripcion">${escaparHtmlProducto(presentacionDescripcion)}</small>` : ''}
-                    </div>
-                </td>
-                <td><span class="producto-pill">${escaparHtmlProducto(estadoRegistro.value)}</span></td>
-                <td>
-                    <div class="producto-row-actions">
-                        <button type="button" class="producto-action-icon is-edit"
-                            title="Editar presentación y registro" aria-label="Editar presentación y registro"
-                            onclick="editarFilaRegistroPresentacionProducto(this)">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button type="button" class="producto-action-icon is-delete"
-                            title="Eliminar presentación y registro" aria-label="Eliminar presentación y registro"
-                            onclick="quitarFilaProducto(this)">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
-                    <span class="presentacion-etiqueta-input hidden"></span>
-                    <input type="hidden" name="registros[${indiceRegistro}][id_registro]" value="${escaparHtmlProducto(idRegistroEditando)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][codigo_autorizacion]" value="${escaparHtmlProducto(codigo.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][numero_lote]" value="${escaparHtmlProducto(numeroLote.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][fecha_vigencia]" value="${escaparHtmlProducto(fechaVigencia.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][cantidad]" value="${escaparHtmlProducto(cantidadRegistro.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][id_catalogo_unidad]" value="${escaparHtmlProducto(unidadRegistro.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][id_presentacion_temporal]" value="${escaparHtmlProducto(indicePresentacion)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][presentacion_texto]" value="${escaparHtmlProducto(presentacionTexto)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][estado]" value="${escaparHtmlProducto(estadoRegistro.value)}">
-                </td>
-            `;
-        } else {
-            const claseEstado = estadoRegistro.value === 'ACTIVO' ? '' : 'is-inactive';
-            fila.dataset.estadoRegistro = estadoRegistro.value;
-            fila.innerHTML = `
-                <td data-label="Registro">${indiceRegistro + 1}</td>
-                <td data-label="Código"><strong>${escaparHtmlProducto(codigo.value || 'Sin código')}</strong></td>
-                <td data-label="Lote">${escaparHtmlProducto(numeroLote.value || 'Sin lote')}</td>
-                <td data-label="Vigencia">${escaparHtmlProducto(fechaVigencia.value || 'Sin fecha')}</td>
-                <td data-label="Cantidad">${escaparHtmlProducto(cantidadRegistro.value || '-')}</td>
-                <td data-label="Unidad">${escaparHtmlProducto(textoUnidadRegistro || 'Sin unidad')}</td>
-                <td data-label="Presentación">
-                    <div class="producto-table-presentacion">
-                        <strong>${escaparHtmlProducto(presentacionValor)}</strong>
-                        ${presentacionDescripcion ? `<small class="producto-table-descripcion">${escaparHtmlProducto(presentacionDescripcion)}</small>` : ''}
-                    </div>
-                </td>
-                <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
-                    <button type="button" class="producto-table-image-preview"
-                        onclick="abrirModalEtiquetaProducto(${indicePresentacion})">
-                        <img src="${escaparHtmlProducto(etiquetaUrl)}" alt="Etiqueta de la presentación">
-                        <span hidden>Sin imagen</span>
-                    </button>
-                    <span class="producto-table-file-name">${escaparHtmlProducto(etiquetaNombre)}</span>
-                    <span class="presentacion-etiqueta-input hidden"></span>
-                </td>
-                <td data-label="Estado">
-                    <span class="producto-table-status ${claseEstado}">${escaparHtmlProducto(estadoRegistro.value)}</span>
-                </td>
-                <td data-label="Acciones">
-                    <div class="producto-row-actions">
-                        <button type="button" class="producto-action-icon is-view" title="Ver etiqueta"
-                            aria-label="Ver etiqueta"
-                            onclick="abrirModalEtiquetaProducto(${indicePresentacion})">
-                            <i class="fa-solid fa-eye"></i>
-                        </button>
-                        <button type="button" class="producto-action-icon is-edit"
-                            title="Editar presentación y registro" aria-label="Editar presentación y registro"
-                            onclick="editarFilaRegistroPresentacionProducto(this)">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button type="button" class="producto-action-icon is-delete"
-                            title="Eliminar presentación y registro" aria-label="Eliminar presentación y registro"
-                            onclick="quitarFilaProducto(this)">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
-                    <input type="hidden" name="registros[${indiceRegistro}][id_registro]" value="${escaparHtmlProducto(idRegistroEditando)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][codigo_autorizacion]" value="${escaparHtmlProducto(codigo.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][numero_lote]" value="${escaparHtmlProducto(numeroLote.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][fecha_vigencia]" value="${escaparHtmlProducto(fechaVigencia.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][cantidad]" value="${escaparHtmlProducto(cantidadRegistro.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][id_catalogo_unidad]" value="${escaparHtmlProducto(unidadRegistro.value)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][id_presentacion_temporal]" value="${escaparHtmlProducto(indicePresentacion)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][presentacion_texto]" value="${escaparHtmlProducto(presentacionTexto)}">
-                    <input type="hidden" name="registros[${indiceRegistro}][estado]" value="${escaparHtmlProducto(estadoRegistro.value)}">
-                </td>
-            `;
-        }
+        limpiarFormularioRegistroPresentacionProducto(datosPreparados);
 
-        document.getElementById('tablaRegistrosPresentacionesProducto').appendChild(fila);
         filtrarRegistrosPresentacionesProducto();
-
-        if (archivoEtiqueta && !reutilizaPresentacion) {
-            // Mueve el input file real al bloque oculto para enviarlo una sola vez aunque existan varios registros.
-            etiqueta.name = `presentaciones[${indicePresentacion}][url_etiqueta]`;
-            etiqueta.id = `form_presentacion_etiqueta_${indicePresentacion}`;
-            etiqueta.classList.add('hidden');
-            etiqueta.removeAttribute('onchange');
-            document.querySelector(`#presentacion_oculta_${indicePresentacion} .presentacion-etiqueta-input`)
-                ?.appendChild(etiqueta);
-
-            // Crea otro input file limpio para registrar una siguiente presentacion.
-            const nuevoInputEtiqueta = document.createElement('input');
-            nuevoInputEtiqueta.className = 'producto-upload-input';
-            nuevoInputEtiqueta.id = 'form_presentacion_etiqueta';
-            nuevoInputEtiqueta.type = 'file';
-            nuevoInputEtiqueta.accept = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
-            nuevoInputEtiqueta.addEventListener('change', actualizarVistaPreviaEtiquetaProducto);
-            prepararLimpiezaErrorProducto(nuevoInputEtiqueta);
-            document.getElementById('presentacionEtiquetaWrapper').prepend(nuevoInputEtiqueta);
-        } else if (etiqueta) {
-            etiqueta.value = '';
-        }
-
-        if (!reutilizaPresentacion) {
-            registrarOpcionTemporalPresentacionProducto(indicePresentacion, {
-                texto: presentacionTexto,
-                cantidad: cantidadPresentacion.value,
-                id_catalogo_unidad: unidadPresentacion.value,
-                unidad_texto: textoUnidadPresentacion,
-                descripcion: descripcion.value,
-                estado: estadoPresentacion.value,
-                etiquetaUrl,
-                etiquetaNombre,
-            });
-        }
-
-        productoEtiquetaPreviewUrl = null;
-        productoEtiquetaOrigenActual = null;
-        if (!reutilizaPresentacion) {
-            productoPresentacionIndice++;
-        }
-        productoRegistroIndice++;
-        productoRegistroEditandoId = null;
-        cantidadPresentacion.value = '';
-        establecerUnidadProducto('form_presentacion_unidad');
-        descripcion.value = '';
-        if (origenPresentacion) {
-            origenPresentacion.value = '';
-        }
-        if (catalogoPresentacion) {
-            catalogoPresentacion.value = '';
-        }
-        bloquearCamposPresentacionProducto(false);
-        codigo.value = '';
-        numeroLote.value = '';
-        fechaVigencia.value = '';
-        cantidadRegistro.value = '';
-        establecerUnidadProducto('form_registro_unidad');
-        limpiarErrorProducto(cantidadPresentacion);
-        limpiarErrorProducto(unidadPresentacion);
-        limpiarErrorProducto(etiqueta);
-        limpiarErrorProducto(codigo);
-        reiniciarControlEtiquetaActual();
         actualizarResumenProducto();
     }
 
-    // Carga los datos de una fila al formulario para corregirlos y volver a agregarlos.
+    // OBTIENE LOS DATOS DEL FORMULARIO
+    // reúne los valores de presentación, registro e imagen sin cambiar el formulario.
+    function obtenerDatosRegistroPresentacionProducto() {
+        const campos = {
+            tipoEnvase: document.getElementById('form_presentacion_tipo_envase'),
+            cantidadPresentacion: document.getElementById('form_presentacion_cantidad'),
+            unidadPresentacion: document.getElementById('form_presentacion_unidad'),
+            descripcionPresentacion: document.getElementById('form_presentacion_descripcion'),
+            estadoPresentacion: document.getElementById('form_presentacion_estado'),
+            origenPresentacion: document.getElementById('form_presentacion_origen_id'),
+            catalogoPresentacion: document.getElementById('form_presentacion_catalogo'),
+            etiqueta: document.getElementById('form_presentacion_etiqueta'),
+
+            codigoAutorizacion: document.getElementById('form_registro_codigo_autorizacion'),
+            numeroLote: document.getElementById('form_registro_numero_lote'),
+            fechaVigencia: document.getElementById('form_registro_fecha_vigencia'),
+            cantidadRegistro: document.getElementById('form_registro_cantidad'),
+            unidadRegistro: document.getElementById('form_registro_unidad'),
+            estadoRegistro: document.getElementById('form_registro_estado'),
+        };
+
+        const opcionSeleccionada =
+            campos.catalogoPresentacion?.options[
+                campos.catalogoPresentacion.selectedIndex
+            ];
+
+        return {
+            campos,
+            presentacion: {
+                cantidad: campos.cantidadPresentacion.value.trim(),
+                unidadId: campos.unidadPresentacion.value,
+                tipoEnvase: campos.tipoEnvase?.value.trim() || '',
+                descripcion: campos.descripcionPresentacion.value.trim(),
+                estado: campos.estadoPresentacion?.value || 'ACTIVO',
+                origenId: campos.origenPresentacion?.value || '',
+            },
+
+            registro: {
+                codigoAutorizacion: campos.codigoAutorizacion.value.trim(),
+                numeroLote: campos.numeroLote.value.trim(),
+                fechaVigencia: campos.fechaVigencia.value,
+                cantidad: campos.cantidadRegistro.value.trim(),
+                unidadId: campos.unidadRegistro.value,
+                estado: campos.estadoRegistro?.value || 'ACTIVO',
+                idRegistro: productoRegistroEditandoId || '',
+            },
+
+            archivoEtiqueta: campos.etiqueta?.files?.[0] ?? null,
+
+            indiceTemporalSeleccionado: opcionSeleccionada?.dataset.temporalPresentacion === '1' ?
+                opcionSeleccionada.dataset.temporalIndice :
+                null,
+        };
+    }
+
+    // VALIDA LA PRESENTACIÓN Y EL REGISTRO
+    // verifica los campos obligatorios y el formato de la imagen cuando existe.
+    function validarRegistroPresentacionProducto(datos) {
+        const cantidadPresentacionValida = validarNumeroProducto(
+            'form_presentacion_cantidad',
+            'Ingrese la cantidad de la presentación.',
+            1
+        );
+
+        const unidadPresentacionValida = validarRequeridoProducto(
+            'form_presentacion_unidad',
+            'Seleccione la unidad de la presentación.'
+        );
+
+        const cantidadRegistroValida = validarNumeroProducto(
+            'form_registro_cantidad',
+            'Ingrese la cantidad total del registro.',
+            1
+        );
+
+        const unidadRegistroValida = validarRequeridoProducto(
+            'form_registro_unidad',
+            'Seleccione la unidad total del registro.'
+        );
+
+        if (
+            !cantidadPresentacionValida ||
+            !unidadPresentacionValida ||
+            !cantidadRegistroValida ||
+            !unidadRegistroValida
+        ) {
+            return false;
+        }
+
+        if (
+            datos.archivoEtiqueta &&
+            !esImagenEtiquetaProducto(datos.archivoEtiqueta)
+        ) {
+            marcarErrorProducto(
+                datos.campos.etiqueta,
+                'Seleccione una imagen JPG, PNG o WEBP.'
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    // PREPARA LOS DATOS DEL REGISTRO
+    // determina índices, textos visibles y datos de la etiqueta.
+    function prepararRegistroPresentacionProducto(datos) {
+        const indiceExistente =
+            datos.indiceTemporalSeleccionado ??
+            buscarIndicePresentacionTemporalProducto(
+                datos.presentacion.origenId,
+                datos.presentacion.cantidad,
+                datos.presentacion.unidadId,
+                datos.presentacion.descripcion,
+                datos.presentacion.tipoEnvase
+            );
+
+        const reutilizaPresentacion =
+            indiceExistente !== null && indiceExistente !== undefined;
+
+        const indicePresentacion = reutilizaPresentacion ?
+            Number(indiceExistente) :
+            productoPresentacionIndice;
+
+        const textoUnidadPresentacion = textoUnidadCatalogoProducto(
+            datos.presentacion.unidadId
+        );
+
+        const textoUnidadRegistro = textoUnidadCatalogoProducto(
+            datos.registro.unidadId
+        );
+
+        const valorPresentacion = (
+            `${datos.presentacion.cantidad} ${textoUnidadPresentacion}`
+        ).trim();
+
+        const textoPresentacion = [
+                valorPresentacion,
+                datos.presentacion.tipoEnvase,
+                datos.presentacion.descripcion,
+            ]
+            .filter(Boolean)
+            .join(' — ');
+
+        const etiquetaUrl = datos.archivoEtiqueta ?
+            productoEtiquetaPreviewUrl || URL.createObjectURL(datos.archivoEtiqueta) :
+            productoEtiquetaOrigenActual?.url ||
+            productoEtiquetaUrls[indicePresentacion]?.url ||
+            '';
+
+        const etiquetaNombre = datos.archivoEtiqueta ?
+            datos.archivoEtiqueta.name :
+            productoEtiquetaOrigenActual?.nombre ||
+            productoEtiquetaUrls[indicePresentacion]?.nombre ||
+            '';
+
+        return {
+            ...datos,
+            reutilizaPresentacion,
+            indicePresentacion,
+            indiceRegistro: productoRegistroIndice,
+            textoUnidadPresentacion,
+            textoUnidadRegistro,
+            valorPresentacion,
+            textoPresentacion,
+            etiquetaUrl,
+            etiquetaNombre,
+        };
+    }
+
+    // GUARDA UNA PRESENTACIÓN NUEVA
+    // crea sus campos ocultos y la agrega al selector de presentaciones disponibles.
+    function guardarPresentacionNuevaProducto(datos) {
+        productoEtiquetaUrls[datos.indicePresentacion] = {
+            url: datos.etiquetaUrl,
+            nombre: datos.etiquetaNombre,
+        };
+
+        crearCamposOcultosPresentacionProducto(datos.indicePresentacion, {
+            cantidad: datos.presentacion.cantidad,
+            id_catalogo_unidad: datos.presentacion.unidadId,
+            unidad_texto: datos.textoUnidadPresentacion,
+            descripcion: datos.presentacion.descripcion,
+            tipo_envase: datos.presentacion.tipoEnvase,
+            estado: datos.presentacion.estado,
+            origenId: datos.presentacion.origenId,
+        });
+
+        registrarOpcionTemporalPresentacionProducto(datos.indicePresentacion, {
+            texto: datos.textoPresentacion,
+            cantidad: datos.presentacion.cantidad,
+            id_catalogo_unidad: datos.presentacion.unidadId,
+            unidad_texto: datos.textoUnidadPresentacion,
+            descripcion: datos.presentacion.descripcion,
+            tipo_envase: datos.presentacion.tipoEnvase,
+            estado: datos.presentacion.estado,
+            etiquetaUrl: datos.etiquetaUrl,
+            etiquetaNombre: datos.etiquetaNombre,
+        });
+    }
+
+    // CREA LA FILA DEL REGISTRO
+    // muestra una sola estructura de tabla para todos los registros.
+    function crearFilaRegistroProducto(datos) {
+        const fila = document.createElement('tr');
+        const tieneEtiqueta = Boolean(datos.etiquetaUrl);
+        const claseEstado =
+            datos.registro.estado === 'ACTIVO' ? '' : 'is-inactive';
+
+        fila.dataset.tipoFila = 'registro';
+        fila.dataset.presentacionIndice = datos.indicePresentacion;
+        fila.dataset.presentacionTexto = datos.textoPresentacion;
+        fila.dataset.estadoRegistro = datos.registro.estado;
+
+        fila.innerHTML = `
+        <td data-label="Registro">${datos.indiceRegistro + 1}</td>
+
+        <td data-label="Código">
+            <strong>
+                ${escaparHtmlProducto(datos.registro.codigoAutorizacion || 'Sin código')}
+            </strong>
+        </td>
+
+        <td data-label="Lote">
+            ${escaparHtmlProducto(datos.registro.numeroLote || 'Sin lote')}
+        </td>
+
+        <td data-label="Vigencia">
+            ${escaparHtmlProducto(datos.registro.fechaVigencia || 'Sin fecha')}
+        </td>
+
+        <td data-label="Cantidad">
+            ${escaparHtmlProducto(datos.registro.cantidad)}
+        </td>
+
+        <td data-label="Unidad">
+            ${escaparHtmlProducto(datos.textoUnidadRegistro)}
+        </td>
+
+        <td data-label="Presentación">
+            <div class="producto-table-presentacion">
+                <strong>
+                    ${escaparHtmlProducto(datos.valorPresentacion)}
+                </strong>
+
+                ${datos.presentacion.tipoEnvase ? `
+                    <small>
+                        ${escaparHtmlProducto(datos.presentacion.tipoEnvase)}
+                    </small>
+                ` : ''}
+
+                ${datos.presentacion.descripcion ? `
+                    <small class="producto-table-descripcion">
+                        ${escaparHtmlProducto(datos.presentacion.descripcion)}
+                    </small>
+                ` : ''}
+            </div>
+        </td>
+
+        <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
+            ${tieneEtiqueta ? `
+                <button type="button" class="producto-table-image-preview"
+                    onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion})">
+                    <img src="${escaparHtmlProducto(datos.etiquetaUrl)}"
+                        alt="Etiqueta de la presentación">
+                </button>
+
+                <span class="producto-table-file-name">
+                    ${escaparHtmlProducto(datos.etiquetaNombre)}
+                </span>
+            ` : `
+                <span class="producto-table-file-name">Sin imagen</span>
+            `}
+        </td>
+
+        <td data-label="Estado">
+            <span class="producto-table-status ${claseEstado}">
+                ${escaparHtmlProducto(datos.registro.estado)}
+            </span>
+        </td>
+
+        <td data-label="Acciones">
+            <div class="producto-row-actions">
+                ${tieneEtiqueta ? `
+                    <button type="button" class="producto-action-icon is-view"
+                        title="Ver etiqueta"
+                        onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion})">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                ` : ''}
+
+                <button type="button" class="producto-action-icon is-edit"
+                    title="Editar presentación y registro"
+                    onclick="editarFilaRegistroPresentacionProducto(this)">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+
+                <button type="button" class="producto-action-icon is-delete"
+                    title="Eliminar presentación y registro"
+                    onclick="quitarFilaProducto(this)">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][id_registro]"
+                value="${escaparHtmlProducto(datos.registro.idRegistro)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][codigo_autorizacion]"
+                value="${escaparHtmlProducto(datos.registro.codigoAutorizacion)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][numero_lote]"
+                value="${escaparHtmlProducto(datos.registro.numeroLote)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][fecha_vigencia]"
+                value="${escaparHtmlProducto(datos.registro.fechaVigencia)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][cantidad]"
+                value="${escaparHtmlProducto(datos.registro.cantidad)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][id_catalogo_unidad]"
+                value="${escaparHtmlProducto(datos.registro.unidadId)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][id_presentacion_temporal]"
+                value="${escaparHtmlProducto(datos.indicePresentacion)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][presentacion_texto]"
+                value="${escaparHtmlProducto(datos.textoPresentacion)}">
+
+            <input type="hidden"
+                name="registros[${datos.indiceRegistro}][estado]"
+                value="${escaparHtmlProducto(datos.registro.estado)}">
+        </td>
+    `;
+
+        return fila;
+    }
+
+    // GUARDA LA ETIQUETA DE LA PRESENTACIÓN
+    // mueve la imagen al bloque oculto para enviarla una sola vez al controlador.
+    function guardarEtiquetaPresentacionProducto(datos) {
+        const etiqueta = datos.campos.etiqueta;
+
+        if (!etiqueta) {
+            return;
+        }
+
+        if (!datos.archivoEtiqueta || datos.reutilizaPresentacion) {
+            etiqueta.value = '';
+            return;
+        }
+
+        etiqueta.name =
+            `presentaciones[${datos.indicePresentacion}][url_etiqueta]`;
+
+        etiqueta.id =
+            `form_presentacion_etiqueta_${datos.indicePresentacion}`;
+
+        etiqueta.classList.add('hidden');
+        etiqueta.removeAttribute('onchange');
+
+        document.querySelector(
+            `#presentacion_oculta_${datos.indicePresentacion} .presentacion-etiqueta-input`
+        )?.appendChild(etiqueta);
+
+        const nuevoInputEtiqueta = document.createElement('input');
+
+        nuevoInputEtiqueta.className = 'producto-upload-input';
+        nuevoInputEtiqueta.id = 'form_presentacion_etiqueta';
+        nuevoInputEtiqueta.type = 'file';
+        nuevoInputEtiqueta.accept =
+            'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
+
+        nuevoInputEtiqueta.addEventListener(
+            'change',
+            actualizarVistaPreviaEtiquetaProducto
+        );
+
+        prepararLimpiezaErrorProducto(nuevoInputEtiqueta);
+
+        document
+            .getElementById('presentacionEtiquetaWrapper')
+            ?.prepend(nuevoInputEtiqueta);
+    }
+
+    // LIMPIA EL FORMULARIO
+    // restablece los campos para agregar el siguiente registro.
+    function limpiarFormularioRegistroPresentacionProducto(datos) {
+        productoEtiquetaPreviewUrl = null;
+        productoEtiquetaOrigenActual = null;
+
+        if (!datos.reutilizaPresentacion) {
+            productoPresentacionIndice++;
+        }
+
+        productoRegistroIndice++;
+        productoRegistroEditandoId = null;
+
+        const {
+            campos
+        } = datos;
+
+        campos.cantidadPresentacion.value = '';
+        campos.descripcionPresentacion.value = '';
+        campos.codigoAutorizacion.value = '';
+        campos.numeroLote.value = '';
+        campos.fechaVigencia.value = '';
+        campos.cantidadRegistro.value = '';
+
+        if (campos.origenPresentacion) {
+            campos.origenPresentacion.value = '';
+        }
+
+        if (campos.catalogoPresentacion) {
+            campos.catalogoPresentacion.value = '';
+        }
+
+        if (campos.estadoPresentacion) {
+            campos.estadoPresentacion.value = 'ACTIVO';
+        }
+
+        if (campos.estadoRegistro) {
+            campos.estadoRegistro.value = 'ACTIVO';
+        }
+
+        sincronizarBuscadorProducto(campos.tipoEnvase, '');
+
+        establecerUnidadProducto('form_presentacion_unidad');
+        establecerUnidadProducto('form_registro_unidad');
+
+        bloquearCamposPresentacionProducto(false);
+
+        limpiarErrorProducto(campos.cantidadPresentacion);
+        limpiarErrorProducto(campos.unidadPresentacion);
+        limpiarErrorProducto(campos.cantidadRegistro);
+        limpiarErrorProducto(campos.unidadRegistro);
+        limpiarErrorProducto(campos.etiqueta);
+
+        reiniciarControlEtiquetaActual();
+    }
+
+
+
+
+    // CARGA UNA FILA PARA EDITARLA
+    // recibe el botón Editar de la fila, recupera sus datos y los devuelve a los campos form_presentacion_* y form_registro_*.
+    // después retira temporalmente la fila para que se vuelva a agregar con los cambios.
     function editarFilaRegistroPresentacionProducto(boton) {
         const fila = boton?.closest('tr');
 
@@ -2306,6 +2699,7 @@
 
         const indicePresentacion = fila.dataset.presentacionIndice;
         const presentacionOculta = document.getElementById(`presentacion_oculta_${indicePresentacion}`);
+        // busca primero el dato dentro de la fila visible; si no está, lo busca en los inputs ocultos de la presentación.
         const valorCampo = (selector) =>
             fila.querySelector(selector)?.value ||
             presentacionOculta?.querySelector(selector)?.value ||
@@ -2313,27 +2707,39 @@
 
         document.getElementById('form_presentacion_cantidad').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][cantidad]"]`);
-        establecerUnidadProducto(
-            'form_presentacion_unidad',
-            valorCampo(`input[name="presentaciones[${indicePresentacion}][id_catalogo_unidad]"]`)
-        );
+
+        // Recupera el envase que pertenece a esta presentación.
+        // Ejemplo: si la fila guardó “Frasco”, el selector vuelve a marcar “Frasco”.
+        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+
+        const tipoEnvaseGuardado = valorCampo(`input[name="presentaciones[${indicePresentacion}][tipo_envase]"]`);
+
+        if (selectorTipoEnvase) {
+            sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvaseGuardado);
+        }
+
         document.getElementById('form_presentacion_descripcion').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][descripcion]"]`);
+
         document.getElementById('form_presentacion_estado').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][estado]"]`) || 'ACTIVO';
+
         document.getElementById('form_presentacion_origen_id').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][id_presentacion_origen]"]`);
 
         document.getElementById('form_registro_codigo_autorizacion').value = valorCampo(
             'input[name$="[codigo_autorizacion]"]');
+
         document.getElementById('form_registro_numero_lote').value = valorCampo('input[name$="[numero_lote]"]');
         document.getElementById('form_registro_fecha_vigencia').value = valorCampo('input[name$="[fecha_vigencia]"]');
         document.getElementById('form_registro_cantidad').value = valorCampo(
             'input[name$="[cantidad]"][name^="registros"]');
+
         establecerUnidadProducto(
             'form_registro_unidad',
             valorCampo('input[name$="[id_catalogo_unidad]"][name^="registros"]')
         );
+
         document.getElementById('form_registro_estado').value = valorCampo(
             'input[name$="[estado]"][name^="registros"]') || 'ACTIVO';
 
@@ -2360,19 +2766,22 @@
         notificarProducto(
             'info',
             'Fila cargada',
-            urlEtiquetaRegistrada
-                ? 'Revise los datos y vuelva a agregar la fila para guardar los cambios.'
-                : 'Revise los datos y seleccione nuevamente la imagen antes de agregar la fila corregida.'
+            urlEtiquetaRegistrada ?
+            'Revise los datos y vuelva a agregar la fila para guardar los cambios.' :
+            'Revise los datos y seleccione nuevamente la imagen antes de agregar la fila corregida.'
         );
     }
 
-    // Elimina una fila dinamica y recalcula los contadores visibles.
+    // ELIMINA UNA FILA DINÁMICA
+    // recibe el botón Quitar, elimina su fila y limpia datos auxiliares que ya no se utilizan.
+    // también actualiza numeración, filtros, porcentajes y resumen.
     function quitarFilaProducto(boton) {
         const fila = boton.closest('tr');
         const indicePresentacion = fila?.dataset.presentacionIndice;
 
         fila?.remove();
 
+        // comprueba si otra fila de registro todavía utiliza la misma presentación.
         const presentacionSigueEnUso = indicePresentacion !== undefined &&
             document.querySelector(
                 `#tablaRegistrosPresentacionesProducto tr[data-presentacion-indice="${indicePresentacion}"]`);
@@ -2394,7 +2803,8 @@
         actualizarResumenProducto();
     }
 
-    // Aplica la búsqueda y el filtro de estado sin modificar los datos que se enviarán al servidor.
+    // FILTRA VISUALMENTE PRESENTACIONES Y REGISTROS
+    // aplica el texto de búsqueda y el estado seleccionado sin eliminar datos del formulario.
     function filtrarRegistrosPresentacionesProducto() {
         const tabla = document.getElementById('tablaRegistrosPresentacionesProducto');
         const buscador = document.getElementById('buscarRegistrosPresentacionesProducto');
@@ -2411,7 +2821,8 @@
         let filasVisibles = 0;
 
         filas.forEach((fila) => {
-            const coincideTexto = !textoBuscado || normalizarTextoProducto(fila.textContent).includes(textoBuscado);
+            const coincideTexto = !textoBuscado || normalizarTextoProducto(fila.textContent).includes(
+                textoBuscado);
             const coincideEstado = !estadoBuscado || fila.dataset.estadoRegistro === estadoBuscado;
             const visible = coincideTexto && coincideEstado;
 
@@ -2424,7 +2835,8 @@
         }
     }
 
-    // Restaura el aviso de tabla vacia cuando el usuario quita todos los registros agregados.
+    // CONTROLA EL MENSAJE DE TABLA VACÍA
+    // muestra la fila 'sin registros' únicamente cuando no existen filas agregadas.
     function asegurarFilaVaciaRegistrosPresentacionesProducto() {
         const cuerpoTabla = document.getElementById('tablaRegistrosPresentacionesProducto');
 
@@ -2432,7 +2844,7 @@
             return;
         }
 
-        const columnas = productoEmbebidoTramite ? 9 : 10;
+        const columnas = 10;
         cuerpoTabla.innerHTML = `
                 <tr id="sinRegistrosPresentacionesProducto">
                     <td colspan="${columnas}">
@@ -2444,7 +2856,8 @@
             `;
     }
 
-    // Mantiene la numeracion visual ordenada despues de quitar filas.
+    // RENUMERA LAS FILAS VISIBLES DE UNA TABLA
+    // idTabla indica qué tabla recorrer e idFilaVacia identifica la fila informativa que debe ignorarse.
     function reenumerarFilasProducto(idTabla, idFilaVacia) {
         document.querySelectorAll(`#${idTabla} tr:not(#${idFilaVacia})`).forEach((fila, indice) => {
             if (fila.children[0]) {
@@ -2453,8 +2866,12 @@
         });
     }
 
-    // Abre un modal visual para agregar catalogos sin salir del formulario.
-    // Tambien limpia sus campos para iniciar siempre un registro nuevo.
+    // ABRE UN MODAL AUXILIAR
+    // idModal es el id HTML del modal que debe mostrarse.
+
+
+    // ABRE UN MODAL DEL FORMULARIO
+    // muestra el modal indicado y limpia sus campos antes de usarlo.
     function abrirModalProducto(idModal) {
         const modal = document.getElementById(idModal);
 
@@ -2463,10 +2880,12 @@
         }
 
         limpiarModalProducto(modal);
+        // is-open es la clase CSS utilizada por esta vista para hacer visible el modal.
         modal.classList.add('is-open');
     }
 
-    // Limpia los campos internos del modal para que al abrirlo otra vez no queden datos anteriores.
+    // LIMPIA LOS CAMPOS DE UN MODAL
+    // elimina valores y errores para que el modal pueda utilizarse nuevamente.
     function limpiarModalProducto(modal) {
         if (!modal) {
             return;
@@ -2484,7 +2903,8 @@
 
     }
 
-    // Cierra un modal visual y limpia sus campos para un nuevo registro.
+    // CIERRA Y LIMPIA UN MODAL AUXILIAR
+    // idModal identifica el modal que debe cerrarse.
     function cerrarModalProducto(idModal) {
         const modal = document.getElementById(idModal);
 
@@ -2496,8 +2916,9 @@
         limpiarModalProducto(modal);
     }
 
-    // Agrega una opcion temporal al select para no cortar el flujo de la vista.
-    // Si ya habia una opcion temporal en ese select, se reemplaza para evitar varios registros nuevos.
+    // AGREGA UNA OPCIÓN TEMPORAL DESDE UN MODAL
+    // idModal identifica qué catálogo se está creando, idSelect indica dónde se agregará e idInput contiene el nombre principal.
+    // según el modal también recoge otros datos y los coloca en campos ocultos para enviarlos al controlador.
     function agregarOpcionTemporalProducto(idModal, idSelect, idInput) {
         const input = document.getElementById(idInput);
         const select = document.getElementById(idSelect);
@@ -2511,6 +2932,7 @@
             return;
         }
 
+        // TEMP-* identifica una opción que todavía no existe en base de datos.
         const valorTemporal = `TEMP-${Date.now()}`;
         let textoVisible = textoBase;
         let textoUnidad = textoBase;
@@ -2701,7 +3123,13 @@
         cerrarModalProducto(idModal);
         actualizarResumenProducto();
     }
-    // Actualiza el panel lateral y el resumen del paso de revisión.
+
+    // ACTUALIZA LOS RESÚMENES DEL FORMULARIO
+    // lee los valores actuales de los campos y actualiza la información visible sin modificar los datos.
+
+
+    // ACTUALIZA EL RESUMEN DEL FORMULARIO
+    // muestra los datos actuales sin modificar los valores ingresados.
     function actualizarResumenProducto() {
         const nombre = document.getElementById('form_nombre_comercial')?.value || 'Sin nombre comercial';
         const codigo = document.getElementById('form_codigo')?.value || 'Sin codigo';
@@ -2748,7 +3176,8 @@
         actualizarRevisionFinalProducto();
     }
 
-    // Escribe texto solo si el elemento existe; asi el paso nuevo no depende de IDs antiguos.
+    // COLOCA TEXTO EN UN ELEMENTO DEL RESUMEN
+    // idElemento identifica el destino y valor es el texto que debe mostrarse.
     function ponerTextoProducto(idElemento, valor) {
         const elemento = document.getElementById(idElemento);
 
@@ -2757,7 +3186,8 @@
         }
     }
 
-    // Devuelve el texto seleccionado de un select para mostrarlo en revision.
+    // OBTIENE EL TEXTO DE LA OPCIÓN SELECCIONADA
+    // recibe el id de un select y devuelve el texto visible de su opción actual.
     function textoSelectProducto(idSelect) {
         const select = document.getElementById(idSelect);
 
@@ -2770,7 +3200,8 @@
         return texto || 'No registrado';
     }
 
-    // Cierra el selector visual de ingredientes cuando el usuario elige o hace clic fuera.
+    // CIERRA EL BUSCADOR DE INGREDIENTES
+    // oculta el desplegable y limpia el texto escrito en su búsqueda.
     function cerrarSelectorIngredienteProducto() {
         const contenedor = document.querySelector('[data-ingrediente-combobox]');
         const disparador = document.querySelector('[data-ingrediente-trigger]');
@@ -2785,7 +3216,8 @@
         }
     }
 
-    // El selector muestra y busca únicamente por el nombre del ingrediente.
+    // MUESTRA LOS INGREDIENTES QUE COINCIDEN CON LA BÚSQUEDA
+    // filtra el catálogo recibido desde el controlador y actualiza el select form_ingrediente_select al elegir una opción.
     function renderizarOpcionesIngredienteProducto() {
         const select = document.getElementById('form_ingrediente_select');
         const lista = document.getElementById('form_ingrediente_options');
@@ -2831,6 +3263,7 @@
         lista.querySelectorAll('[data-ingrediente-option]').forEach((boton) => {
             boton.addEventListener('click', () => {
                 select.value = boton.dataset.ingredienteOption || '';
+                // dispara manualmente change para ejecutar la misma lógica que una selección hecha por el usuario.
                 select.dispatchEvent(new Event('change', {
                     bubbles: true
                 }));
@@ -2839,7 +3272,8 @@
         });
     }
 
-    // Sincroniza el selector visual con el select real que se envia al controlador.
+    // ACTUALIZA EL DETALLE DEL INGREDIENTE SELECCIONADO
+    // mantiene sincronizado el select real, el buscador visible y la información complementaria.
     function actualizarDetalleIngredienteProducto() {
         const select = document.getElementById('form_ingrediente_select');
         const etiqueta = document.querySelector('[data-ingrediente-label]');
@@ -2858,7 +3292,9 @@
         renderizarOpcionesIngredienteProducto();
     }
 
-    // Limpia datos temporales si el usuario cambia del catalogo nuevo a uno existente.
+    // LIMPIA DATOS TEMPORALES CUANDO SE ELIGE UNA OPCIÓN EXISTENTE
+    // idSelect identifica el catálogo cuyo valor cambió.
+    // evita enviar al controlador datos temporales que ya no corresponden a la selección actual.
     function limpiarCatalogoTemporalProducto(idSelect) {
         const select = document.getElementById(idSelect);
         const opcion = select?.options[select.selectedIndex];
@@ -2879,18 +3315,23 @@
         }
     }
 
-    // Obtiene el value de un campo por selector CSS para armar el resumen final.
+    // OBTIENE EL VALOR ACTUAL DE UN CAMPO PARA EL RESUMEN
+    // selector es un selector CSS; devuelve texto vacío cuando el elemento no existe.
+
     function valorResumenProducto(selector) {
         const campo = document.querySelector(selector);
         return campo ? String(campo.value || '').trim() : '';
     }
 
-    // Muestra "No registrado" cuando el dato aun no fue llenado.
+    // PREPARA UN VALOR PARA MOSTRARLO EN LA REVISIÓN
+    // devuelve 'Sin dato' cuando el valor recibido está vacío.
     function textoResumenProducto(valor) {
         return valor && String(valor).trim() !== '' ? valor : 'No registrado';
     }
 
-    // Crea una fila campo/valor igual al formato usado en revision de persona/empresa.
+    // CREA UN ELEMENTO DEL RESUMEN FINAL
+    // titulo identifica el dato, valor es su contenido y anchoCompleto indica si ocupa toda la fila.
+    // devuelve HTML; no modifica datos del formulario.
     function itemResumenProducto(titulo, valor, anchoCompleto = false) {
         const textoSeguro = escaparHtmlProducto(textoResumenProducto(valor)).replaceAll('\n', '<br>');
 
@@ -2902,8 +3343,9 @@
             `;
     }
 
-    // Destaca los catálogos que todavía no existen y que se crearán junto con el producto.
-    // Cada bloque presenta todos sus campos una sola vez para no mezclar datos nuevos con los ya registrados.
+    // CREA EL RESUMEN DE UN CATÁLOGO NUEVO
+    // recibe un título y una lista de campos creados desde modal.
+    // solo genera HTML para revisión; el guardado real ocurre en el controlador.
     function bloqueCatalogoNuevoProducto(titulo, campos) {
         const filas = (Array.isArray(campos) ? campos : []).map((campo) => `
                 <div>
@@ -2926,8 +3368,8 @@
             `;
     }
 
-    // Agrupa una seccion del resumen final con un titulo y su contenido.
-    // Acepta HTML como texto o como arreglo para evitar errores si se reutiliza desde otro bloque.
+    // CREA UNA SECCIÓN DEL RESUMEN FINAL
+    // agrupa título, descripción y contenido HTML en un bloque visual.
     function grupoResumenProducto(titulo, descripcion, contenidoHtml) {
         const contenidoSeguro = Array.isArray(contenidoHtml) ? contenidoHtml.join('') : (contenidoHtml || '');
 
@@ -2947,7 +3389,8 @@
             `;
     }
 
-    // Construye una tabla de revision para listas dinamicas como ingredientes, presentaciones y registros.
+    // CREA UNA TABLA PARA LA REVISIÓN FINAL
+    // recibe títulos de columnas, filas de datos y el mensaje que se muestra cuando no existen filas.
     function tablaResumenProducto(columnas, filas, mensajeVacio) {
         const columnasSeguras = Array.isArray(columnas) ? columnas : [];
         const filasSeguras = Array.isArray(filas) ? filas : [];
@@ -2987,9 +3430,12 @@
             `;
     }
 
-    // Agrupa inputs del tipo presentaciones[0][cantidad] o registros[0][id_catalogo_unidad] por indice.
+    // AGRUPA INPUTS DINÁMICOS POR ÍNDICE
+    // prefijo puede ser ingredientes_productos, presentaciones o registros.
+    // convierte nombres como presentaciones[0][cantidad] en un objeto organizado por índice.
     function gruposPorIndiceResumenProducto(prefijo) {
         const patron = new RegExp(`^${prefijo}\\[(\\d+)\\]\\[([^\\]]+)\\]$`);
+        // cada clave será el índice de la fila y su valor contendrá los campos de ese índice.
         const grupos = {};
 
         document.querySelectorAll(`input[name^="${prefijo}["]`).forEach((input) => {
@@ -3013,26 +3459,33 @@
         return grupos;
     }
 
-    // Devuelve indices unicos de presentaciones para contar la relacion real, no las filas de registros.
+    // OBTIENE LOS ÍNDICES DE LAS PRESENTACIONES ACTUALES
+    // devuelve los índices existentes para poder relacionarlos con registros y etiquetas.
     function indicesPresentacionesResumenProducto() {
         return Object.keys(gruposPorIndiceResumenProducto('presentaciones'));
     }
 
-    // Localiza la imagen real de una presentación nueva, recuperada o tomada del catálogo.
+    // OBTIENE LOS DATOS DE ETIQUETA PARA LA REVISIÓN
+    // recibe el índice y datos de una presentación, y devuelve la URL/nombre disponible para mostrar.
     function datosEtiquetaResumenProducto(indice, presentacion = {}) {
         const input = document.querySelector(`input[name="presentaciones[${indice}][url_etiqueta]"]`);
         const datosOld = input?.id ? productoEtiquetaOldUrls[input.id] : null;
         const opcionCatalogo = presentacion.id_presentacion_origen ?
-            document.querySelector(`#form_presentacion_catalogo option[value="${presentacion.id_presentacion_origen}"]`) :
+            document.querySelector(
+                `#form_presentacion_catalogo option[value="${presentacion.id_presentacion_origen}"]`) :
             null;
         const datos = productoEtiquetaUrls[indice] || datosOld;
         const url = datos?.url || input?.dataset.urlInicial || opcionCatalogo?.dataset.etiquetaUrl || '';
         const nombre = input?.files?.[0]?.name || datos?.nombre || opcionCatalogo?.dataset.etiquetaNombre ||
             (url ? 'Imagen registrada' : 'Sin imagen');
 
-        return { url, nombre };
+        return {
+            url,
+            nombre
+        };
     }
-
+    // ABRE UNA ETIQUETA DESDE LA REVISIÓN FINAL
+    // indice identifica la presentación cuya etiqueta debe mostrarse.
     function abrirEtiquetaResumenProducto(indice) {
         const presentaciones = gruposPorIndiceResumenProducto('presentaciones');
         const etiqueta = datosEtiquetaResumenProducto(indice, presentaciones[indice]);
@@ -3045,7 +3498,8 @@
         mostrarEtiquetaEnModalProducto(etiqueta.url, etiqueta.nombre);
     }
 
-    // Presenta cada formato junto a sus registros para que la relación sea fácil de comprobar.
+    // CREA EL RESUMEN DE PRESENTACIONES Y REGISTROS
+    // relaciona cada presentación con sus registros y genera el HTML mostrado en el paso Revisión.
     function resumenPresentacionesRegistrosProducto(presentaciones, registros) {
         const listaPresentaciones = Object.entries(presentaciones);
 
@@ -3135,7 +3589,9 @@
         </div>`;
     }
 
-    // Arma un resumen claro con los mismos datos que se enviarán al guardar el producto.
+    // ACTUALIZA TODO EL PASO DE REVISIÓN
+    // reúne datos principales, catálogos temporales, ingredientes, presentaciones, registros y etiquetas.
+    // solo muestra información; no guarda ni modifica la base de datos.
     function actualizarRevisionFinalProducto() {
         const destino = document.getElementById('resumenProductoWizard');
 
@@ -3170,8 +3626,7 @@
         ];
 
         if (fabricanteNuevo) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Fabricante nuevo', [
-                {
+            datosProducto.push(bloqueCatalogoNuevoProducto('Fabricante nuevo', [{
                     etiqueta: 'Razón social',
                     valor: valorResumenProducto('#form_fabricante_temporal_razon_social'),
                 },
@@ -3196,8 +3651,7 @@
         }
 
         if (clasificacionQuimicaNueva) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación química nueva', [
-                {
+            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación química nueva', [{
                     etiqueta: 'Nombre de la clasificación',
                     valor: valorResumenProducto('#form_clasificacion_quimica_temporal_nombre'),
                 },
@@ -3218,8 +3672,7 @@
         }
 
         if (clasificacionToxicologicaNueva) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación toxicológica nueva', [
-                {
+            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación toxicológica nueva', [{
                     etiqueta: 'Código',
                     valor: valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo'),
                 },
@@ -3301,12 +3754,19 @@
         ].join('');
     }
 
-    // Guarda el avance temporal en el navegador sin enviar el formulario ni recargar la pagina.
+    // GUARDA TEMPORALMENTE EL AVANCE EN EL NAVEGADOR
+    // guarda campos de texto en localStorage sin enviarlos al controlador.
+    // los archivos no pueden guardarse en localStorage y permanecen solo mientras la página siga abierta.
+
+
+    // GUARDA EL AVANCE EN EL NAVEGADOR
+    // conserva temporalmente los campos de texto sin enviarlos al controlador.
     function guardarAvanceProducto() {
         const formulario = document.getElementById('formProductoWizard');
         const datos = {};
         let tieneArchivosTemporales = false;
 
+        // FormData recorre exactamente los campos que normalmente se enviarían al controlador.
         new FormData(formulario).forEach((valor, clave) => {
             // El navegador no puede guardar archivos en localStorage; la imagen permanece en el formulario abierto.
             if (valor instanceof File) {
@@ -3326,6 +3786,7 @@
             datos[clave] = valor;
         });
 
+        // localStorage guarda el avance solo en este navegador; no registra nada en la base de datos.
         localStorage.setItem('producto.formulario.avance', JSON.stringify({
             paso: productoPasoActual,
             datos,
@@ -3354,7 +3815,8 @@
         );
     }
 
-    // Después de una validación vuelve al paso que contiene el primer dato por corregir.
+    // IDENTIFICA EL PASO QUE CONTIENE EL PRIMER ERROR
+    // recibe los errores devueltos por Laravel y devuelve 0, 1 o 2 según el campo que debe corregirse.
     function pasoConPrimerErrorProducto(errores) {
         const primerCampo = Object.keys(errores || {})[0] || '';
 
@@ -3369,13 +3831,16 @@
         return 0;
     }
 
-    // Convierte presentaciones.0.cantidad al nombre HTML presentaciones[0][cantidad].
+    // CONVIERTE EL NOMBRE DE ERROR DE LARAVEL AL NAME DEL HTML
+    // Ejemplo: presentaciones.0.cantidad se convierte en presentaciones[0][cantidad].
     function nombreHtmlCampoProducto(campo) {
         const partes = String(campo || '').split('.');
         return partes.slice(1).reduce((nombre, parte) => `${nombre}[${parte}]`, partes[0] || '');
     }
 
-    // Muestra los errores recibidos sin recargar la página ni limpiar campos o archivos.
+    // MUESTRA LOS ERRORES DEVUELTOS POR EL CONTROLADOR
+    // recibe el objeto errors de una respuesta HTTP 422, marca los campos y abre el paso correspondiente.
+    // no borra los datos que el usuario ya había ingresado.
     function mostrarErroresGuardadoProducto(errores) {
         const resumen = document.getElementById('productoResumenErrores');
         const lista = document.getElementById('productoListaErrores');
@@ -3403,10 +3868,14 @@
         });
 
         mostrarPasoProducto(pasoConPrimerErrorProducto(errores));
-        resumen?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        resumen?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
     }
 
-    // Muestra una espera que cubre el formulario mientras el servidor registra el producto.
+    // MUESTRA U OCULTA LA CAPA DE ESPERA
+    // mostrar=true bloquea la interfaz mientras se guarda; false vuelve a habilitarla.
     function mostrarEsperaGuardadoProducto(mostrar) {
         const overlay = document.getElementById('productoGuardandoOverlay');
 
@@ -3419,7 +3888,9 @@
         overlay.setAttribute('aria-hidden', mostrar ? 'false' : 'true');
     }
 
-    // Guarda sin recargar; una respuesta 422 deja intacto todo el formulario para corregir solo el error.
+    // ENVÍA EL FORMULARIO AL CONTROLADOR SIN RECARGAR LA PÁGINA
+    // usa FormData y fetch para enviar todos los campos, incluidos archivos.
+    // si Laravel responde 422 muestra los errores; si guarda correctamente redirige o avisa al trámite padre.
     async function enviarProductoSinPerderDatos(event) {
         event.preventDefault();
 
@@ -3440,8 +3911,10 @@
         }
 
         try {
+            // envía el formulario a la misma ruta definida en action, pero sin recargar la página.
             const respuesta = await fetch(formulario.action, {
                 method: formulario.method || 'POST',
+                // incluye inputs normales, arrays dinámicos y archivos seleccionados.
                 body: new FormData(formulario),
                 headers: {
                     Accept: 'application/json',
@@ -3449,6 +3922,7 @@
                 },
             });
 
+            // intenta leer la respuesta JSON; si no existe JSON utiliza un objeto vacío para evitar otro error.
             const resultado = await respuesta.json().catch(() => ({}));
 
             if (respuesta.status === 422) {
@@ -3458,15 +3932,6 @@
 
             if (!respuesta.ok) {
                 throw new Error(resultado.message || 'No fue posible guardar el producto.');
-            }
-
-            if (productoEmbebidoTramite && resultado.producto) {
-                window.parent?.postMessage({
-                    tipo: 'producto-registrado-tramite',
-                    producto: resultado.producto,
-                }, window.location.origin);
-                notificarProducto('success', 'Producto registrado', resultado.message);
-                return;
             }
 
             if (!resultado.redirect) {
@@ -3491,17 +3956,11 @@
     }
 
     // Inicializa eventos del wizard cuando la vista termina de cargar.
+
+    // INICIALIZA EL FORMULARIO
+    // registra los eventos cuando la página termina de cargar.
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('formProductoWizard')?.addEventListener('submit', enviarProductoSinPerderDatos);
-
-        // Permite que las burbujas superiores del tramite cambien el paso del producto embebido.
-        window.addEventListener('message', (event) => {
-            if (event.origin !== window.location.origin || event.data?.tipo !== 'producto-ir-paso') {
-                return;
-            }
-
-            mostrarPasoProducto(Number(event.data.paso));
-        });
 
         document.querySelectorAll('[data-producto-ir]').forEach((boton) => {
             boton.addEventListener('click', () => {
@@ -3567,7 +4026,10 @@
 
             if (select) {
                 select.value = '';
-                select.dispatchEvent(new Event('change', { bubbles: true }));
+                // dispara manualmente change para ejecutar la misma lógica que una selección hecha por el usuario.
+                select.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
             }
 
             cerrarSelectorIngredienteProducto();
@@ -3623,7 +4085,7 @@
             }
         });
     });
+
 </script>
-@if (!$productoEmbebido)
-    </x-admin-layout>
-@endif
+</x-admin-layout>
+

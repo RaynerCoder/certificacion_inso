@@ -3,5 +3,6 @@
     ['name' => 'Tramites', 'href' => request('bandeja') === 'todos' ? route('seguimientos_todos') : route('seguimientos_index')],
     ['name' => 'Detalle', 'href' => route('certificados_show', $certificado)],
 ]">
-    @include('certificados.componentes.detalle_tramite')
+    {{-- Carga el detalle completo del trámite. --}}
+    @include('certificados.detalle_tramite.index')
 </x-admin-layout>

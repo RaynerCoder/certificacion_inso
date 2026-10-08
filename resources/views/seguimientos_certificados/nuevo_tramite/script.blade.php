@@ -29,6 +29,11 @@
         const resumenDocumentosBarra = document.getElementById('resumenDocumentosBarra');
         let idBeneficiarioAnterior = '';
 
+        // Botón principal del formulario.
+        const botonRegistrarTramite = document.getElementById('botonRegistrarTramite');
+        const textoBotonRegistrarTramite = document.getElementById('textoBotonRegistrarTramite');
+        const iconoBotonRegistrarTramite = document.getElementById('iconoBotonRegistrarTramite');        
+
         // La validacion final queda en Laravel. Aqui solo evitamos que el navegador bloquee filas creadas por JS.
         const formTramite = document.getElementById('formIniciarTramite');
         if (formTramite) {
@@ -238,7 +243,7 @@
             }
 
             if (codigo === 'PAGO') {
-                return 'El pago registrado será validado durante la revisión del trámite.';
+                return '';
             }
 
             if (codigo === 'PRESENCIAL') {
@@ -834,9 +839,35 @@
             });
         }
 
+
+
+        // Cambia la acción visible del boton principal  para registrar el trámite según los requisitos del certificado.
+        function actualizarBotonPrincipal(requisitos) {
+            const tramiteRequierePago = requisitos.some((requisito) => {
+                const codigoEvidencia = String(requisito.tipo_evidencia_codigo || '').toUpperCase();
+                return codigoEvidencia === 'PAGO';
+            });
+
+            if (textoBotonRegistrarTramite) {
+                textoBotonRegistrarTramite.textContent = tramiteRequierePago
+                    ? 'Registrar trámite y realizar pago'
+                    : 'Registrar trámite';
+            }
+
+            // if (iconoBotonRegistrarTramite) {
+            //     iconoBotonRegistrarTramite.className = tramiteRequierePago
+            //         ? 'fa-solid fa-qrcode'
+            //         : 'fa-regular fa-paper-plane';
+            // }
+        }        
+
+
         // Dibuja cada requisito como un campo del formulario, conservando los nombres que recibe Laravel.
         function renderRequisitos() {
             const requisitos = requisitosPorTipo[tipoSelect?.value] || [];
+            
+            // Actualiza el botón según los requisitos del tipo seleccionado.
+            actualizarBotonPrincipal(requisitos);
 
             if (!contenedorRequisitos) {
                 return;
@@ -867,9 +898,11 @@
                 const certificadosHtml = certificadosRequeridosHtml(requisito.certificados_requeridos);
                 const textoAnterior = valorTextoAnterior(requisito, index);
                 const requiereRespuesta = codigoEvidencia === 'TEXTO' || configArchivo.permiteArchivo;
-                const estadoInicial = requiereRespuesta ? 'Pendiente' : 'En revisión';
-                const claseEstado = requiereRespuesta ? '' : 'is-review';
-                const iconoEstado = requiereRespuesta ? 'fa-regular fa-clock' : 'fa-regular fa-hourglass-half';
+                const esRequisitoPago = codigoEvidencia === 'PAGO';
+                const estadoInicial = esRequisitoPago ? 'Pago pendiente' : requiereRespuesta ? 'Pendiente' : 'En revisión';
+                const claseEstado = esRequisitoPago ? 'is-review' : requiereRespuesta ? '' : 'is-review';
+                const iconoEstado = esRequisitoPago ? 'fa-solid fa-qrcode' : requiereRespuesta ? 'fa-regular fa-clock' : 'fa-regular fa-hourglass-half';
+
 
                 bloque.className = 'tramite-requisito-item';
                 bloque.innerHTML = `
@@ -936,9 +969,6 @@
                             </div>
                         ` : `
                             <div class="tramite-evidencia-pendiente">
-                                <span class="tramite-evidencia-pendiente-icon">
-                                    <i class="fa-solid fa-circle-info"></i>
-                                </span>
                                 <span>${escaparHtml(textoEvidenciaTramite(codigoEvidencia))}</span>
                             </div>
                         `}

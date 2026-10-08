@@ -23,6 +23,9 @@ return new class extends Migration
             // Cantidad de descargas permitidas por usuario. Nulo significa sin limite.
             $table->unsignedInteger('limite_descargas')->nullable();
 
+            // Precio que se cobrará por este tipo de certificado.
+            $table->decimal('costo', 10, 2)->nullable();
+            
             // Estado general del tipo de certificado: ACTIVO, INACTIVO, etc.
             $table->string('estado', 50)->default('ACTIVO');
 

@@ -28,7 +28,7 @@ use App\Models\Certificado;
 use App\Http\Controllers\TipoEvidenciaController;
 use App\Http\Controllers\TramitadorController;
 use App\Http\Controllers\ReporteController;
-use App\Http\Controllers\OpenBCBController;
+use App\Http\Controllers\OpenBcbPagoController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -488,6 +488,18 @@ Route::get('/pagos/{pago}/edit', [PagoController::class, 'edit'])->name('pagos_e
 Route::put('/pagos/{pago}', [PagoController::class, 'update'])->name('pagos_update')->middleware('permiso:pagos.validar');
 Route::delete('/pagos/{pago}', [PagoController::class, 'destroy'])->name('pagos_destroy');
 Route::get('/pagos/{pago}', [PagoController::class, 'show'])->name('pagos_show')->middleware('permiso:pagos.ver,pagos.validar');
+// Genera un QR de OpenBCB para un pago registrado.
+Route::post('/pagos/{pago}/openbcb/generar-qr',[OpenBcbPagoController::class, 'generarQr'])
+   ->name('pagos_openbcb_generar_qr');
+// Consulta OpenBCB y guarda o actualiza las operaciones encontradas para el QR.
+Route::post('/pagos/openbcb/{pagoOpenBcb}/consultar',[OpenBcbPagoController::class, 'consultarQr'])
+   ->name('pagos_openbcb_consultar_qr');
+// Abre el detalle del pago para un trámite que requiere evidencia PAGO.
+Route::get('/pagos/openbcb/tramites/{certificado}',[OpenBcbPagoController::class, 'mostrarPago'])
+   ->name('pagos_openbcb_mostrar_pago');
+// Entrega la imagen del QR después de verificar que pertenece al usuario.
+Route::get('/pagos/openbcb/{pagoOpenBcb}/imagen-qr',[OpenBcbPagoController::class, 'mostrarImagenQr'])
+   ->name('pagos_openbcb_mostrar_imagen_qr');
 
 
 
@@ -543,4 +555,3 @@ Route::delete('/registros/{registro}', [RegistroController::class, 'destroy'])->
 /* =========================
    SERVICIOS DEL OPENBCB
 ========================= */
-Route::get('/openbcb/probar', [OpenBCBController::class, 'probar'])->name('openbcb_probar');

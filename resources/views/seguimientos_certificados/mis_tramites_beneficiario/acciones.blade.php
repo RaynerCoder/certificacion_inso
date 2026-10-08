@@ -9,4 +9,11 @@
             Ver certificado
         </x-wire-button>
     @endif
+
+    {{-- Permite retomar el pago cuando el trámite todavía no fue enviado a revisión. --}}
+    @if ($seguimiento->certificado?->estado === 'PENDIENTE_PAGO')
+        <x-wire-button href="{{ route('pagos_openbcb_mostrar_pago', ['certificado' => $seguimiento->certificado,]) }}" amber xs>
+            Continuar pago
+        </x-wire-button>
+    @endif    
 </div>

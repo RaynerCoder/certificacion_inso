@@ -376,7 +376,7 @@ class OpenBcbService
             );
         }
 
-        return $this->postFirmado($endpoint, $datos);
+        return $this->postFirmado($endpoint, $datos);  
     }
 
     /**

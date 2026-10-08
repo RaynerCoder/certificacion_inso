@@ -104,28 +104,6 @@ class ProductoController extends Controller
             return $producto;
         });
 
-        // En modo embebido el formulario vive dentro del trámite y no debe sacar al usuario de esa pantalla.
-        if ($request->boolean('embebido')) {
-            $productoParaTramite = [
-                'id' => $productoCreado->id,
-                'codigo' => $productoCreado->codigo,
-                'nombre_comercial' => $productoCreado->nombre_comercial,
-                'estado' => $productoCreado->estado,
-            ];
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'producto' => $productoParaTramite,
-                    'message' => 'Producto registrado correctamente. Puede volver al tramite para registrar la solicitud.',
-                ]);
-            }
-
-            return redirect()
-                ->route('productos_create', ['embebido' => 1])
-                ->with('producto_creado_tramite', $productoParaTramite)
-                ->with('success', 'Producto registrado correctamente. Puede volver al tramite para registrar la solicitud.');
-        }
-
         $urlRetorno = $this->urlRetornoSegura($datos['form_retorno'] ?? null);
         $urlDestino = $urlRetorno ?: route('productos_index');
         $mensaje = $urlRetorno
@@ -299,7 +277,12 @@ class ProductoController extends Controller
     }
 
     /**
-     * Catálogos compartidos por las pantallas de registro y edición.
+     * Prepara los catálogos y las presentaciones que necesita el formulario de producto.
+     *
+     * Este método se usa tanto al crear como al editar. Por ejemplo, entrega fabricantes,
+     * unidades y tipos de envase para que la vista solo los muestre, sin hacer consultas.
+     * Al editar, también incluye las presentaciones inactivas del producto actual para no
+     * ocultar información que ya está relacionada con él.
      */
     private function datosFormularioProducto(?Producto $producto = null): array
     {
@@ -321,23 +304,57 @@ class ProductoController extends Controller
         return [
             'tiposProducto' => Producto::TIPOS_PRODUCTO,
             'clasificacionesToxicologicas' => ClasificacionToxicologica::query()
-                ->where('estado', 'ACTIVO')->orderBy('codigo')->get(),
+                ->where('estado', 'ACTIVO')
+                ->orderBy('codigo')
+                ->get(),
+
             'fabricantes' => Fabricante::query()
                 ->where('estado', 'ACTIVO')
                 ->orderByRaw('CASE WHEN razon_social IS NULL OR razon_social = ? THEN 1 ELSE 0 END', [''])
                 ->orderBy('razon_social')
                 ->orderBy('nombre')
                 ->get(),
+
             'territorios' => Territorio::query()
-                ->where('estado', 'ACTIVO')->where('id_ambito', 1)->orderBy('nombre')->get(),
+                ->where('estado', 'ACTIVO')
+                ->where('id_ambito', 1)
+                ->orderBy('nombre')
+                ->get(),
+
             'importadores' => $this->importadoresDisponibles(),
-            // Se trae primero el registro más antiguo; la vista agrupa nombres equivalentes y luego los ordena.
-            'ingredientes' => Ingrediente::query()->where('estado', 'ACTIVO')->orderBy('id')->get(),
+
+            // Se muestra un solo ingrediente por nombre aunque existan registros históricos duplicados.
+            'ingredientes' => Ingrediente::query()
+                ->where('estado', 'ACTIVO')
+                ->orderBy('id')
+                ->get()
+                ->unique(fn (Ingrediente $ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
+                ->sortBy(fn (Ingrediente $ingrediente) => mb_strtolower(trim((string) $ingrediente->nombre)))
+                ->values(),
+
             'clasificacionesQuimicas' => ClasificacionQuimica::query()
-                ->where('estado', 'ACTIVO')->orderBy('nombre')->get(),
+                ->where('estado', 'ACTIVO')
+                ->orderBy('nombre')
+                ->get(),
+
             'catalogosMedidas' => CatalogoMedida::query()
-                ->where('estado', 'ACTIVO')->orderBy('tipo')->orderBy('nombre')->get(),
+                ->where('estado', 'ACTIVO')
+                ->orderBy('tipo')
+                ->orderBy('nombre')
+                ->get(),
+
             'presentacionesCatalogo' => $presentacionesCatalogo,
+
+            // Lee los tipos de envase ya usados en presentaciones.
+            // No existe una tabla adicional: el valor se obtiene de presentaciones.tipo_envase.
+            'tiposEnvases' => Presentacion::query()
+                ->where('estado', 'ACTIVO')
+                ->whereNotNull('tipo_envase')
+                ->where('tipo_envase', '!=', '')
+                ->select('tipo_envase')
+                ->distinct()
+                ->orderBy('tipo_envase')
+                ->pluck('tipo_envase'),
         ];
     }
 
@@ -486,6 +503,7 @@ class ProductoController extends Controller
                 'id_presentacion_origen' => $presentacion->id,
                 'cantidad' => $presentacion->cantidad,
                 'id_catalogo_unidad' => $presentacion->id_catalogo_unidad,
+                'tipo_envase' => $presentacion->tipo_envase,
                 'descripcion' => $presentacion->descripcion,
                 'estado' => $presentacion->estado,
             ])
@@ -638,6 +656,7 @@ class ProductoController extends Controller
                     $presentacionDato['id_catalogo_unidad']
                 ),
                 'descripcion' => $presentacionDato['descripcion'] ?? null,
+                'tipo_envase' => $presentacionDato['tipo_envase'] ?? null,
                 'estado' => $presentacionDato['estado'] ?? 'ACTIVO',
             ]);
 
@@ -749,6 +768,7 @@ class ProductoController extends Controller
                             $request,
                             $datosPresentacion['id_catalogo_unidad']
                         ),
+                        'tipo_envase' => $datosPresentacion['tipo_envase'] ?? null,
                         'descripcion' => $datosPresentacion['descripcion'] ?? null,
                         'estado' => $datosPresentacion['estado'] ?? 'ACTIVO',
                     ]);
@@ -778,6 +798,7 @@ class ProductoController extends Controller
                     $request,
                     $datosPresentacion['id_catalogo_unidad']
                 ),
+                'tipo_envase' => $datosPresentacion['tipo_envase'] ?? null,
                 'descripcion' => $datosPresentacion['descripcion'] ?? null,
                 'estado' => $datosPresentacion['estado'] ?? 'ACTIVO',
             ]);
@@ -886,9 +907,8 @@ class ProductoController extends Controller
             ->syncWithoutDetaching($registrosCreados);
     }
 
-    /**
-     * Valida la información enviada antes de iniciar la transacción.
-     */
+    
+    // Valida la información enviada antes de iniciar la transacción.
     private function validarProducto(Request $request, ?Producto $producto = null): array
     {
         $validador = Validator::make(
@@ -919,6 +939,7 @@ class ProductoController extends Controller
                 'form_presentacion_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
                 'form_presentacion_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_presentacion_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
+                
                 'form_registro_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
                 'form_registro_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_registro_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
@@ -946,14 +967,18 @@ class ProductoController extends Controller
                 'presentaciones.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
                 'presentaciones.*.id_presentacion_origen' => ['nullable', 'integer', 'exists:presentaciones,id'],
                 'presentaciones.*.url_etiqueta' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+                'presentaciones.*.tipo_envase' => ['nullable', 'string', 'max:150'],
+                
 
                 'registros' => ['nullable', 'array'],
                 'registros.*.id_registro' => ['nullable', 'integer', 'exists:registros,id'],
                 'registros.*.codigo_autorizacion' => ['nullable', 'string', 'max:255'],
                 'registros.*.numero_lote' => ['nullable', 'string', 'max:150'],
                 'registros.*.fecha_vigencia' => ['nullable', 'date'],
-                'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
-                'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
+                //'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
+                'registros.*.cantidad' => ['required_with:registros', 'integer', 'min:1',],
+                //'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
+                'registros.*.id_catalogo_unidad' => ['required_with:registros', 'string', 'max:50',],                
                 'registros.*.id_presentacion_temporal' => ['required_with:registros', 'integer'],
                 'registros.*.presentacion_texto' => ['nullable', 'string', 'max:255'],
                 'registros.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],

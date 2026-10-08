@@ -13,59 +13,64 @@
     ],
 ]">
     @php
-        // Opciones listas para los selectores con busqueda.
-        // Personas conserva nombre, detalle y tipo para pintar beneficiario/tramitador.
+        // Opciones listas para los selectores con búsqueda.
         $personasSelect = collect($personas ?? [])->values();
+
         $tiposCertificadosSelect = collect($tiposCertificados ?? [])
-            ->map(fn($tipoCertificado) => [
-                'id' => $tipoCertificado->id,
-                'nombre' => $tipoCertificado->nombre,
-            ])
+            ->map(
+                fn($tipoCertificado) => [
+                    'id' => $tipoCertificado->id,
+                    'nombre' => $tipoCertificado->nombre,
+                ],
+            )
             ->values();
 
-        // Mantiene lo que el usuario eligio si Laravel devuelve errores.
+        // Conserva los valores seleccionados cuando Laravel devuelve errores.
         $beneficiarioSeleccionado = old('form_id_persona_beneficiario', $beneficiarioAutomatico['id'] ?? null);
+
         $tramitadorSeleccionado = old('form_id_persona_tramitador', $tramitadorAutomatico['id'] ?? null);
+
         $tipoSeleccionado = old('form_id_tipo_certificado');
 
-        // Al volver con error, se cargan solo los tramitadores del beneficiario elegido.
+        // Carga los tramitadores relacionados con el beneficiario seleccionado.
         $tramitadoresIniciales = collect($tramitadoresPorBeneficiario[$beneficiarioSeleccionado] ?? [])->values();
     @endphp
 
-    {{-- Estilos propios de esta pantalla. Si necesitas ajustar el formulario, empieza por este archivo. --}}
+    {{-- Estilos propios de la pantalla para iniciar un trámite. --}}
     @include('seguimientos_certificados.nuevo_tramite.estilos')
 
-    <form action="{{ route('seguimientos_store') }}"
-        method="POST"
-        enctype="multipart/form-data"
-        id="formIniciarTramite"
-        data-prevent-double-submit
-        data-loading-alert="true"
-        data-loading-title="Enviando trámite"
-        data-loading-message="Espere un momento, estamos registrando la solicitud."
-        data-loading-button="Enviando...">
+    <form action="{{ route('seguimientos_store') }}" method="POST" enctype="multipart/form-data" id="formIniciarTramite"
+        data-prevent-double-submit data-loading-alert="true" data-loading-title="Enviando trámite"
+        data-loading-message="Espere un momento, estamos registrando la solicitud." data-loading-button="Enviando...">
         @csrf
+
         <input type="hidden" name="form_token" value="{{ $tokenFormulario }}">
 
         <div class="tramite-shell">
-            {{-- Formulario simple: el tramite se inicia con datos principales y documentos requeridos. --}}
+            {{-- Datos principales y requisitos del nuevo trámite. --}}
             <div class="tramite-content">
                 @include('seguimientos_certificados.nuevo_tramite.inicio')
             </div>
 
-            {{-- Acciones finales del formulario: salir no guarda nada; registrar envia el tramite al area configurada en el tipo de certificado. --}}
+            {{-- El botón registra o continúa al pago según los requisitos. --}}
             <div class="tramite-actions">
                 <a href="{{ route('seguimientos_index') }}" class="tramite-btn tramite-btn-neutral">
-                    <i class="fa-solid fa-xmark"></i> Salir sin guardar
+                    <i class="fa-solid fa-xmark"></i>
+                    Salir sin guardar
                 </a>
 
-                <button type="submit" name="form_accion" value="enviar" class="tramite-btn tramite-btn-primary">
-                    <i class="fa-regular fa-paper-plane"></i> Registrar tramite
+                <button type="submit" name="form_accion" value="enviar" id="botonRegistrarTramite"
+                    class="tramite-btn tramite-btn-primary">
+                    <i id="iconoBotonRegistrarTramite" class="fa-regular fa-paper-plane"></i>
+
+                    <span id="textoBotonRegistrarTramite">
+                        Registrar trámite
+                    </span>
                 </button>
             </div>
         </div>
     </form>
 
-    {{-- Script propio de esta pantalla: requisitos dinamicos, PDF y sincronizacion de selects. --}}
+    {{-- Requisitos dinámicos y controles del formulario. --}}
     @include('seguimientos_certificados.nuevo_tramite.script')
 </x-admin-layout>

@@ -1,9 +1,21 @@
 <style>
-    /*
-    Estilos propios de esta vista.
-    Se usan nombres producto-* para no afectar el wizard de personas.
-    */
 
+    /* =========================================================
+    PRODUCTO - ESTILOS DEL MÓDULO
+    =========================================================
+    Convención:
+    - Todas las clases propias utilizan el prefijo .producto-
+    - Los estilos están agrupados por funcionalidad.
+    - Los @container y @media se mantienen al final.
+    - Evitar modificar estilos globales desde este archivo.
+    ========================================================= */
+
+
+    /* =========================================================
+    01. ESTRUCTURA GENERAL Y TARJETAS
+    ========================================================= */
+
+    /* Contenedor principal del wizard. */
     .producto-wizard {
         display: flex;
         flex-direction: column;
@@ -306,16 +318,20 @@
         grid-column: 1 / -1;
     }
 
+    .producto-registro-grid-presentacion .producto-campo-tipo-envase {
+        grid-column: span 5;
+    }
+
     .producto-registro-grid-presentacion .producto-campo-cantidad {
         grid-column: span 3;
     }
 
     .producto-registro-grid-presentacion .producto-campo-unidad {
-        grid-column: span 5;
+        grid-column: span 4;
     }
 
     .producto-registro-grid-presentacion .producto-campo-estado {
-        grid-column: span 4;
+        grid-column: span 3;
     }
 
     .producto-registro-grid .producto-campo-descripcion,
@@ -558,7 +574,7 @@
     }
 
     .producto-search-clear[hidden],
-    .producto-ingredient-select.is-open > .producto-search-clear {
+    .producto-ingredient-select.is-open>.producto-search-clear {
         display: none;
     }
 
@@ -1475,7 +1491,7 @@
         min-width: 0;
     }
 
-    .producto-review-overview-identity > span,
+    .producto-review-overview-identity>span,
     .producto-review-eyebrow {
         color: #0f766e;
         font-size: 10px;
@@ -1514,13 +1530,13 @@
         overflow-wrap: anywhere;
     }
 
-    .producto-review-overview > dl {
+    .producto-review-overview>dl {
         display: flex;
         gap: 8px;
         margin: 0;
     }
 
-    .producto-review-overview > dl div {
+    .producto-review-overview>dl div {
         background: rgba(255, 255, 255, .82);
         border: 1px solid #d1fae5;
         border-radius: 8px;
@@ -1614,7 +1630,7 @@
         transform: scale(1.04);
     }
 
-    .producto-review-image > span {
+    .producto-review-image>span {
         align-items: center;
         background: rgba(15, 23, 42, .72);
         border-radius: 999px;
@@ -1743,7 +1759,7 @@
         margin: 2px 0 0;
     }
 
-    .producto-review-registers-head > span {
+    .producto-review-registers-head>span {
         background: #dbeafe;
         border-radius: 999px;
         color: #1d4ed8;
@@ -2410,8 +2426,8 @@
         padding: 0 8px;
     }
 
-    .producto-image-zoom-tools button + button,
-    .producto-image-zoom-tools output + button {
+    .producto-image-zoom-tools button+button,
+    .producto-image-zoom-tools output+button {
         border-left: 1px solid #e2e8f0;
     }
 
@@ -2548,6 +2564,7 @@
             grid-column: 1 / -1;
         }
 
+        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado {
@@ -2678,6 +2695,7 @@
     }
 
     @container producto-registro (max-width: 520px) {
+
         .producto-rp-layout,
         .producto-rp-formularios {
             gap: 12px;
@@ -2697,6 +2715,7 @@
         }
 
         .producto-registro-grid .producto-campo-catalogo,
+        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado,
@@ -2752,11 +2771,11 @@
             flex-direction: column;
         }
 
-        .producto-review-overview > dl {
+        .producto-review-overview>dl {
             width: 100%;
         }
 
-        .producto-review-overview > dl div {
+        .producto-review-overview>dl div {
             flex: 1 1 0;
         }
 
@@ -2788,12 +2807,12 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .producto-review-overview > dl {
+        .producto-review-overview>dl {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
-        .producto-review-overview > dl div {
+        .producto-review-overview>dl div {
             min-width: 0;
             padding-inline: 5px;
         }
@@ -2835,6 +2854,7 @@
 
         .producto-registro-grid .md\:col-span-12,
         .producto-registro-grid .producto-campo-catalogo,
+        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado,
@@ -2935,5 +2955,4 @@
             font-size: 12px;
         }
     }
-
 </style>

@@ -26,6 +26,8 @@ class Certificado extends Model
         'EMITIDO'     => 'EMITIDO',
         'VENCIDO'     => 'VENCIDO',
         'ANULADO'     => 'ANULADO',
+        'PENDIENTE_PAGO' => 'PENDIENTE DE PAGO', // El trámite fue guardado, pero todavía debe confirmarse el pago.
+        'PAGO_CONFIRMADO' => 'PAGO CONFIRMADO', // El pago fue confirmado, pero el usuario todavía no envió la solicitud.            
     ];    
 
 
