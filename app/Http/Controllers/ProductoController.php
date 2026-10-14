@@ -129,7 +129,8 @@ class ProductoController extends Controller
     {
         $producto->load([
             'importadorPersona.natural',
-            'importadorPersona.empresa',
+            'importadorPersona.empresa.responsables.persona.natural',
+            'importadorPersona.empresa.responsables.rol',
             'territorio',
             'fabricante',
             'clasificacionToxicologica',
@@ -218,7 +219,8 @@ class ProductoController extends Controller
         });
 
         $mensaje = 'Producto actualizado correctamente.';
-        $urlDestino = route('productos_show', $producto);
+        // Después de guardar se vuelve al listado para continuar administrando productos.
+        $urlDestino = route('productos_index');
 
         if ($request->expectsJson()) {
             session()->flash('success', $mensaje);

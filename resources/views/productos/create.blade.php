@@ -274,7 +274,7 @@
             </button>
             <button type="button" class="producto-burbuja" data-producto-ir="2">
                 <span class="producto-circulo">3</span>
-                <span>Registro y presentación</span>
+                <span>Presentaciones y registros</span>
             </button>
             <button type="button" class="producto-burbuja" data-producto-ir="3">
                 <span class="producto-circulo">4</span>
@@ -740,7 +740,7 @@
     const productoTitulos = [
         ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
         ['Ingredientes', 'Agregue los ingredientes y sus porcentajes.'],
-        ['Registro y presentación', 'Registre la autorización y el formato comercial del producto.'],
+        ['Presentaciones y registros', 'Agregue los formatos comerciales y relacione sus registros.'],
         ['Revisión', 'Revise la información antes de guardar el producto.'],
     ];
 
@@ -748,8 +748,8 @@
 
     // MUESTRA UN PASO DEL FORMULARIO
     // muestra el paso indicado y actualiza burbujas, encabezado, botones y resumen.
-    // indice: 0=Producto, 1=Ingredientes, 2=Registro y presentación, 3=Revisión.
-    // Ejemplo: mostrarPasoProducto(2) abre el paso Registro y presentación.
+    // indice: 0=Producto, 1=Ingredientes, 2=Presentaciones y registros, 3=Revisión.
+    // Ejemplo: mostrarPasoProducto(2) abre el paso Presentaciones y registros.
     function mostrarPasoProducto(indice) {
         const pasos = document.querySelectorAll('[data-producto-step]');
         const burbujas = document.querySelectorAll('[data-producto-ir]');
@@ -3405,16 +3405,18 @@
 
     // CREA UNA SECCIÓN DEL RESUMEN FINAL
     // agrupa título, descripción y contenido HTML en un bloque visual.
-    function grupoResumenProducto(titulo, descripcion, contenidoHtml) {
+    function grupoResumenProducto(titulo, descripcion, contenidoHtml, numero) {
         const contenidoSeguro = Array.isArray(contenidoHtml) ? contenidoHtml.join('') : (contenidoHtml || '');
 
         return `
                 <section class="producto-review-section">
                     <div class="producto-review-section-head">
-                        <span class="producto-review-section-dot"></span>
-                        <div>
-                            <h4>${escaparHtmlProducto(titulo)}</h4>
-                            <p>${escaparHtmlProducto(descripcion)}</p>
+                        <div class="producto-review-section-heading">
+                            <span class="producto-review-section-number">${escaparHtmlProducto(numero)}</span>
+                            <div>
+                                <h4>${escaparHtmlProducto(titulo)}</h4>
+                                <p>${escaparHtmlProducto(descripcion)}</p>
+                            </div>
                         </div>
                     </div>
                     <div class="producto-review-list">
@@ -3533,6 +3535,15 @@
         mostrarEtiquetaEnModalProducto(etiqueta.url, etiqueta.nombre);
     }
 
+    // FORMATEA FECHAS PARA LA REVISIÓN
+    // convierte una fecha YYYY-MM-DD a DD/MM/YYYY sin alterar el valor que se enviará al servidor.
+    function formatearFechaRevisionProducto(valor) {
+        const coincidencia = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        return coincidencia ? `${coincidencia[3]}/${coincidencia[2]}/${coincidencia[1]}` :
+            textoResumenProducto(valor);
+    }
+
     // CREA EL RESUMEN DE PRESENTACIONES Y REGISTROS
     // relaciona cada presentación con sus registros y genera el HTML mostrado en el paso Revisión.
     function resumenPresentacionesRegistrosProducto(presentaciones, registros) {
@@ -3545,6 +3556,11 @@
         return `<div class="producto-review-presentations">
             ${listaPresentaciones.map(([indice, presentacion], posicion) => {
                 const etiqueta = datosEtiquetaResumenProducto(indice, presentacion);
+                const unidadPresentacion = textoUnidadRevisionProducto(presentacion.id_catalogo_unidad);
+                const contenidoPresentacion = [presentacion.cantidad, unidadPresentacion]
+                    .filter((valor) => valor && valor !== 'No registrado')
+                    .join(' ');
+                const nombrePresentacion = contenidoPresentacion || `Presentación ${posicion + 1}`;
                 const registrosAsociados = Object.entries(registros)
                     .filter(([, registro]) => String(registro.id_presentacion_temporal) === String(indice));
                 const vistaEtiqueta = etiqueta.url ? `
@@ -3552,70 +3568,89 @@
                         title="Ampliar etiqueta" aria-label="Ampliar etiqueta de la presentación ${posicion + 1}">
                         <img src="${escaparHtmlProducto(etiqueta.url)}" alt="Etiqueta de la presentación ${posicion + 1}">
                         <span><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                    </button>
+                    <button type="button" class="producto-review-image-action"
+                        onclick="abrirEtiquetaResumenProducto(${Number(indice)})">
+                        <i class="fa-regular fa-eye"></i> Ver etiqueta
                     </button>` : `
                     <div class="producto-review-image is-empty">
                         <i class="fa-regular fa-image"></i>
                         <span>Sin imagen</span>
                     </div>`;
-                const listaRegistros = registrosAsociados.length ? registrosAsociados.map(([, registro], registroPosicion) => `
-                    <div class="producto-review-register-row">
-                        <div class="producto-review-register-head">
-                            <strong>Registro ${registroPosicion + 1}</strong>
-                            <span class="producto-review-status ${registro.estado === 'INACTIVO' ? 'is-inactive' : ''}">
-                                ${escaparHtmlProducto(registro.estado || 'ACTIVO')}
-                            </span>
-                        </div>
-                        <dl>
-                            <div><dt>Código de autorización</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.codigo_autorizacion))}</dd></div>
-                            <div><dt>Nro. de lote</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.numero_lote))}</dd></div>
-                            <div><dt>Fecha de vigencia</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.fecha_vigencia))}</dd></div>
-                            <div><dt>Cantidad registrada</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.cantidad))}</dd></div>
-                            <div><dt>Unidad del registro</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(registro.id_catalogo_unidad)))}</dd></div>
-                        </dl>
-                    </div>
-                `).join('') : '<div class="producto-review-empty">Esta presentación todavía no tiene registros asociados.</div>';
+                const listaRegistros = registrosAsociados.length ? `
+                    <div class="producto-review-register-list">
+                        ${registrosAsociados.map(([, registro], registroPosicion) => {
+                            const registroIncompleto = [
+                                registro.codigo_autorizacion,
+                                registro.numero_lote,
+                                registro.fecha_vigencia,
+                                registro.cantidad,
+                                registro.id_catalogo_unidad,
+                            ].some((valor) => valor === null || valor === undefined || String(valor).trim() === '');
+
+                            return `
+                                <article class="producto-review-register-item">
+                                    <header class="producto-review-register-item-head">
+                                        <div class="producto-review-register-title">
+                                            <span><i class="fa-regular fa-file-lines"></i></span>
+                                            <div>
+                                                <h6>Registro ${registroPosicion + 1}</h6>
+                                                <p>Registro vinculado a esta presentación</p>
+                                            </div>
+                                        </div>
+                                        <span class="producto-review-status ${registro.estado === 'INACTIVO' ? 'is-inactive' : ''}">
+                                            ${escaparHtmlProducto(registro.estado || 'ACTIVO')}
+                                        </span>
+                                    </header>
+
+                                    <dl class="producto-review-register-data">
+                                        <div><dt>Código de autorización</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.codigo_autorizacion))}</dd></div>
+                                        <div><dt>Número de lote</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.numero_lote))}</dd></div>
+                                        <div><dt>Fecha de vigencia</dt><dd>${escaparHtmlProducto(formatearFechaRevisionProducto(registro.fecha_vigencia))}</dd></div>
+                                        <div><dt>Cantidad registrada</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.cantidad))}</dd></div>
+                                        <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(registro.id_catalogo_unidad)))}</dd></div>
+                                        ${registroIncompleto ? `
+                                            <div class="producto-review-register-pending">
+                                                <dt>Información pendiente</dt>
+                                                <dd>Complete los datos del registro</dd>
+                                            </div>` : ''}
+                                    </dl>
+                                </article>`;
+                        }).join('')}
+                    </div>` : '<div class="producto-review-empty">Esta presentación todavía no tiene registros asociados.</div>';
 
                 return `
                     <article class="producto-review-presentation">
                         <header class="producto-review-presentation-head">
                             <div>
                                 <span class="producto-review-eyebrow">Presentación ${posicion + 1}</span>
-                                <h5>Datos de la presentación</h5>
+                                <h5>${escaparHtmlProducto(nombrePresentacion)}</h5>
                             </div>
                             <span class="producto-review-status ${presentacion.estado === 'INACTIVO' ? 'is-inactive' : ''}">
                                 ${escaparHtmlProducto(presentacion.estado || 'ACTIVO')}
                             </span>
                         </header>
 
-                        <div class="producto-review-presentation-main">
+                        <div class="producto-review-presentation-body">
                             <div class="producto-review-visual">
-                                <span class="producto-review-block-label">Vista previa de la etiqueta</span>
                                 ${vistaEtiqueta}
+                                <span class="producto-review-file-name">${escaparHtmlProducto(etiqueta.nombre)}</span>
                             </div>
 
                             <div class="producto-review-presentation-content">
+                                <span class="producto-review-block-label">Datos de la presentación</span>
                                 <dl class="producto-review-presentation-data">
-                                    <div><dt>Cantidad de la presentación</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.cantidad))}</dd></div>
-                                    <div><dt>Unidad de la presentación</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(presentacion.id_catalogo_unidad)))}</dd></div>
-                                    <div><dt>Nombre del archivo de etiqueta</dt><dd>${escaparHtmlProducto(etiqueta.nombre)}</dd></div>
+                                    <div><dt>Tipo de envase</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.tipo_envase))}</dd></div>
+                                    <div><dt>Contenido</dt><dd>${escaparHtmlProducto(textoResumenProducto(contenidoPresentacion))}</dd></div>
+                                    <div><dt>Descripción</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</dd></div>
                                 </dl>
-
-                                <div class="producto-review-description">
-                                    <span>Descripción de la presentación</span>
-                                    <p>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</p>
-                                </div>
                             </div>
-                        </div>
 
-                        <div class="producto-review-registers">
-                            <div class="producto-review-registers-head">
-                                <div>
-                                    <h6>Registros vinculados a esta presentación</h6>
-                                    <p>Datos de autorización, lote, vigencia y cantidad registrada.</p>
+                            <div class="producto-review-registers">
+                                <div class="producto-review-registers-head">
+                                    <h6>Registros de esta presentación</h6>
+                                    <span>${registrosAsociados.length} ${registrosAsociados.length === 1 ? 'registro' : 'registros'}</span>
                                 </div>
-                                <span>${registrosAsociados.length}</span>
-                            </div>
-                            <div class="producto-review-register-list">
                                 ${listaRegistros}
                             </div>
                         </div>
@@ -3738,53 +3773,31 @@
                 esNuevo ? `Nuevo ingrediente: ${nombre}` : nombre,
                 ingrediente.porcentaje !== undefined && ingrediente.porcentaje !== '' ?
                 `${formatearPorcentajeIngrediente(ingrediente.porcentaje)}%` : '',
-                ingrediente.estado || 'ACTIVO',
             ];
         });
 
-        const nombreProducto = textoResumenProducto(valorResumenProducto('#form_nombre_comercial'));
-        const codigoProducto = textoResumenProducto(valorResumenProducto('#form_codigo'));
-        const resumenGeneral = `
-            <div class="producto-review-overview">
-                <div class="producto-review-overview-identity">
-                    <span>Producto listo para revisión</span>
-                    <dl class="producto-review-product-data">
-                        <div>
-                            <dt>Nombre comercial del producto</dt>
-                            <dd>${escaparHtmlProducto(nombreProducto)}</dd>
-                        </div>
-                        <div>
-                            <dt>Código del producto</dt>
-                            <dd>${escaparHtmlProducto(codigoProducto)}</dd>
-                        </div>
-                    </dl>
-                </div>
-                <dl>
-                    <div><dt>Ingredientes</dt><dd>${Object.keys(ingredientes).length}</dd></div>
-                    <div><dt>Presentaciones</dt><dd>${Object.keys(presentaciones).length}</dd></div>
-                    <div><dt>Registros</dt><dd>${Object.keys(registros).length}</dd></div>
-                </dl>
-            </div>`;
-
-        destino.innerHTML = resumenGeneral + [
+        destino.innerHTML = [
             grupoResumenProducto(
-                'Datos principales del producto',
-                'Información que identifica y clasifica el producto.',
-                datosProducto.join('')
+                'Datos generales',
+                'Información permanente que identifica y clasifica el producto.',
+                datosProducto.join(''),
+                '1'
             ),
             grupoResumenProducto(
-                'Ingredientes del producto',
-                'Porcentaje y estado de cada ingrediente agregado.',
+                `Ingredientes (${Object.keys(ingredientes).length})`,
+                'Ingredientes y porcentajes registrados para este producto.',
                 tablaResumenProducto(
-                    ['#', 'Ingrediente', 'Porcentaje', 'Estado'],
+                    ['#', 'Ingrediente', 'Porcentaje'],
                     filasIngredientes,
                     'No se agregaron ingredientes.'
-                )
+                ),
+                '2'
             ),
             grupoResumenProducto(
-                'Presentaciones y registros',
-                'Cada etiqueta aparece junto a la presentación y los registros que le pertenecen.',
-                resumenPresentacionesRegistrosProducto(presentaciones, registros)
+                'Presentaciones y registros vinculados',
+                'Cada presentación muestra su etiqueta y únicamente los registros que le corresponden.',
+                resumenPresentacionesRegistrosProducto(presentaciones, registros),
+                '3'
             ),
         ].join('');
     }
