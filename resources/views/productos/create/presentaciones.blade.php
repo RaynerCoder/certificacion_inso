@@ -124,22 +124,19 @@
                             </div>
                         </div>
                         <div class="producto-registro-grid producto-registro-grid-presentacion">
-                            <div class="producto-campo-catalogo">
+                            <div class="producto-campo-catalogo" data-producto-selector-registro>
                                 <div class="producto-field-label-row">
                                     <label class="producto-field-label" for="form_presentacion_catalogo">
-                                        Presentación del producto
+                                        Presentación asociada al registro
                                     </label>
-                                    <button type="button" class="producto-field-link"
-                                        onclick="prepararNuevaPresentacionProducto()">
-                                        Crear presentación
-                                    </button>
+
                                 </div>
 
                                 {{-- CATÁLOGO DE PRESENTACIONES
                                     $presentacionesCatalogo llega desde el controlador.
                                 Los atributos data-* permiten autocompletar los campos sin otra consulta al servidor. --}}
                                 <select class="producto-select" id="form_presentacion_catalogo">
-                                    <option value="">Seleccione una presentación registrada o cree otra</option>
+                                    <option value="">Seleccione la presentación a la que pertenece el registro</option>
                                     @foreach ($presentacionesCatalogo as $presentacionCatalogo)
                                         @php
                                             $productoCatalogo = $presentacionCatalogo->producto;
@@ -376,26 +373,17 @@
             <section class="producto-rp-card producto-rp-listado" aria-labelledby="tituloListadoPresentaciones">
                 <div class="producto-rp-listado-head">
                     <div>
-                        <h3 id="tituloListadoPresentaciones">Presentaciones y registros agregados</h3>
+                        <h3 id="tituloListadoPresentaciones">Presentaciones agregadas</h3>
                         <p><span id="contadorRegistrosPresentacionesProducto">{{ count($registrosOld) }}</span>
-                            registro(s) en esta solicitud.</p>
+                            presentación(es) asociada(s) al registro.</p>
                     </div>
 
-                    {{-- Herramientas visuales: solo filtran las filas mostradas.
-                                No cambian ni eliminan datos que se enviarán al controlador. --}}
+                    {{-- El buscador filtra las filas visibles sin modificar los datos del formulario. --}}
                     <div class="producto-rp-listado-tools">
-                        <label class="producto-table-filter">
-                            <i class="fa-solid fa-filter"></i>
-                            <select id="filtrarEstadoRegistrosPresentacionesProducto" aria-label="Filtrar por estado">
-                                <option value="">Todos los estados</option>
-                                <option value="ACTIVO">Activos</option>
-                                <option value="INACTIVO">Inactivos</option>
-                            </select>
-                        </label>
                         <label class="producto-table-search">
                             <i class="fa-solid fa-magnifying-glass"></i>
                             <input id="buscarRegistrosPresentacionesProducto" type="search"
-                                placeholder="Buscar registro..." aria-label="Buscar en registros agregados">
+                                placeholder="Buscar presentación..." aria-label="Buscar en presentaciones agregadas">
                         </label>
                     </div>
                 </div>
@@ -412,14 +400,10 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Código</th>
-                                <th>Lote</th>
-                                <th>Vigencia</th>
-                                <th>Cantidad</th>
-                                <th>Unidad</th>
-                                <th>Presentación</th>
+                                <th>Producto asociado</th>
+                                <th>Nombre de la presentación</th>
+                                <th>Tipo de envase</th>
                                 <th>Etiqueta</th>
-                                <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -444,6 +428,7 @@
                                         $registroOld['presentacion_texto'] ??
                                             'Presentación #' . ((int) $indicePresentacion + 1);
                                     $presentacionDescripcion = $presentacionOld['descripcion'] ?? '';
+                                    $tipoEnvaseOld = $presentacionOld['tipo_envase'] ?? '';
                                     $presentacionTexto = trim(
                                         $presentacionValor .
                                             ($presentacionDescripcion ? ' - ' . $presentacionDescripcion : ''),
@@ -462,17 +447,19 @@
                                     // Estado recuperado; ACTIVO se usa como valor por defecto.
                                     $estadoRegistroOld = $registroOld['estado'] ?? 'ACTIVO';
                                 @endphp
-                                <tr data-tipo-fila="registro" data-presentacion-indice="{{ $indicePresentacion }}"
-                                    data-estado-registro="{{ $estadoRegistroOld }}">
+                                <tr data-tipo-fila="registro" data-presentacion-indice="{{ $indicePresentacion }}">
                                     <td data-label="Registro">{{ $loop->iteration }}</td>
-                                    <td data-label="Código">
-                                        <strong>{{ $registroOld['codigo_autorizacion'] ?? 'Sin código' }}</strong>
+                                    <td data-label="Producto asociado">
+                                        <div class="producto-table-producto">
+                                            <strong class="presentacion-producto-nombre">
+                                                {{ $valorProducto('form_nombre_comercial') ?: 'Sin nombre comercial' }}
+                                            </strong>
+                                            <small class="presentacion-producto-codigo">
+                                                {{ $valorProducto('form_codigo') ?: 'Sin código' }}
+                                            </small>
+                                        </div>
                                     </td>
-                                    <td data-label="Lote">{{ $registroOld['numero_lote'] ?? 'Sin lote' }}</td>
-                                    <td data-label="Vigencia">{{ $registroOld['fecha_vigencia'] ?? 'Sin fecha' }}</td>
-                                    <td data-label="Cantidad">{{ $registroOld['cantidad'] ?? '-' }}</td>
-                                    <td data-label="Unidad">{{ $textoUnidadRegistro }}</td>
-                                    <td data-label="Presentación">
+                                    <td data-label="Nombre de la presentación">
                                         <div class="producto-table-presentacion">
                                             <strong>{{ $presentacionValor }}</strong>
                                             @if ($presentacionDescripcion)
@@ -490,11 +477,17 @@
                                             name="presentaciones[{{ $indicePresentacion }}][descripcion]"
                                             value="{{ $presentacionOld['descripcion'] ?? '' }}">
                                         <input type="hidden"
+                                            name="presentaciones[{{ $indicePresentacion }}][tipo_envase]"
+                                            value="{{ $tipoEnvaseOld }}">
+                                        <input type="hidden"
                                             name="presentaciones[{{ $indicePresentacion }}][estado]"
                                             value="{{ $presentacionOld['estado'] ?? 'ACTIVO' }}">
                                         <input type="hidden"
                                             name="presentaciones[{{ $indicePresentacion }}][id_presentacion_origen]"
                                             value="{{ $presentacionOld['id_presentacion_origen'] ?? '' }}">
+                                    </td>
+                                    <td data-label="Tipo de envase">
+                                        {{ $tipoEnvaseOld ?: 'Sin especificar' }}
                                     </td>
                                     <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
                                         <input class="producto-upload-input"
@@ -510,17 +503,12 @@
                                             onclick="abrirModalEtiquetaOldProducto('form_presentacion_etiqueta_old_{{ $indicePresentacion }}')"
                                             @disabled(!$etiquetaOldUrl)>
                                             <img src="{{ $etiquetaOldUrl }}" alt="Etiqueta de la presentación"
-                                                data-etiqueta-old-imagen @hidden(!$etiquetaOldUrl)>
-                                            <span data-etiqueta-old-placeholder @hidden($etiquetaOldUrl)>Sin imagen</span>
+                                                data-etiqueta-old-imagen @if (!$etiquetaOldUrl) hidden @endif>
+                                            <span data-etiqueta-old-placeholder
+                                                @if ($etiquetaOldUrl) hidden @endif>Sin imagen</span>
                                         </button>
                                         <span class="producto-table-file-name">
                                             {{ $etiquetaOldUrl ? 'Imagen registrada' : 'Seleccione una imagen' }}
-                                        </span>
-                                    </td>
-                                    <td data-label="Estado">
-                                        <span
-                                            class="producto-table-status {{ $estadoRegistroOld === 'ACTIVO' ? '' : 'is-inactive' }}">
-                                            {{ $estadoRegistroOld }}
                                         </span>
                                     </td>
                                     <td data-label="Acciones">
@@ -572,7 +560,7 @@
                                 </tr>
                             @empty
                                 <tr id="sinRegistrosPresentacionesProducto">
-                                    <td colspan="10">
+                                    <td colspan="6">
                                         <div class="producto-empty">
                                             Todavía no agregó presentaciones y registros.
                                         </div>

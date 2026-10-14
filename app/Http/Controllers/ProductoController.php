@@ -975,10 +975,8 @@ class ProductoController extends Controller
                 'registros.*.codigo_autorizacion' => ['nullable', 'string', 'max:255'],
                 'registros.*.numero_lote' => ['nullable', 'string', 'max:150'],
                 'registros.*.fecha_vigencia' => ['nullable', 'date'],
-                //'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
-                'registros.*.cantidad' => ['required_with:registros', 'integer', 'min:1',],
-                //'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
-                'registros.*.id_catalogo_unidad' => ['required_with:registros', 'string', 'max:50',],                
+                'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
+                'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
                 'registros.*.id_presentacion_temporal' => ['required_with:registros', 'integer'],
                 'registros.*.presentacion_texto' => ['nullable', 'string', 'max:255'],
                 'registros.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
@@ -1241,7 +1239,6 @@ class ProductoController extends Controller
     private function validarPresentaciones($validador, Request $request): void
     {
         foreach ($request->input('presentaciones', []) as $indice => $presentacionDato) {
-            $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
             $idPresentacionOrigen = $presentacionDato['id_presentacion_origen'] ?? null;
             $idUnidad = $presentacionDato['id_catalogo_unidad'] ?? null;
 
@@ -1260,14 +1257,6 @@ class ProductoController extends Controller
                     "presentaciones.$indice.id_catalogo_unidad",
                     'La abreviatura de la unidad ya está registrada.'
                 );
-            }
-
-            if (!$archivoEtiqueta && !$idPresentacionOrigen) {
-                $validador->errors()->add(
-                    "presentaciones.$indice.url_etiqueta",
-                    'Seleccione una imagen de la etiqueta o una presentacion registrada con imagen.'
-                );
-                continue;
             }
 
             if ($idPresentacionOrigen && !$this->presentacionPerteneceAlProductoSolicitado((int) $idPresentacionOrigen, $request)) {

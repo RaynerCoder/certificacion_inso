@@ -1652,7 +1652,11 @@
         }
 
         document.getElementById('form_presentacion_descripcion').value = opcion.dataset.descripcion || '';
-        document.getElementById('form_presentacion_estado').value = opcion.dataset.estado || 'ACTIVO';
+
+        const estadoPresentacion = document.getElementById('form_presentacion_estado');
+        if (estadoPresentacion) {
+            estadoPresentacion.value = opcion.dataset.estado || 'ACTIVO';
+        }
 
         productoEtiquetaOrigenActual = opcion.dataset.etiquetaUrl ? {
             id: esTemporal ? opcion.dataset.temporalIndice : opcion.value,
@@ -1733,7 +1737,11 @@
         establecerUnidadProducto('form_presentacion_unidad');
 
         document.getElementById('form_presentacion_descripcion').value = '';
-        document.getElementById('form_presentacion_estado').value = 'ACTIVO';
+
+        const estadoPresentacion = document.getElementById('form_presentacion_estado');
+        if (estadoPresentacion) {
+            estadoPresentacion.value = 'ACTIVO';
+        }
         limpiarEtiquetaPresentacionProducto();
         document.getElementById('form_presentacion_cantidad')?.focus();
     }
@@ -1960,11 +1968,18 @@
     }
 
     // ABRE LA ETIQUETA DE UNA PRESENTACIÓN EN EL VISOR
-    // indice identifica la presentación; null utiliza la etiqueta que se está cargando actualmente.
-    function abrirModalEtiquetaProducto(indice = null) {
+    // La fila es la fuente principal; el mapa temporal queda como respaldo.
+    function abrirModalEtiquetaProducto(indice = null, elemento = null) {
+        const fila = elemento?.closest('tr');
+        const imagenFila = fila?.querySelector('.producto-table-image-preview img');
         const datosFila = indice !== null ? productoEtiquetaUrls[indice] : null;
-        const url = datosFila?.url || productoEtiquetaPreviewUrl || productoEtiquetaOrigenActual?.url;
-        const nombre = datosFila?.nombre ||
+        const url = fila?.dataset.etiquetaUrl ||
+            imagenFila?.getAttribute('src') ||
+            datosFila?.url ||
+            productoEtiquetaPreviewUrl ||
+            productoEtiquetaOrigenActual?.url;
+        const nombre = fila?.dataset.etiquetaNombre ||
+            datosFila?.nombre ||
             productoEtiquetaOrigenActual?.nombre ||
             document.getElementById('presentacionEtiquetaNombre')?.textContent ||
             'Imagen de etiqueta';
@@ -2305,23 +2320,7 @@
             'Seleccione la unidad de la presentación.'
         );
 
-        const cantidadRegistroValida = validarNumeroProducto(
-            'form_registro_cantidad',
-            'Ingrese la cantidad total del registro.',
-            1
-        );
-
-        const unidadRegistroValida = validarRequeridoProducto(
-            'form_registro_unidad',
-            'Seleccione la unidad total del registro.'
-        );
-
-        if (
-            !cantidadPresentacionValida ||
-            !unidadPresentacionValida ||
-            !cantidadRegistroValida ||
-            !unidadRegistroValida
-        ) {
+        if (!cantidadPresentacionValida || !unidadPresentacionValida) {
             return false;
         }
 
@@ -2442,50 +2441,33 @@
     function crearFilaRegistroProducto(datos) {
         const fila = document.createElement('tr');
         const tieneEtiqueta = Boolean(datos.etiquetaUrl);
-        const claseEstado =
-            datos.registro.estado === 'ACTIVO' ? '' : 'is-inactive';
+        const nombreProducto = document.getElementById('form_nombre_comercial')?.value ||
+            'Sin nombre comercial';
+        const codigoProducto = document.getElementById('form_codigo')?.value || 'Sin código';
 
         fila.dataset.tipoFila = 'registro';
         fila.dataset.presentacionIndice = datos.indicePresentacion;
         fila.dataset.presentacionTexto = datos.textoPresentacion;
-        fila.dataset.estadoRegistro = datos.registro.estado;
+        fila.dataset.etiquetaUrl = datos.etiquetaUrl || '';
+        fila.dataset.etiquetaNombre = datos.etiquetaNombre || 'Imagen de etiqueta';
 
         fila.innerHTML = `
         <td data-label="Registro">${datos.indiceRegistro + 1}</td>
-
-        <td data-label="Código">
-            <strong>
-                ${escaparHtmlProducto(datos.registro.codigoAutorizacion || 'Sin código')}
-            </strong>
+        <td data-label="Producto asociado">
+            <div class="producto-table-producto">
+                <strong class="presentacion-producto-nombre">
+                    ${escaparHtmlProducto(nombreProducto)}
+                </strong>
+                <small class="presentacion-producto-codigo">
+                    ${escaparHtmlProducto(codigoProducto)}
+                </small>
+            </div>
         </td>
-
-        <td data-label="Lote">
-            ${escaparHtmlProducto(datos.registro.numeroLote || 'Sin lote')}
-        </td>
-
-        <td data-label="Vigencia">
-            ${escaparHtmlProducto(datos.registro.fechaVigencia || 'Sin fecha')}
-        </td>
-
-        <td data-label="Cantidad">
-            ${escaparHtmlProducto(datos.registro.cantidad)}
-        </td>
-
-        <td data-label="Unidad">
-            ${escaparHtmlProducto(datos.textoUnidadRegistro)}
-        </td>
-
-        <td data-label="Presentación">
+        <td data-label="Nombre de la presentación">
             <div class="producto-table-presentacion">
                 <strong>
                     ${escaparHtmlProducto(datos.valorPresentacion)}
                 </strong>
-
-                ${datos.presentacion.tipoEnvase ? `
-                    <small>
-                        ${escaparHtmlProducto(datos.presentacion.tipoEnvase)}
-                    </small>
-                ` : ''}
 
                 ${datos.presentacion.descripcion ? `
                     <small class="producto-table-descripcion">
@@ -2495,10 +2477,14 @@
             </div>
         </td>
 
+        <td data-label="Tipo de envase">
+            ${escaparHtmlProducto(datos.presentacion.tipoEnvase || 'Sin especificar')}
+        </td>
+
         <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
             ${tieneEtiqueta ? `
                 <button type="button" class="producto-table-image-preview"
-                    onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion})">
+                    onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion}, this)">
                     <img src="${escaparHtmlProducto(datos.etiquetaUrl)}"
                         alt="Etiqueta de la presentación">
                 </button>
@@ -2511,18 +2497,12 @@
             `}
         </td>
 
-        <td data-label="Estado">
-            <span class="producto-table-status ${claseEstado}">
-                ${escaparHtmlProducto(datos.registro.estado)}
-            </span>
-        </td>
-
         <td data-label="Acciones">
             <div class="producto-row-actions">
                 ${tieneEtiqueta ? `
                     <button type="button" class="producto-action-icon is-view"
                         title="Ver etiqueta"
-                        onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion})">
+                        onclick="abrirModalEtiquetaProducto(${datos.indicePresentacion}, this)">
                         <i class="fa-solid fa-eye"></i>
                     </button>
                 ` : ''}
@@ -2708,6 +2688,11 @@
         document.getElementById('form_presentacion_cantidad').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][cantidad]"]`);
 
+        establecerUnidadProducto(
+            'form_presentacion_unidad',
+            valorCampo(`input[name="presentaciones[${indicePresentacion}][id_catalogo_unidad]"]`)
+        );
+
         // Recupera el envase que pertenece a esta presentación.
         // Ejemplo: si la fila guardó “Frasco”, el selector vuelve a marcar “Frasco”.
         const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
@@ -2715,14 +2700,25 @@
         const tipoEnvaseGuardado = valorCampo(`input[name="presentaciones[${indicePresentacion}][tipo_envase]"]`);
 
         if (selectorTipoEnvase) {
+            const existeTipoEnvase = Array.from(selectorTipoEnvase.options).some(
+                (opcion) => opcion.value === tipoEnvaseGuardado
+            );
+
+            if (tipoEnvaseGuardado && !existeTipoEnvase) {
+                selectorTipoEnvase.add(new Option(tipoEnvaseGuardado, tipoEnvaseGuardado));
+            }
+
             sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvaseGuardado);
         }
 
         document.getElementById('form_presentacion_descripcion').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][descripcion]"]`);
 
-        document.getElementById('form_presentacion_estado').value = valorCampo(
-            `input[name="presentaciones[${indicePresentacion}][estado]"]`) || 'ACTIVO';
+        const estadoPresentacion = document.getElementById('form_presentacion_estado');
+        if (estadoPresentacion) {
+            estadoPresentacion.value = valorCampo(
+                `input[name="presentaciones[${indicePresentacion}][estado]"]`) || 'ACTIVO';
+        }
 
         document.getElementById('form_presentacion_origen_id').value = valorCampo(
             `input[name="presentaciones[${indicePresentacion}][id_presentacion_origen]"]`);
@@ -2740,26 +2736,69 @@
             valorCampo('input[name$="[id_catalogo_unidad]"][name^="registros"]')
         );
 
-        document.getElementById('form_registro_estado').value = valorCampo(
-            'input[name$="[estado]"][name^="registros"]') || 'ACTIVO';
+        const estadoRegistro = document.getElementById('form_registro_estado');
+        if (estadoRegistro) {
+            estadoRegistro.value = valorCampo(
+                'input[name$="[estado]"][name^="registros"]') || 'ACTIVO';
+        }
 
         productoRegistroEditandoId = valorCampo('input[name$="[id_registro]"][name^="registros"]') || null;
 
-        // Una etiqueta ya guardada puede reutilizarse al editar la fila sin pedir el archivo otra vez.
+        // Conserva la etiqueta mientras la fila se retira para editarla.
         const idPresentacionOrigen = document.getElementById('form_presentacion_origen_id').value;
         const inputEtiquetaRegistrada = fila.querySelector('input[type="file"][data-url-inicial]');
-        const urlEtiquetaRegistrada = inputEtiquetaRegistrada?.dataset.urlInicial || '';
+        const inputEtiquetaTemporal = presentacionOculta?.querySelector('input[type="file"]');
+        const inputEtiquetaConArchivo = inputEtiquetaTemporal?.files?.[0] ?
+            inputEtiquetaTemporal :
+            (inputEtiquetaRegistrada?.files?.[0] ? inputEtiquetaRegistrada : null);
+        const datosEtiquetaTemporal = productoEtiquetaUrls[indicePresentacion] || null;
+        const urlEtiquetaRegistrada = inputEtiquetaRegistrada?.dataset.urlInicial ||
+            fila.dataset.etiquetaUrl ||
+            datosEtiquetaTemporal?.url ||
+            fila.querySelector('.producto-table-image-preview img')?.getAttribute('src') ||
+            '';
+        const nombreEtiquetaRegistrada = fila.dataset.etiquetaNombre ||
+            datosEtiquetaTemporal?.nombre ||
+            'Imagen registrada';
 
-        if (idPresentacionOrigen && urlEtiquetaRegistrada) {
+        if (inputEtiquetaConArchivo) {
+            const idAnterior = inputEtiquetaConArchivo.id;
+            const datosAnteriores = productoEtiquetaOldUrls[idAnterior];
+
+            if (datosAnteriores?.esTemporal && datosAnteriores.url) {
+                URL.revokeObjectURL(datosAnteriores.url);
+            }
+            delete productoEtiquetaOldUrls[idAnterior];
+
+            document.getElementById('form_presentacion_etiqueta')?.remove();
+            inputEtiquetaConArchivo.id = 'form_presentacion_etiqueta';
+            inputEtiquetaConArchivo.removeAttribute('name');
+            inputEtiquetaConArchivo.removeAttribute('onchange');
+            inputEtiquetaConArchivo.classList.remove('hidden');
+            inputEtiquetaConArchivo.addEventListener('change', actualizarVistaPreviaEtiquetaProducto);
+            prepararLimpiezaErrorProducto(inputEtiquetaConArchivo);
+            document.getElementById('presentacionEtiquetaWrapper')?.prepend(inputEtiquetaConArchivo);
+        } else if (urlEtiquetaRegistrada) {
             productoEtiquetaOrigenActual = {
-                id: idPresentacionOrigen,
+                id: idPresentacionOrigen || indicePresentacion,
                 url: urlEtiquetaRegistrada,
-                nombre: 'Imagen registrada',
+                nombre: nombreEtiquetaRegistrada,
             };
         }
 
         quitarFilaProducto(boton);
-        if (!productoEtiquetaOrigenActual) {
+
+        if (inputEtiquetaConArchivo) {
+            productoEtiquetaOrigenActual = null;
+            productoEtiquetaPreviewUrl = null;
+            actualizarVistaPreviaEtiquetaProducto();
+        } else if (productoEtiquetaOrigenActual) {
+            actualizarControlEtiquetaActual(
+                productoEtiquetaOrigenActual.nombre,
+                true,
+                productoEtiquetaOrigenActual.url
+            );
+        } else {
             reiniciarControlEtiquetaActual();
         }
 
@@ -2804,11 +2843,10 @@
     }
 
     // FILTRA VISUALMENTE PRESENTACIONES Y REGISTROS
-    // aplica el texto de búsqueda y el estado seleccionado sin eliminar datos del formulario.
+    // aplica el texto de búsqueda sin eliminar datos del formulario.
     function filtrarRegistrosPresentacionesProducto() {
         const tabla = document.getElementById('tablaRegistrosPresentacionesProducto');
         const buscador = document.getElementById('buscarRegistrosPresentacionesProducto');
-        const filtroEstado = document.getElementById('filtrarEstadoRegistrosPresentacionesProducto');
         const contador = document.getElementById('contadorRegistrosPresentacionesProducto');
 
         if (!tabla) {
@@ -2816,18 +2854,15 @@
         }
 
         const textoBuscado = normalizarTextoProducto(buscador?.value || '');
-        const estadoBuscado = filtroEstado?.value || '';
         const filas = Array.from(tabla.querySelectorAll('tr:not(#sinRegistrosPresentacionesProducto)'));
         let filasVisibles = 0;
 
         filas.forEach((fila) => {
             const coincideTexto = !textoBuscado || normalizarTextoProducto(fila.textContent).includes(
                 textoBuscado);
-            const coincideEstado = !estadoBuscado || fila.dataset.estadoRegistro === estadoBuscado;
-            const visible = coincideTexto && coincideEstado;
 
-            fila.hidden = !visible;
-            filasVisibles += visible ? 1 : 0;
+            fila.hidden = !coincideTexto;
+            filasVisibles += coincideTexto ? 1 : 0;
         });
 
         if (contador) {
@@ -2844,12 +2879,12 @@
             return;
         }
 
-        const columnas = 10;
+        const columnas = 6;
         cuerpoTabla.innerHTML = `
                 <tr id="sinRegistrosPresentacionesProducto">
                     <td colspan="${columnas}">
                         <div class="producto-empty">
-                            Todavía no agregó presentaciones y registros.
+                            Todavía no agregó presentaciones.
                         </div>
                     </td>
                 </tr>
@@ -4047,6 +4082,13 @@
 
         inicializarBuscadoresProducto();
 
+        const selectorPresentacionRegistro = document.querySelector('[data-producto-selector-registro]');
+        const camposRegistro = document.querySelector('.producto-registro-grid-autorizacion');
+
+        if (selectorPresentacionRegistro && camposRegistro) {
+            camposRegistro.prepend(selectorPresentacionRegistro);
+        }
+
         document.getElementById('form_ingrediente_select')?.addEventListener('change',
             actualizarDetalleIngredienteProducto);
         actualizarDetalleIngredienteProducto();
@@ -4059,10 +4101,6 @@
 
         document.getElementById('buscarRegistrosPresentacionesProducto')?.addEventListener(
             'input',
-            filtrarRegistrosPresentacionesProducto
-        );
-        document.getElementById('filtrarEstadoRegistrosPresentacionesProducto')?.addEventListener(
-            'change',
             filtrarRegistrosPresentacionesProducto
         );
         filtrarRegistrosPresentacionesProducto();
