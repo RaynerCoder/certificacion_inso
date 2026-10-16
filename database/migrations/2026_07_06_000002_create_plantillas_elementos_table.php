@@ -46,6 +46,10 @@ return new class extends Migration
             $table->string('color_texto', 20)->default('#0f172a');
             $table->string('tipo_letra', 100)->default('Arial');
             $table->unsignedInteger('z_index')->default(3);
+
+            // Propiedades visuales adicionales que dependen del tipo de elemento.
+            $table->json('configuracion')->nullable();
+
             $table->unsignedInteger('orden')->default(1);
             $table->string('estado', 50)->default('ACTIVO');
 

@@ -139,7 +139,7 @@
                                 data-telefonos='@json($persona->telefonos)'
                                 data-rubros='@json($persona->rubros)'>
 
-                                {{ $persona->natural?->ci ?? 'Sin CI' }} -
+                                {{ $persona->natural?->ci ?? '-' }} -
                                 {{ $persona->natural?->nombres ?? '' }}
                                 {{ $persona->natural?->apellido_paterno ?? '' }}
                                 {{ $persona->natural?->apellido_materno ?? '' }}
@@ -404,7 +404,7 @@
                             <div class="responsable-modal-pdf-info">
                                 <i class="fa-solid fa-file-pdf"></i>
                                 <div>
-                                    <strong id="responsableModalPdfNombre">Sin PDF seleccionado</strong>
+                                    <strong id="responsableModalPdfNombre">-</strong>
                                     <span id="responsableModalPdfEstado">Seleccione un respaldo PDF si corresponde.</span>
                                 </div>
                             </div>

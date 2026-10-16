@@ -521,6 +521,8 @@ class CertificadoController extends Controller
             && $this->usuarioPuedeDescargarCertificado($certificado);
         $resumenEvaluacionCalificaciones = $certificado->resumenEvaluacionCalificaciones();
 
+        $requiereProductoTramite = $certificado->requiereEvidencia('PRODUCTO');
+
         // Registros ya existentes del mismo beneficiario que aún no pertenecen a otro trámite.
         // Permite reutilizar una ficha/lote válida sin volver a crear producto, presentación o registro.
         $puedeGestionarProductosTramite = $requiereProductoTramite

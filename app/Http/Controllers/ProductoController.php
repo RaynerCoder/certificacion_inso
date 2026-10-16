@@ -913,6 +913,8 @@ class ProductoController extends Controller
     // Valida la información enviada antes de iniciar la transacción.
     private function validarProducto(Request $request, ?Producto $producto = null): array
     {
+        $this->normalizarCantidadesPresentaciones($request);
+
         $validador = Validator::make(
             $request->all(),
             [
@@ -963,7 +965,7 @@ class ProductoController extends Controller
                 'ingredientes_productos.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
 
                 'presentaciones' => ['nullable', 'array'],
-                'presentaciones.*.cantidad' => ['required_with:presentaciones', 'integer', 'min:1'],
+                'presentaciones.*.cantidad' => ['required_with:presentaciones', 'numeric', 'decimal:0,5', 'gt:0'],
                 'presentaciones.*.id_catalogo_unidad' => ['required_with:presentaciones', 'string', 'max:50'],
                 'presentaciones.*.descripcion' => ['nullable', 'string'],
                 'presentaciones.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
@@ -977,7 +979,7 @@ class ProductoController extends Controller
                 'registros.*.codigo_autorizacion' => ['nullable', 'string', 'max:255'],
                 'registros.*.numero_lote' => ['nullable', 'string', 'max:150'],
                 'registros.*.fecha_vigencia' => ['nullable', 'date'],
-                'registros.*.cantidad' => ['nullable', 'integer', 'min:1'],
+                'registros.*.cantidad' => ['nullable', 'numeric', 'decimal:0,5', 'gt:0'],
                 'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
                 'registros.*.id_presentacion_temporal' => ['required_with:registros', 'integer'],
                 'registros.*.presentacion_texto' => ['nullable', 'string', 'max:255'],
@@ -997,6 +999,12 @@ class ProductoController extends Controller
                 'max' => 'El dato ingresado supera el limite permitido.',
                 'min' => 'El valor ingresado es menor al permitido.',
                 'form_tipo_producto.in' => 'Seleccione un tipo de producto valido.',
+                'presentaciones.*.cantidad.numeric' => 'La cantidad debe ser un número válido.',
+                'presentaciones.*.cantidad.decimal' => 'La cantidad puede tener hasta 5 decimales.',
+                'presentaciones.*.cantidad.gt' => 'La cantidad debe ser mayor que cero.',
+                'registros.*.cantidad.numeric' => 'La cantidad registrada debe ser un número válido.',
+                'registros.*.cantidad.decimal' => 'La cantidad registrada puede tener hasta 5 decimales.',
+                'registros.*.cantidad.gt' => 'La cantidad registrada debe ser mayor que cero.',
             ],
             [
                 'form_codigo' => 'codigo',
@@ -1014,6 +1022,7 @@ class ProductoController extends Controller
                 'presentaciones.*.url_etiqueta' => 'imagen de la etiqueta',
                 'registros.*.codigo_autorizacion' => 'codigo de autorizacion',
                 'registros.*.numero_lote' => 'número de lote',
+                'registros.*.cantidad' => 'cantidad registrada',
                 'registros.*.id_catalogo_unidad' => 'unidad del registro',
                 'registros.*.id_presentacion_temporal' => 'presentacion del registro',
                 'form_id_certificado' => 'tramite',
@@ -1044,6 +1053,48 @@ class ProductoController extends Controller
         }
 
         return $datos;
+    }
+
+    /**
+     * Acepta coma o punto como separador decimal en presentaciones y registros.
+     */
+    private function normalizarCantidadesPresentaciones(Request $request): void
+    {
+        $presentaciones = $request->input('presentaciones');
+
+        if (is_array($presentaciones)) {
+            foreach ($presentaciones as $indice => $presentacion) {
+                if (!is_array($presentacion) || !array_key_exists('cantidad', $presentacion)) {
+                    continue;
+                }
+
+                $cantidad = trim((string) $presentacion['cantidad']);
+                $presentaciones[$indice]['cantidad'] = $cantidad === ''
+                    ? null
+                    : str_replace(',', '.', $cantidad);
+            }
+
+            $request->merge(['presentaciones' => $presentaciones]);
+        }
+
+        $registros = $request->input('registros');
+
+        if (!is_array($registros)) {
+            return;
+        }
+
+        foreach ($registros as $indice => $registro) {
+            if (!is_array($registro) || !array_key_exists('cantidad', $registro)) {
+                continue;
+            }
+
+            $cantidad = trim((string) $registro['cantidad']);
+            $registros[$indice]['cantidad'] = $cantidad === ''
+                ? null
+                : str_replace(',', '.', $cantidad);
+        }
+
+        $request->merge(['registros' => $registros]);
     }
 
     /**

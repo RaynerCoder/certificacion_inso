@@ -61,6 +61,52 @@ class ProductoCrudEstructuraTest extends TestCase
         $this->assertTrue($validador->passes());
     }
 
+    public function test_las_cantidades_de_presentacion_y_registro_aceptan_coma_decimal(): void
+    {
+        $request = Request::create('/productos', 'POST', [
+            'presentaciones' => [[
+                'cantidad' => '0,1',
+            ]],
+            'registros' => [[
+                'cantidad' => '12,75',
+            ]],
+        ]);
+        $metodo = new ReflectionMethod(ProductoController::class, 'normalizarCantidadesPresentaciones');
+
+        $metodo->invoke(app(ProductoController::class), $request);
+
+        $cantidad = $request->input('presentaciones.0.cantidad');
+        $cantidadRegistro = $request->input('registros.0.cantidad');
+        $validador = Validator::make(
+            [
+                'cantidad' => $cantidad,
+                'cantidad_registro' => $cantidadRegistro,
+            ],
+            [
+                'cantidad' => ['required', 'numeric', 'decimal:0,5', 'gt:0'],
+                'cantidad_registro' => ['required', 'numeric', 'decimal:0,5', 'gt:0'],
+            ]
+        );
+
+        $this->assertSame('0.1', $cantidad);
+        $this->assertSame('12.75', $cantidadRegistro);
+        $this->assertTrue($validador->passes());
+    }
+
+    public function test_la_cantidad_vacia_del_registro_se_normaliza_como_nula(): void
+    {
+        $request = Request::create('/productos', 'POST', [
+            'registros' => [[
+                'cantidad' => '',
+            ]],
+        ]);
+        $metodo = new ReflectionMethod(ProductoController::class, 'normalizarCantidadesPresentaciones');
+
+        $metodo->invoke(app(ProductoController::class), $request);
+
+        $this->assertNull($request->input('registros.0.cantidad'));
+    }
+
     public function test_un_ingrediente_temporal_con_nombre_es_valido(): void
     {
         // Esta tabla mínima permite probar la misma comparación que se usa al guardar el producto.

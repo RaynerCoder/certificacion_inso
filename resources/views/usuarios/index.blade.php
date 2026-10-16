@@ -51,6 +51,8 @@
             max-width: 100%;
         }
 
+        .usuarios-tabla-responsive th:nth-child(4),
+        .usuarios-tabla-responsive td:nth-child(4),
         .usuarios-tabla-responsive th:nth-child(5),
         .usuarios-tabla-responsive td:nth-child(5),
         .usuarios-tabla-responsive th:nth-child(6),
@@ -59,15 +61,15 @@
             min-width: 185px;
         }
 
+        .usuarios-tabla-responsive td:nth-child(4) .seg-chip-list,
         .usuarios-tabla-responsive td:nth-child(5) .seg-chip-list,
-        .usuarios-tabla-responsive td:nth-child(6) .seg-chip-list,
-        .usuarios-tabla-responsive td:nth-child(7) .seg-chip-list {
+        .usuarios-tabla-responsive td:nth-child(6) .seg-chip-list {
             gap: 4px;
         }
 
+        .usuarios-tabla-responsive td:nth-child(4) .seg-chip,
         .usuarios-tabla-responsive td:nth-child(5) .seg-chip,
-        .usuarios-tabla-responsive td:nth-child(6) .seg-chip,
-        .usuarios-tabla-responsive td:nth-child(7) .seg-chip {
+        .usuarios-tabla-responsive td:nth-child(6) .seg-chip {
             max-width: 100%;
             padding: 4px 8px;
             font-size: 10.5px;
@@ -78,9 +80,9 @@
             text-overflow: ellipsis;
         }
 
+        .usuarios-tabla-responsive td:nth-child(4) .seg-table-empty,
         .usuarios-tabla-responsive td:nth-child(5) .seg-table-empty,
-        .usuarios-tabla-responsive td:nth-child(6) .seg-table-empty,
-        .usuarios-tabla-responsive td:nth-child(7) .seg-table-empty {
+        .usuarios-tabla-responsive td:nth-child(6) .seg-table-empty {
             padding: 4px 8px;
             font-size: 10.5px;
             line-height: 1.15;

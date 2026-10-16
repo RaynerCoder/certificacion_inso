@@ -18,25 +18,25 @@
         ])));
 
         $nombrePrincipal = $esEmpresa
-            ? ($empresa?->razon_social ?: 'Empresa sin razon social')
-            : ($nombreNatural ?: 'Persona sin nombre registrado');
+            ? ($empresa?->razon_social ?: '-')
+            : ($nombreNatural ?: '-');
 
         $tipoRegistro = $esEmpresa ? 'Empresa' : 'Persona natural';
         $documentoEtiqueta = $esEmpresa ? 'NIT' : 'CI';
         $documentoPrincipal = $esEmpresa
-            ? ($persona->nit ?: 'Sin NIT')
-            : ($natural?->ci ?: ($persona->nit ?: 'Sin CI'));
+            ? ($persona->nit ?: '-')
+            : ($natural?->ci ?: ($persona->nit ?: '-'));
 
         // El genero se guarda como valor numerico: 1 = masculino, 0 = femenino.
         $generoNaturalTexto = match ((string) ($natural?->genero ?? '')) {
             '1' => 'Masculino',
             '0' => 'Femenino',
-            default => $natural?->genero ? (string) $natural->genero : 'Sin genero',
+            default => $natural?->genero ? (string) $natural->genero : '-',
         };
 
-        $telefonoPrincipal = $persona->telefonos->first()?->numero ?: 'Sin telefono';
+        $telefonoPrincipal = $persona->telefonos->first()?->numero ?: '-';
         $usuarioAcceso = $persona->usuarioAcceso();
-        $rolesCuenta = $usuarioAcceso?->roles?->pluck('name')->filter()->join(', ') ?: 'Sin rol asignado';
+        $rolesCuenta = $usuarioAcceso?->roles?->pluck('name')->filter()->join(', ') ?: '-';
         $estadoCuenta = $usuarioAcceso ? ($usuarioAcceso->estado ? 'ACTIVO' : 'INACTIVO') : 'SIN CUENTA';
 
         // Agrupa certificados por id para no duplicar un tramite si la persona figura en dos roles.
@@ -123,7 +123,7 @@
         // Helper para fechas nulas o parseables.
         $fechaCorta = function ($fecha) {
             if (! $fecha) {
-                return 'Sin fecha';
+                return '-';
             }
 
             return $fecha instanceof \Carbon\CarbonInterface
@@ -692,7 +692,7 @@
                     </div>
 
                     <div>
-                        <span class="{{ $claseEstado($persona->estado) }}">{{ $persona->estado ?? 'Sin estado' }}</span>
+                        <span class="{{ $claseEstado($persona->estado) }}">{{ $persona->estado ?? '-' }}</span>
                     </div>
                 </section>
 
@@ -707,27 +707,27 @@
                         <div class="persona-o3-fields">
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Razon social</span>
-                                <span class="persona-o3-value">{{ $empresa?->razon_social ?: 'Sin razon social' }}</span>
+                                <span class="persona-o3-value">{{ $empresa?->razon_social ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Matricula</span>
-                                <span class="persona-o3-value">{{ $empresa?->matricula ?: 'Sin matricula' }}</span>
+                                <span class="persona-o3-value">{{ $empresa?->matricula ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Tipo de empresa</span>
-                                <span class="persona-o3-value">{{ $empresa?->tipoEmpresa?->descripcion ?? 'Sin tipo de empresa' }}</span>
+                                <span class="persona-o3-value">{{ $empresa?->tipoEmpresa?->descripcion ?? '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Latitud</span>
-                                <span class="persona-o3-value">{{ $empresa?->latitud ?: 'Sin latitud' }}</span>
+                                <span class="persona-o3-value">{{ $empresa?->latitud ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Longitud</span>
-                                <span class="persona-o3-value">{{ $empresa?->longitud ?: 'Sin longitud' }}</span>
+                                <span class="persona-o3-value">{{ $empresa?->longitud ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Estado empresa</span>
-                                <span class="persona-o3-value"><span class="{{ $claseEstado($empresa?->estado) }}">{{ $empresa?->estado ?? 'Sin estado' }}</span></span>
+                                <span class="persona-o3-value"><span class="{{ $claseEstado($empresa?->estado) }}">{{ $empresa?->estado ?? '-' }}</span></span>
                             </div>
                         </div>
                     </section>
@@ -742,31 +742,31 @@
                         <div class="persona-o3-fields">
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Nombres</span>
-                                <span class="persona-o3-value">{{ $natural?->nombres ?: 'Sin nombres' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->nombres ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Apellido paterno</span>
-                                <span class="persona-o3-value">{{ $natural?->apellido_paterno ?: 'Sin apellido paterno' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->apellido_paterno ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Apellido materno</span>
-                                <span class="persona-o3-value">{{ $natural?->apellido_materno ?: 'Sin apellido materno' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->apellido_materno ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Apellido casado</span>
-                                <span class="persona-o3-value">{{ $natural?->apellido_casado ?: 'Sin apellido casado' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->apellido_casado ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">CI</span>
-                                <span class="persona-o3-value">{{ $natural?->ci ?: 'Sin CI' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->ci ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Complemento</span>
-                                <span class="persona-o3-value">{{ $natural?->complemento ?: 'Sin complemento' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->complemento ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Expedido</span>
-                                <span class="persona-o3-value">{{ $natural?->expedido ?: 'Sin expedido' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->expedido ?: '-' }}</span>
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Nacimiento</span>
@@ -778,7 +778,7 @@
                             </div>
                             <div class="persona-o3-field">
                                 <span class="persona-o3-label">Ocupacion</span>
-                                <span class="persona-o3-value">{{ $natural?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación' }}</span>
+                                <span class="persona-o3-value">{{ $natural?->ocupacionCob?->descripcion_ocupacion ?: '-' }}</span>
                             </div>
                         </div>
                     </section>
@@ -794,23 +794,23 @@
                     <div class="persona-o3-fields">
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">NIT</span>
-                            <span class="persona-o3-value">{{ $persona->nit ?: 'Sin NIT' }}</span>
+                            <span class="persona-o3-value">{{ $persona->nit ?: '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Correo</span>
-                            <span class="persona-o3-value">{{ $persona->correo ?: 'Sin correo' }}</span>
+                            <span class="persona-o3-value">{{ $persona->correo ?: '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Territorio</span>
-                            <span class="persona-o3-value">{{ $persona->territorio?->nombre ?? 'Sin territorio' }}</span>
+                            <span class="persona-o3-value">{{ $persona->territorio?->nombre ?? '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Domicilio</span>
-                            <span class="persona-o3-value">{{ $persona->domicilio ?: 'Sin domicilio' }}</span>
+                            <span class="persona-o3-value">{{ $persona->domicilio ?: '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Estado persona</span>
-                            <span class="persona-o3-value"><span class="{{ $claseEstado($persona->estado) }}">{{ $persona->estado ?? 'Sin estado' }}</span></span>
+                            <span class="persona-o3-value"><span class="{{ $claseEstado($persona->estado) }}">{{ $persona->estado ?? '-' }}</span></span>
                         </div>
                     </div>
                 </section>
@@ -825,11 +825,11 @@
                     <div class="persona-o3-account">
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Usuario</span>
-                            <span class="persona-o3-value">{{ $usuarioAcceso?->name ?? 'Sin usuario vinculado' }}</span>
+                            <span class="persona-o3-value">{{ $usuarioAcceso?->name ?? '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Correo de acceso</span>
-                            <span class="persona-o3-value">{{ $usuarioAcceso?->email ?? 'Sin correo de acceso' }}</span>
+                            <span class="persona-o3-value">{{ $usuarioAcceso?->email ?? '-' }}</span>
                         </div>
                         <div class="persona-o3-field">
                             <span class="persona-o3-label">Rol</span>
@@ -862,8 +862,8 @@
                                 @forelse ($persona->telefonos as $telefono)
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
-                                        <td>{{ $telefono->numero ?: 'Sin numero' }}</td>
-                                        <td><span class="{{ $claseEstado($telefono->estado) }}">{{ $telefono->estado ?? 'Sin estado' }}</span></td>
+                                        <td>{{ $telefono->numero ?: '-' }}</td>
+                                        <td><span class="{{ $claseEstado($telefono->estado) }}">{{ $telefono->estado ?? '-' }}</span></td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -892,11 +892,11 @@
                                         $naturalResponsable?->nombres,
                                         $naturalResponsable?->apellido_paterno,
                                         $naturalResponsable?->apellido_materno,
-                                    ]))) ?: 'Sin nombre';
+                                    ]))) ?: '-';
                                     $generoResponsableTexto = match ((string) ($naturalResponsable?->genero ?? '')) {
                                         '1' => 'Masculino',
                                         '0' => 'Femenino',
-                                        default => $naturalResponsable?->genero ? (string) $naturalResponsable->genero : 'Sin genero',
+                                        default => $naturalResponsable?->genero ? (string) $naturalResponsable->genero : '-',
                                     };
                                     $telefonosResponsable = $personaResponsable?->telefonos ?? collect();
                                     $rubrosResponsable = $personaResponsable?->rubros ?? collect();
@@ -911,42 +911,42 @@
                                             <span>
                                                 <span class="persona-o3-responsable-name">{{ $nombreResponsableFila }}</span>
                                                 <span class="persona-o3-responsable-meta">
-                                                    EXISTENTE | ID persona: {{ $personaResponsable?->id ?? 'Sin ID' }}
+                                                    EXISTENTE | ID persona: {{ $personaResponsable?->id ?? '-' }}
                                                 </span>
                                             </span>
                                         </div>
 
                                         <span class="{{ $claseEstado($responsable->estado) }}">
-                                            {{ $responsable->estado ?? 'Sin estado' }}
+                                            {{ $responsable->estado ?? '-' }}
                                         </span>
                                     </header>
 
                                     <div class="persona-o3-responsable-panels">
                                         <div class="persona-o3-responsable-panel">
                                             <h4 class="persona-o3-responsable-panel-title">Identificacion</h4>
-                                            <div class="persona-o3-responsable-data"><span>CI</span><span>{{ $naturalResponsable?->ci ?: 'Sin CI' }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>NIT</span><span>{{ $personaResponsable?->nit ?: 'Sin NIT' }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Complemento</span><span>{{ $naturalResponsable?->complemento ?: 'Sin dato' }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Expedido</span><span>{{ $naturalResponsable?->expedido ?: 'Sin expedido' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>CI</span><span>{{ $naturalResponsable?->ci ?: '-' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>NIT</span><span>{{ $personaResponsable?->nit ?: '-' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Complemento</span><span>{{ $naturalResponsable?->complemento ?: '-' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Expedido</span><span>{{ $naturalResponsable?->expedido ?: '-' }}</span></div>
                                         </div>
 
                                         <div class="persona-o3-responsable-panel">
                                             <h4 class="persona-o3-responsable-panel-title">Contacto</h4>
-                                            <div class="persona-o3-responsable-data"><span>Correo</span><span>{{ $personaResponsable?->correo ?: 'Sin correo' }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Domicilio</span><span>{{ $personaResponsable?->domicilio ?: 'Sin domicilio' }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Territorio</span><span>{{ $personaResponsable?->territorio?->nombre ?? 'Sin territorio' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Correo</span><span>{{ $personaResponsable?->correo ?: '-' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Domicilio</span><span>{{ $personaResponsable?->domicilio ?: '-' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Territorio</span><span>{{ $personaResponsable?->territorio?->nombre ?? '-' }}</span></div>
                                         </div>
 
                                         <div class="persona-o3-responsable-panel">
                                             <h4 class="persona-o3-responsable-panel-title">Datos personales</h4>
                                             <div class="persona-o3-responsable-data"><span>Nacimiento</span><span>{{ $fechaCorta($naturalResponsable?->fecha_nacimiento) }}</span></div>
                                             <div class="persona-o3-responsable-data"><span>Genero</span><span>{{ $generoResponsableTexto }}</span></div>
-                                            <div class="persona-o3-responsable-data"><span>Ocupación</span><span>{{ $naturalResponsable?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Ocupación</span><span>{{ $naturalResponsable?->ocupacionCob?->descripcion_ocupacion ?: '-' }}</span></div>
                                         </div>
 
                                         <div class="persona-o3-responsable-panel">
                                             <h4 class="persona-o3-responsable-panel-title">Rol y respaldo</h4>
-                                            <div class="persona-o3-responsable-data"><span>Rol</span><span>{{ $responsable->rol?->name ?: 'Sin rol' }}</span></div>
+                                            <div class="persona-o3-responsable-data"><span>Rol</span><span>{{ $responsable->rol?->name ?: '-' }}</span></div>
                                             <div class="persona-o3-responsable-data"><span>Registro</span><span>{{ $fechaCorta($responsable->fecha_registro) }}</span></div>
                                             <div class="persona-o3-responsable-data"><span>Baja</span><span>{{ $fechaCorta($responsable->fecha_baja) }}</span></div>
                                             <div class="persona-o3-responsable-data">
@@ -955,7 +955,7 @@
                                                     @if ($respaldoResponsable)
                                                         <a href="{{ $respaldoResponsable }}" target="_blank" class="persona-o3-link">Ver PDF</a>
                                                     @else
-                                                        Sin respaldo
+                                                        -
                                                     @endif
                                                 </span>
                                             </div>
@@ -1022,8 +1022,8 @@
                                     @forelse ($persona->rubros as $rubro)
                                         <tr>
                                             <td>{{ $loop->iteration }}</td>
-                                            <td>{{ $rubro->nombre ?: 'Sin nombre' }}</td>
-                                            <td><span class="{{ $claseEstado($rubro->estado) }}">{{ $rubro->estado ?? 'Sin estado' }}</span></td>
+                                            <td>{{ $rubro->nombre ?: '-' }}</td>
+                                            <td><span class="{{ $claseEstado($rubro->estado) }}">{{ $rubro->estado ?? '-' }}</span></td>
                                         </tr>
                                         @empty
                                         <tr>
@@ -1064,49 +1064,49 @@
                                         $registro = $filaProducto['registro'];
                                         $presentacion = $filaProducto['presentacion'];
                                         $ingredientesTexto = $producto->ingredientes
-                                            ->map(fn ($ingrediente) => ($ingrediente->nombre ?: 'Sin nombre') . ' (' . ($ingrediente->pivot?->porcentaje ?? '0') . '%)')
+                                            ->map(fn ($ingrediente) => ($ingrediente->nombre ?: '-') . ' (' . ($ingrediente->pivot?->porcentaje ?? '-') . '%)')
                                             ->join(', ');
                                         $aduanasTexto = $producto->aduanas
-                                            ->map(fn ($aduana) => ($aduana->codigo_solicitud ?: $aduana->codigo_cotizacion ?: 'Sin codigo') . ($aduana->estado ? ' - ' . $aduana->estado : ''))
+                                            ->map(fn ($aduana) => ($aduana->codigo_solicitud ?: $aduana->codigo_cotizacion ?: '-') . ($aduana->estado ? ' - ' . $aduana->estado : ''))
                                             ->join(' / ');
                                         $etiquetaUrl = $urlDocumento($presentacion?->url_etiqueta);
                                     @endphp
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
                                         <td>
-                                            <span class="persona-o3-strong">{{ $producto->nombre_comercial ?: 'Sin nombre comercial' }}</span>
-                                            <span class="persona-o3-muted">Codigo: {{ $producto->codigo ?: 'Sin codigo' }}</span>
-                                            <span class="persona-o3-muted">Nombre técnico: {{ $producto->nombre_tecnico ?: 'Sin dato' }}</span>
-                                            <span class="persona-o3-muted">Pais: {{ $producto->territorio?->nombre ?? 'Sin pais' }}</span>
+                                            <span class="persona-o3-strong">{{ $producto->nombre_comercial ?: '-' }}</span>
+                                            <span class="persona-o3-muted">Codigo: {{ $producto->codigo ?: '-' }}</span>
+                                            <span class="persona-o3-muted">Nombre técnico: {{ $producto->nombre_tecnico ?: '-' }}</span>
+                                            <span class="persona-o3-muted">Pais: {{ $producto->territorio?->nombre ?? '-' }}</span>
                                         </td>
                                         <td>
-                                            {{ $producto->clasificacionToxicologica?->descripcion ?? 'Sin clasificación toxicológica' }}
-                                            <span class="persona-o3-muted">Fabricante: {{ $producto->fabricante?->nombre ?? 'Sin fabricante' }}</span>
-                                            <span class="persona-o3-muted">Clasificación química: {{ $producto->clasificacionQuimica?->nombre ?: 'Sin clasificación química' }}</span>
+                                            {{ $producto->clasificacionToxicologica?->descripcion ?? '-' }}
+                                            <span class="persona-o3-muted">Fabricante: {{ $producto->fabricante?->nombre ?? '-' }}</span>
+                                            <span class="persona-o3-muted">Clasificación química: {{ $producto->clasificacionQuimica?->nombre ?: '-' }}</span>
                                         </td>
-                                        <td>{{ $ingredientesTexto ?: 'Sin ingredientes' }}</td>
+                                        <td>{{ $ingredientesTexto ?: '-' }}</td>
                                         <td>
                                             @if ($registro)
-                                                <span class="persona-o3-strong">{{ $registro->codigo_autorizacion ?: 'Sin codigo' }}</span>
-                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
+                                                <span class="persona-o3-strong">{{ $registro->codigo_autorizacion ?: '-' }}</span>
+                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '-' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
                                                 <span class="persona-o3-muted">Vigencia: {{ $fechaCorta($registro->fecha_vigencia) }}</span>
                                             @else
-                                                Sin registro
+                                                -
                                             @endif
                                         </td>
                                         <td>
                                             @if ($presentacion)
-                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
-                                                <span class="persona-o3-muted">{{ $presentacion->descripcion ?: 'Sin descripcion' }}</span>
+                                                {{ $presentacion->cantidad ?: '-' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
+                                                <span class="persona-o3-muted">{{ $presentacion->descripcion ?: '-' }}</span>
                                                 @if ($etiquetaUrl)
                                                     <a href="{{ $etiquetaUrl }}" target="_blank" class="persona-o3-link">Ver etiqueta PDF</a>
                                                 @endif
                                             @else
-                                                Sin presentacion
+                                                -
                                             @endif
                                         </td>
-                                        <td>{{ $aduanasTexto ?: 'Sin datos de aduana' }}</td>
-                                        <td><span class="{{ $claseEstado($producto->estado) }}">{{ $producto->estado ?? 'Sin estado' }}</span></td>
+                                        <td>{{ $aduanasTexto ?: '-' }}</td>
+                                        <td><span class="{{ $claseEstado($producto->estado) }}">{{ $producto->estado ?? '-' }}</span></td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -1150,33 +1150,33 @@
                                     @endphp
                                     <tr>
                                         <td class="persona-o3-strong">
-                                            {{ $certificado->codigo ?: 'Sin codigo' }}
+                                            {{ $certificado->codigo ?: '-' }}
                                             <span class="persona-o3-muted">Inicio: {{ $fechaCorta($certificado->fecha_inicio) }}</span>
                                         </td>
-                                        <td>{{ $certificado->tipoCertificado?->nombre ?? 'Sin tipo' }}</td>
+                                        <td>{{ $certificado->tipoCertificado?->nombre ?? '-' }}</td>
                                         <td>{{ $filaTramite['roles'] }}</td>
                                         <td>
-                                            {{ $producto?->nombre_comercial ?? 'Sin producto asociado' }}
+                                            {{ $producto?->nombre_comercial ?? '-' }}
                                             @if ($producto)
-                                                <span class="persona-o3-muted">{{ $producto->codigo ?: 'Sin codigo de producto' }}</span>
+                                                <span class="persona-o3-muted">{{ $producto->codigo ?: '-' }}</span>
                                             @endif
                                         </td>
                                         <td>
-                                            {{ $registro?->codigo_autorizacion ?? 'Sin registro' }}
+                                            {{ $registro?->codigo_autorizacion ?? '-' }}
                                             @if ($registro)
-                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '0' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
+                                                <span class="persona-o3-muted">{{ $registro->cantidad ?: '-' }} {{ $registro->catalogoUnidad?->nombre ?: '' }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if ($presentacion)
-                                                {{ $presentacion->cantidad ?: '0' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
-                                                <span class="persona-o3-muted">{{ $presentacion->descripcion ?: 'Sin descripcion' }}</span>
+                                                {{ $presentacion->cantidad ?: '-' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
+                                                <span class="persona-o3-muted">{{ $presentacion->descripcion ?: '-' }}</span>
                                             @else
-                                                Sin presentacion
+                                                -
                                             @endif
                                         </td>
-                                        <td><span class="{{ $claseEstado($certificado->estado) }}">{{ $certificado->estado ?? 'Sin estado' }}</span></td>
-                                        <td>{{ $certificado->updated_at?->format('d/m/Y H:i') ?? 'Sin fecha' }}</td>
+                                        <td><span class="{{ $claseEstado($certificado->estado) }}">{{ $certificado->estado ?? '-' }}</span></td>
+                                        <td>{{ $certificado->updated_at?->format('d/m/Y H:i') ?? '-' }}</td>
                                         <td>
                                             <a href="{{ route('certificados_show', ['certificado' => $certificado, 'bandeja' => 'todos']) }}"
                                                 class="persona-o3-btn persona-o3-btn-soft">

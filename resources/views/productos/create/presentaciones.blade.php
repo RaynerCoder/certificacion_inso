@@ -52,8 +52,8 @@
                             {{-- CANTIDAD: valor numérico ingresado por el usuario. --}}
                             <div class="producto-campo-cantidad">
                                 <label class="producto-field-label" for="form_registro_cantidad">Cantidad total</label>
-                                <input class="producto-input" id="form_registro_cantidad" type="number" min="0"
-                                    step="1" placeholder="Ej: 120">
+                                <input class="producto-input" id="form_registro_cantidad" type="text"
+                                    inputmode="decimal" placeholder="Ej: 120 o 0,5">
                             </div>
 
                             {{-- UNIDAD DEL REGISTRO
@@ -216,8 +216,8 @@
                             </div>
                             <div class="producto-campo-cantidad">
                                 <label class="producto-field-label" for="form_presentacion_cantidad">Cantidad</label>
-                                <input class="producto-input" id="form_presentacion_cantidad" type="number"
-                                    min="0" step="1" placeholder="Ej: 1">
+                                <input class="producto-input" id="form_presentacion_cantidad" type="text"
+                                    inputmode="decimal" autocomplete="off" placeholder="Ej: 0,1">
                             </div>
 
                             {{-- UNIDAD DE LA PRESENTACIÓN

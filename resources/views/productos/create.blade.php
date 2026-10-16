@@ -741,7 +741,7 @@
         ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
         ['Ingredientes', 'Agregue los ingredientes y sus porcentajes.'],
         ['Presentaciones y registros', 'Agregue los formatos comerciales y relacione sus registros.'],
-        ['Revisión', 'Revise la información antes de guardar el producto.'],
+        ['Revisión', ''],
     ];
 
     const productoColoresPaso = ['is-blue', 'is-teal', 'is-amber', 'is-teal'];
@@ -774,7 +774,9 @@
 
         document.getElementById('productoNumeroPaso').textContent = productoPasoActual + 1;
         document.getElementById('productoTituloPaso').textContent = productoTitulos[productoPasoActual][0];
-        document.getElementById('productoSubtituloPaso').textContent = productoTitulos[productoPasoActual][1];
+        const subtituloPaso = document.getElementById('productoSubtituloPaso');
+        subtituloPaso.textContent = productoTitulos[productoPasoActual][1];
+        subtituloPaso.hidden = !productoTitulos[productoPasoActual][1];
         document.getElementById('productoEtiquetaPaso').textContent =
             `Paso ${productoPasoActual + 1} de ${pasos.length}`;
 
@@ -1242,13 +1244,8 @@
     }
 
     // PREPARA EL TEXTO DE UNA UNIDAD PARA LA REVISIÓN
-    // si la unidad es temporal, indica que será registrada cuando se guarde el producto.
     function textoUnidadRevisionProducto(idUnidad) {
-        const texto = textoUnidadCatalogoProducto(idUnidad);
-
-        return String(idUnidad || '').startsWith('TEMP-') ?
-            `Nueva unidad: ${texto || 'Sin nombre'} (se registrará activa)` :
-            texto;
+        return textoUnidadCatalogoProducto(idUnidad);
     }
 
     // MUESTRA UN MENSAJE AL USUARIO
@@ -1365,15 +1362,20 @@
         return marcarErrorProducto(campo, mensaje);
     }
 
+    // Convierte la coma decimal al formato que utiliza la base de datos.
+    function normalizarNumeroDecimalProducto(valor) {
+        return String(valor ?? '').trim().replace(',', '.');
+    }
+
     // VALIDA UN CAMPO NUMÉRICO
     // permite definir un mínimo y un máximo; null significa que ese límite no se aplica.
     // devuelve true cuando el número cumple las condiciones.
     function validarNumeroProducto(idCampo, mensaje, minimo = null, maximo = null) {
         const campo = document.getElementById(idCampo);
-        // convierte el valor textual del input a número para validar mínimos y máximos.
-        const numero = Number(campo?.value);
+        const valorNormalizado = normalizarNumeroDecimalProducto(campo?.value);
+        const numero = Number(valorNormalizado);
 
-        if (!campo?.value || Number.isNaN(numero)) {
+        if (!valorNormalizado || !/^\d+(?:\.\d+)?$/.test(valorNormalizado) || Number.isNaN(numero)) {
             return marcarErrorProducto(campo, mensaje);
         }
 
@@ -2280,7 +2282,7 @@
         return {
             campos,
             presentacion: {
-                cantidad: campos.cantidadPresentacion.value.trim(),
+                cantidad: normalizarNumeroDecimalProducto(campos.cantidadPresentacion.value),
                 unidadId: campos.unidadPresentacion.value,
                 tipoEnvase: campos.tipoEnvase?.value.trim() || '',
                 descripcion: campos.descripcionPresentacion.value.trim(),
@@ -2292,7 +2294,7 @@
                 codigoAutorizacion: campos.codigoAutorizacion.value.trim(),
                 numeroLote: campos.numeroLote.value.trim(),
                 fechaVigencia: campos.fechaVigencia.value,
-                cantidad: campos.cantidadRegistro.value.trim(),
+                cantidad: normalizarNumeroDecimalProducto(campos.cantidadRegistro.value),
                 unidadId: campos.unidadRegistro.value,
                 estado: campos.estadoRegistro?.value || 'ACTIVO',
                 idRegistro: productoRegistroEditandoId || '',
@@ -2312,7 +2314,7 @@
         const cantidadPresentacionValida = validarNumeroProducto(
             'form_presentacion_cantidad',
             'Ingrese la cantidad de la presentación.',
-            1
+            0.00001
         );
 
         const unidadPresentacionValida = validarRequeridoProducto(
@@ -3227,12 +3229,12 @@
         const select = document.getElementById(idSelect);
 
         if (!select?.value) {
-            return 'No registrado';
+            return '-';
         }
 
         const texto = select?.options[select.selectedIndex]?.text?.trim();
 
-        return texto || 'No registrado';
+        return texto || '-';
     }
 
     // CIERRA EL BUSCADOR DE INGREDIENTES
@@ -3359,9 +3361,9 @@
     }
 
     // PREPARA UN VALOR PARA MOSTRARLO EN LA REVISIÓN
-    // devuelve 'Sin dato' cuando el valor recibido está vacío.
+    // usa un guion cuando el valor recibido está vacío.
     function textoResumenProducto(valor) {
-        return valor && String(valor).trim() !== '' ? valor : 'No registrado';
+        return valor && String(valor).trim() !== '' ? valor : '-';
     }
 
     // CREA UN ELEMENTO DEL RESUMEN FINAL
@@ -3378,34 +3380,9 @@
             `;
     }
 
-    // CREA EL RESUMEN DE UN CATÁLOGO NUEVO
-    // recibe un título y una lista de campos creados desde modal.
-    // solo genera HTML para revisión; el guardado real ocurre en el controlador.
-    function bloqueCatalogoNuevoProducto(titulo, campos) {
-        const filas = (Array.isArray(campos) ? campos : []).map((campo) => `
-                <div>
-                    <dt>${escaparHtmlProducto(campo.etiqueta)}</dt>
-                    <dd>${escaparHtmlProducto(textoResumenProducto(campo.valor)).replaceAll('\n', '<br>')}</dd>
-                </div>
-            `).join('');
-
-        return `
-                <article class="producto-review-new-catalog">
-                    <header>
-                        <div>
-                            <span class="producto-review-new-badge">Nuevo</span>
-                            <h5>${escaparHtmlProducto(titulo)}</h5>
-                        </div>
-                        <p>Se registrará al guardar el producto.</p>
-                    </header>
-                    <dl>${filas}</dl>
-                </article>
-            `;
-    }
-
     // CREA UNA SECCIÓN DEL RESUMEN FINAL
-    // agrupa título, descripción y contenido HTML en un bloque visual.
-    function grupoResumenProducto(titulo, descripcion, contenidoHtml, numero) {
+    // agrupa el título y su contenido en un bloque visual.
+    function grupoResumenProducto(titulo, contenidoHtml, numero) {
         const contenidoSeguro = Array.isArray(contenidoHtml) ? contenidoHtml.join('') : (contenidoHtml || '');
 
         return `
@@ -3413,10 +3390,7 @@
                     <div class="producto-review-section-head">
                         <div class="producto-review-section-heading">
                             <span class="producto-review-section-number">${escaparHtmlProducto(numero)}</span>
-                            <div>
-                                <h4>${escaparHtmlProducto(titulo)}</h4>
-                                <p>${escaparHtmlProducto(descripcion)}</p>
-                            </div>
+                            <h4>${escaparHtmlProducto(titulo)}</h4>
                         </div>
                     </div>
                     <div class="producto-review-list">
@@ -3514,7 +3488,7 @@
         const datos = productoEtiquetaUrls[indice] || datosOld;
         const url = datos?.url || input?.dataset.urlInicial || opcionCatalogo?.dataset.etiquetaUrl || '';
         const nombre = input?.files?.[0]?.name || datos?.nombre || opcionCatalogo?.dataset.etiquetaNombre ||
-            (url ? 'Imagen registrada' : 'Sin imagen');
+            (url ? 'Imagen registrada' : '-');
 
         return {
             url,
@@ -3550,17 +3524,13 @@
         const listaPresentaciones = Object.entries(presentaciones);
 
         if (!listaPresentaciones.length) {
-            return '<div class="producto-review-empty">No se agregaron presentaciones ni registros.</div>';
+            return '<div class="producto-review-empty">-</div>';
         }
 
         return `<div class="producto-review-presentations">
             ${listaPresentaciones.map(([indice, presentacion], posicion) => {
                 const etiqueta = datosEtiquetaResumenProducto(indice, presentacion);
                 const unidadPresentacion = textoUnidadRevisionProducto(presentacion.id_catalogo_unidad);
-                const contenidoPresentacion = [presentacion.cantidad, unidadPresentacion]
-                    .filter((valor) => valor && valor !== 'No registrado')
-                    .join(' ');
-                const nombrePresentacion = contenidoPresentacion || `Presentación ${posicion + 1}`;
                 const registrosAsociados = Object.entries(registros)
                     .filter(([, registro]) => String(registro.id_presentacion_temporal) === String(indice));
                 const vistaEtiqueta = etiqueta.url ? `
@@ -3575,60 +3545,25 @@
                     </button>` : `
                     <div class="producto-review-image is-empty">
                         <i class="fa-regular fa-image"></i>
-                        <span>Sin imagen</span>
+                        <span>-</span>
                     </div>`;
-                const listaRegistros = registrosAsociados.length ? `
-                    <div class="producto-review-register-list">
-                        ${registrosAsociados.map(([, registro], registroPosicion) => {
-                            const registroIncompleto = [
-                                registro.codigo_autorizacion,
-                                registro.numero_lote,
-                                registro.fecha_vigencia,
-                                registro.cantidad,
-                                registro.id_catalogo_unidad,
-                            ].some((valor) => valor === null || valor === undefined || String(valor).trim() === '');
-
-                            return `
-                                <article class="producto-review-register-item">
-                                    <header class="producto-review-register-item-head">
-                                        <div class="producto-review-register-title">
-                                            <span><i class="fa-regular fa-file-lines"></i></span>
-                                            <div>
-                                                <h6>Registro ${registroPosicion + 1}</h6>
-                                                <p>Registro vinculado a esta presentación</p>
-                                            </div>
-                                        </div>
-                                        <span class="producto-review-status ${registro.estado === 'INACTIVO' ? 'is-inactive' : ''}">
-                                            ${escaparHtmlProducto(registro.estado || 'ACTIVO')}
-                                        </span>
-                                    </header>
-
-                                    <dl class="producto-review-register-data">
-                                        <div><dt>Código de autorización</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.codigo_autorizacion))}</dd></div>
-                                        <div><dt>Número de lote</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.numero_lote))}</dd></div>
-                                        <div><dt>Fecha de vigencia</dt><dd>${escaparHtmlProducto(formatearFechaRevisionProducto(registro.fecha_vigencia))}</dd></div>
-                                        <div><dt>Cantidad registrada</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.cantidad))}</dd></div>
-                                        <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(registro.id_catalogo_unidad)))}</dd></div>
-                                        ${registroIncompleto ? `
-                                            <div class="producto-review-register-pending">
-                                                <dt>Información pendiente</dt>
-                                                <dd>Complete los datos del registro</dd>
-                                            </div>` : ''}
-                                    </dl>
-                                </article>`;
-                        }).join('')}
-                    </div>` : '<div class="producto-review-empty">Esta presentación todavía no tiene registros asociados.</div>';
+                const filasRegistros = registrosAsociados.map(([, registro]) => [
+                    registro.codigo_autorizacion,
+                    registro.numero_lote,
+                    formatearFechaRevisionProducto(registro.fecha_vigencia),
+                    registro.cantidad,
+                    textoUnidadRevisionProducto(registro.id_catalogo_unidad),
+                ]);
+                const listaRegistros = tablaResumenProducto(
+                    ['Código de autorización', 'Número de lote', 'Fecha de vigencia', 'Cantidad', 'Unidad'],
+                    filasRegistros,
+                    '-'
+                );
 
                 return `
                     <article class="producto-review-presentation">
                         <header class="producto-review-presentation-head">
-                            <div>
-                                <span class="producto-review-eyebrow">Presentación ${posicion + 1}</span>
-                                <h5>${escaparHtmlProducto(nombrePresentacion)}</h5>
-                            </div>
-                            <span class="producto-review-status ${presentacion.estado === 'INACTIVO' ? 'is-inactive' : ''}">
-                                ${escaparHtmlProducto(presentacion.estado || 'ACTIVO')}
-                            </span>
+                            <h5>Presentación ${posicion + 1}</h5>
                         </header>
 
                         <div class="producto-review-presentation-body">
@@ -3638,17 +3573,17 @@
                             </div>
 
                             <div class="producto-review-presentation-content">
-                                <span class="producto-review-block-label">Datos de la presentación</span>
                                 <dl class="producto-review-presentation-data">
                                     <div><dt>Tipo de envase</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.tipo_envase))}</dd></div>
-                                    <div><dt>Contenido</dt><dd>${escaparHtmlProducto(textoResumenProducto(contenidoPresentacion))}</dd></div>
+                                    <div><dt>Cantidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.cantidad))}</dd></div>
+                                    <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(unidadPresentacion))}</dd></div>
                                     <div><dt>Descripción</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</dd></div>
                                 </dl>
                             </div>
 
                             <div class="producto-review-registers">
                                 <div class="producto-review-registers-head">
-                                    <h6>Registros de esta presentación</h6>
+                                    <h6>Registros</h6>
                                     <span>${registrosAsociados.length} ${registrosAsociados.length === 1 ? 'registro' : 'registros'}</span>
                                 </div>
                                 ${listaRegistros}
@@ -3696,44 +3631,38 @@
         ];
 
         if (fabricanteNuevo) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Fabricante nuevo', [{
-                    etiqueta: 'Razón social',
-                    valor: valorResumenProducto('#form_fabricante_temporal_razon_social'),
-                },
-                {
-                    etiqueta: 'Nombre del fabricante',
-                    valor: valorResumenProducto('#form_fabricante_temporal_nombre'),
-                },
-                {
-                    etiqueta: 'Descripción',
-                    valor: valorResumenProducto('#form_fabricante_temporal_descripcion'),
-                },
-                {
-                    etiqueta: 'Estado al registrar',
-                    valor: 'Activo',
-                },
-            ]));
+            const razonSocialTemporal = valorResumenProducto('#form_fabricante_temporal_razon_social');
+            const nombreTemporal = valorResumenProducto('#form_fabricante_temporal_nombre');
+
+            datosProducto.push(itemResumenProducto('Fabricante', razonSocialTemporal || nombreTemporal));
+
+            if (
+                nombreTemporal &&
+                normalizarTextoProducto(nombreTemporal) !== normalizarTextoProducto(razonSocialTemporal)
+            ) {
+                datosProducto.push(itemResumenProducto('Nombre del fabricante', nombreTemporal));
+            }
+
+            datosProducto.push(itemResumenProducto(
+                'Descripción del fabricante',
+                valorResumenProducto('#form_fabricante_temporal_descripcion')
+            ));
         } else {
             datosProducto.push(itemResumenProducto(
-                fabricanteRazonSocial ? 'Fabricante (razón social)' : 'Fabricante',
+                'Fabricante',
                 fabricanteVisible
             ));
         }
 
         if (clasificacionQuimicaNueva) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación química nueva', [{
-                    etiqueta: 'Nombre de la clasificación',
-                    valor: valorResumenProducto('#form_clasificacion_quimica_temporal_nombre'),
-                },
-                {
-                    etiqueta: 'Descripción',
-                    valor: valorResumenProducto('#form_clasificacion_quimica_temporal_descripcion'),
-                },
-                {
-                    etiqueta: 'Estado al registrar',
-                    valor: 'Activo',
-                },
-            ]));
+            datosProducto.push(itemResumenProducto(
+                'Clasificación química',
+                valorResumenProducto('#form_clasificacion_quimica_temporal_nombre')
+            ));
+            datosProducto.push(itemResumenProducto(
+                'Descripción química',
+                valorResumenProducto('#form_clasificacion_quimica_temporal_descripcion')
+            ));
         } else {
             datosProducto.push(itemResumenProducto(
                 'Clasificación química',
@@ -3742,19 +3671,14 @@
         }
 
         if (clasificacionToxicologicaNueva) {
-            datosProducto.push(bloqueCatalogoNuevoProducto('Clasificación toxicológica nueva', [{
-                    etiqueta: 'Código',
-                    valor: valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo'),
-                },
-                {
-                    etiqueta: 'Descripción',
-                    valor: valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion'),
-                },
-                {
-                    etiqueta: 'Estado al registrar',
-                    valor: 'Activo',
-                },
-            ]));
+            datosProducto.push(itemResumenProducto(
+                'Clasificación toxicológica',
+                valorResumenProducto('#form_clasificacion_toxicologica_temporal_codigo')
+            ));
+            datosProducto.push(itemResumenProducto(
+                'Descripción toxicológica',
+                valorResumenProducto('#form_clasificacion_toxicologica_temporal_descripcion')
+            ));
         } else {
             datosProducto.push(itemResumenProducto(
                 'Clasificación toxicológica',
@@ -3762,15 +3686,12 @@
             ));
         }
 
-        datosProducto.push(itemResumenProducto('Estado del producto', textoSelectProducto('form_estado')));
-
         const filasIngredientes = Object.entries(ingredientes).map(([indice, ingrediente]) => {
-            const esNuevo = String(ingrediente.id_ingrediente || '').startsWith('TEMP-');
             const nombre = ingrediente.nombre || textoResumenProducto(ingrediente.id_ingrediente);
 
             return [
                 Number(indice) + 1,
-                esNuevo ? `Nuevo ingrediente: ${nombre}` : nombre,
+                nombre,
                 ingrediente.porcentaje !== undefined && ingrediente.porcentaje !== '' ?
                 `${formatearPorcentajeIngrediente(ingrediente.porcentaje)}%` : '',
             ];
@@ -3779,23 +3700,20 @@
         destino.innerHTML = [
             grupoResumenProducto(
                 'Datos generales',
-                'Información permanente que identifica y clasifica el producto.',
                 datosProducto.join(''),
                 '1'
             ),
             grupoResumenProducto(
                 `Ingredientes (${Object.keys(ingredientes).length})`,
-                'Ingredientes y porcentajes registrados para este producto.',
                 tablaResumenProducto(
                     ['#', 'Ingrediente', 'Porcentaje'],
                     filasIngredientes,
-                    'No se agregaron ingredientes.'
+                    '-'
                 ),
                 '2'
             ),
             grupoResumenProducto(
                 'Presentaciones y registros vinculados',
-                'Cada presentación muestra su etiqueta y únicamente los registros que le corresponden.',
                 resumenPresentacionesRegistrosProducto(presentaciones, registros),
                 '3'
             ),

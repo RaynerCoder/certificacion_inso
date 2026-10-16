@@ -80,7 +80,7 @@
     <form id="formPersonaWizard" action="{{ route('personas_update', $persona) }}" method="POST" enctype="multipart/form-data" novalidate
         class="persona-wizard" autocomplete="off" data-modo-formulario="edit" data-persona-id="{{ $persona->id }}"
         data-cuenta-existente="{{ $usuarioCuentaAcceso ? '1' : '0' }}"
-        data-tiene-errores="{{ $errors->any() ? '1' : '0' }}">
+        data-tiene-errores="{{ ($errors->any() || session('error')) ? '1' : '0' }}">
         @csrf
         @method('PUT')
 

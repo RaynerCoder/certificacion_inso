@@ -89,7 +89,7 @@
     {{-- Formulario principal: conserva la ruta actual y envia todo al controlador existente. --}}
     <form id="formPersonaWizard" action="{{ route('personas_store') }}" method="POST" enctype="multipart/form-data" novalidate
         class="persona-wizard" autocomplete="off" data-modo-formulario="create"
-        data-tiene-errores="{{ $errors->any() ? '1' : '0' }}">
+        data-tiene-errores="{{ ($errors->any() || session('error')) ? '1' : '0' }}">
         @csrf
 
         {{-- Encabezado principal --}}

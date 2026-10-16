@@ -21,7 +21,7 @@
 
                 <div class="lg:col-span-2">
                     <label class="producto-field-label" for="form_registro_cantidad">Cantidad</label>
-                    <input class="producto-input" id="form_registro_cantidad" type="number" min="0" step="1">
+                    <input class="producto-input" id="form_registro_cantidad" type="text" inputmode="decimal">
                 </div>
 
                 <div class="lg:col-span-3">

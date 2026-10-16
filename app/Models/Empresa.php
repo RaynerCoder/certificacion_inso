@@ -37,5 +37,16 @@ class Empresa extends Model
     {
         return $this->hasMany(Responsable::class, 'id_empresa');
     }
+
+    // Representante legal vigente que se muestra junto a la empresa en los listados.
+    public function representanteLegalActivo()
+    {
+        return $this->hasOne(Responsable::class, 'id_empresa')
+            ->whereIn('estado', ['1', 'ACTIVO'])
+            ->whereHas('rol', fn ($consulta) => $consulta
+                ->where('slug', 'solicitante')
+                ->where('estado', 1))
+            ->latestOfMany();
+    }
     
 }

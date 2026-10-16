@@ -39,10 +39,6 @@ class UsuarioTable extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make("Usuario", "name")
-                ->sortable()
-                ->searchable(),
-
             Column::make("Correo", "email")
                 ->sortable()
                 ->searchable(),

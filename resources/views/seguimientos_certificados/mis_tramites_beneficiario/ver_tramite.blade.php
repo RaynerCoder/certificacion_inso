@@ -3,5 +3,5 @@
     ['name' => 'Mis trámites', 'href' => route('seguimientos_mis_tramites_beneficiario')],
     ['name' => 'Ver trámite', 'href' => route('certificados_show', ['certificado' => $certificado, 'bandeja' => 'enviadas'])],
 ]">
-    @include('certificados.componentes.detalle_tramite')
+    @include('certificados.detalle_tramite.index')
 </x-admin-layout>

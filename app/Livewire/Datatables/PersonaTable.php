@@ -26,7 +26,21 @@ class PersonaTable extends DataTableComponent
                 'territorio',
                 'empresa.persona',
                 'empresa.tipoEmpresa',
-            ]);
+                'empresa.representanteLegalActivo.persona.natural',
+            ])
+            // La persona natural que representa legalmente a una empresa se muestra dentro de esa empresa.
+            ->where(function (Builder $consulta) {
+                $consulta
+                    ->whereHas('empresa')
+                    ->orWhereDoesntHave('responsabilidadesEmpresariales', function (Builder $responsable) {
+                        $responsable
+                            ->whereIn('estado', ['1', 'ACTIVO'])
+                            ->whereHas('empresa')
+                            ->whereHas('rol', fn (Builder $rol) => $rol
+                                ->where('slug', 'solicitante')
+                                ->where('estado', 1));
+                    });
+            });
     }
 
     public function columns(): array
@@ -40,17 +54,17 @@ class PersonaTable extends DataTableComponent
                     return $fila->empresa ? 'Empresa' : 'Persona Natural';
                 }),
 
-            Column::make("Nombre / Razon social")
+            Column::make("Empresa / persona")
                 ->label(function ($fila) {
                     if ($fila->empresa) {
-                        return $fila->empresa->razon_social;
+                        return $fila->empresa->razon_social ?: '-';
                     }
 
                     return trim(implode(' ', array_filter([
                         $fila->natural?->nombres,
                         $fila->natural?->apellido_paterno,
                         $fila->natural?->apellido_materno,
-                    ]))) ?: 'Sin nombre';
+                    ]))) ?: '-';
                 })
                 ->searchable(function (Builder $query, string $search) {
                     // Permite buscar empresas por razon social.
@@ -66,15 +80,35 @@ class PersonaTable extends DataTableComponent
                     });
                 }),
 
+            Column::make("Representante legal")
+                ->label(function ($fila) {
+                    $responsable = $fila->empresa?->representanteLegalActivo;
+
+                    return view('personas.representante-legal-tabla', [
+                        'responsable' => $responsable,
+                    ]);
+                })
+                ->searchable(function (Builder $query, string $search) {
+                    $query->orWhereHas(
+                        'empresa.representanteLegalActivo.persona.natural',
+                        function (Builder $consulta) use ($search) {
+                            $consulta->where('nombres', 'like', '%' . $search . '%')
+                                ->orWhere('apellido_paterno', 'like', '%' . $search . '%')
+                                ->orWhere('apellido_materno', 'like', '%' . $search . '%')
+                                ->orWhere('ci', 'like', '%' . $search . '%');
+                        }
+                    );
+                }),
+
             Column::make("CI / NIT")
                 ->label(function ($fila) {
                     // Empresa: el NIT esta en personas y se accede desde la relacion empresa -> persona.
                     if ($fila->empresa) {
-                        return $fila->empresa?->persona?->nit ?: 'S/C';
+                        return $fila->empresa?->persona?->nit ?: '-';
                     }
 
                     // Persona natural: si tiene NIT en personas se muestra; caso contrario, se usa el CI de naturals.
-                    return $fila->nit ?: ($fila->natural?->ci ?: 'S/C');
+                    return $fila->nit ?: ($fila->natural?->ci ?: '-');
                 })
                 ->searchable(function (Builder $query, string $search) {
                     // Busca NIT guardado en personas, usado tanto por empresa como por persona natural si corresponde.
@@ -91,7 +125,7 @@ class PersonaTable extends DataTableComponent
                 ->sortable()
                 ->format(function ($valor) {
                     // Muestra una fecha corta y legible para el usuario.
-                    return $valor ? $valor->format('d/m/Y H:i') : 'Sin fecha';
+                    return $valor ? $valor->format('d/m/Y H:i') : '-';
                 }),
 
             Column::make("Estado", "estado")

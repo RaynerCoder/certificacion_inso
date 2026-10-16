@@ -861,7 +861,7 @@
 
      // Crea una tarjeta pequeña para el resumen final.
      function itemResumenPersonaWizard(titulo, valor, anchoCompleto = false) {
-         const texto = valor && String(valor).trim() !== '' ? valor : 'No registrado';
+         const texto = valor && String(valor).trim() !== '' ? valor : '-';
          const textoSeguro = escaparHtmlPersonaWizard(texto).replaceAll('\n', '<br>');
 
          return `
@@ -903,7 +903,7 @@
          const filasHtml = filas.length
              ? filas.map(fila => `
                 <tr>
-                    ${fila.map(valor => `<td>${escaparHtmlPersonaWizard(valor || 'Sin dato').replaceAll('\n', '<br>')}</td>`).join('')}
+                    ${fila.map(valor => `<td>${escaparHtmlPersonaWizard(valor || '-').replaceAll('\n', '<br>')}</td>`).join('')}
                 </tr>
              `).join('')
              : `
@@ -1074,7 +1074,7 @@
                  const numero = valorOcultoResumenPersonaWizard(item, 'numero');
                  const estado = valorOcultoResumenPersonaWizard(item, 'estado');
 
-                 return [indice + 1, numero || 'Sin número', estado || 'Sin estado'];
+                 return [indice + 1, numero || '-', estado || '-'];
              });
 
          return tablaResumenPersonaWizard(
@@ -1088,7 +1088,7 @@
      // Lista los rubros seleccionados desde el catalogo principal.
      function resumenRubrosPersonaWizard() {
          const filas = rubrosSeleccionadosPersonaWizard()
-             .map((option, indice) => [indice + 1, option.textContent.trim() || 'Sin rubro']);
+             .map((option, indice) => [indice + 1, option.textContent.trim() || '-']);
 
          return tablaResumenPersonaWizard(
              'Rubros que se guardaran',
@@ -1116,10 +1116,10 @@
 
          const lineas = Object.values(agrupados).map((dato, indice) => {
              if (tipoLista === 'telefonos') {
-                 return `${indice + 1}) ${dato.numero || 'Sin número'} - ${dato.estado || 'Sin estado'}`;
+                 return `${indice + 1}) ${dato.numero || '-'} - ${dato.estado || '-'}`;
              }
 
-             return `${indice + 1}) ${dato.nombre || 'Sin rubro'} - ${dato.estado || 'Sin estado'}`;
+             return `${indice + 1}) ${dato.nombre || '-'} - ${dato.estado || '-'}`;
          });
 
          return lineas.length ? lineas.join('; ') : 'Sin registros';
@@ -1128,14 +1128,14 @@
      // Muestra fechas limpias en revision, sin hora cuando viene desde base de datos.
      function fechaCortaPersonaWizard(valor) {
          const texto = String(valor || '').trim();
-         return texto ? texto.split('T')[0].split(' ')[0] : 'Sin fecha';
+         return texto ? texto.split('T')[0].split(' ')[0] : '-';
      }
 
      // Traduce el valor guardado en genero para que el usuario no vea 1 o 0.
      function generoTextoPersonaWizard(valor) {
          if (String(valor) === '1') return 'Masculino';
          if (String(valor) === '0') return 'Femenino';
-         return 'Sin genero';
+         return '-';
      }
 
      // Convierte una ruta guardada en storage a una URL visible para abrir el PDF.
@@ -1174,7 +1174,7 @@
 
          return datoResponsableRevisionPersonaWizard(
              'Respaldo PDF',
-             tieneArchivoNuevo ? 'PDF seleccionado' : 'Sin PDF'
+             tieneArchivoNuevo ? 'PDF seleccionado' : '-'
          );
      }
 
@@ -1183,7 +1183,7 @@
          return `
             <div class="persona-review-responsable-data">
                 <span>${escaparHtmlPersonaWizard(etiqueta)}</span>
-                <strong>${escaparHtmlPersonaWizard(valor || 'Sin dato')}</strong>
+                <strong>${escaparHtmlPersonaWizard(valor || '-')}</strong>
             </div>
         `;
      }
@@ -1215,8 +1215,8 @@
 
              return `
                 <span class="persona-review-responsable-chip">
-                    ${index + 1}. ${escaparHtmlPersonaWizard(principal || 'Sin dato')}
-                    <small>${escaparHtmlPersonaWizard(secundario || 'Sin detalle')}</small>
+                    ${index + 1}. ${escaparHtmlPersonaWizard(principal || '-')}
+                    <small>${escaparHtmlPersonaWizard(secundario || '-')}</small>
                 </span>
             `;
          }).join('');
@@ -1238,7 +1238,7 @@
          }
 
          const filas = responsables.map((item, indice) => {
-             const tipo = valorOcultoResumenPersonaWizard(item, 'tipo') || 'Sin tipo';
+             const tipo = valorOcultoResumenPersonaWizard(item, 'tipo') || '-';
              const idPersona = valorOcultoResumenPersonaWizard(item, 'id_persona');
              const nombres = valorOcultoResumenPersonaWizard(item, 'nombres');
              const paterno = valorOcultoResumenPersonaWizard(item, 'apellido_paterno');
@@ -1250,7 +1250,7 @@
              const archivoRespaldo = item.querySelector('input[type="file"]');
              const respaldoGuardado = valorOcultoResumenPersonaWizard(item, 'url_respaldo');
              const tieneRespaldo = archivoRespaldo?.files?.length || respaldoGuardado;
-             const estado = valorOcultoResumenPersonaWizard(item, 'estado') || 'Sin estado';
+             const estado = valorOcultoResumenPersonaWizard(item, 'estado') || '-';
 
              return `
                 <article class="persona-review-responsable-item">
@@ -1266,29 +1266,29 @@
                     <div class="persona-review-responsable-grid">
                         <section>
                             <h6>Identificacion del responsable</h6>
-                            ${datoResponsableRevisionPersonaWizard('CI', valorOcultoResumenPersonaWizard(item, 'ci') || 'Sin CI')}
-                            ${datoResponsableRevisionPersonaWizard('NIT', valorOcultoResumenPersonaWizard(item, 'nit') || 'Sin NIT')}
-                            ${datoResponsableRevisionPersonaWizard('Complemento', valorOcultoResumenPersonaWizard(item, 'complemento') || 'Sin dato')}
-                            ${datoResponsableRevisionPersonaWizard('Expedido', valorOcultoResumenPersonaWizard(item, 'expedido') || 'Sin dato')}
+                            ${datoResponsableRevisionPersonaWizard('CI', valorOcultoResumenPersonaWizard(item, 'ci') || '-')}
+                            ${datoResponsableRevisionPersonaWizard('NIT', valorOcultoResumenPersonaWizard(item, 'nit') || '-')}
+                            ${datoResponsableRevisionPersonaWizard('Complemento', valorOcultoResumenPersonaWizard(item, 'complemento') || '-')}
+                            ${datoResponsableRevisionPersonaWizard('Expedido', valorOcultoResumenPersonaWizard(item, 'expedido') || '-')}
                         </section>
 
                         <section>
                             <h6>Contacto del responsable</h6>
-                            ${datoResponsableRevisionPersonaWizard('Correo', valorOcultoResumenPersonaWizard(item, 'correo') || 'Sin correo')}
-                            ${datoResponsableRevisionPersonaWizard('Domicilio del responsable', valorOcultoResumenPersonaWizard(item, 'domicilio') || 'Sin domicilio')}
-                            ${datoResponsableRevisionPersonaWizard('Territorio del responsable', territorioNombre || textoSelectPorValorPersonaWizard('#nuevo_id_territorio', territorioId) || 'Sin territorio')}
+                            ${datoResponsableRevisionPersonaWizard('Correo', valorOcultoResumenPersonaWizard(item, 'correo') || '-')}
+                            ${datoResponsableRevisionPersonaWizard('Domicilio del responsable', valorOcultoResumenPersonaWizard(item, 'domicilio') || '-')}
+                            ${datoResponsableRevisionPersonaWizard('Territorio del responsable', territorioNombre || textoSelectPorValorPersonaWizard('#nuevo_id_territorio', territorioId) || '-')}
                         </section>
 
                         <section>
                             <h6>Datos personales del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Nacimiento', fechaCortaPersonaWizard(valorOcultoResumenPersonaWizard(item, 'fecha_nacimiento')))}
                             ${datoResponsableRevisionPersonaWizard('Genero', generoTextoPersonaWizard(valorOcultoResumenPersonaWizard(item, 'genero')))}
-                            ${datoResponsableRevisionPersonaWizard('Ocupación', textoSelectPorValorPersonaWizard('#nuevo_id_ocupacion', valorOcultoResumenPersonaWizard(item, 'id_ocupacion')) || 'Sin ocupación')}
+                            ${datoResponsableRevisionPersonaWizard('Ocupación', textoSelectPorValorPersonaWizard('#nuevo_id_ocupacion', valorOcultoResumenPersonaWizard(item, 'id_ocupacion')) || '-')}
                         </section>
 
                         <section>
                             <h6>Rol del responsable</h6>
-                            ${datoResponsableRevisionPersonaWizard('Rol', textoSelectPorValorPersonaWizard('#nuevo_id_rol', valorOcultoResumenPersonaWizard(item, 'id_rol')) || 'Sin rol')}
+                            ${datoResponsableRevisionPersonaWizard('Rol', textoSelectPorValorPersonaWizard('#nuevo_id_rol', valorOcultoResumenPersonaWizard(item, 'id_rol')) || '-')}
                             ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, Boolean(archivoRespaldo?.files?.length))}
                         </section>
 
@@ -3119,8 +3119,8 @@
 
          return registros.map((registro, index) => `
             <span class="responsables-review-chip">
-                ${index + 1}. ${escaparHtmlPersonaWizard(registro[campoPrincipal] || 'Sin dato')}
-                <small>${escaparHtmlPersonaWizard(registro[campoSecundario] || registro.estado || registro.tipo || 'Sin detalle')}</small>
+                ${index + 1}. ${escaparHtmlPersonaWizard(registro[campoPrincipal] || '-')}
+                <small>${escaparHtmlPersonaWizard(registro[campoSecundario] || registro.estado || registro.tipo || '-')}</small>
             </span>
         `).join('');
      }
@@ -3134,7 +3134,7 @@
          const etiquetaTipo = tipoResponsable === 'EXISTENTE' ? 'Existente' : 'Nuevo';
          const territorioTexto = datos.territorioNombre
              || textoSelectPorValorPersonaWizard('#nuevo_id_territorio', datos.idTerritorio)
-             || 'Sin territorio';
+             || '-';
          const estado = datos.estadoResponsable || 'ACTIVO';
          const telefonosVisibles = chipsResponsableEmpresa(datos.telefonos || [], 'numero', 'estado');
          const rubrosVisibles = chipsResponsableEmpresa(
@@ -3170,16 +3170,16 @@
             <div class="responsables-review-grid">
                 <section>
                     <h6>Identificacion del responsable</h6>
-                    ${datoResponsableRevisionPersonaWizard('CI', datos.ci || 'Sin CI')}
-                    ${datoResponsableRevisionPersonaWizard('NIT', datos.nit || 'Sin NIT')}
-                    ${datoResponsableRevisionPersonaWizard('Complemento', datos.complemento || 'Sin dato')}
-                    ${datoResponsableRevisionPersonaWizard('Expedido', datos.expedido || 'Sin dato')}
+                    ${datoResponsableRevisionPersonaWizard('CI', datos.ci || '-')}
+                    ${datoResponsableRevisionPersonaWizard('NIT', datos.nit || '-')}
+                    ${datoResponsableRevisionPersonaWizard('Complemento', datos.complemento || '-')}
+                    ${datoResponsableRevisionPersonaWizard('Expedido', datos.expedido || '-')}
                 </section>
 
                 <section>
                     <h6>Contacto del responsable</h6>
-                    ${datoResponsableRevisionPersonaWizard('Correo', datos.correo || 'Sin correo')}
-                    ${datoResponsableRevisionPersonaWizard('Domicilio del responsable', datos.domicilio || 'Sin domicilio')}
+                    ${datoResponsableRevisionPersonaWizard('Correo', datos.correo || '-')}
+                    ${datoResponsableRevisionPersonaWizard('Domicilio del responsable', datos.domicilio || '-')}
                     ${datoResponsableRevisionPersonaWizard('Territorio del responsable', territorioTexto)}
                 </section>
 
@@ -3187,12 +3187,12 @@
                     <h6>Datos personales del responsable</h6>
                     ${datoResponsableRevisionPersonaWizard('Nacimiento', fechaCortaPersonaWizard(datos.fechaNacimiento))}
                     ${datoResponsableRevisionPersonaWizard('Genero', generoTextoPersonaWizard(datos.genero))}
-                    ${datoResponsableRevisionPersonaWizard('Ocupacion', datos.ocupacion || 'Sin ocupacion')}
+                    ${datoResponsableRevisionPersonaWizard('Ocupacion', datos.ocupacion || '-')}
                 </section>
 
                 <section>
                     <h6>Rol del responsable</h6>
-                    ${datoResponsableRevisionPersonaWizard('Rol', datos.rolNombre || 'Sin rol')}
+                    ${datoResponsableRevisionPersonaWizard('Rol', datos.rolNombre || '-')}
                     ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, tieneRespaldo)}
                 </section>
 
@@ -3905,7 +3905,7 @@
          const botonVer = document.getElementById('btnVerRespaldoResponsableModal');
          const botonQuitar = document.getElementById('btnQuitarRespaldoResponsableModal');
 
-         if (nombrePdf) nombrePdf.textContent = nombre || 'Sin PDF seleccionado';
+         if (nombrePdf) nombrePdf.textContent = nombre || '-';
          if (estadoPdf) estadoPdf.textContent = estado || 'Seleccione un respaldo PDF si corresponde.';
 
          if (botonVer) {
@@ -3935,7 +3935,7 @@
          if (modal) modal.dataset.urlRespaldoActual = '';
 
          liberarPdfTemporalResponsableModal();
-         actualizarVistaRespaldoResponsableModal('Sin PDF seleccionado', mensaje, '', false);
+         actualizarVistaRespaldoResponsableModal('-', mensaje, '', false);
          limpiarErrorCampoResponsable('nuevo_url_respaldo');
      }
 
@@ -3945,7 +3945,7 @@
 
          if (!url) {
              actualizarVistaRespaldoResponsableModal(
-                 'Sin PDF seleccionado',
+                 '-',
                  'Seleccione un respaldo PDF si corresponde.',
                  '',
                  false

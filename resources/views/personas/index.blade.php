@@ -30,7 +30,7 @@
 
         .personas-table-scroll table {
             width: 100%;
-            min-width: 1080px;
+            min-width: 1240px;
             table-layout: fixed;
         }
 
@@ -46,49 +46,56 @@
 
         .personas-table-scroll th:first-child,
         .personas-table-scroll td:first-child {
-            width: 6%;
+            width: 5%;
             text-align: center;
             white-space: nowrap;
         }
 
         .personas-table-scroll th:nth-child(2),
         .personas-table-scroll td:nth-child(2) {
-            width: 13%;
+            width: 10%;
         }
 
         .personas-table-scroll th:nth-child(3),
         .personas-table-scroll td:nth-child(3) {
-            width: 27%;
+            width: 20%;
         }
 
         .personas-table-scroll th:nth-child(4),
         .personas-table-scroll td:nth-child(4) {
-            width: 12%;
-            white-space: nowrap;
+            width: 20%;
         }
 
         .personas-table-scroll th:nth-child(5),
         .personas-table-scroll td:nth-child(5) {
-            width: 16%;
+            width: 10%;
             white-space: nowrap;
         }
 
         .personas-table-scroll th:nth-child(6),
         .personas-table-scroll td:nth-child(6) {
-            width: 10%;
+            width: 14%;
+            white-space: nowrap;
+        }
+
+        .personas-table-scroll th:nth-child(7),
+        .personas-table-scroll td:nth-child(7) {
+            width: 8%;
             text-align: center;
             white-space: nowrap;
         }
 
         .personas-table-scroll th:last-child,
         .personas-table-scroll td:last-child {
-            width: 16%;
+            width: 13%;
             text-align: center;
             white-space: nowrap;
         }
 
         .personas-table-scroll td:nth-child(3),
-        .personas-table-scroll td:nth-child(3) * {
+        .personas-table-scroll td:nth-child(3) *,
+        .personas-table-scroll td:nth-child(4),
+        .personas-table-scroll td:nth-child(4) * {
             min-width: 0;
             max-width: 100%;
             white-space: normal !important;
@@ -98,15 +105,15 @@
 
         .personas-table-scroll th:first-child > div,
         .personas-table-scroll th:first-child button,
-        .personas-table-scroll th:nth-child(6) > div,
-        .personas-table-scroll th:nth-child(6) button,
+        .personas-table-scroll th:nth-child(7) > div,
+        .personas-table-scroll th:nth-child(7) button,
         .personas-table-scroll th:last-child > div {
             width: 100%;
             justify-content: center;
             text-align: center;
         }
 
-        .personas-table-scroll td:nth-child(6) .tabla-chip {
+        .personas-table-scroll td:nth-child(7) .tabla-chip {
             margin-right: auto;
             margin-left: auto;
         }

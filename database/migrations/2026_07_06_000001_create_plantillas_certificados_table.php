@@ -46,6 +46,9 @@ return new class extends Migration
             // Si esta activo, la emisión imprime solo los datos colocados sobre la hoja.
             $table->boolean('imprimir_transparente')->default(false);
 
+            // Conserva el diseño completo generado por el editor visual.
+            $table->json('diseno_fabric_json')->nullable();
+
             // Permite tener una plantilla activa por tipo de certificado.
             $table->string('estado', 50)->default('ACTIVO');
 

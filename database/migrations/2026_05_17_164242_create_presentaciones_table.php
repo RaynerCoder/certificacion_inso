@@ -21,7 +21,7 @@ return new class extends Migration
             $table->text('url_etiqueta')->nullable();
 
             // Cantidad y unidad comercial de la presentacion.
-            $table->integer('cantidad')->nullable();
+            $table->decimal('cantidad', 10, 5)->nullable();
             $table->foreignId('id_catalogo_unidad')->nullable()->constrained('catalogos_medidas');
 
             // Descripcion adicional de la presentacion.

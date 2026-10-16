@@ -3789,10 +3789,134 @@
             color: #059669;
         }
 
+        .tramite-presentation-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .tramite-presentation {
+            border: 1px solid #dbe4ee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .tramite-presentation-summary {
+            align-items: start;
+            background: #f8fafc;
+            display: grid;
+            gap: 14px;
+            grid-template-columns: 78px minmax(0, 1fr);
+            padding: 12px;
+        }
+
+        .tramite-presentation-media {
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #dbe4ee;
+            border-radius: 7px;
+            display: flex;
+            height: 78px;
+            justify-content: center;
+            overflow: hidden;
+            width: 78px;
+        }
+
+        .tramite-presentation-media a {
+            align-items: center;
+            display: flex;
+            height: 100%;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .tramite-presentation-media img {
+            height: 100%;
+            object-fit: contain;
+            padding: 5px;
+            width: 100%;
+        }
+
+        .tramite-presentation-file {
+            color: #059669;
+            font-size: 1.45rem;
+        }
+
+        .tramite-presentation-empty {
+            color: #64748b;
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .tramite-presentation-data {
+            display: grid;
+            gap: 10px 22px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin: 0;
+        }
+
+        .tramite-presentation-data > div {
+            border-bottom: 1px solid #e2e8f0;
+            min-width: 0;
+            padding-bottom: 7px;
+        }
+
+        .tramite-presentation-data > .is-wide {
+            grid-column: 1 / -1;
+        }
+
+        .tramite-presentation-data dt {
+            color: #64748b;
+            font-size: 0.67rem;
+            font-weight: 850;
+            letter-spacing: 0.03em;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+        }
+
+        .tramite-presentation-data dd {
+            color: #0f172a;
+            font-size: 0.8rem;
+            font-weight: 750;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .tramite-presentation-records {
+            border-top: 1px solid #dbe4ee;
+            padding: 0 10px 6px;
+        }
+
+        .tramite-presentation-records .tramite-table th {
+            background: #ffffff;
+        }
+
         @media (max-width: 900px) {
             .tramite-product-head,
             .tramite-product-section .tramite-definition.is-compact {
                 grid-template-columns: 1fr;
+            }
+
+            .tramite-presentation-data {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .tramite-presentation-summary {
+                grid-template-columns: 64px minmax(0, 1fr);
+            }
+
+            .tramite-presentation-media {
+                height: 64px;
+                width: 64px;
+            }
+
+            .tramite-presentation-data {
+                grid-template-columns: 1fr;
+            }
+
+            .tramite-presentation-data > .is-wide {
+                grid-column: auto;
             }
         }
 

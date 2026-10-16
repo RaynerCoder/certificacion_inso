@@ -607,7 +607,7 @@
 
      // Crea una tarjeta pequeña para el resumen final.
      function itemResumenPersonaWizard(titulo, valor) {
-         const texto = valor && String(valor).trim() !== '' ? valor : 'No registrado';
+         const texto = valor && String(valor).trim() !== '' ? valor : '-';
 
          return `
             <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -1634,7 +1634,7 @@
          const botonVer = document.getElementById('btnVerRespaldoResponsableModal');
          const botonQuitar = document.getElementById('btnQuitarRespaldoResponsableModal');
 
-         if (nombrePdf) nombrePdf.textContent = nombre || 'Sin PDF seleccionado';
+         if (nombrePdf) nombrePdf.textContent = nombre || '-';
          if (estadoPdf) estadoPdf.textContent = estado || 'Seleccione un respaldo PDF si corresponde.';
 
          if (botonVer) {
@@ -1660,7 +1660,7 @@
          if (inputPdf) inputPdf.value = '';
 
          liberarPdfTemporalResponsableModal();
-         actualizarVistaRespaldoResponsableModal('Sin PDF seleccionado', mensaje, '', false);
+         actualizarVistaRespaldoResponsableModal('-', mensaje, '', false);
          limpiarErrorRespaldoResponsableModal();
      }
 

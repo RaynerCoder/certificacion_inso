@@ -30,16 +30,7 @@ class PersonaController extends Controller
      */
     public function index()
     {
-        $personas = Persona::with([
-            'natural',
-            'telefonos',
-            'territorio',
-            'rubros',
-            'empresa.tipoEmpresa',
-            'empresa.responsables.persona.natural',
-        ])->latest()->get();
-
-        return view('personas.index', compact('personas'));
+        return view('personas.index');
     }
 
     private function mensajesValidacionPersona(): array
@@ -125,8 +116,13 @@ class PersonaController extends Controller
             'rubros' => 'nullable|array',
             'rubros.*' => ['integer', $this->reglaRubroCaebActivo()],
 
-            // La empresa administra un representante legal desde este formulario.
-            'responsables' => 'required_if:form_tipo_registro,EMPRESA|array|size:1',
+            // Solo la empresa administra un representante legal desde este formulario.
+            'responsables' => [
+                'exclude_unless:form_tipo_registro,EMPRESA',
+                'required',
+                'array',
+                'size:1',
+            ],
             'responsables.*.tipo' => 'required|in:NUEVO,EXISTENTE',
             'responsables.*.id_persona' => [
                 'nullable',
@@ -403,6 +399,13 @@ class PersonaController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
+            // Conserva el respaldo seleccionado para reconstruir todo el formulario al volver.
+            try {
+                $this->preservarRespaldosResponsablesEnInput($solicitud);
+            } catch (\Throwable $errorRespaldo) {
+                report($errorRespaldo);
+            }
 
             return back()
                 ->with('error', 'No se pudo registrar. '.$e->getMessage())
@@ -695,18 +698,21 @@ class PersonaController extends Controller
         Role $rolSolicitante,
         Role $rolRepresentanteLegal
     ): void {
-        $responsables = collect($solicitud->input('responsables', []))
-            ->map(fn (array $responsable) => array_merge($responsable, [
-                'id_rol' => $rolRepresentanteLegal->id,
-            ]))
-            ->all();
+        $esEmpresa = $solicitud->input('form_tipo_registro') === 'EMPRESA';
+        $responsables = $esEmpresa
+            ? collect($solicitud->input('responsables', []))
+                ->map(fn (array $responsable) => array_merge($responsable, [
+                    'id_rol' => $rolRepresentanteLegal->id,
+                ]))
+                ->all()
+            : [];
 
         $datosFijos = [
             'form_id_role' => $rolSolicitante->id,
             'responsables' => $responsables,
         ];
 
-        if ($solicitud->input('form_tipo_registro') === 'EMPRESA') {
+        if ($esEmpresa) {
             $responsable = $responsables[0] ?? [];
             $ciResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['ci'] ?? ''));
             $nitResponsable = preg_replace('/[^A-Za-z0-9]/', '', (string) ($responsable['nit'] ?? ''));
@@ -1236,9 +1242,12 @@ class PersonaController extends Controller
                 ->first();
 
         if (! $rolSolicitante) {
-            throw ValidationException::withMessages([
-                'form_id_role' => 'La cuenta no tiene un rol de acceso disponible.',
-            ]);
+            return redirect()
+                ->route('personas_edit', $persona)
+                ->withErrors([
+                    'form_id_role' => 'La cuenta no tiene un rol de acceso disponible.',
+                ])
+                ->withInput();
         }
         $rolRepresentanteLegal = $solicitud->input('form_tipo_registro') === 'EMPRESA'
             ? $this->rolRepresentanteLegalActivo()
@@ -1286,7 +1295,10 @@ class PersonaController extends Controller
             // Sin esto, el navegador vacia el input file y el usuario tendria que adjuntarlo otra vez.
             $this->preservarRespaldosResponsablesEnInput($solicitud);
 
-            throw $e;
+            return redirect()
+                ->route('personas_edit', $persona)
+                ->withErrors($e->errors())
+                ->withInput();
         }
 
         $responsableEnviado = $datos['responsables'][0] ?? null;
@@ -1411,12 +1423,20 @@ class PersonaController extends Controller
                 'icon' => 'success',
             ]);
 
-            return redirect()->route('personas_index');
+            return redirect()->route('personas_index', [], 303);
 
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()
+            // Conserva el respaldo seleccionado para que el usuario no repita el llenado.
+            try {
+                $this->preservarRespaldosResponsablesEnInput($solicitud);
+            } catch (\Throwable $errorRespaldo) {
+                report($errorRespaldo);
+            }
+
+            return redirect()
+                ->route('personas_edit', $persona)
                 ->with('error', 'No se pudo actualizar. '.$e->getMessage())
                 ->withInput();
         }

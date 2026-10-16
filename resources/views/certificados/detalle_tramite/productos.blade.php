@@ -1,18 +1,25 @@
-{{--
-    Muestra los productos y registros asociados al trámite.
-    Esta información solamente es visible para personal interno.
-
-    Condición para personal interno
-    Productos asociados
-    Registros
-    Ingredientes
-    Presentaciones
---}}
-
-{{-- Productos y registros técnicos son información interna y no se envían al solicitante. --}}
+{{-- Los productos y sus datos técnicos solamente son visibles para el personal interno. --}}
 @if (!$esSolicitante && $requiereProductoTramite)
+    @php
+        // Conserva el valor decimal almacenado y elimina únicamente los ceros finales de presentación.
+        $formatearDecimal = static function ($valor): string {
+            if ($valor === null || $valor === '') {
+                return '-';
+            }
+
+            $texto = trim((string) $valor);
+
+            if (str_contains($texto, '.')) {
+                $texto = rtrim(rtrim($texto, '0'), '.');
+            }
+
+            return $texto === '' ? '0' : $texto;
+        };
+
+        $mostrarTexto = static fn($valor): string => filled($valor) ? trim((string) $valor) : '-';
+    @endphp
+
     <article class="tramite-detail-panel tramite-panel-productos is-wide">
-        {{-- SECCION 2: productos asociados al tramite. Cada producto se despliega para no repetir informacion en pantalla. --}}
         <div class="tramite-section-title-row">
             <h3 class="tramite-detail-title">
                 <i class="fa-solid fa-boxes-stacked"></i>
@@ -39,9 +46,9 @@
                         <option value="">Seleccione producto, lote y presentación</option>
                         @foreach ($registrosDisponiblesTramite as $registroDisponible)
                             <option value="{{ $registroDisponible->id }}">
-                                {{ $registroDisponible->producto?->nombre_comercial ?: 'Sin producto' }}
-                                · Lote {{ $registroDisponible->numero_lote ?: 'Sin lote' }}
-                                · {{ $registroDisponible->presentacion?->descripcion ?: 'Sin presentación' }}
+                                {{ $registroDisponible->producto?->nombre_comercial ?: '-' }}
+                                · Lote {{ $registroDisponible->numero_lote ?: '-' }}
+                                · {{ $registroDisponible->presentacion?->descripcion ?: '-' }}
                             </option>
                         @endforeach
                     </select>
@@ -52,30 +59,31 @@
                 </button>
             </form>
         @endif
+
         <div class="tramite-product-list">
             @forelse ($registrosPorProducto as $grupoRegistros)
                 @php
-                    $primerRegistro = $grupoRegistros->first();
-                    $producto = $primerRegistro?->producto;
-                    $presentacionesProducto = $producto?->presentaciones ?? collect();
+                    $producto = $grupoRegistros->first()?->producto;
                     $ingredientesProducto = $producto?->ingredientesProductos ?? collect();
+                    $presentacionesConRegistros = $grupoRegistros->groupBy(
+                        static fn($registro) => $registro->id_presentacion
+                            ? 'presentacion-' . $registro->id_presentacion
+                            : 'registro-' . $registro->id,
+                    );
                 @endphp
-                <details class="tramite-product is-color-{{ ($loop->index % 4) + 1 }}"
-                    @if ($loop->first) open @endif>
+
+                <details class="tramite-product" @if ($loop->first) open @endif>
                     <summary class="tramite-product-head">
                         <div>
-                            <h4 class="tramite-product-title">
-                                {{ $producto?->nombre_comercial ?? 'Producto sin nombre comercial' }}</h4>
-                            <div class="tramite-product-meta">
-                                {{ $producto?->codigo ?: 'Sin código' }} · {{ $grupoRegistros->count() }}
-                                registro{{ $grupoRegistros->count() === 1 ? '' : 's' }}
-                            </div>
+                            <h4 class="tramite-product-title">{{ $mostrarTexto($producto?->nombre_comercial) }}</h4>
+                            <div class="tramite-product-meta">Código: {{ $mostrarTexto($producto?->codigo) }}</div>
                         </div>
                         <span class="tramite-product-status">
                             <i class="fa-solid fa-box"></i>
                             {{ $grupoRegistros->count() }} registro{{ $grupoRegistros->count() === 1 ? '' : 's' }}
                         </span>
                     </summary>
+
                     <div class="tramite-product-body">
                         <section class="tramite-product-section">
                             <h4 class="tramite-product-section-title">
@@ -84,87 +92,30 @@
                             </h4>
                             <dl class="tramite-definition is-compact">
                                 <div class="tramite-definition-row">
-                                    <dt>Clasificación toxicológica</dt>
-                                    <dd>{{ $producto?->clasificacionToxicologica?->descripcion ?? 'Sin clasificación toxicológica' }}
-                                    </dd>
-                                </div>
-                                <div class="tramite-definition-row">
                                     <dt>Nombre técnico</dt>
-                                    <dd>{{ $producto?->nombre_tecnico ?: 'Sin dato' }}</dd>
+                                    <dd>{{ $mostrarTexto($producto?->nombre_tecnico) }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>Clasificación química</dt>
-                                    <dd>{{ $producto?->clasificacionQuimica?->nombre ?: 'Sin clasificación química' }}
-                                    </dd>
+                                    <dd>{{ $mostrarTexto($producto?->clasificacionQuimica?->nombre) }}</dd>
+                                </div>
+                                <div class="tramite-definition-row">
+                                    <dt>Clasificación toxicológica</dt>
+                                    <dd>{{ $mostrarTexto($producto?->clasificacionToxicologica?->descripcion) }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>Fabricante</dt>
-                                    <dd>{{ $producto?->fabricante?->nombre ?? 'Sin fabricante' }}</dd>
+                                    <dd>{{ $mostrarTexto($producto?->fabricante?->nombre) }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>País / territorio</dt>
-                                    <dd>{{ $producto?->territorio?->nombre ?? 'Sin país' }}</dd>
+                                    <dd>{{ $mostrarTexto($producto?->territorio?->nombre) }}</dd>
                                 </div>
                                 <div class="tramite-definition-row">
                                     <dt>Importador</dt>
-                                    <dd>{{ $nombrePersona($producto?->importadorPersona) }}</dd>
+                                    <dd>{{ $producto?->importadorPersona ? $nombrePersona($producto->importadorPersona) : '-' }}</dd>
                                 </div>
                             </dl>
-                        </section>
-
-                        <section class="tramite-product-section">
-                            <h4 class="tramite-product-section-title">
-                                <i class="fa-solid fa-clipboard-list"></i>
-                                Registros
-                            </h4>
-                            <div class="tramite-table-wrap">
-                                <table class="tramite-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Registro</th>
-                                            <th>Vigencia</th>
-                                            <th>Cantidad registro</th>
-                                            <th>Presentación</th>
-                                            <th>Etiqueta</th>
-                                            <th>Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($grupoRegistros as $registro)
-                                            @php
-                                                $presentacionRegistro = $registro->presentacion;
-                                                $etiquetaRegistro = $urlArchivo($presentacionRegistro?->url_etiqueta);
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $registro->codigo_autorizacion ?: 'Sin código' }}</td>
-                                                <td>{{ $registro->fecha_vigencia ? \Illuminate\Support\Carbon::parse($registro->fecha_vigencia)->format('d/m/Y') : 'Sin vigencia' }}
-                                                </td>
-                                                <td>{{ trim(($registro->cantidad ?? '') . ' ' . ($registro->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
-                                                </td>
-                                                <td>
-                                                    {{ trim(($presentacionRegistro?->cantidad ?? '') . ' ' . ($presentacionRegistro?->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
-                                                    @if ($presentacionRegistro?->descripcion)
-                                                        <div class="text-xs font-semibold text-slate-500">
-                                                            {{ $presentacionRegistro->descripcion }}</div>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @if ($etiquetaRegistro)
-                                                        <a href="{{ $etiquetaRegistro }}" target="_blank"
-                                                            class="tramite-doc-link">
-                                                            <i class="fa-regular fa-file-pdf"></i>
-                                                            Ver etiqueta
-                                                        </a>
-                                                    @else
-                                                        <span class="tramite-pill tramite-pill-warn">Sin etiqueta</span>
-                                                    @endif
-                                                </td>
-                                                <td>{{ $registro->estado ?? 'Sin estado' }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
                         </section>
 
                         <section class="tramite-product-section">
@@ -185,19 +136,16 @@
                                     <tbody>
                                         @forelse ($ingredientesProducto as $ingredienteProducto)
                                             <tr>
-                                                <td>{{ $ingredienteProducto->ingrediente?->nombre ?? 'Sin ingrediente' }}
-                                                </td>
-                                                <td>{{ $ingredienteProducto->ingrediente?->composicion ?? 'Sin composición' }}
-                                                </td>
-                                                <td>{{ $ingredienteProducto->ingrediente?->riesgo_salud ?? 'Sin dato' }}
-                                                </td>
-                                                <td>{{ $ingredienteProducto->porcentaje !== null ? $ingredienteProducto->porcentaje . '%' : 'Sin porcentaje' }}
+                                                <td>{{ $mostrarTexto($ingredienteProducto->ingrediente?->nombre) }}</td>
+                                                <td>{{ $mostrarTexto($ingredienteProducto->ingrediente?->composicion) }}</td>
+                                                <td>{{ $mostrarTexto($ingredienteProducto->ingrediente?->riesgo_salud) }}</td>
+                                                <td>
+                                                    {{ $ingredienteProducto->porcentaje !== null ? $formatearDecimal($ingredienteProducto->porcentaje) . '%' : '-' }}
                                                 </td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="text-center">Este producto no tiene
-                                                    ingredientes registrados.</td>
+                                                <td colspan="4" class="text-center">-</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -208,48 +156,88 @@
                         <section class="tramite-product-section">
                             <h4 class="tramite-product-section-title">
                                 <i class="fa-solid fa-box-open"></i>
-                                Presentaciones
+                                Presentaciones y registros
                             </h4>
-                            <div class="tramite-table-wrap">
-                                <table class="tramite-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Presentación</th>
-                                            <th>Descripción</th>
-                                            <th>Etiqueta</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($presentacionesProducto as $presentacionProducto)
-                                            @php
-                                                $etiquetaPresentacion = $urlArchivo(
-                                                    $presentacionProducto->url_etiqueta,
-                                                );
-                                            @endphp
-                                            <tr>
-                                                <td>{{ trim(($presentacionProducto->cantidad ?? '') . ' ' . ($presentacionProducto->catalogoUnidad?->nombre ?? '')) ?: 'Sin cantidad' }}
-                                                </td>
-                                                <td>{{ $presentacionProducto->descripcion ?: 'Sin descripción' }}</td>
-                                                <td>
-                                                    @if ($etiquetaPresentacion)
-                                                        <a href="{{ $etiquetaPresentacion }}" target="_blank"
-                                                            class="tramite-doc-link">
-                                                            <i class="fa-regular fa-file-pdf"></i>
-                                                            Ver documento
-                                                        </a>
-                                                    @else
-                                                        <span class="tramite-pill tramite-pill-warn">Sin PDF</span>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="3" class="text-center">Este producto no tiene
-                                                    presentaciones registradas.</td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+
+                            <div class="tramite-presentation-list">
+                                @foreach ($presentacionesConRegistros as $registrosPresentacion)
+                                    @php
+                                        $presentacion = $registrosPresentacion->first()?->presentacion;
+                                        $etiqueta = $urlArchivo($presentacion?->url_etiqueta);
+                                        $rutaEtiqueta = $etiqueta ? parse_url($etiqueta, PHP_URL_PATH) : null;
+                                        $extensionEtiqueta = $rutaEtiqueta
+                                            ? strtolower(pathinfo($rutaEtiqueta, PATHINFO_EXTENSION))
+                                            : null;
+                                        $esImagen = in_array($extensionEtiqueta, ['jpg', 'jpeg', 'png', 'webp'], true);
+                                    @endphp
+
+                                    <article class="tramite-presentation">
+                                        <div class="tramite-presentation-summary">
+                                            <div class="tramite-presentation-media">
+                                                @if ($etiqueta && $esImagen)
+                                                    <a href="{{ $etiqueta }}" target="_blank" title="Ver etiqueta completa">
+                                                        <img src="{{ $etiqueta }}" alt="Etiqueta de la presentación">
+                                                    </a>
+                                                @elseif ($etiqueta)
+                                                    <a href="{{ $etiqueta }}" target="_blank" class="tramite-presentation-file"
+                                                        title="Ver etiqueta">
+                                                        <i class="fa-regular fa-file-pdf"></i>
+                                                    </a>
+                                                @else
+                                                    <span class="tramite-presentation-empty">-</span>
+                                                @endif
+                                            </div>
+
+                                            <dl class="tramite-presentation-data">
+                                                <div>
+                                                    <dt>Tipo de envase</dt>
+                                                    <dd>{{ $mostrarTexto($presentacion?->tipo_envase) }}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Cantidad</dt>
+                                                    <dd>{{ $formatearDecimal($presentacion?->cantidad) }}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt>Unidad</dt>
+                                                    <dd>{{ $mostrarTexto($presentacion?->catalogoUnidad?->nombre) }}</dd>
+                                                </div>
+                                                <div class="is-wide">
+                                                    <dt>Descripción</dt>
+                                                    <dd>{{ $mostrarTexto($presentacion?->descripcion) }}</dd>
+                                                </div>
+                                            </dl>
+                                        </div>
+
+                                        <div class="tramite-presentation-records">
+                                            <div class="tramite-table-wrap">
+                                                <table class="tramite-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Código de autorización</th>
+                                                            <th>Número de lote</th>
+                                                            <th>Vigencia</th>
+                                                            <th>Cantidad registrada</th>
+                                                            <th>Unidad</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach ($registrosPresentacion as $registro)
+                                                            <tr>
+                                                                <td>{{ $mostrarTexto($registro->codigo_autorizacion) }}</td>
+                                                                <td>{{ $mostrarTexto($registro->numero_lote) }}</td>
+                                                                <td>
+                                                                    {{ $registro->fecha_vigencia ? \Illuminate\Support\Carbon::parse($registro->fecha_vigencia)->format('d/m/Y') : '-' }}
+                                                                </td>
+                                                                <td>{{ $formatearDecimal($registro->cantidad) }}</td>
+                                                                <td>{{ $mostrarTexto($registro->catalogoUnidad?->nombre) }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </article>
+                                @endforeach
                             </div>
                         </section>
                     </div>

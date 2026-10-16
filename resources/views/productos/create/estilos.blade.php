@@ -1344,94 +1344,6 @@
         word-break: normal;
     }
 
-    .producto-review-new-catalog {
-        grid-column: 1 / -1;
-        margin: 8px 0;
-        overflow: hidden;
-        border: 1px solid #99f6e4;
-        border-radius: 10px;
-        background: #ffffff;
-    }
-
-    .producto-review-new-catalog>header {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: center;
-        padding: 10px 12px;
-        border-bottom: 1px solid #ccfbf1;
-        background: #f0fdfa;
-    }
-
-    .producto-review-new-catalog>header>div {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        min-width: 0;
-    }
-
-    .producto-review-new-catalog h5,
-    .producto-review-new-catalog p {
-        margin: 0;
-    }
-
-    .producto-review-new-catalog h5 {
-        color: #0f172a;
-        font-size: 13px;
-        font-weight: 900;
-    }
-
-    .producto-review-new-catalog>header p {
-        color: #0f766e;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-    .producto-review-new-badge {
-        flex: 0 0 auto;
-        border-radius: 999px;
-        background: #0d9488;
-        color: #ffffff;
-        padding: 3px 8px;
-        font-size: 9px;
-        font-weight: 900;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-    }
-
-    .producto-review-new-catalog>dl {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0 24px;
-        margin: 0;
-        padding: 4px 12px 8px;
-    }
-
-    .producto-review-new-catalog>dl>div {
-        display: grid;
-        grid-template-columns: minmax(165px, 205px) minmax(0, 1fr);
-        gap: 10px;
-        align-items: baseline;
-        border-bottom: 1px solid #f1f5f9;
-        padding: 8px 0;
-    }
-
-    .producto-review-new-catalog dt {
-        color: #64748b;
-        font-size: 10px;
-        font-weight: 900;
-        text-transform: uppercase;
-    }
-
-    .producto-review-new-catalog dd {
-        margin: 0;
-        color: #0f172a;
-        font-size: 12px;
-        font-weight: 800;
-        line-height: 1.45;
-        overflow-wrap: break-word;
-    }
-
     .producto-review-table-block {
         grid-column: 1 / -1;
         margin: 8px 0 10px;
@@ -1486,14 +1398,6 @@
         font-weight: 800;
     }
 
-    .producto-review-eyebrow {
-        color: #0f766e;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: .05em;
-        text-transform: uppercase;
-    }
-
     .producto-review-presentations {
         display: grid;
         gap: 16px;
@@ -1511,7 +1415,7 @@
 
     .producto-review-presentation-head {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 12px;
         border-bottom: 1px solid #e2e8f0;
@@ -1532,7 +1436,6 @@
         gap: 7px;
     }
 
-    .producto-review-block-label,
     .producto-review-presentation-data dt {
         color: #64748b;
         font-size: 9px;
@@ -1630,7 +1533,7 @@
         color: #0f172a;
         font-size: 14px;
         font-weight: 900;
-        margin: 3px 0 0;
+        margin: 0;
     }
 
     .producto-review-presentation-data {
@@ -1652,22 +1555,6 @@
         font-size: 12px;
         font-weight: 800;
         overflow-wrap: anywhere;
-    }
-
-    .producto-review-status {
-        background: #ecfdf5;
-        border: 1px solid #bbf7d0;
-        border-radius: 999px;
-        color: #047857;
-        font-size: 9px;
-        font-weight: 900;
-        padding: 4px 8px;
-    }
-
-    .producto-review-status.is-inactive {
-        background: #f1f5f9;
-        border-color: #cbd5e1;
-        color: #64748b;
     }
 
     .producto-review-registers {
@@ -1697,102 +1584,8 @@
         font-weight: 800;
     }
 
-    .producto-review-register-list {
-        display: grid;
-        gap: 10px;
-    }
-
-    .producto-review-register-item {
-        overflow: hidden;
-        border: 1px solid #dbe3ec;
-        border-radius: 8px;
-        background: #ffffff;
-    }
-
-    .producto-review-register-item-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 9px 11px;
-    }
-
-    .producto-review-register-title {
-        display: flex;
-        min-width: 0;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .producto-review-register-title>span {
-        display: inline-flex;
-        width: 30px;
-        height: 30px;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: center;
-        border-radius: 7px;
-        background: #eff6ff;
-        color: #2563eb;
-    }
-
-    .producto-review-register-title h6 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 11px;
-        font-weight: 900;
-    }
-
-    .producto-review-register-title p {
-        margin: 1px 0 0;
-        color: #64748b;
-        font-size: 9px;
-        font-weight: 600;
-    }
-
-    .producto-review-register-data {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin: 0;
-    }
-
-    .producto-review-register-data>div {
-        min-width: 0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 9px 11px;
-    }
-
-    .producto-review-register-data>div:nth-child(3n) {
-        border-right: 0;
-    }
-
-    .producto-review-register-data>div:nth-child(n + 4) {
-        border-bottom: 0;
-    }
-
-    .producto-review-register-data dt {
-        color: #64748b;
-        font-size: 9px;
-        font-weight: 700;
-    }
-
-    .producto-review-register-data dd {
-        margin: 3px 0 0;
-        color: #0f172a;
-        font-size: 10px;
-        font-weight: 900;
-        overflow-wrap: anywhere;
-    }
-
-    .producto-review-register-data .producto-review-register-pending {
-        background: #f8fafc;
-    }
-
-    .producto-review-register-data .producto-review-register-pending dd {
-        color: #64748b;
-        font-weight: 700;
+    .producto-review-registers .producto-review-table-block {
+        margin: 8px 0 0;
     }
 
     .producto-textarea-compact {
@@ -2761,23 +2554,8 @@
             grid-column: 1 / -1;
         }
 
-        .producto-review-register-data {
+        .producto-review-presentation-data {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .producto-review-register-data>div,
-        .producto-review-register-data>div:nth-child(3n),
-        .producto-review-register-data>div:nth-child(n + 4) {
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .producto-review-register-data>div:nth-child(2n) {
-            border-right: 0;
-        }
-
-        .producto-review-register-data>div:nth-child(n + 5) {
-            border-bottom: 0;
         }
 
     }
@@ -2801,21 +2579,8 @@
             min-height: 210px;
         }
 
-        .producto-review-register-data {
+        .producto-review-presentation-data {
             grid-template-columns: 1fr;
-        }
-
-        .producto-review-register-data>div,
-        .producto-review-register-data>div:nth-child(2n),
-        .producto-review-register-data>div:nth-child(3n),
-        .producto-review-register-data>div:nth-child(n + 4),
-        .producto-review-register-data>div:nth-child(n + 5) {
-            border-right: 0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .producto-review-register-data>div:last-child {
-            border-bottom: 0;
         }
 
         .producto-action-bar,
@@ -2927,21 +2692,6 @@
         }
 
         .producto-review-row {
-            grid-template-columns: 1fr;
-            gap: 3px;
-        }
-
-        .producto-review-new-catalog>header {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .producto-review-new-catalog>dl {
-            grid-template-columns: 1fr;
-        }
-
-        .producto-review-new-catalog>dl>div {
             grid-template-columns: 1fr;
             gap: 3px;
         }

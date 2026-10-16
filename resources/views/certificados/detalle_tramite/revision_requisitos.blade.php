@@ -333,8 +333,7 @@
                                                                 Resultado: <strong data-review-calificacion-result>
                                                                     @if ($calificacionActual === null || $calificacionActual === '')
                                                                         Pendiente
-                                                                        @elseif
-                                                                        ((float) $calificacionActual >= (float) $configuracionRequisito->calificacion_minima_aprobacion)
+                                                                    @elseif ((float) $calificacionActual >= (float) $configuracionRequisito->calificacion_minima_aprobacion)
                                                                         Aprobado
                                                                     @else
                                                                         Participación
