@@ -720,6 +720,57 @@
         color: #047857;
     }
 
+    .plantilla-tabla-datos-lista {
+        display: grid;
+        gap: 8px;
+    }
+
+    .plantilla-tabla-dato {
+        background: #f8fafc;
+        border: 1px solid #dce4ed;
+        border-radius: 7px;
+        display: grid;
+        gap: 8px;
+        padding: 9px;
+    }
+
+    .plantilla-tabla-dato-encabezado {
+        align-items: center;
+        color: #334155;
+        display: flex;
+        font-size: 11px;
+        justify-content: space-between;
+    }
+
+    .plantilla-tabla-dato-encabezado > div {
+        display: flex;
+        gap: 4px;
+    }
+
+    .plantilla-tabla-dato-btn {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        color: #475569;
+        cursor: pointer;
+        display: inline-flex;
+        font-size: 12px;
+        height: 26px;
+        justify-content: center;
+        width: 28px;
+    }
+
+    .plantilla-tabla-dato-btn:hover {
+        background: #ecfdf5;
+        border-color: #5eead4;
+        color: #047857;
+    }
+
+    .plantilla-tabla-dato-btn.is-danger {
+        color: #dc2626;
+    }
+
     .plantilla-preview-box {
         background: #f8fafc;
         border: 1px dashed #cbd5e1;
@@ -1131,6 +1182,33 @@
         pointer-events: none;
         position: absolute;
         white-space: pre-wrap;
+    }
+
+    .plantilla-show-only .plantilla-element.is-tabla {
+        overflow: hidden;
+        white-space: normal;
+    }
+
+    .plantilla-word-table {
+        border-collapse: collapse;
+        height: 100%;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .plantilla-word-table th,
+    .plantilla-word-table td {
+        background: var(--tabla-celdas-fondo, transparent);
+        box-sizing: border-box;
+        line-height: 1.05;
+        max-width: 0;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        padding: var(--tabla-padding-y, 4px) var(--tabla-padding-x, 6px);
+        text-overflow: ellipsis;
+        vertical-align: middle;
+        white-space: normal;
+        word-break: break-word;
     }
 
     .plantilla-empty-preview {

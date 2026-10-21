@@ -75,10 +75,17 @@
 
         .documento-tabla th,
         .documento-tabla td {
+            box-sizing: border-box;
             border: 1px solid currentColor;
             line-height: 1.15;
+            max-width: 0;
+            overflow: hidden;
+            overflow-wrap: anywhere;
             padding: 4px 6px;
+            text-overflow: ellipsis;
             vertical-align: middle;
+            white-space: normal;
+            word-break: break-word;
             word-wrap: break-word;
         }
 
@@ -139,6 +146,9 @@
                 };
 
                 $tabla = (array) data_get($configuracion, 'tabla', []);
+                $tablaCampoValor = data_get($tabla, 'tipo') === 'CAMPO_VALOR';
+                $tablaMostrarEncabezado = (bool) data_get($tabla, 'mostrar_encabezado', true);
+                $tablaEtiquetasNegrita = (bool) data_get($tabla, 'etiquetas_negrita', true);
                 $tablaBordes = strtoupper((string) data_get($tabla, 'bordes', 'TODOS'));
                 $tablaBordeColor = data_get($tabla, 'borde_color', '#0f172a') ?: '#0f172a';
                 $tablaBordeAncho = max(0, (float) data_get($tabla, 'borde_ancho', 1));
@@ -199,29 +209,36 @@
                             border: {{ $tablaBordes === 'EXTERIOR' ? $tablaBorde : '0' }};
                             color: {{ data_get($elemento, 'color_texto', '#0f172a') ?: '#0f172a' }};
                         ">
-                            <thead>
-                                <tr>
-                                    @forelse ($elemento->columnas as $columna)
-                                        <th style="
-                                            {{ $estiloCelda(true, $loop->first) }}
-                                            background: {{ data_get($tabla, 'encabezado_fondo', '#f1f5f9') }};
-                                            color: {{ data_get($tabla, 'encabezado_texto', '#0f172a') }};
-                                            width: {{ (float) ($columna->ancho ?: 25) }}%;
-                                        ">
-                                            {{ $columna->titulo_columna ?: $columna->codigo_campo }}
-                                        </th>
-                                    @empty
-                                        <th>Dato</th>
-                                    @endforelse
-                                </tr>
-                            </thead>
+                            <colgroup>
+                                @foreach ($elemento->columnas as $columna)
+                                    <col style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
+                                @endforeach
+                            </colgroup>
+                            @if ($tablaMostrarEncabezado)
+                                <thead>
+                                    <tr>
+                                        @forelse ($elemento->columnas as $columna)
+                                            <th style="
+                                                {{ $estiloCelda(true, $loop->first) }}
+                                                background: {{ data_get($tabla, 'encabezado_fondo', '#f1f5f9') }};
+                                                color: {{ data_get($tabla, 'encabezado_texto', '#0f172a') }};
+                                            ">
+                                                {{ $columna->titulo_columna ?: $columna->codigo_campo }}
+                                            </th>
+                                        @empty
+                                            <th>Dato</th>
+                                        @endforelse
+                                    </tr>
+                                </thead>
+                            @endif
                             <tbody>
                                 @forelse ($item['filas'] as $fila)
                                     <tr>
                                         @foreach ($fila as $celda)
                                             <td style="
                                                 {{ $estiloCelda(false, $loop->first) }}
-                                                background: {{ data_get($tabla, 'filas_alternas') && $loop->parent->iteration % 2 === 0 ? data_get($tabla, 'filas_alternas_color', '#f8fafc') : data_get($tabla, 'celdas_fondo', '#ffffff') }};
+                                                background: {{ $tablaCampoValor ? 'transparent' : (data_get($tabla, 'filas_alternas') && $loop->parent->iteration % 2 === 0 ? data_get($tabla, 'filas_alternas_color', '#f8fafc') : data_get($tabla, 'celdas_fondo', '#ffffff')) }};
+                                                font-weight: {{ data_get($elemento, 'negrita') || ($tablaCampoValor && $tablaEtiquetasNegrita && $loop->iteration % 2 === 1) ? 700 : 400 }};
                                             ">{{ $celda }}</td>
                                         @endforeach
                                     </tr>

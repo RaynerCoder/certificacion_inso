@@ -581,10 +581,16 @@
 
         .emit-template-word-table th,
         .emit-template-word-table td {
+            box-sizing: border-box;
             border: 1px solid currentColor;
             line-height: 1.15;
+            max-width: 0;
+            overflow: hidden;
+            overflow-wrap: anywhere;
             padding: 4px 6px;
+            text-overflow: ellipsis;
             vertical-align: middle;
+            white-space: normal;
             word-break: break-word;
         }
 
@@ -897,7 +903,9 @@
                         </div>
                         <div class="p-3 space-y-2 text-sm">
                             @forelse ($filasLote as $filaLote)
-                                @php($yaEmitido = (bool) $filaLote->emision)
+                                @php
+                                    $yaEmitido = (bool) $filaLote->emision;
+                                @endphp
                                 <a class="block rounded-lg border px-3 py-2 {{ (int) $registroSeleccionado?->id === (int) $filaLote->id ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200' }}"
                                     href="{{ route('certificados_emitir', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'finalizados'), 'registro' => $filaLote->id]) }}">
                                     <div class="font-semibold">Lote {{ $filaLote->registro->numero_lote }}</div>
@@ -1119,6 +1127,12 @@
                                     default => '',
                                 };
                                 $configuracionElemento = (array) ($elementoPlantilla->configuracion ?? []);
+                                $configuracionTabla = (array) data_get($configuracionElemento, 'tabla', []);
+                                $tablaCampoValor = data_get($configuracionTabla, 'tipo') === 'CAMPO_VALOR';
+                                $tablaMostrarEncabezado = (bool) data_get($configuracionTabla, 'mostrar_encabezado', true);
+                                $tablaEtiquetasNegrita = (bool) data_get($configuracionTabla, 'etiquetas_negrita', true);
+                                $tablaSinBordes = data_get($configuracionTabla, 'bordes', 'TODOS') === 'NINGUNO';
+                                $tablaBorde = (float) data_get($configuracionTabla, 'borde_ancho', 1).'px solid '.data_get($configuracionTabla, 'borde_color', '#0f172a');
                                 $bordeEstiloElemento = match (data_get($configuracionElemento, 'borde_estilo', 'SOLIDO')) {
                                     'PUNTEADO' => 'dotted',
                                     'DISCONTINUO' => 'dashed',
@@ -1162,22 +1176,34 @@
                                         <img src="{{ $valorCampo }}" alt="QR del certificado" style="display:block; width:100%; height:100%; object-fit:contain;">
                                     @elseif ($elementoPlantilla->tipo_elemento === 'TABLA')
                                         <table class="emit-template-word-table">
-                                            <thead>
-                                                <tr>
-                                                    @forelse ($elementoPlantilla->columnas as $columna)
-                                                        <th style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
-                                                            {{ $columna->titulo_columna ?: $columna->codigo_campo }}
-                                                        </th>
-                                                    @empty
-                                                        <th>Dato</th>
-                                                    @endforelse
-                                                </tr>
-                                            </thead>
+                                            <colgroup>
+                                                @foreach ($elementoPlantilla->columnas as $columna)
+                                                    <col style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
+                                                @endforeach
+                                            </colgroup>
+                                            @if ($tablaMostrarEncabezado)
+                                                <thead>
+                                                    <tr>
+                                                        @forelse ($elementoPlantilla->columnas as $columna)
+                                                            <th style="border: {{ $tablaSinBordes ? '0' : $tablaBorde }};">
+                                                                {{ $columna->titulo_columna ?: $columna->codigo_campo }}
+                                                            </th>
+                                                        @empty
+                                                            <th>Dato</th>
+                                                        @endforelse
+                                                    </tr>
+                                                </thead>
+                                            @endif
                                             <tbody>
                                                 @forelse ($filasTabla as $filaTabla)
                                                     <tr>
                                                         @foreach ($filaTabla as $celdaTabla)
-                                                            <td>{{ $celdaTabla }}</td>
+                                                            <td style="
+                                                                border: {{ $tablaSinBordes ? '0' : $tablaBorde }};
+                                                                background: {{ $tablaCampoValor ? 'transparent' : data_get($configuracionTabla, 'celdas_fondo', '#ffffff') }};
+                                                                font-weight: {{ data_get($elementoPlantilla, 'negrita') || ($tablaCampoValor && $tablaEtiquetasNegrita && $loop->iteration % 2 === 1) ? 700 : 400 }};
+                                                                padding: {{ (float) data_get($configuracionTabla, 'padding_y', 4) }}px {{ (float) data_get($configuracionTabla, 'padding_x', 6) }}px;
+                                                            ">{{ $celdaTabla }}</td>
                                                         @endforeach
                                                     </tr>
                                                 @empty
@@ -1342,10 +1368,16 @@
 
                     .emit-template-word-table th,
                     .emit-template-word-table td {
+                        box-sizing: border-box;
                         border: 1px solid currentColor;
                         line-height: 1.15;
+                        max-width: 0;
+                        overflow: hidden;
+                        overflow-wrap: anywhere;
                         padding: 4px 6px;
+                        text-overflow: ellipsis;
                         vertical-align: middle;
+                        white-space: normal;
                         word-break: break-word;
                     }
 

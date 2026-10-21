@@ -1533,11 +1533,18 @@ class CertificadoController extends Controller
         }
 
         $tabla = is_array($configuracion['tabla'] ?? null) ? $configuracion['tabla'] : [];
+        $tipoTabla = strtoupper((string) ($tabla['tipo'] ?? 'AUTOMATICA'));
         $bordes = strtoupper((string) ($tabla['bordes'] ?? 'TODOS'));
         $estilo = strtoupper((string) ($tabla['borde_estilo'] ?? 'SOLIDO'));
         $alineacionVertical = strtoupper((string) ($tabla['alineacion_vertical'] ?? 'MEDIO'));
 
         $resultado['tabla'] = [
+            'tipo' => $tipoTabla === 'CAMPO_VALOR' ? 'CAMPO_VALOR' : 'AUTOMATICA',
+            'pares_por_fila' => (int) ($tabla['pares_por_fila'] ?? 1) === 2 ? 2 : 1,
+            'mostrar_encabezado' => (bool) ($tabla['mostrar_encabezado'] ?? true),
+            'etiquetas_negrita' => (bool) ($tabla['etiquetas_negrita'] ?? true),
+            'ajustar_texto' => (bool) ($tabla['ajustar_texto'] ?? true),
+            'tamano_minimo' => max(5, min(24, (float) ($tabla['tamano_minimo'] ?? 7))),
             'bordes' => in_array($bordes, ['TODOS', 'EXTERIOR', 'HORIZONTAL', 'VERTICAL', 'ENCABEZADO', 'NINGUNO'], true)
                 ? $bordes
                 : 'TODOS',
@@ -1548,7 +1555,9 @@ class CertificadoController extends Controller
                 : 'SOLIDO',
             'encabezado_fondo' => $color($tabla['encabezado_fondo'] ?? '#f1f5f9', '#f1f5f9'),
             'encabezado_texto' => $color($tabla['encabezado_texto'] ?? '#0f172a', '#0f172a'),
-            'celdas_fondo' => $color($tabla['celdas_fondo'] ?? '#ffffff', '#ffffff'),
+            'celdas_fondo' => $tipoTabla === 'CAMPO_VALOR'
+                ? 'transparent'
+                : $color($tabla['celdas_fondo'] ?? '#ffffff', '#ffffff'),
             'filas_alternas' => (bool) ($tabla['filas_alternas'] ?? false),
             'filas_alternas_color' => $color($tabla['filas_alternas_color'] ?? '#f8fafc', '#f8fafc'),
             'padding_x' => max(0, min(30, (float) ($tabla['padding_x'] ?? 6))),

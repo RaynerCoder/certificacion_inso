@@ -80,6 +80,60 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
         $this->assertArrayNotHasKey('propiedad_no_admitida', $resultado);
     }
 
+    public function test_conserva_la_configuracion_de_una_tabla_de_campo_y_valor(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'normalizarConfiguracionElementoPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        $resultado = $metodo->invoke($controlador, [
+            'tabla' => [
+                'tipo' => 'CAMPO_VALOR',
+                'pares_por_fila' => 2,
+                'mostrar_encabezado' => false,
+                'etiquetas_negrita' => true,
+                'ajustar_texto' => true,
+                'tamano_minimo' => 6.5,
+                'bordes' => 'NINGUNO',
+                'alineacion_vertical' => 'SUPERIOR',
+            ],
+        ], 'TABLA');
+
+        $this->assertSame('CAMPO_VALOR', $resultado['tabla']['tipo']);
+        $this->assertSame(2, $resultado['tabla']['pares_por_fila']);
+        $this->assertFalse($resultado['tabla']['mostrar_encabezado']);
+        $this->assertTrue($resultado['tabla']['etiquetas_negrita']);
+        $this->assertTrue($resultado['tabla']['ajustar_texto']);
+        $this->assertSame(6.5, $resultado['tabla']['tamano_minimo']);
+        $this->assertSame('transparent', $resultado['tabla']['celdas_fondo']);
+        $this->assertSame('NINGUNO', $resultado['tabla']['bordes']);
+        $this->assertSame('SUPERIOR', $resultado['tabla']['alineacion_vertical']);
+    }
+
+    public function test_resuelve_los_valores_dinamicos_de_la_tabla_campo_valor(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'filasTablaDocumento');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        $elemento = new PlantillaElemento([
+            'tipo_elemento' => 'TABLA',
+            'texto_fijo' => json_encode([
+                'filas' => [
+                    ['Razón social', '{{importador_nombre}}'],
+                    ['Producto', '{{producto_nombre_comercial}}'],
+                ],
+            ], JSON_THROW_ON_ERROR),
+        ]);
+        $elemento->setRelation('columnas', collect());
+
+        $filas = $metodo->invoke($controlador, $elemento, [
+            'importador_nombre' => 'IMPORTADORA DEMO S.R.L.',
+            'producto_nombre_comercial' => 'PRODUCTO DEMO',
+        ]);
+
+        $this->assertSame([
+            ['Razón social', 'IMPORTADORA DEMO S.R.L.'],
+            ['Producto', 'PRODUCTO DEMO'],
+        ], $filas);
+    }
+
     public function test_conserva_los_datos_del_panel_de_capas(): void
     {
         $metodo = new ReflectionMethod(CertificadoController::class, 'normalizarConfiguracionElementoPlantilla');

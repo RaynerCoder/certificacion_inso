@@ -24,6 +24,7 @@ const FUENTES_CERTIFICADO = [
     'Agency FB',
     'Bahnschrift SemiBold Condensed',
     'Calibri',
+    'Cambria',
     'Times New Roman',
     'Lucida Bright',
     'Monotype Corsiva',
@@ -128,6 +129,7 @@ function crearEditorPlantilla(elementoCanvas) {
         boton,
         codigo: boton.dataset.codigo,
         nombre: boton.dataset.nombre,
+        grupo: boton.dataset.grupo || 'Otros datos',
     }));
     const tiposCertificados = Array.isArray(window.tiposCertificadosPlantilla)
         ? window.tiposCertificadosPlantilla
@@ -252,13 +254,19 @@ function crearEditorPlantilla(elementoCanvas) {
             ajuste_imagen: configuracion.ajuste_imagen || 'CONTENER',
             estilos_texto: normalizarEstilosTexto(configuracion.estilos_texto),
             tabla: {
+                tipo: tabla.tipo === 'CAMPO_VALOR' ? 'CAMPO_VALOR' : 'AUTOMATICA',
+                pares_por_fila: numero(tabla.pares_por_fila, 1) === 2 ? 2 : 1,
+                mostrar_encabezado: tabla.mostrar_encabezado !== false,
+                etiquetas_negrita: tabla.etiquetas_negrita !== false,
+                ajustar_texto: tabla.ajustar_texto !== false,
+                tamano_minimo: limitar(numero(tabla.tamano_minimo, 7), 5, 24),
                 bordes: tabla.bordes || 'TODOS',
                 borde_color: tabla.borde_color || COLOR_TEXTO,
                 borde_ancho: numero(tabla.borde_ancho, 1),
                 borde_estilo: tabla.borde_estilo || 'SOLIDO',
                 encabezado_fondo: tabla.encabezado_fondo || '#f1f5f9',
                 encabezado_texto: tabla.encabezado_texto || COLOR_TEXTO,
-                celdas_fondo: tabla.celdas_fondo || '#ffffff',
+                celdas_fondo: tabla.tipo === 'CAMPO_VALOR' ? 'transparent' : (tabla.celdas_fondo || '#ffffff'),
                 filas_alternas: Boolean(tabla.filas_alternas),
                 filas_alternas_color: tabla.filas_alternas_color || '#f8fafc',
                 padding_x: numero(tabla.padding_x, 6),
@@ -368,6 +376,111 @@ function crearEditorPlantilla(elementoCanvas) {
             ],
         };
         return (tablas[codigo] || []).map((columna) => ({ ...columna }));
+    }
+
+    function columnasTablaDatos(paresPorFila = 1) {
+        const pares = paresPorFila === 2 ? 2 : 1;
+        const anchos = pares === 2 ? [20, 30, 20, 30] : [32, 68];
+
+        return anchos.map((ancho, indice) => ({
+            codigo_campo: `tabla.columna_${indice + 1}`,
+            titulo_columna: indice % 2 === 0 ? 'Campo' : 'Valor',
+            ancho,
+            estado: 'ACTIVO',
+        }));
+    }
+
+    function esTablaDatos(elemento) {
+        return elemento?.tipo_elemento === 'TABLA'
+            && elemento.configuracion?.tabla?.tipo === 'CAMPO_VALOR';
+    }
+
+    function codigoDesdeMarcador(valor) {
+        const texto = String(valor || '').trim();
+        return campos.find((campo) => marcador(campo.codigo) === texto)?.codigo || '';
+    }
+
+    function filasConfiguradasTabla(elemento) {
+        try {
+            const datos = JSON.parse(elemento.texto_fijo || '{}');
+            return Array.isArray(datos.filas) ? datos.filas.map((fila) => [...fila]) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function guardarFilasTabla(elemento, filas) {
+        elemento.texto_fijo = JSON.stringify({ filas });
+        const cantidadFilas = Math.max(1, filas.length);
+        const encabezado = elemento.configuracion.tabla.mostrar_encabezado ? 1 : 0;
+        const alturaFilaMinima = elemento.configuracion.tabla.pares_por_fila === 2 ? 42 : 36;
+        elemento.alto = Math.max(elemento.alto, cantidadFilas * alturaFilaMinima + encabezado * 32);
+    }
+
+    function entradasTablaDatos(elemento) {
+        return filasConfiguradasTabla(elemento).flatMap((fila) => {
+            const entradas = [];
+            for (let indice = 0; indice < fila.length; indice += 2) {
+                entradas.push({
+                    etiqueta: String(fila[indice] || ''),
+                    codigo: codigoDesdeMarcador(fila[indice + 1]),
+                });
+            }
+            return entradas;
+        });
+    }
+
+    function reagruparTablaDatos(elemento, entradas, paresPorFila, actualizarColumnas = true) {
+        const pares = paresPorFila === 2 ? 2 : 1;
+        const filas = [];
+
+        for (let indice = 0; indice < entradas.length; indice += pares) {
+            const fila = [];
+            for (let par = 0; par < pares; par += 1) {
+                const entrada = entradas[indice + par];
+                if (!entrada) continue;
+                fila.push(entrada.etiqueta || '');
+                fila.push(entrada.codigo ? marcador(entrada.codigo) : '');
+            }
+            filas.push(fila);
+        }
+
+        elemento.configuracion.tabla.pares_por_fila = pares;
+        if (actualizarColumnas) elemento.columnas = columnasTablaDatos(pares);
+        guardarFilasTabla(elemento, filas.length ? filas : [['', '']]);
+    }
+
+    function crearTablaDatos() {
+        agregarElemento('TABLA', null, {
+            ancho: 620,
+            alto: 64,
+            tamano_letra: 11,
+            columnas: columnasTablaDatos(1),
+            texto_fijo: JSON.stringify({ filas: [['', '']] }),
+            configuracion: {
+                nombre_capa: 'Tabla de datos',
+                tabla: {
+                    tipo: 'CAMPO_VALOR',
+                    pares_por_fila: 1,
+                    mostrar_encabezado: false,
+                    etiquetas_negrita: true,
+                    ajustar_texto: true,
+                    tamano_minimo: 7,
+                    bordes: 'NINGUNO',
+                    borde_color: COLOR_TEXTO,
+                    borde_ancho: 1,
+                    borde_estilo: 'SOLIDO',
+                    encabezado_fondo: '#f1f5f9',
+                    encabezado_texto: COLOR_TEXTO,
+                    celdas_fondo: 'transparent',
+                    filas_alternas: false,
+                    filas_alternas_color: '#f8fafc',
+                    padding_x: 6,
+                    padding_y: 4,
+                    alineacion_vertical: 'SUPERIOR',
+                },
+            },
+        });
     }
 
     function nombreElemento(elemento) {
@@ -641,35 +754,70 @@ function crearEditorPlantilla(elementoCanvas) {
         const columnas = elemento.columnas.length ? elemento.columnas : columnasPredeterminadas(elemento.codigo_elemento);
         const filas = filasTabla(elemento, columnas);
         const objetos = [];
-        const alturaFila = Math.max(24, elemento.alto / Math.max(2, filas.length + 1));
+        const mostrarEncabezado = elemento.configuracion.tabla.mostrar_encabezado;
+        const cantidadFilasVisuales = Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0));
+        const alturaFila = Math.max(24, elemento.alto / cantidadFilasVisuales);
+        const desfaseFilas = mostrarEncabezado ? 1 : 0;
         let izquierda = 0;
 
         columnas.forEach((columna, columnaIndice) => {
             const anchoColumna = elemento.ancho * (numero(columna.ancho, 100 / columnas.length) / 100);
-            objetos.push(celdaTabla(izquierda, 0, anchoColumna, alturaFila, columna.titulo_columna || 'Columna', true, elemento));
+            if (mostrarEncabezado) {
+                objetos.push(celdaTabla(izquierda, 0, anchoColumna, alturaFila, columna.titulo_columna || 'Columna', true, elemento));
+            }
             filas.forEach((fila, filaIndice) => {
+                const tieneCelda = Object.prototype.hasOwnProperty.call(fila, columnaIndice);
+                const contenidoCelda = tieneCelda ? fila[columnaIndice] : '';
                 objetos.push(celdaTabla(
                     izquierda,
-                    alturaFila * (filaIndice + 1),
+                    alturaFila * (filaIndice + desfaseFilas),
                     anchoColumna,
                     alturaFila,
-                    fila[columnaIndice] || marcador(columna.codigo_campo),
+                    esTablaDatos(elemento) && !String(contenidoCelda ?? '').trim()
+                        ? (columnaIndice % 2 === 0 ? 'Campo' : 'Valor')
+                        : (tieneCelda ? contenidoCelda : marcador(columna.codigo_campo)),
                     false,
                     elemento,
                     filaIndice,
+                    esTablaDatos(elemento) && columnaIndice % 2 === 0,
                 ));
             });
             izquierda += anchoColumna;
         });
 
-        return new Group(objetos, { width: elemento.ancho, height: alturaFila * (filas.length + 1) });
+        return new Group(objetos, { width: elemento.ancho, height: alturaFila * cantidadFilasVisuales });
     }
 
-    function celdaTabla(left, top, width, height, texto, encabezado, elemento, filaIndice = 0) {
+    function celdaTabla(left, top, width, height, texto, encabezado, elemento, filaIndice = 0, etiqueta = false) {
         const estilo = elemento.configuracion.tabla;
         const fondo = encabezado
             ? estilo.encabezado_fondo
             : (estilo.filas_alternas && filaIndice % 2 ? estilo.filas_alternas_color : estilo.celdas_fondo);
+        const paddingX = numero(estilo.padding_x, 6);
+        const paddingY = numero(estilo.padding_y, 4);
+        const anchoTexto = Math.max(10, width - paddingX * 2);
+        const altoTexto = Math.max(10, height - paddingY * 2);
+        const textoCelda = textoAjustadoCelda(
+            texto,
+            anchoTexto,
+            altoTexto,
+            numero(elemento.tamano_letra, 11),
+            numero(estilo.tamano_minimo, 7),
+            estilo.ajustar_texto !== false,
+            {
+                left: paddingX,
+                top: paddingY,
+                fontFamily: elemento.tipo_letra,
+                fontWeight: encabezado || elemento.negrita || (etiqueta && estilo.etiquetas_negrita) ? 'bold' : 'normal',
+                fill: encabezado ? estilo.encabezado_texto : elemento.color_texto,
+                textAlign: alineacionFabric(elemento.alineacion),
+                selectable: false,
+                evented: false,
+            },
+        );
+        const altoRealTexto = Math.min(numero(textoCelda.height), altoTexto);
+        textoCelda.top = paddingY + desplazamientoVerticalCelda(estilo.alineacion_vertical, altoTexto, altoRealTexto);
+
         return new Group([
             new Rect({
                 left: 0,
@@ -680,20 +828,61 @@ function crearEditorPlantilla(elementoCanvas) {
                 stroke: estilo.borde_color,
                 strokeWidth: estilo.bordes === 'NINGUNO' ? 0 : estilo.borde_ancho,
             }),
-            new Textbox(String(texto), {
-                left: estilo.padding_x,
-                top: estilo.padding_y,
-                width: Math.max(10, width - estilo.padding_x * 2),
-                height: Math.max(10, height - estilo.padding_y * 2),
-                fontSize: elemento.tamano_letra,
-                fontFamily: elemento.tipo_letra,
-                fontWeight: encabezado || elemento.negrita ? 'bold' : 'normal',
-                fill: encabezado ? estilo.encabezado_texto : elemento.color_texto,
-                textAlign: alineacionFabric(elemento.alineacion),
-                selectable: false,
-                evented: false,
-            }),
+            textoCelda,
         ], { left, top, width, height, selectable: false, evented: false });
+    }
+
+    function textoAjustadoCelda(texto, width, height, tamanoInicial, tamanoMinimo, ajustar, opciones = {}) {
+        const contenidoOriginal = String(texto ?? '');
+        const minimo = Math.min(tamanoInicial, Math.max(5, tamanoMinimo));
+        const objeto = new Textbox(contenidoOriginal, {
+            ...opciones,
+            width,
+            fontSize: tamanoInicial,
+            lineHeight: 1.05,
+            splitByGrapheme: true,
+        });
+
+        const redimensionar = (tamano, contenido = objeto.text) => {
+            objeto.set({ fontSize: tamano, text: contenido });
+            objeto.initDimensions();
+        };
+
+        if (ajustar) {
+            let tamano = tamanoInicial;
+            while (numero(objeto.height) > height && tamano > minimo) {
+                tamano = Math.max(minimo, tamano - 0.5);
+                redimensionar(tamano);
+            }
+        }
+
+        // Última protección: si el contenido todavía no cabe, se usa elipsis.
+        // El valor original no se modifica; solo se limita su representación visual.
+        if (numero(objeto.height) > height && contenidoOriginal.length > 1) {
+            let inicio = 0;
+            let fin = contenidoOriginal.length;
+            let contenidoVisible = '…';
+            while (inicio <= fin) {
+                const medio = Math.floor((inicio + fin) / 2);
+                const candidato = `${contenidoOriginal.slice(0, medio).trimEnd()}…`;
+                redimensionar(objeto.fontSize, candidato);
+                if (numero(objeto.height) <= height) {
+                    contenidoVisible = candidato;
+                    inicio = medio + 1;
+                } else {
+                    fin = medio - 1;
+                }
+            }
+            redimensionar(objeto.fontSize, contenidoVisible);
+        }
+
+        return objeto;
+    }
+
+    function desplazamientoVerticalCelda(alineacion, altoDisponible, altoTexto) {
+        if (alineacion === 'INFERIOR') return Math.max(0, altoDisponible - altoTexto);
+        if (alineacion === 'MEDIO') return Math.max(0, (altoDisponible - altoTexto) / 2);
+        return 0;
     }
 
     function filasTabla(elemento, columnas = elemento.columnas) {
@@ -897,7 +1086,7 @@ function crearEditorPlantilla(elementoCanvas) {
             const medidas = medidasPapel();
             const posicionX = limitar((evento.clientX - caja.left) / zoom, 0, medidas.ancho - anchoInicial('CAMPO'));
             const posicionY = limitar((evento.clientY - caja.top) / zoom, 0, medidas.alto - altoInicial('CAMPO'));
-            agregarElemento('CAMPO', codigo, {
+            agregarElemento(codigo.endsWith('.tabla') ? 'TABLA' : 'CAMPO', codigo, {
                 posicion_x: posicionX,
                 posicion_y: posicionY,
             });
@@ -1027,7 +1216,7 @@ function crearEditorPlantilla(elementoCanvas) {
     function ejecutarHerramienta(accion) {
         const acciones = {
             texto: () => agregarElemento('TEXTO'),
-            tabla: () => agregarElemento('TABLA', campoSeleccionado?.endsWith('.tabla') ? campoSeleccionado : 'producto.tabla'),
+            tabla: crearTablaDatos,
             firma: () => agregarElemento('FIRMA', 'firma.director'),
             qr: () => agregarElemento('QR', 'qr.verificacion'),
             imagen: () => seleccionarImagen((imagen) => agregarElemento('IMAGEN', null, { texto_fijo: imagen })),
@@ -1046,6 +1235,7 @@ function crearEditorPlantilla(elementoCanvas) {
     function agregarElemento(tipo, codigo = null, datos = {}) {
         guardarHistorial();
         const nuevo = normalizarElemento({
+            ...datos,
             tipo_elemento: tipo,
             codigo_elemento: codigo,
             texto_fijo: datos.texto_fijo ?? textoInicial(tipo, codigo),
@@ -1160,7 +1350,7 @@ function crearEditorPlantilla(elementoCanvas) {
     function insertarCampoEnSeleccion(codigo) {
         const objeto = lienzo.getActiveObject();
         if (!(objeto instanceof Textbox) || !Number.isInteger(objeto.plantillaIndice)) {
-            agregarElemento('CAMPO', codigo);
+            agregarElemento(codigo.endsWith('.tabla') ? 'TABLA' : 'CAMPO', codigo);
             return;
         }
 
@@ -1486,6 +1676,36 @@ function crearEditorPlantilla(elementoCanvas) {
             editandoPropiedad = false;
         });
         controles.propiedades?.addEventListener('click', (evento) => {
+            const elementoTabla = elementoSeleccionado();
+            const agregarDato = evento.target.closest('[data-tabla-agregar]');
+            const quitarDato = evento.target.closest('[data-tabla-quitar]');
+            const subirDato = evento.target.closest('[data-tabla-subir]');
+            const bajarDato = evento.target.closest('[data-tabla-bajar]');
+            if (elementoTabla && esTablaDatos(elementoTabla) && (agregarDato || quitarDato || subirDato || bajarDato)) {
+                evento.preventDefault();
+                guardarHistorial();
+                const entradas = entradasTablaDatos(elementoTabla);
+                if (agregarDato) {
+                    entradas.push({ etiqueta: '', codigo: '' });
+                } else if (quitarDato) {
+                    entradas.splice(Number(quitarDato.dataset.tablaQuitar), 1);
+                } else {
+                    const botonMovimiento = subirDato || bajarDato;
+                    const origen = Number(subirDato?.dataset.tablaSubir ?? bajarDato?.dataset.tablaBajar);
+                    const destino = origen + (subirDato ? -1 : 1);
+                    if (destino >= 0 && destino < entradas.length) {
+                        [entradas[origen], entradas[destino]] = [entradas[destino], entradas[origen]];
+                    }
+                }
+                reagruparTablaDatos(
+                    elementoTabla,
+                    entradas.length ? entradas : [{ etiqueta: '', codigo: '' }],
+                    elementoTabla.configuracion.tabla.pares_por_fila,
+                    false,
+                );
+                renderizarTodo();
+                return;
+            }
             if (evento.target.closest('[data-prop-eliminar]')) eliminarSeleccion();
             if (evento.target.closest('[data-prop-imagen]')) {
                 seleccionarImagen((imagen) => {
@@ -1893,17 +2113,132 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function propiedadesTabla(elemento) {
-        return `<div class="plantilla-prop-full plantilla-prop-section-title">Columnas de la tabla</div>
+        const tabla = elemento.configuracion.tabla;
+        const tablaDatos = esTablaDatos(elemento);
+        const entradas = tablaDatos ? entradasTablaDatos(elemento) : [];
+        const camposSeleccionables = campos
+            .filter((campo) => !campo.codigo.endsWith('.tabla') && campo.codigo !== 'qr.verificacion');
+        const gruposCampos = camposSeleccionables.reduce((grupos, campo) => {
+            if (!grupos.has(campo.grupo)) grupos.set(campo.grupo, []);
+            grupos.get(campo.grupo).push(campo);
+            return grupos;
+        }, new Map());
+        const opcionesCampo = (codigoSeleccionado) => `
+            <option value="">Seleccione un dato...</option>
+            ${[...gruposCampos.entries()].map(([grupo, camposGrupo]) => `
+                <optgroup label="${escaparAtributo(grupo)}">
+                    ${camposGrupo.map((campo) => `<option value="${escaparAtributo(campo.codigo)}" ${campo.codigo === codigoSeleccionado ? 'selected' : ''}>${escaparHtml(campo.nombre)}</option>`).join('')}
+                </optgroup>`).join('')}`;
+
+        const editorContenido = tablaDatos
+            ? `<div class="plantilla-prop-full plantilla-editor-ayuda">Cada fila mantiene alineados el nombre del dato y su valor. Elija una variable; al emitir se reemplazará automáticamente.</div>
+                <label class="plantilla-prop-full"><span class="plantilla-prop-label">Distribución</span>
+                    <select class="plantilla-prop-select" data-tabla-pares>
+                        <option value="1" ${tabla.pares_por_fila === 1 ? 'selected' : ''}>Un campo y valor por fila</option>
+                        <option value="2" ${tabla.pares_por_fila === 2 ? 'selected' : ''}>Dos campos y valores por fila</option>
+                    </select>
+                </label>
+                <div class="plantilla-prop-full plantilla-tabla-datos-lista">
+                    ${entradas.map((entrada, indice) => `
+                        <div class="plantilla-tabla-dato" data-tabla-entrada="${indice}">
+                            <div class="plantilla-tabla-dato-encabezado">
+                                <strong>Dato ${indice + 1}</strong>
+                                <div>
+                                    <button type="button" class="plantilla-tabla-dato-btn" data-tabla-subir="${indice}" title="Subir">↑</button>
+                                    <button type="button" class="plantilla-tabla-dato-btn" data-tabla-bajar="${indice}" title="Bajar">↓</button>
+                                    <button type="button" class="plantilla-tabla-dato-btn is-danger" data-tabla-quitar="${indice}" title="Quitar">×</button>
+                                </div>
+                            </div>
+                            <label><span class="plantilla-prop-label">Nombre que se imprimirá</span>
+                                <input class="plantilla-prop-input" data-tabla-etiqueta="${indice}" value="${escaparAtributo(entrada.etiqueta)}" placeholder="Ej.: Razón social">
+                            </label>
+                            <label><span class="plantilla-prop-label">Valor dinámico</span>
+                                <select class="plantilla-prop-select" data-tabla-codigo="${indice}">${opcionesCampo(entrada.codigo)}</select>
+                            </label>
+                        </div>`).join('')}
+                </div>
+                <button type="button" class="plantilla-action-btn plantilla-prop-full" data-tabla-agregar>+ Agregar dato</button>`
+            : `<div class="plantilla-prop-full plantilla-prop-section-title">Columnas de la tabla</div>
+                ${elemento.columnas.map((columna, indice) => `
+                    <label class="plantilla-prop-full"><span class="plantilla-prop-label">Columna ${indice + 1}</span>
+                        <input class="plantilla-prop-input" data-columna-titulo="${indice}" value="${escaparAtributo(columna.titulo_columna || '')}">
+                    </label>`).join('')}`;
+
+        return `<div class="plantilla-prop-full plantilla-prop-section-title">Contenido de la tabla</div>
+            ${editorContenido}
+            <div class="plantilla-prop-full plantilla-prop-section-title">Columnas y apariencia</div>
             ${elemento.columnas.map((columna, indice) => `
-                <label class="plantilla-prop-full"><span class="plantilla-prop-label">Columna ${indice + 1}</span>
-                    <input class="plantilla-prop-input" data-columna-titulo="${indice}" value="${escaparAtributo(columna.titulo_columna || '')}">
-                </label>`).join('')}`;
+                <label><span class="plantilla-prop-label">Ancho columna ${indice + 1} (%)</span>
+                    <input type="number" min="5" max="95" step="1" class="plantilla-prop-input" data-tabla-ancho="${indice}" value="${numero(columna.ancho, 25)}">
+                </label>`).join('')}
+            ${campoNumero('Tamaño de letra', 'tamano_letra', elemento.tamano_letra, 8)}
+            <label><span class="plantilla-prop-label">Bordes</span>
+                <select class="plantilla-prop-select" data-tabla-config="bordes">
+                    ${[['NINGUNO', 'Sin bordes'], ['TODOS', 'Todos'], ['EXTERIOR', 'Solo exterior'], ['HORIZONTAL', 'Horizontales'], ['VERTICAL', 'Verticales'], ['ENCABEZADO', 'Solo encabezado']]
+                        .map(([valor, texto]) => `<option value="${valor}" ${tabla.bordes === valor ? 'selected' : ''}>${texto}</option>`).join('')}
+                </select>
+            </label>
+            ${campoNumero('Separación horizontal', 'padding_x', tabla.padding_x, 0, 'tabla')}
+            ${campoNumero('Separación vertical', 'padding_y', tabla.padding_y, 0, 'tabla')}
+            ${campoNumero('Tamaño mínimo del texto', 'tamano_minimo', tabla.tamano_minimo, 5, 'tabla')}
+            <label class="plantilla-prop-full"><span class="plantilla-prop-label">Alineación vertical</span>
+                <select class="plantilla-prop-select" data-tabla-config="alineacion_vertical">
+                    ${[['SUPERIOR', 'Superior'], ['MEDIO', 'Centro'], ['INFERIOR', 'Inferior']]
+                        .map(([valor, texto]) => `<option value="${valor}" ${tabla.alineacion_vertical === valor ? 'selected' : ''}>${texto}</option>`).join('')}
+                </select>
+            </label>
+            <label class="plantilla-check-row">
+                <input type="checkbox" data-tabla-config="mostrar_encabezado" ${tabla.mostrar_encabezado ? 'checked' : ''}> Mostrar encabezado
+            </label>
+            <label class="plantilla-check-row plantilla-prop-full">
+                <input type="checkbox" data-tabla-config="ajustar_texto" ${tabla.ajustar_texto ? 'checked' : ''}> Ajustar texto largo dentro de cada celda
+            </label>
+            <div class="plantilla-prop-full plantilla-editor-ayuda">El texto baja de línea y reduce su tamaño solo hasta el mínimo indicado. Si aun así no cabe, se muestra con puntos suspensivos para que nunca invada otra celda.</div>
+            ${tablaDatos ? `<label class="plantilla-check-row">
+                <input type="checkbox" data-tabla-config="etiquetas_negrita" ${tabla.etiquetas_negrita ? 'checked' : ''}> Nombres en negrita
+            </label>` : ''}`;
     }
 
     function actualizarPropiedad(evento) {
         const elemento = elementoSeleccionado();
         const objetivo = evento.target;
         if (!elemento || !(objetivo instanceof HTMLInputElement || objetivo instanceof HTMLSelectElement || objetivo instanceof HTMLTextAreaElement)) return;
+
+        if (objetivo.dataset.tablaEtiqueta !== undefined || objetivo.dataset.tablaCodigo !== undefined) {
+            const indice = Number(objetivo.dataset.tablaEtiqueta ?? objetivo.dataset.tablaCodigo);
+            const entradas = entradasTablaDatos(elemento);
+            entradas[indice] ??= { etiqueta: '', codigo: '' };
+            if (objetivo.dataset.tablaEtiqueta !== undefined) entradas[indice].etiqueta = objetivo.value;
+            else entradas[indice].codigo = objetivo.value;
+            reagruparTablaDatos(elemento, entradas, elemento.configuracion.tabla.pares_por_fila, false);
+            actualizarInput();
+            if (evento.type === 'change') renderizarTodo();
+            return;
+        }
+
+        if (objetivo.dataset.tablaPares !== undefined) {
+            reagruparTablaDatos(elemento, entradasTablaDatos(elemento), Number(objetivo.value));
+            renderizarTodo();
+            return;
+        }
+
+        if (objetivo.dataset.tablaAncho !== undefined) {
+            const columna = elemento.columnas[Number(objetivo.dataset.tablaAncho)];
+            if (columna) columna.ancho = limitar(numero(objetivo.value, 25), 5, 95);
+            actualizarInput();
+            if (evento.type === 'change') renderizarTodo();
+            return;
+        }
+
+        if (objetivo.dataset.tablaConfig !== undefined) {
+            const propiedad = objetivo.dataset.tablaConfig;
+            elemento.configuracion.tabla[propiedad] = objetivo.type === 'checkbox'
+                ? objetivo.checked
+                : objetivo.value;
+            actualizarInput();
+            if (evento.type === 'change') renderizarTodo();
+            return;
+        }
 
         if (objetivo.dataset.columnaTitulo !== undefined) {
             const columna = elemento.columnas[Number(objetivo.dataset.columnaTitulo)];
@@ -1929,6 +2264,8 @@ function crearEditorPlantilla(elementoCanvas) {
             elemento.configuracion[propiedad] = Math.max(0.05, Math.min(1, valor / 100));
         } else if (grupo === 'configuracion') {
             elemento.configuracion[propiedad] = valor;
+        } else if (grupo === 'tabla') {
+            elemento.configuracion.tabla[propiedad] = valor;
         } else {
             elemento[propiedad] = propiedad === 'alineacion' ? normalizarAlineacion(valor) : valor;
         }

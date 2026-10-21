@@ -165,6 +165,7 @@
                                             data-plantilla-campo
                                             data-codigo="{{ $campo['codigo'] }}"
                                             data-nombre="{{ $campo['nombre'] }}"
+                                            data-grupo="{{ $grupo }}"
                                             title="Dato interno: {{ $campo['codigo'] }}">
                                             <span class="plantilla-field-name">{{ $campo['nombre'] }}</span>
                                         </button>
@@ -201,7 +202,7 @@
                         <button type="button" class="plantilla-action-btn plantilla-icon-btn is-primary" data-plantilla-tool="texto"
                             title="Agregar texto" aria-label="Agregar texto"><i class="fa-solid fa-font"></i></button>
                         <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="tabla"
-                            title="Agregar tabla" aria-label="Agregar tabla"><i class="fa-solid fa-table-cells"></i></button>
+                            title="Agregar tabla de datos: campo y valor" aria-label="Agregar tabla de datos"><i class="fa-solid fa-table-cells"></i></button>
                         <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="firma"
                             title="Agregar firma" aria-label="Agregar firma"><i class="fa-solid fa-signature"></i></button>
                         <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="qr"

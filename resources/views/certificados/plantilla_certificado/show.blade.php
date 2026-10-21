@@ -57,6 +57,9 @@
                                     default => 'solid',
                                 };
                                 $tabla = (array) data_get($configuracion, 'tabla', []);
+                                $tablaCampoValor = data_get($tabla, 'tipo') === 'CAMPO_VALOR';
+                                $tablaMostrarEncabezado = (bool) data_get($tabla, 'mostrar_encabezado', true);
+                                $tablaEtiquetasNegrita = (bool) data_get($tabla, 'etiquetas_negrita', true);
                                 $claseBordesTabla = 'is-bordes-' . strtolower((string) data_get($tabla, 'bordes', 'TODOS'));
                                 $contenidoTabla = json_decode((string) $elemento->texto_fijo, true);
                                 $filasTabla = is_array($contenidoTabla['filas'] ?? null) ? $contenidoTabla['filas'] : [];
@@ -105,19 +108,26 @@
                                         --tabla-borde-estilo: {{ match (data_get($tabla, 'borde_estilo', 'SOLIDO')) { 'PUNTEADO' => 'dotted', 'DISCONTINUO' => 'dashed', 'DOBLE' => 'double', default => 'solid' } }};
                                         --tabla-encabezado-fondo: {{ data_get($tabla, 'encabezado_fondo', '#f1f5f9') }};
                                         --tabla-encabezado-texto: {{ data_get($tabla, 'encabezado_texto', '#0f172a') }};
-                                        --tabla-celdas-fondo: {{ data_get($tabla, 'celdas_fondo', '#ffffff') }};
+                                        --tabla-celdas-fondo: {{ $tablaCampoValor ? 'transparent' : data_get($tabla, 'celdas_fondo', '#ffffff') }};
                                         --tabla-alterna-fondo: {{ data_get($tabla, 'filas_alternas_color', '#f8fafc') }};
                                         --tabla-padding-x: {{ (float) data_get($tabla, 'padding_x', 6) }}px;
                                         --tabla-padding-y: {{ (float) data_get($tabla, 'padding_y', 4) }}px;
                                     ">
-                                        <thead><tr>
+                                        <colgroup>
                                             @foreach ($elemento->columnas as $columna)
-                                                <th style="width: {{ (float) ($columna->ancho ?: 25) }}%;">{{ $columna->titulo_columna }}</th>
+                                                <col style="width: {{ (float) ($columna->ancho ?: 25) }}%;">
                                             @endforeach
-                                        </tr></thead>
+                                        </colgroup>
+                                        @if ($tablaMostrarEncabezado)
+                                            <thead><tr>
+                                                @foreach ($elemento->columnas as $columna)
+                                                    <th>{{ $columna->titulo_columna }}</th>
+                                                @endforeach
+                                            </tr></thead>
+                                        @endif
                                         <tbody>
                                             @forelse ($filasTabla as $fila)
-                                                <tr>@foreach ($fila as $celda)<td>{{ $celda }}</td>@endforeach</tr>
+                                                <tr>@foreach ($fila as $celda)<td style="font-weight: {{ $elemento->negrita || ($tablaCampoValor && $tablaEtiquetasNegrita && $loop->iteration % 2 === 1) ? 700 : 400 }};">{{ $celda }}</td>@endforeach</tr>
                                             @empty
                                                 <tr><td>Sin datos</td></tr>
                                             @endforelse

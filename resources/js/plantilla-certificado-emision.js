@@ -21,6 +21,7 @@ const FUENTES = [
     'Agency FB',
     'Bahnschrift SemiBold Condensed',
     'Calibri',
+    'Cambria',
     'Times New Roman',
     'Lucida Bright',
     'Monotype Corsiva',
@@ -232,13 +233,38 @@ function crearMarcador(texto, ancho, alto) {
     ], { width: ancho, height: alto });
 }
 
-function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado, filaIndice = 0) {
+function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado, filaIndice = 0, etiqueta = false) {
     const estilo = elemento.configuracion?.tabla || {};
+    const tablaCampoValor = estilo.tipo === 'CAMPO_VALOR';
     const fondo = encabezado
         ? (estilo.encabezado_fondo || '#f1f5f9')
-        : (estilo.filas_alternas && filaIndice % 2
+        : (tablaCampoValor
+            ? 'transparent'
+            : estilo.filas_alternas && filaIndice % 2
             ? (estilo.filas_alternas_color || '#f8fafc')
             : (estilo.celdas_fondo || '#ffffff'));
+    const paddingX = numero(estilo.padding_x, 6);
+    const paddingY = numero(estilo.padding_y, 4);
+    const anchoTexto = Math.max(10, ancho - paddingX * 2);
+    const altoTexto = Math.max(10, alto - paddingY * 2);
+    const textoCelda = textoAjustadoCelda(
+        texto,
+        anchoTexto,
+        altoTexto,
+        numero(elemento.tamano_letra, 11),
+        numero(estilo.tamano_minimo, 7),
+        estilo.ajustar_texto !== false,
+        {
+            left: paddingX,
+            top: paddingY,
+            fontFamily: elemento.tipo_letra || 'Arial',
+            fontWeight: encabezado || elemento.negrita || (etiqueta && estilo.etiquetas_negrita !== false) ? 'bold' : 'normal',
+            fill: encabezado ? (estilo.encabezado_texto || '#0f172a') : (elemento.color_texto || '#0f172a'),
+            textAlign: alineacion(elemento.alineacion),
+        },
+    );
+    const altoRealTexto = Math.min(numero(textoCelda.height), altoTexto);
+    textoCelda.top = paddingY + desplazamientoVerticalCelda(estilo.alineacion_vertical, altoTexto, altoRealTexto);
 
     return new Group([
         new Rect({
@@ -250,37 +276,95 @@ function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado,
             stroke: estilo.borde_color || '#0f172a',
             strokeWidth: estilo.bordes === 'NINGUNO' ? 0 : numero(estilo.borde_ancho, 1),
         }),
-        new Textbox(String(texto || ''), {
-            left: numero(estilo.padding_x, 6),
-            top: numero(estilo.padding_y, 4),
-            width: Math.max(10, ancho - numero(estilo.padding_x, 6) * 2),
-            height: Math.max(10, alto - numero(estilo.padding_y, 4) * 2),
-            fontSize: numero(elemento.tamano_letra, 11),
-            fontFamily: elemento.tipo_letra || 'Arial',
-            fontWeight: encabezado || elemento.negrita ? 'bold' : 'normal',
-            fill: encabezado ? (estilo.encabezado_texto || '#0f172a') : (elemento.color_texto || '#0f172a'),
-            textAlign: alineacion(elemento.alineacion),
-        }),
+        textoCelda,
     ], { left: izquierda, top: arriba, width: ancho, height: alto });
+}
+
+function textoAjustadoCelda(texto, width, height, tamanoInicial, tamanoMinimo, ajustar, opciones = {}) {
+    const contenidoOriginal = String(texto ?? '');
+    const minimo = Math.min(tamanoInicial, Math.max(5, tamanoMinimo));
+    const objeto = new Textbox(contenidoOriginal, {
+        ...opciones,
+        width,
+        fontSize: tamanoInicial,
+        lineHeight: 1.05,
+        splitByGrapheme: true,
+    });
+
+    const redimensionar = (tamano, contenido = objeto.text) => {
+        objeto.set({ fontSize: tamano, text: contenido });
+        objeto.initDimensions();
+    };
+
+    if (ajustar) {
+        let tamano = tamanoInicial;
+        while (numero(objeto.height) > height && tamano > minimo) {
+            tamano = Math.max(minimo, tamano - 0.5);
+            redimensionar(tamano);
+        }
+    }
+
+    if (numero(objeto.height) > height && contenidoOriginal.length > 1) {
+        let inicio = 0;
+        let fin = contenidoOriginal.length;
+        let contenidoVisible = '…';
+        while (inicio <= fin) {
+            const medio = Math.floor((inicio + fin) / 2);
+            const candidato = `${contenidoOriginal.slice(0, medio).trimEnd()}…`;
+            redimensionar(objeto.fontSize, candidato);
+            if (numero(objeto.height) <= height) {
+                contenidoVisible = candidato;
+                inicio = medio + 1;
+            } else {
+                fin = medio - 1;
+            }
+        }
+        redimensionar(objeto.fontSize, contenidoVisible);
+    }
+
+    return objeto;
+}
+
+function desplazamientoVerticalCelda(alineacionVertical, altoDisponible, altoTexto) {
+    if (alineacionVertical === 'INFERIOR') return Math.max(0, altoDisponible - altoTexto);
+    if (alineacionVertical === 'MEDIO') return Math.max(0, (altoDisponible - altoTexto) / 2);
+    return 0;
 }
 
 function crearTabla(elemento) {
     const columnas = Array.isArray(elemento.columnas) ? elemento.columnas : [];
     const filas = Array.isArray(elemento.filas) && elemento.filas.length ? elemento.filas : [[]];
     const objetos = [];
-    const alturaFila = Math.max(24, numero(elemento.alto, 118) / Math.max(2, filas.length + 1));
+    const estilo = elemento.configuracion?.tabla || {};
+    const mostrarEncabezado = estilo.mostrar_encabezado !== false;
+    const tablaCampoValor = estilo.tipo === 'CAMPO_VALOR';
+    const cantidadFilasVisuales = Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0));
+    const alturaFila = Math.max(24, numero(elemento.alto, 118) / cantidadFilasVisuales);
+    const desfaseFilas = mostrarEncabezado ? 1 : 0;
     let izquierda = 0;
 
     columnas.forEach((columna, columnaIndice) => {
         const ancho = numero(elemento.ancho, 520) * (numero(columna.ancho, 100 / Math.max(1, columnas.length)) / 100);
-        objetos.push(crearCelda(elemento, izquierda, 0, ancho, alturaFila, columna.titulo_columna || 'Columna', true));
+        if (mostrarEncabezado) {
+            objetos.push(crearCelda(elemento, izquierda, 0, ancho, alturaFila, columna.titulo_columna || 'Columna', true));
+        }
         filas.forEach((fila, filaIndice) => {
-            objetos.push(crearCelda(elemento, izquierda, alturaFila * (filaIndice + 1), ancho, alturaFila, fila[columnaIndice], false, filaIndice));
+            objetos.push(crearCelda(
+                elemento,
+                izquierda,
+                alturaFila * (filaIndice + desfaseFilas),
+                ancho,
+                alturaFila,
+                fila[columnaIndice],
+                false,
+                filaIndice,
+                tablaCampoValor && columnaIndice % 2 === 0,
+            ));
         });
         izquierda += ancho;
     });
 
-    return new Group(objetos, { width: numero(elemento.ancho, 520), height: alturaFila * (filas.length + 1) });
+    return new Group(objetos, { width: numero(elemento.ancho, 520), height: alturaFila * cantidadFilasVisuales });
 }
 
 async function crearObjeto(elemento, valores = {}) {
