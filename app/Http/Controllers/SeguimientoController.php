@@ -272,11 +272,21 @@ class SeguimientoController extends Controller
             throw new \Exception('El area configurada para este tipo de certificado no esta activa.');
         }
 
-        $usuarioDestino = $this->usuarioReceptorArea((int) $areaDestino->id);
+        $funcionarioReceptor = Funcionario::query()
+            ->with('usuario')
+            ->whereKey($tipoCertificado->id_funcionario_receptor_inicial)
+            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
+            ->whereHas('cargos', fn ($query) => $query
+                ->where('cargos.id_area', $areaDestino->id)
+                ->where('cargos.estado', 1)
+                ->whereNull('funcionarios_cargos.deleted_at'))
+            ->first();
+
+        $usuarioDestino = $funcionarioReceptor?->usuario;
 
         if (! $usuarioDestino) {
             throw ValidationException::withMessages([
-                'form_id_tipo_certificado' => 'No se tiene un responsable para atender el trámite.',
+                'form_id_tipo_certificado' => 'El tipo de certificado no tiene un funcionario receptor activo configurado para el área inicial.',
             ]);
         }
 
@@ -2229,7 +2239,7 @@ class SeguimientoController extends Controller
     private function buscarTipoCertificadoActivo(int $idTipoCertificado): TipoCertificado
     {
         $tipoCertificado = TipoCertificado::query()
-            ->with('area')
+            ->with(['area', 'funcionarioReceptor.usuario'])
             ->where('estado', 'ACTIVO')
             ->find($idTipoCertificado);
 
@@ -2833,61 +2843,6 @@ class SeguimientoController extends Controller
             })
             ->orderBy('name')
             ->get();
-    }
-
-    // Busca quien recibe primero el tramite segun el area configurada en el tipo de certificado.
-    private function usuarioReceptorArea(int $idArea): ?User
-    {
-        $idsAreas = [$idArea];
-
-        return User::query()
-            ->with('funcionario.cargos')
-            ->where('estado', 1)
-            ->whereHas('funcionario', function ($query) use ($idsAreas) {
-                $query->where('estado', 1)
-                    ->whereHas('cargos', function ($cargo) use ($idsAreas) {
-                        $cargo->whereIn('id_area', $idsAreas)
-                            ->where('estado', 1);
-                    });
-            })
-            ->get()
-            ->sortBy(function (User $usuario) use ($idsAreas) {
-                $cargo = $usuario->funcionario?->cargos
-                    ->whereIn('id_area', $idsAreas)
-                    ->where('estado', 1)
-                    ->sortBy(function ($cargo) use ($idsAreas) {
-                        $nombreCargo = strtoupper((string) $cargo->nombre);
-                        $ordenArea = array_search((int) $cargo->id_area, $idsAreas, true);
-
-                        $prioridadCargo = match (true) {
-                            str_contains($nombreCargo, 'JEFE') => 0,
-                            str_contains($nombreCargo, 'DIRECTOR') => 1,
-                            default => 2,
-                        };
-
-                        return $prioridadCargo.'-'.$ordenArea.'-'.$cargo->nombre;
-                    })
-                    ->first();
-
-                $nombreCargo = strtoupper((string) $cargo?->nombre);
-                $ordenArea = array_search((int) $cargo?->id_area, $idsAreas, true);
-                $funcionario = $usuario->funcionario;
-                $nombreFuncionario = $funcionario
-                    ? trim(implode(' ', array_filter([
-                        $funcionario->nombres,
-                        $funcionario->apellido_paterno,
-                        $funcionario->apellido_materno,
-                    ])))
-                    : '';
-                $nombreOrden = $nombreFuncionario ?: ($usuario->email ?: 'Sin funcionario');
-
-                return match (true) {
-                    str_contains($nombreCargo, 'JEFE') => '0-'.$ordenArea.'-'.$nombreOrden,
-                    str_contains($nombreCargo, 'DIRECTOR') => '1-'.$ordenArea.'-'.$nombreOrden,
-                    default => '2-'.$ordenArea.'-'.$nombreOrden,
-                };
-            })
-            ->first();
     }
 
     // Envia aviso al funcionario responsable del area inicial.

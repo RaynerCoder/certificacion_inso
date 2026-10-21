@@ -20,6 +20,10 @@ return new class extends Migration
             // Area responsable por defecto para atender este tipo de certificado.
             $table->foreignId('id_area')->nullable()->constrained('areas')->nullOnDelete();
 
+            // Funcionario configurado para recibir inicialmente los tramites de este tipo.
+            // La llave foranea se agrega al crear funcionarios porque esa tabla se crea despues.
+            $table->unsignedBigInteger('id_funcionario_receptor_inicial')->nullable()->index();
+
             // Cantidad de descargas permitidas por usuario. Nulo significa sin limite.
             $table->unsignedInteger('limite_descargas')->nullable();
 

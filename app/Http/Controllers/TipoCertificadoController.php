@@ -8,6 +8,7 @@ use App\Models\RequisitoTipoCertificado;
 use App\Models\TipoEvidencia;
 use App\Models\DependenciaRequisito;
 use App\Models\Area;
+use App\Models\Funcionario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -404,6 +405,39 @@ class TipoCertificadoController extends Controller
             ->orderBy('nombre')
             ->get();
 
+        // Funcionarios receptores disponibles, agrupados por el area de sus cargos activos.
+        $funcionariosReceptores = Funcionario::query()
+            ->with([
+                'usuario',
+                'cargos' => fn ($query) => $query
+                    ->where('cargos.estado', 1)
+                    ->whereNull('funcionarios_cargos.deleted_at')
+                    ->orderBy('cargos.nombre'),
+            ])
+            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
+            ->whereHas('cargos', fn ($query) => $query
+                ->where('cargos.estado', 1)
+                ->whereNull('funcionarios_cargos.deleted_at'))
+            ->get()
+            ->flatMap(function (Funcionario $funcionario) {
+                $nombre = collect([
+                    $funcionario->nombres,
+                    $funcionario->apellido_paterno,
+                    $funcionario->apellido_materno,
+                ])->filter()->implode(' ');
+
+                return $funcionario->cargos
+                    ->groupBy('id_area')
+                    ->map(fn ($cargos, $idArea) => [
+                        'id' => (string) $funcionario->id,
+                        'id_area' => (string) $idArea,
+                        'nombre' => $nombre,
+                        'cargo' => $cargos->pluck('nombre')->filter()->unique()->implode(', '),
+                    ]);
+            })
+            ->sortBy(fn ($item) => $item['nombre'].' '.$item['cargo'])
+            ->values();
+
         // Estructura lista para que el JavaScript reutilice la misma tabla dinamica del create.
         $requisitosAsignados = $tipoCertificado->tipoCertificadoRequisitos
             ->map(function ($asignacion) {
@@ -432,6 +466,7 @@ class TipoCertificadoController extends Controller
             'tiposEvidencias',
             'tiposCertificadosRequeridos',
             'areas',
+            'funcionariosReceptores',
             'requisitosAsignados'
         ));
     }
@@ -443,6 +478,7 @@ class TipoCertificadoController extends Controller
     {
         $datos = $solicitud->validate([
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
+            'form_id_funcionario_receptor_inicial' => ['required', 'integer', 'exists:funcionarios,id'],
             'form_limite_descargas' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'form_modo_emision' => ['required', Rule::in(array_keys(TipoCertificado::MODOS_EMISION))],
             'form_prefijo_numero_certificado' => ['nullable', 'string', 'max:100'],
@@ -460,11 +496,27 @@ class TipoCertificadoController extends Controller
             'requisitos_asignados.*.id_tipo_evidencia.exists' => 'Seleccione un tipo de evidencia válido para este requisito.',
         ], [
             'form_id_area' => 'area responsable',
+            'form_id_funcionario_receptor_inicial' => 'funcionario receptor inicial',
             'form_limite_descargas' => 'límite de descargas',
             'form_modo_emision' => 'forma de emisión',
             'form_prefijo_numero_certificado' => 'prefijo del número de certificado',
             'form_siguiente_correlativo' => 'siguiente correlativo',
         ]);
+
+        $funcionarioPerteneceAlArea = Funcionario::query()
+            ->whereKey($datos['form_id_funcionario_receptor_inicial'])
+            ->whereHas('usuario', fn ($query) => $query->where('estado', 1))
+            ->whereHas('cargos', fn ($query) => $query
+                ->where('cargos.id_area', $datos['form_id_area'])
+                ->where('cargos.estado', 1)
+                ->whereNull('funcionarios_cargos.deleted_at'))
+            ->exists();
+
+        if (! $funcionarioPerteneceAlArea) {
+            throw ValidationException::withMessages([
+                'form_id_funcionario_receptor_inicial' => 'Seleccione un funcionario activo que pertenezca al área indicada.',
+            ]);
+        }
 
         $this->validarDependenciasDeCertificados($solicitud->input('requisitos_asignados', []));
 
@@ -474,6 +526,7 @@ class TipoCertificadoController extends Controller
             // Nombre y estado se administran desde el modal y no forman parte de esta operación.
             $tipoCertificado->update([
                 'id_area' => $datos['form_id_area'],
+                'id_funcionario_receptor_inicial' => $datos['form_id_funcionario_receptor_inicial'],
                 'limite_descargas' => $datos['form_limite_descargas'] ?? null,
                 'modo_emision' => $datos['form_modo_emision'],
                 'prefijo_numero_certificado' => $datos['form_prefijo_numero_certificado'] ?? null,

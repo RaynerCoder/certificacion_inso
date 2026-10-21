@@ -22,6 +22,11 @@
         $tiposEvidenciasDisponibles = $tiposEvidencias ?? collect();
         $tiposCertificadosDisponibles = $tiposCertificadosRequeridos ?? collect();
         $areasDisponibles = $areas ?? collect();
+        $funcionariosReceptoresDisponibles = $funcionariosReceptores ?? collect();
+        $idFuncionarioReceptorSeleccionado = (string) old(
+            'form_id_funcionario_receptor_inicial',
+            $tipoCertificado->id_funcionario_receptor_inicial ?? ''
+        );
 
         $tiposEvidenciasJson = $tiposEvidenciasDisponibles
             ->map(function ($tipo) {
@@ -127,7 +132,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 gap-5 px-5 py-4 lg:grid-cols-12">
-                        <div class="lg:col-span-5">
+                        <div class="lg:col-span-4">
                             <x-wire-native-select label="Área desde donde se iniciará el trámite" id="form_id_area"
                                 name="form_id_area">
                                 <option value="">Seleccione el área</option>
@@ -137,6 +142,34 @@
                                     </option>
                                 @endforeach
                             </x-wire-native-select>
+                        </div>
+
+                        <div class="lg:col-span-4">
+                            <label for="form_id_funcionario_receptor_inicial_boton"
+                                class="mb-1 block text-sm font-medium text-slate-700">
+                                Funcionario que recepcionará el trámite
+                            </label>
+                            <div id="selectorFuncionarioReceptor" class="relative">
+                                <input type="hidden" id="form_id_funcionario_receptor_inicial"
+                                    name="form_id_funcionario_receptor_inicial"
+                                    value="{{ $idFuncionarioReceptorSeleccionado }}">
+
+                                <button type="button" id="form_id_funcionario_receptor_inicial_boton"
+                                    class="flex min-h-[42px] w-full items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-teal-500 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                                    aria-haspopup="listbox" aria-expanded="false"
+                                    onclick="alternarSelectorFuncionarioReceptor()">
+                                    <span id="funcionarioReceptorSeleccionado" class="min-w-0 flex-1"></span>
+                                    <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+                                </button>
+
+                                <div id="opcionesFuncionarioReceptor"
+                                    class="absolute z-30 mt-1 hidden max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg"
+                                    role="listbox"></div>
+                            </div>
+                            <p id="ayudaFuncionarioReceptor" class="mt-1 text-xs text-slate-500"></p>
+                            @error('form_id_funcionario_receptor_inicial')
+                                <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="lg:col-span-4">
@@ -458,6 +491,8 @@
             }, true);
             const tiposEvidencias = @json($tiposEvidenciasJson);
             const tiposCertificadosRequeridos = @json($tiposCertificadosJson);
+            const funcionariosReceptores = @json($funcionariosReceptoresDisponibles);
+            let selectorFuncionarioReceptorAbierto = false;
 
             // Evita que textos escritos por el usuario rompan el HTML de la tabla dinamica.
             function escaparHtml(valor) {
@@ -469,6 +504,97 @@
                     .replace(/'/g, '&#039;')
                     .replace(/\r?\n/g, '&#10;');
             }
+
+            // Muestra solamente los funcionarios que tienen un cargo activo en el area elegida.
+            function receptoresDelAreaSeleccionada() {
+                const idArea = String(document.getElementById('form_id_area')?.value || '');
+
+                return funcionariosReceptores.filter((funcionario) => String(funcionario.id_area) === idArea);
+            }
+
+            function renderizarSelectorFuncionarioReceptor(permitirSeleccionAutomaticamente = true) {
+                const input = document.getElementById('form_id_funcionario_receptor_inicial');
+                const boton = document.getElementById('form_id_funcionario_receptor_inicial_boton');
+                const seleccionado = document.getElementById('funcionarioReceptorSeleccionado');
+                const opciones = document.getElementById('opcionesFuncionarioReceptor');
+                const ayuda = document.getElementById('ayudaFuncionarioReceptor');
+                const idArea = String(document.getElementById('form_id_area')?.value || '');
+                const receptores = receptoresDelAreaSeleccionada();
+
+                if (!idArea) {
+                    input.value = '';
+                    seleccionado.innerHTML = '<span class="block text-sm text-slate-400">Primero seleccione el área</span>';
+                    ayuda.textContent = '';
+                    boton.disabled = true;
+                    opciones.classList.add('hidden');
+                    boton.setAttribute('aria-expanded', 'false');
+                    selectorFuncionarioReceptorAbierto = false;
+                    return;
+                }
+
+                boton.disabled = false;
+                const seleccionActualEsValida = receptores.some((item) => String(item.id) === String(input.value));
+
+                if (!seleccionActualEsValida) {
+                    input.value = permitirSeleccionAutomaticamente && receptores.length === 1
+                        ? String(receptores[0].id)
+                        : '';
+                }
+
+                const funcionarioSeleccionado = receptores.find((item) => String(item.id) === String(input.value));
+                seleccionado.innerHTML = funcionarioSeleccionado
+                    ? `<span class="block truncate text-sm font-semibold text-slate-800">${escaparHtml(funcionarioSeleccionado.nombre)}</span>
+                       <span class="mt-0.5 block truncate text-xs font-medium text-emerald-600">${escaparHtml(funcionarioSeleccionado.cargo)}</span>`
+                    : '<span class="block text-sm text-slate-500">Seleccione el funcionario</span>';
+
+                ayuda.textContent = receptores.length === 0
+                    ? 'No existen funcionarios activos con cargo en esta área.'
+                    : (receptores.length === 1
+                        ? 'Se seleccionó automáticamente porque es el único funcionario disponible.'
+                        : 'Seleccione quién recibirá inicialmente los trámites de este tipo.');
+                ayuda.classList.toggle('text-red-600', receptores.length === 0);
+                ayuda.classList.toggle('text-slate-500', receptores.length > 0);
+
+                opciones.innerHTML = receptores.length
+                    ? receptores.map((funcionario) => `
+                        <button type="button" role="option"
+                            class="block w-full border-b border-slate-100 px-3 py-2 text-left transition last:border-b-0 hover:bg-teal-50"
+                            aria-selected="${String(funcionario.id) === String(input.value)}"
+                            onclick="seleccionarFuncionarioReceptor('${escaparHtml(funcionario.id)}')">
+                            <span class="block text-sm font-semibold text-slate-800">${escaparHtml(funcionario.nombre)}</span>
+                            <span class="mt-0.5 block text-xs font-medium text-emerald-600">${escaparHtml(funcionario.cargo)}</span>
+                        </button>
+                    `).join('')
+                    : '<p class="px-3 py-3 text-sm text-slate-500">No hay funcionarios disponibles.</p>';
+
+                opciones.classList.toggle('hidden', !selectorFuncionarioReceptorAbierto);
+                boton.setAttribute('aria-expanded', String(selectorFuncionarioReceptorAbierto));
+            }
+
+            function alternarSelectorFuncionarioReceptor() {
+                if (document.getElementById('form_id_funcionario_receptor_inicial_boton')?.disabled) return;
+
+                selectorFuncionarioReceptorAbierto = !selectorFuncionarioReceptorAbierto;
+                renderizarSelectorFuncionarioReceptor(false);
+            }
+
+            function seleccionarFuncionarioReceptor(idFuncionario) {
+                document.getElementById('form_id_funcionario_receptor_inicial').value = idFuncionario;
+                selectorFuncionarioReceptorAbierto = false;
+                renderizarSelectorFuncionarioReceptor(false);
+            }
+
+            document.getElementById('form_id_area')?.addEventListener('change', function () {
+                selectorFuncionarioReceptorAbierto = false;
+                renderizarSelectorFuncionarioReceptor(true);
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!selectorFuncionarioReceptorAbierto || event.target.closest('#selectorFuncionarioReceptor')) return;
+
+                selectorFuncionarioReceptorAbierto = false;
+                renderizarSelectorFuncionarioReceptor(false);
+            });
 
             // Abre el modal para crear un requisito nuevo.
             function abrirModalRequisito() {
@@ -892,6 +1018,7 @@
             }
 
             // Reconstruye la tabla al cargar la vista.
+            renderizarSelectorFuncionarioReceptor(true);
             renderizarTablaRequisitos();
         </script>
     @endpush

@@ -21,6 +21,7 @@ class TipoCertificado extends Model
     protected $fillable = [
         'nombre',
         'id_area',
+        'id_funcionario_receptor_inicial',
         'limite_descargas',
         'costo',
 
@@ -47,6 +48,12 @@ class TipoCertificado extends Model
     public function area()
     {
         return $this->belongsTo(Area::class, 'id_area');
+    }
+
+    // Funcionario que recibira inicialmente los tramites de este tipo.
+    public function funcionarioReceptor()
+    {
+        return $this->belongsTo(Funcionario::class, 'id_funcionario_receptor_inicial');
     }
 
     // Relación uno a muchos (un tipo de certificado tiene muchos certificados)

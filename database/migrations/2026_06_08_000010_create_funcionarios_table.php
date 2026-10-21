@@ -31,6 +31,12 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();            
         });
+
+        Schema::table('tipos_certificados', function (Blueprint $table) {
+            $table->foreign('id_funcionario_receptor_inicial')
+                ->references('id')
+                ->on('funcionarios');
+        });
     }
 
     /**
@@ -38,6 +44,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('tipos_certificados', function (Blueprint $table) {
+            $table->dropForeign(['id_funcionario_receptor_inicial']);
+        });
+
         Schema::dropIfExists('funcionarios');
     }
 };
