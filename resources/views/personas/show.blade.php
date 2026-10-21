@@ -630,6 +630,19 @@
             font-weight: 900;
         }
 
+        .persona-o3-pdf-link {
+            align-items: center;
+            color: #b91c1c;
+            display: inline-flex;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .persona-o3-pdf-link:hover {
+            color: #991b1b;
+            text-decoration: underline;
+        }
+
         .persona-o3-empty {
             color: #64748b;
             font-size: 0.8rem;
@@ -956,8 +969,9 @@
                                                 <span>Respaldo</span>
                                                 <span>
                                                     @if ($respaldoResponsable)
-                                                        <a href="{{ $respaldoResponsable }}" target="_blank" rel="noopener noreferrer" class="persona-o3-link">
-                                                            {{ $nombreRespaldoResponsable ?: 'Respaldo PDF' }} · Ver PDF
+                                                        <a href="{{ $respaldoResponsable }}" target="_blank" rel="noopener noreferrer" class="persona-o3-link persona-o3-pdf-link" title="Abrir PDF">
+                                                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                                                            {{ $nombreRespaldoResponsable ?: 'Respaldo PDF' }}
                                                         </a>
                                                     @else
                                                         -

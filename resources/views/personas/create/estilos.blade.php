@@ -1430,23 +1430,17 @@
 
     .persona-review-pdf-link {
         display: inline-flex;
-        min-height: 28px;
         align-items: center;
-        justify-content: center;
-        border: 1px solid #bfdbfe;
-        border-radius: 7px;
-        background: #eff6ff;
-        color: #1d4ed8;
-        padding: 0 10px;
-        font-size: 11px;
-        font-weight: 900;
+        gap: 6px;
+        color: #b91c1c;
+        font-size: 12px;
+        font-weight: 800;
         text-decoration: none;
     }
 
     .persona-review-pdf-link:hover {
-        border-color: #60a5fa;
-        background: #dbeafe;
-        color: #1e40af;
+        color: #991b1b;
+        text-decoration: underline;
     }
 
     .persona-review-responsable-chip {

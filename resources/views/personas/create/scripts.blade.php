@@ -1170,7 +1170,8 @@
                     <span>Respaldo PDF</span>
                     <strong>
                         <a href="${escaparHtmlPersonaWizard(urlTemporal)}" target="_blank" rel="noopener noreferrer" class="persona-review-pdf-link">
-                            ${nombreArchivo} · Ver PDF
+                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                            ${nombreArchivo}
                         </a>
                     </strong>
                 </div>
@@ -1186,7 +1187,8 @@
                     <span>Respaldo PDF</span>
                     <strong>
                         <a href="${escaparHtmlPersonaWizard(url)}" target="_blank" rel="noopener noreferrer" class="persona-review-pdf-link">
-                            ${nombreArchivo} · Ver PDF
+                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                            ${nombreArchivo}
                         </a>
                     </strong>
                 </div>
