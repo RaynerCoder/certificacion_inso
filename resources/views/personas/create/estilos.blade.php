@@ -1432,15 +1432,20 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        color: #b91c1c;
+        color: #0f172a;
         font-size: 12px;
         font-weight: 800;
         text-decoration: none;
     }
 
     .persona-review-pdf-link:hover {
-        color: #991b1b;
+        color: #0f172a;
         text-decoration: underline;
+    }
+
+    .persona-review-pdf-link i {
+        color: #dc2626;
+        flex: 0 0 auto;
     }
 
     .persona-review-responsable-chip {

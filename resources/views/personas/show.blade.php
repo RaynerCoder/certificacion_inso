@@ -632,15 +632,20 @@
 
         .persona-o3-pdf-link {
             align-items: center;
-            color: #b91c1c;
+            color: #0f172a;
             display: inline-flex;
             gap: 6px;
             text-decoration: none;
         }
 
         .persona-o3-pdf-link:hover {
-            color: #991b1b;
+            color: #0f172a;
             text-decoration: underline;
+        }
+
+        .persona-o3-pdf-link i {
+            color: #dc2626;
+            flex: 0 0 auto;
         }
 
         .persona-o3-empty {
