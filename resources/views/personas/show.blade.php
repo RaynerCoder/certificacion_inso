@@ -901,6 +901,9 @@
                                     $telefonosResponsable = $personaResponsable?->telefonos ?? collect();
                                     $rubrosResponsable = $personaResponsable?->rubros ?? collect();
                                     $respaldoResponsable = $urlDocumento($responsable->url_respaldo);
+                                    $nombreRespaldoResponsable = $responsable->url_respaldo
+                                        ? urldecode(basename((string) (parse_url($responsable->url_respaldo, PHP_URL_PATH) ?: $responsable->url_respaldo)))
+                                        : null;
                                 @endphp
 
                                 {{-- Expediente del responsable: usa bloques amplios para evitar una tabla demasiado comprimida. --}}
@@ -953,7 +956,9 @@
                                                 <span>Respaldo</span>
                                                 <span>
                                                     @if ($respaldoResponsable)
-                                                        <a href="{{ $respaldoResponsable }}" target="_blank" class="persona-o3-link">Ver PDF</a>
+                                                        <a href="{{ $respaldoResponsable }}" target="_blank" rel="noopener noreferrer" class="persona-o3-link">
+                                                            {{ $nombreRespaldoResponsable ?: 'Respaldo PDF' }} · Ver PDF
+                                                        </a>
                                                     @else
                                                         -
                                                     @endif

@@ -1155,17 +1155,38 @@
          return `${base}/${rutaStorage}`;
      }
 
-     // Muestra el estado del PDF sin mezclarlo con texto plano: link si ya existe, etiqueta si es nuevo.
-     function respaldoResponsableRevisionPersonaWizard(urlGuardada, tieneArchivoNuevo = false) {
-         const url = urlDocumentoPersonaWizard(urlGuardada);
+     // Muestra el PDF del responsable con su nombre y un enlace, tanto antes como después de guardarlo.
+     function respaldoResponsableRevisionPersonaWizard(urlGuardada, archivoNuevo = null) {
+         const archivoSeleccionado = archivoNuevo && typeof archivoNuevo === 'object' && archivoNuevo.name
+             ? archivoNuevo
+             : null;
 
-         if (url) {
+         if (archivoSeleccionado) {
+             const urlTemporal = URL.createObjectURL(archivoSeleccionado);
+             const nombreArchivo = escaparHtmlPersonaWizard(archivoSeleccionado.name);
+
              return `
                 <div class="persona-review-responsable-data">
                     <span>Respaldo PDF</span>
                     <strong>
-                        <a href="${escaparHtmlPersonaWizard(url)}" target="_blank" class="persona-review-pdf-link">
-                            Ver PDF
+                        <a href="${escaparHtmlPersonaWizard(urlTemporal)}" target="_blank" rel="noopener noreferrer" class="persona-review-pdf-link">
+                            ${nombreArchivo} · Ver PDF
+                        </a>
+                    </strong>
+                </div>
+            `;
+         }
+
+         const url = urlDocumentoPersonaWizard(urlGuardada);
+
+         if (url) {
+             const nombreArchivo = escaparHtmlPersonaWizard(nombreArchivoResponsableDesdeUrl(urlGuardada));
+             return `
+                <div class="persona-review-responsable-data">
+                    <span>Respaldo PDF</span>
+                    <strong>
+                        <a href="${escaparHtmlPersonaWizard(url)}" target="_blank" rel="noopener noreferrer" class="persona-review-pdf-link">
+                            ${nombreArchivo} · Ver PDF
                         </a>
                     </strong>
                 </div>
@@ -1174,7 +1195,7 @@
 
          return datoResponsableRevisionPersonaWizard(
              'Respaldo PDF',
-             tieneArchivoNuevo ? 'PDF seleccionado' : '-'
+             '-'
          );
      }
 
@@ -1289,7 +1310,7 @@
                         <section>
                             <h6>Rol del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Rol', textoSelectPorValorPersonaWizard('#nuevo_id_rol', valorOcultoResumenPersonaWizard(item, 'id_rol')) || '-')}
-                            ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, Boolean(archivoRespaldo?.files?.length))}
+                            ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, archivoRespaldo?.files?.[0] || null)}
                         </section>
 
                         <section class="is-list">
@@ -3131,7 +3152,7 @@
      }
 
      // Construye la fila visual de un responsable sin cambiar los input hidden que usa el controlador.
-     function plantillaResponsableEmpresa(datos, hiddenTelefonos = '', hiddenRubros = '', tieneRespaldo = false) {
+     function plantillaResponsableEmpresa(datos, hiddenTelefonos = '', hiddenRubros = '', archivoRespaldo = null) {
          const nombreCompleto = datos.nombreCompleto || 'Responsable agregado';
          const tipoResponsable = datos.tipoResponsable || 'EXISTENTE';
          const indiceFormulario = Number.isInteger(datos.indiceFormulario) ? datos.indiceFormulario : indiceResponsable;
@@ -3198,7 +3219,7 @@
                 <section>
                     <h6>Rol del responsable</h6>
                     ${datoResponsableRevisionPersonaWizard('Rol', datos.rolNombre || '-')}
-                    ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, tieneRespaldo)}
+                    ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, archivoRespaldo)}
                 </section>
 
                 <section class="is-list">
@@ -3652,7 +3673,7 @@
                  : indiceDestino + 1,
              telefonos: telefonosResponsableTemporal,
              rubros: rubrosResponsableTemporal,
-         }, hiddenTelefonos, hiddenRubros, Boolean(archivoRespaldo));
+         }, hiddenTelefonos, hiddenRubros, archivoRespaldo || archivoRespaldoAnterior?.files?.[0] || null);
 
          // Adjunta el PDF al responsable agregado para enviarlo junto al formulario final.
          if (archivoRespaldo) {
@@ -3811,7 +3832,7 @@
              urlRespaldo: responsable.url_respaldo || '',
              telefonos: responsable.telefonos || [],
              rubros: responsable.rubros || [],
-         }, hiddenTelefonos, hiddenRubros, Boolean(responsable.url_respaldo));
+         }, hiddenTelefonos, hiddenRubros);
 
          lista.appendChild(item);
          actualizarNumerosResponsablesEmpresa();
