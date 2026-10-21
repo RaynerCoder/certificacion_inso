@@ -6,6 +6,8 @@
         --cert-green-700: #0a8f43;
         --cert-green-100: #e8f4ec;
         --cert-gold: #eda719;
+        --cert-digital-blue: #30358f;
+        --cert-digital-blue-dark: #25296f;
         --cert-slate-900: #17211b;
         --cert-slate-600: #5e6962;
         --cert-border: #c8d8ce;
@@ -188,10 +190,116 @@
         font-size: .9rem;
     }
 
+    .cert-login-status--error {
+        border-color: #efc0bc;
+        background: #fff4f3;
+        color: var(--cert-error);
+    }
+
+    .cert-digital-access {
+        display: grid;
+        grid-template-columns: 108px minmax(0, 1fr);
+        align-items: center;
+        gap: 22px;
+        margin-top: 22px;
+        padding: 16px 18px;
+        border: 1px solid #d8daf0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #fbfbff, #f5f6ff);
+    }
+
+    .cert-digital-logo {
+        display: block;
+        width: 92px;
+        height: 123px;
+        margin: 0 auto;
+        object-fit: contain;
+    }
+
+    .cert-digital-content {
+        min-width: 0;
+        text-align: center;
+    }
+
+    .cert-digital-title {
+        margin: 0 0 10px;
+        color: var(--cert-digital-blue-dark);
+        font-size: .9rem;
+        font-weight: 700;
+    }
+
+    .cert-digital-button {
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 11px 18px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, var(--cert-digital-blue-dark), var(--cert-digital-blue));
+        box-shadow: 0 7px 15px rgba(48, 53, 143, .18);
+        color: #fff;
+        font-size: .9rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: filter .2s ease, transform .2s ease;
+    }
+
+    .cert-digital-button svg {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .cert-digital-button:hover {
+        color: #fff;
+        filter: brightness(.94);
+    }
+
+    .cert-digital-button:active {
+        transform: translateY(1px);
+    }
+
+    .cert-digital-helper {
+        margin: 9px 0 0;
+        color: var(--cert-slate-600);
+        font-size: .76rem;
+        line-height: 1.35;
+    }
+
+    .cert-login-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 20px 0 0;
+        color: #758079;
+        font-size: .78rem;
+        text-align: center;
+    }
+
+    .cert-login-divider::before,
+    .cert-login-divider::after {
+        height: 1px;
+        flex: 1 1 auto;
+        background: #dbe4de;
+        content: '';
+    }
+
+    .cert-login-divider span {
+        flex: 0 1 auto;
+    }
+
     .cert-login-form {
         display: grid;
         gap: 17px;
-        margin-top: 25px;
+        margin-top: 18px;
     }
 
     .cert-form-field label,
@@ -524,6 +632,7 @@
 
     .cert-input-action:focus-visible,
     .cert-captcha-refresh:focus-visible,
+    .cert-digital-button:focus-visible,
     .cert-login-submit:focus-visible,
     .cert-login-options a:focus-visible {
         outline: 3px solid rgba(237, 167, 25, .48);
@@ -674,6 +783,21 @@
             height: 70px;
         }
 
+        .cert-digital-access {
+            grid-template-columns: 1fr;
+            gap: 10px;
+            padding: 15px;
+        }
+
+        .cert-digital-logo {
+            width: 78px;
+            height: 104px;
+        }
+
+        .cert-login-divider {
+            margin-top: 17px;
+        }
+
         .cert-login-form {
             gap: 15px;
             margin-top: 22px;
@@ -752,7 +876,39 @@
 
         .cert-login-form {
             gap: 12px;
-            margin-top: 18px;
+            margin-top: 14px;
+        }
+
+        .cert-digital-access {
+            grid-template-columns: 82px minmax(0, 1fr);
+            gap: 16px;
+            margin-top: 15px;
+            padding: 11px 14px;
+        }
+
+        .cert-digital-logo {
+            width: 68px;
+            height: 91px;
+        }
+
+        .cert-digital-title {
+            margin-bottom: 7px;
+            font-size: .82rem;
+        }
+
+        .cert-digital-button {
+            min-height: 44px;
+            padding-block: 9px;
+            font-size: .82rem;
+        }
+
+        .cert-digital-helper {
+            margin-top: 6px;
+            font-size: .7rem;
+        }
+
+        .cert-login-divider {
+            margin-top: 13px;
         }
 
         .cert-input-wrap {

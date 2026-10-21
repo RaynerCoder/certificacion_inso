@@ -1,13 +1,15 @@
+@php
+    $bandejaRetorno = \App\Support\BandejaTramite::retorno(request('bandeja', $bandeja));
+    $urlBandejaRetorno = route($bandejaRetorno[1]);
+@endphp
 <x-admin-layout :title="'Seguimiento del trámite | Certificador'" :breadcrumbs="[
     [
         'name' => 'Menu',
         'href' => route('admin_dashboard'),
     ],
     [
-        'name' => $bandeja === 'enviadas' ? 'Solicitudes enviadas' : ($bandeja === 'todos' ? 'Consulta general' : 'Solicitudes recibidas'),
-        'href' => $bandeja === 'enviadas'
-            ? route('seguimientos_mis_tramites_beneficiario')
-            : ($bandeja === 'todos' ? route('seguimientos_todos') : route('seguimientos_index')),
+        'name' => $bandejaRetorno[0],
+        'href' => $urlBandejaRetorno,
     ],
     [
         'name' => 'Seguimiento del trámite',
@@ -22,10 +24,10 @@
                 <h1 class="timeline-page-title">Seguimiento del trámite</h1>
             </div>
 
-            <a href="{{ route('seguimientos_show', ['seguimiento' => $seguimiento, 'bandeja' => $bandeja]) }}"
+            <a href="{{ $urlBandejaRetorno }}"
                 class="timeline-page-action">
                 <i class="fa-solid fa-arrow-left"></i>
-                Volver al trámite
+                Volver
             </a>
         </div>
 

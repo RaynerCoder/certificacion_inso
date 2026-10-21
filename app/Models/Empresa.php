@@ -20,6 +20,11 @@ class Empresa extends Model
         'estado'
     ];
 
+    public function setRazonSocialAttribute(?string $valor): void
+    {
+        $this->attributes['razon_social'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
     // Relación uno a uno (una empresa se relaciona con una persona jurídica)
     public function persona()
     {
@@ -42,11 +47,12 @@ class Empresa extends Model
     public function representanteLegalActivo()
     {
         return $this->hasOne(Responsable::class, 'id_empresa')
-            ->whereIn('estado', ['1', 'ACTIVO'])
-            ->whereHas('rol', fn ($consulta) => $consulta
-                ->where('slug', 'solicitante')
-                ->where('estado', 1))
-            ->latestOfMany();
+            ->ofMany(['id' => 'max'], function ($consulta) {
+                $consulta->whereIn('estado', ['1', 'ACTIVO'])
+                    ->whereHas('rol', fn ($rol) => $rol
+                        ->where('slug', 'solicitante')
+                        ->where('estado', 1));
+            });
     }
     
 }

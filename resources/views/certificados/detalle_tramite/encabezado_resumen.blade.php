@@ -6,6 +6,16 @@
 <header class="tramite-header">
     <h1 class="tramite-title">Detalle y seguimiento del trámite</h1>
 
+    @php
+        $bandejaRetorno = \App\Support\BandejaTramite::retorno(request('bandeja'));
+        $urlBandejaRetorno = route($bandejaRetorno[1]);
+    @endphp
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+    <a href="{{ $urlBandejaRetorno }}" class="tramite-btn tramite-btn-muted">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        Volver
+    </a>
+
     @if ($puedeConsultarCertificadoEmitido || ($puedeEmitirCertificado && $certificado->tipoCertificado?->plantillaActiva))
         <a href="{{ $puedeConsultarCertificadoEmitido
             ? route('certificados_descargar', ['certificado' => $certificado, 'visualizar' => 1])
@@ -16,6 +26,7 @@
             {{ in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'Ver certificado emitido' : 'Emitir certificado' }}
         </a>
     @endif
+    </div>
 </header>
 
 {{-- Resumen superior: replica la franja principal del boceto. --}}
@@ -47,9 +58,9 @@
     <article class="tramite-summary-item">
         <i class="fa-regular fa-user tramite-summary-icon"></i>
         <div>
-            <span class="tramite-summary-label">Tramitador</span>
-            <span class="tramite-summary-value">{{ $nombrePersona($certificado->tramitador) }}</span>
-            <span class="tramite-summary-role">{{ $tipoRelacionTramitadorActual }}</span>
+            <span class="tramite-summary-label">Gestionado por</span>
+            <span class="tramite-summary-value">{{ $personaGestoraActual ? $nombrePersona($personaGestoraActual) : 'Sin gestor asignado' }}</span>
+            <span class="tramite-summary-role">{{ $tipoGestorActual }}</span>
         </div>
     </article>
 

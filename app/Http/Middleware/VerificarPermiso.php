@@ -74,6 +74,10 @@ class VerificarPermiso
                 'tramitadores.ver',
                 'tramitadores.validar'
             ],
+            'tramitadores_baja' => [
+                'tramitadores.ver',
+                'tramitadores.validar'
+            ],
 
             // Para editar se necesita permiso de validación.
             'tramitadores_edit' => 'tramitadores.validar',

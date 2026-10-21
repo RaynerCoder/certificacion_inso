@@ -1,219 +1,97 @@
-<x-admin-layout title="Realizar pago | Certificador" :breadcrumbs="[
-    [
-        'name' => 'Mis trámites',
-        'href' => route('seguimientos_mis_tramites_beneficiario'),
-    ],
-    [
-        'name' => 'Realizar pago',
-    ],
+<x-admin-layout title="Pago del trámite | Certificador" :breadcrumbs="[
+    ['name' => 'Mis trámites', 'href' => route('seguimientos_mis_tramites_beneficiario')],
+    ['name' => 'Trámite ' . $certificado->id, 'href' => route('certificados_show', ['certificado' => $certificado, 'bandeja' => 'enviadas'])],
+    ['name' => 'Pago'],
 ]">
     @php
-        // Obtiene el tipo de certificado.
         $tipoCertificado = $certificado->tipoCertificado;
-
-        // Obtiene el beneficiario.
         $beneficiario = $certificado->beneficiario;
-        $nombreBeneficiario = $beneficiario?->empresa?->razon_social;
-
-        // Si es persona natural, forma su nombre completo.
-        if (blank($nombreBeneficiario)) {
-            $nombreBeneficiario = collect([
-                $beneficiario?->natural?->nombres,
-                $beneficiario?->natural?->apellido_paterno,
-                $beneficiario?->natural?->apellido_materno,
-            ])
-                ->filter()
-                ->implode(' ');
-        }
+        $nombreBeneficiario = $beneficiario?->empresa?->razon_social ?: collect([
+            $beneficiario?->natural?->nombres,
+            $beneficiario?->natural?->apellido_paterno,
+            $beneficiario?->natural?->apellido_materno,
+        ])->filter()->implode(' ');
+        $pagoConfirmado = filled($pago->fecha_validacion);
+        $tieneImagenQr = filled($ultimoQrOpenBcb?->imagen_qr_path);
+        $qrVigente = $tieneImagenQr && $ultimoQrOpenBcb?->created_at?->copy()->addDay()->isFuture();
+        $mostrarQr = $qrVigente && !$pagoConfirmado;
+        $urlImagenQr = $tieneImagenQr
+            ? route('pagos_openbcb_mostrar_imagen_qr', ['pagoOpenBcb' => $ultimoQrOpenBcb->id], false)
+            : null;
     @endphp
+    @include('seguimientos_certificados.nuevo_tramite.pagos.estilos')
 
-
-    <div class="mx-auto max-w-5xl">
-
-        {{-- Encabezado --}}
-        <div class="mb-4">
-            <h1 class="text-xl font-semibold text-slate-900">
-                Realizar pago
-            </h1>
-
-            <p class="mt-1 text-sm text-slate-500">
-                Verifique los datos del trámite y genere el código QR para realizar el pago.
-            </p>
-        </div>
-
-
-        {{-- Contenido principal --}}
-        <div class="grid overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:grid-cols-5">
-
-            {{-- ================================================= --}}
-            {{-- RESUMEN DEL TRÁMITE --}}
-            {{-- ================================================= --}}
-            <section class="lg:col-span-3">
-
-                {{-- Encabezado --}}
-                <div class="border-b border-slate-200 px-5 py-3">
-                    <h2 class="text-sm font-semibold text-slate-900">
-                        Resumen del trámite
-                    </h2>
-                </div>
-
-
-                {{-- Datos --}}
-                <div class="px-5 py-2">
-
-                    <dl class="divide-y divide-slate-100">
-
-                        {{-- Número de trámite --}}
-                        <div class="grid gap-1 py-3 sm:grid-cols-[160px_1fr] sm:gap-4">
-
-                            <dt class="text-sm text-slate-500">
-                                Número de trámite
-                            </dt>
-
-                            <dd class="text-sm font-medium text-slate-900">
-                                #{{ $certificado->id }}
-                            </dd>
-
-                        </div>
-
-
-                        {{-- Tipo de certificado --}}
-                        <div class="grid gap-1 py-3 sm:grid-cols-[160px_1fr] sm:gap-4">
-
-                            <dt class="text-sm text-slate-500">
-                                Tipo de certificado
-                            </dt>
-
-                            <dd class="text-sm font-medium text-slate-900">
-                                {{ $tipoCertificado?->nombre ?? 'Sin información' }}
-                            </dd>
-
-                        </div>
-
-
-                        {{-- Beneficiario --}}
-                        <div class="grid gap-1 py-3 sm:grid-cols-[160px_1fr] sm:gap-4">
-
-                            <dt class="text-sm text-slate-500">
-                                Beneficiario
-                            </dt>
-
-                            <dd class="text-sm font-medium leading-5 text-slate-900">
-                                {{ $nombreBeneficiario ?: 'Sin información' }}
-                            </dd>
-
-                        </div>
-
-                    </dl>
-
-                </div>
-
-
-                {{-- Importe --}}
-                <div class="border-t border-slate-200 bg-slate-50 px-5 py-4">
-
-                    <div class="flex items-center justify-between gap-4">
-
-                        <div>
-                            <span class="block text-sm font-medium text-slate-700">
-                                Importe a pagar
-                            </span>
-
-                            <span class="text-xs text-slate-500">
-                                Expresado en bolivianos
-                            </span>
-                        </div>
-
-                        <strong class="whitespace-nowrap text-xl font-semibold text-teal-700">
-                            Bs {{ number_format((float) $pago->monto, 2, ',', '.') }}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- PAGO QR --}}
-            {{-- ================================================= --}}
-            <section
-                class="border-t border-slate-200 bg-slate-50/50
-                       lg:col-span-2 lg:border-l lg:border-t-0">
-
-                {{-- Encabezado --}}
-                <div class="border-b border-slate-200 bg-white px-5 py-3">
-                    <h2 class="text-sm font-semibold text-slate-900">
-                        Pago mediante QR
-                    </h2>
-                </div>
-
-
-                {{-- Área del QR --}}
-                <div class="flex h-full flex-col items-center px-5 py-5">
-
-                    {{-- Muestra el QR guardado o un espacio vacío mientras todavía no exista. --}}
-                    <div id="contenedorQr"
-                        class="flex h-40 w-40 items-center justify-center overflow-hidden rounded-lg border border-slate-300 bg-white">
-                        @if ($ultimoQrOpenBcb?->imagen_qr_path)
-                            <img src="{{ route('pagos_openbcb_mostrar_imagen_qr', ['pagoOpenBcb' => $ultimoQrOpenBcb->id], false) }}"
-                                alt="Código QR para realizar el pago" class="h-full w-full object-contain">
-                        @else
-                            <div class="text-center">
-                                <i class="fa-solid fa-qrcode text-3xl text-slate-300"></i>
-
-                                <p class="mt-2 text-xs text-slate-400">
-                                    Código QR pendiente
-                                </p>
-                            </div>
-                        @endif
-                    </div>
-
-
-                    {{-- Texto --}}
-                    <p class="mt-3 text-center text-xs leading-5 text-slate-500">
-                        Genere el código QR para efectuar el pago.
-                    </p>
-
-
-                    {{-- Generar QR --}}
-                    <button type="button" id="botonGenerarQr"
-                        data-url="{{ route('pagos_openbcb_generar_qr', ['pago' => $pago->id]) }}"
-                        class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
-
-                        <i class="fa-solid fa-qrcode"></i>
-
-                        <span>Generar código QR</span>
-                    </button>
-
-                </div>
-
-            </section>
-
-        </div>
-
-
-        {{-- Volver --}}
-        <div class="mt-4">
-
-            <a href="{{ route('seguimientos_mis_tramites_beneficiario') }}"
-                class="inline-flex w-full items-center justify-center gap-2
-                       rounded-md border border-slate-300 bg-white
-                       px-4 py-2 text-sm font-medium text-slate-700
-                       transition hover:bg-slate-50
-                       sm:w-auto">
-                <i class="fa-solid fa-arrow-left text-xs"></i>
-
-                Volver a mis trámites
+    <div class="pago-tramite-page">
+        <header class="pago-tramite-head">
+            <div>
+                <span class="pago-tramite-eyebrow">Mis trámites · Pago</span>
+                <h1>Pago del trámite {{ $certificado->id }}</h1>
+                <p>{{ $pagoConfirmado ? 'Consulta el resumen del pago confirmado de tu solicitud.' : 'Revisa el importe y utiliza tu aplicación bancaria para pagar con QR.' }}</p>
+            </div>
+            <a href="{{ route('seguimientos_mis_tramites_beneficiario') }}" class="pago-tramite-back">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver
             </a>
+        </header>
 
+        <div class="pago-tramite-grid">
+            <section class="pago-tramite-card" aria-labelledby="resumenPagoTitulo">
+                <div class="pago-tramite-card-title">
+                    <span class="pago-tramite-icon"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i></span>
+                    <div><h2 id="resumenPagoTitulo">Resumen del pago</h2><p>Información de tu solicitud</p></div>
+                </div>
+                <dl class="pago-tramite-data">
+                    <div><dt>Número de trámite</dt><dd>{{ $certificado->id }}</dd></div>
+                    <div><dt>Tipo de trámite</dt><dd>{{ $tipoCertificado?->nombre ?? 'Sin información' }}</dd></div>
+                    <div><dt>Beneficiario</dt><dd>{{ $nombreBeneficiario ?: 'Sin información' }}</dd></div>
+                    <div><dt>Forma de pago</dt><dd>QR bancario</dd></div>
+                    <div><dt>Estado del pago</dt><dd><span class="pago-tramite-status {{ $pagoConfirmado ? 'is-confirmed' : '' }}">{{ $pagoConfirmado ? 'Pago confirmado' : 'Pendiente de confirmación' }}</span></dd></div>
+                </dl>
+                <div class="pago-tramite-amount">
+                    <span>Total a pagar (bolivianos)</span>
+                    <strong><small>Bs</small> {{ number_format((float) $pago->monto, 2, ',', '.') }}</strong>
+                </div>
+                @unless ($pagoConfirmado)
+                <div class="pago-tramite-help">
+                    <h3>Cómo realizar el pago</h3>
+                    <ol>
+                        <li>Comprueba el beneficiario y el importe de esta solicitud.</li>
+                        <li>Abre tu aplicación bancaria y escanea el QR. Si usas el mismo teléfono, descarga la imagen e impórtala en tu aplicación.</li>
+                        <li>Confirma el importe en tu banco antes de completar el pago.</li>
+                    </ol>
+                </div>
+                @endunless
+            </section>
+
+            <section class="pago-tramite-card pago-tramite-qr-card" aria-labelledby="pagoQrTitulo">
+                <div class="pago-tramite-card-title">
+                    <span class="pago-tramite-icon"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span>
+                    <div><h2 id="pagoQrTitulo">{{ $pagoConfirmado ? 'Pago confirmado' : 'Paga con QR' }}</h2><p>{{ $pagoConfirmado ? 'El pago ya fue validado.' : 'Escanea el código desde tu aplicación bancaria.' }}</p></div>
+                </div>
+                <div class="pago-tramite-qr-body">
+                    @if ($pagoConfirmado)
+                        <div class="pago-tramite-confirmed" role="status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><strong>El pago está confirmado</strong><p>No necesitas realizar otro pago para esta solicitud.</p></div>
+                    @else
+                        <div id="contenedorQr" class="pago-tramite-qr">
+                            @if ($mostrarQr)
+                                <img src="{{ $urlImagenQr }}" alt="Código QR bancario del trámite {{ $certificado->id }}" width="360" height="360">
+                            @else
+                                <div class="pago-tramite-qr-empty"><i class="fa-solid fa-qrcode" aria-hidden="true"></i><strong>{{ $tieneImagenQr ? 'El QR anterior venció' : 'Tu QR aparecerá aquí' }}</strong><p>{{ $tieneImagenQr ? 'Genera uno nuevo para continuar con el pago.' : 'Presiona «Generar código QR» para continuar.' }}</p></div>
+                            @endif
+                        </div>
+                        @if ($mostrarQr)
+                            <div class="pago-tramite-qr-actions">
+                                <a href="{{ $urlImagenQr }}" class="pago-tramite-secondary" target="_blank" rel="noopener"><i class="fa-solid fa-expand" aria-hidden="true"></i> Ver QR grande</a>
+                                <a href="{{ $urlImagenQr }}" class="pago-tramite-secondary" download="qr-tramite-{{ $certificado->id }}.png"><i class="fa-solid fa-download" aria-hidden="true"></i> Descargar QR</a>
+                            </div>
+                        @else
+                            <button type="button" id="botonGenerarQr" data-url="{{ route('pagos_openbcb_generar_qr', ['pago' => $pago->id]) }}" class="pago-tramite-primary"><i class="fa-solid fa-qrcode" aria-hidden="true"></i><span>Generar código QR</span></button>
+                        @endif
+                        <div class="pago-tramite-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><p>Generar un QR no confirma el pago. El estado cambiará cuando se registre su validación.</p></div>
+                        <a href="{{ request()->fullUrl() }}" class="pago-tramite-refresh"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Actualizar estado del pago</a>
+                    @endif
+                </div>
+            </section>
         </div>
-
     </div>
-
-
-    {{-- Activa el botón que solicita la generación del código QR. --}}
     @include('seguimientos_certificados.nuevo_tramite.pagos.script')
-
 </x-admin-layout>

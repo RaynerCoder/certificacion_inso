@@ -56,6 +56,12 @@
         overflow-y: auto;
     }
 
+    #form_funcionario_nombres,
+    #form_funcionario_apellido_paterno,
+    #form_funcionario_apellido_materno {
+        text-transform: uppercase;
+    }
+
     @media (max-width: 1180px) and (min-width: 701px) {
         .usuario-formulario .seg-col-3,
         .usuario-formulario .seg-col-4 {
@@ -202,9 +208,15 @@
             </div>
 
             <div class="seg-col-3">
-                <x-wire-input label="Carnet" id="form_funcionario_carnet" name="form_funcionario_carnet" type="text"
-                    placeholder="CI o codigo interno"
-                    value="{{ old('form_funcionario_carnet', $usuario->funcionario->carnet ?? '') }}" required />
+                <x-wire-input label="CI" id="form_funcionario_ci" name="form_funcionario_ci" type="text"
+                    placeholder="Número de cédula de identidad"
+                    value="{{ old('form_funcionario_ci', $usuario->funcionario->ci ?? '') }}" required />
+            </div>
+
+            <div class="seg-col-3">
+                <x-wire-input label="Complemento" id="form_funcionario_complemento" name="form_funcionario_complemento" type="text"
+                    placeholder="Solo si corresponde"
+                    value="{{ old('form_funcionario_complemento', $usuario->funcionario->complemento ?? '') }}" />
             </div>
 
             <div class="seg-col-3">
@@ -440,7 +452,7 @@
             { id: 'form_email', mensaje: 'Ingrese el correo de acceso.' },
             { id: 'form_funcionario_nombres', mensaje: 'Ingrese los nombres del funcionario.' },
             { id: 'form_funcionario_apellido_paterno', mensaje: 'Ingrese el apellido paterno.' },
-            { id: 'form_funcionario_carnet', mensaje: 'Ingrese el carnet.' },
+            { id: 'form_funcionario_ci', mensaje: 'Ingrese el CI.' },
             { id: 'form_funcionario_genero', mensaje: 'Seleccione el genero.' },
         ];
 

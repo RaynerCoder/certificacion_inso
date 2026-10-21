@@ -21,12 +21,16 @@ class TramitadorTable extends DataTableComponent
 
     public function builder(): Builder
     {
-        $empresa = auth()->user()
-            ?->loadMissing('persona.empresa')
-            ?->persona
-            ?->empresa;
+        $empresa = auth()->user()?->empresaDeAccesoActiva();
         $esValidadorInso = ! $empresa
             && (auth()->user()?->puede('tramitadores.validar') ?? false);
+        $esSqlite = (new Responsable())->getConnection()->getDriverName() === 'sqlite';
+        $nombreTramitadorSql = $esSqlite
+            ? "TRIM(COALESCE(naturals.nombres, '') || ' ' || COALESCE(naturals.apellido_paterno, '') || ' ' || COALESCE(naturals.apellido_materno, ''))"
+            : "TRIM(CONCAT_WS(' ', naturals.nombres, naturals.apellido_paterno, naturals.apellido_materno))";
+        $detalleTramitesSql = $esSqlite
+            ? "json_group_array(json_object('codigo', certificados.id, 'nombre', tipos_certificados.nombre))"
+            : "JSON_ARRAYAGG(JSON_OBJECT('codigo', certificados.id, 'nombre', tipos_certificados.nombre))";
 
         return Responsable::query()
             ->select('responsables.*')
@@ -35,16 +39,31 @@ class TramitadorTable extends DataTableComponent
             ->selectRaw("personas_empresa.nit as nit_empresa")
             ->selectRaw("personas.correo as correo_tramitador")
             ->selectRaw("naturals.ci as ci_tramitador")
-            ->selectRaw("TRIM(CONCAT_WS(' ', naturals.nombres, naturals.apellido_paterno, naturals.apellido_materno)) as nombre_tramitador")
+            ->selectRaw($nombreTramitadorSql.' as nombre_tramitador')
             ->selectSub(
                 Seguimiento::query()
-                    ->selectRaw('COUNT(*)')
+                    ->selectRaw('COUNT(DISTINCT certificados.id)')
                     ->join('certificados', 'seguimientos.id_certificado', '=', 'certificados.id')
                     ->whereColumn('seguimientos.id_usuario_siguiente', 'personas.id_usuario')
                     ->where('seguimientos.estado', 'ACTIVO')
                     ->whereNull('seguimientos.fecha_derivacion')
-                    ->where('certificados.estado', 'OBSERVADO'),
+                    ->where('certificados.estado', 'OBSERVADO')
+                    ->whereColumn('certificados.id_persona_beneficiario', 'empresas.id_persona')
+                    ->whereNull('certificados.deleted_at'),
                 'tramites_pendientes'
+            )
+            ->selectSub(
+                Seguimiento::query()
+                    ->selectRaw($detalleTramitesSql)
+                    ->join('certificados', 'seguimientos.id_certificado', '=', 'certificados.id')
+                    ->leftJoin('tipos_certificados', 'certificados.id_tipo_certificado', '=', 'tipos_certificados.id')
+                    ->whereColumn('seguimientos.id_usuario_siguiente', 'personas.id_usuario')
+                    ->where('seguimientos.estado', 'ACTIVO')
+                    ->whereNull('seguimientos.fecha_derivacion')
+                    ->where('certificados.estado', 'OBSERVADO')
+                    ->whereColumn('certificados.id_persona_beneficiario', 'empresas.id_persona')
+                    ->whereNull('certificados.deleted_at'),
+                'detalle_tramites_pendientes'
             )
             ->join('roles', 'responsables.id_rol', '=', 'roles.id')
             ->leftJoin('empresas', 'responsables.id_empresa', '=', 'empresas.id')
@@ -114,12 +133,6 @@ class TramitadorTable extends DataTableComponent
             Column::make('CI', 'id_persona')
                 ->format(fn ($valorIdPersona, Responsable $fila) => $fila->ci_tramitador ?: 'Sin CI')
                 ->sortable(fn (Builder $query, string $direction) => $query->orderBy('naturals.ci', $direction)),
-
-            Column::make('Correo', 'id_persona')
-                ->format(fn ($valorIdPersona, Responsable $fila) => $fila->correo_tramitador ?: 'Sin correo')
-                ->searchable(function (Builder $query, string $searchTerm) {
-                    $query->orWhere('personas.correo', 'like', "%{$searchTerm}%");
-                }),
 
             Column::make('Fecha registro', 'fecha_registro')
                 ->format(fn ($fecha) => $fecha

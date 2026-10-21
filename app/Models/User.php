@@ -249,6 +249,16 @@ class User extends Authenticatable
     }
 
     // Punto central para validar permisos dinamicos del sistema.
+    public function tieneAccesoSistema(): bool
+    {
+        return $this->esSuperAdministrador()
+            || $this->permisosDirectos()->where('permisos.estado', 1)->exists()
+            || $this->roles()->where('roles.estado', 1)
+                ->whereHas('permisos', fn ($consulta) => $consulta->where('permisos.estado', 1))
+                ->exists();
+    }
+
+    // Punto central para validar permisos dinamicos del sistema.
     // Acepta un permiso o varios; si uno coincide, permite la accion.
     public function puede(string|array $permisos): bool
     {

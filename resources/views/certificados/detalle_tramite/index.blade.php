@@ -41,30 +41,38 @@
     $tipoRelacionTramitador = function ($personaTramitador, $personaBeneficiaria) {
         $empresa = $personaBeneficiaria?->empresa;
         if (! $empresa) {
-            return 'Solicitante';
+            return (int) $personaTramitador?->id === (int) $personaBeneficiaria?->id
+                ? 'Persona natural'
+                : 'Tramitador de persona natural';
         }
 
         if (! $personaTramitador) {
             return 'Relación no identificada';
         }
 
-        $roles = \App\Models\Responsable::query()
+        $relaciones = \App\Models\Responsable::withTrashed()
             ->with('rol:id,slug')
             ->where('id_empresa', $empresa->id)
             ->where('id_persona', $personaTramitador->id)
-            ->whereIn('estado', ['1', 'ACTIVO'])
             ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['solicitante', 'tramitador']))
-            ->get()
+            ->get();
+        $roles = $relaciones
+            ->filter(fn ($relacion) => ! $relacion->trashed() && in_array((string) $relacion->estado, ['1', 'ACTIVO'], true))
             ->pluck('rol.slug')
             ->filter()
             ->unique();
 
         $esRepresentante = $roles->contains('solicitante');
         $esTramitador = $roles->contains('tramitador');
+        $rolesAnteriores = $relaciones
+            ->filter(fn ($relacion) => $relacion->trashed() || filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+            ->pluck('rol.slug');
         
         return match (true) {
             $esRepresentante => 'Representante legal',
             $esTramitador => 'Tramitador',
+            $rolesAnteriores->contains('tramitador') => 'Ex-Tramitador',
+            $rolesAnteriores->contains('solicitante') => 'Ex-representante legal',
             default => 'Relación no identificada',
         };
     };
@@ -73,6 +81,9 @@
         $certificado->tramitador,
         $certificado->beneficiario
     );
+    $gestorActualDetalle = app(\App\Services\GestionTramitadoresService::class)->gestorActual($certificado);
+    $personaGestoraActual = $gestorActualDetalle['persona'];
+    $tipoGestorActual = $gestorActualDetalle['tipo'];
 
     // Devuelve CI para persona natural y NIT para empresa.
     $identificacionPersona = function ($persona) {

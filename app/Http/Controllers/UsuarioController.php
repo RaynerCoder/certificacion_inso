@@ -60,7 +60,8 @@ class UsuarioController extends Controller
                 'nombres' => $datos['form_funcionario_nombres'],
                 'apellido_paterno' => $datos['form_funcionario_apellido_paterno'],
                 'apellido_materno' => $datos['form_funcionario_apellido_materno'] ?? null,
-                'carnet' => $datos['form_funcionario_carnet'],
+                'ci' => $datos['form_funcionario_ci'],
+                'complemento' => $datos['form_funcionario_complemento'] ?? '',
                 'telefono' => $datos['form_funcionario_telefono'] ?? null,
                 'genero' => (int) $datos['form_funcionario_genero'],
             ]);
@@ -163,7 +164,8 @@ class UsuarioController extends Controller
                     'nombres' => $datos['form_funcionario_nombres'],
                     'apellido_paterno' => $datos['form_funcionario_apellido_paterno'],
                     'apellido_materno' => $datos['form_funcionario_apellido_materno'] ?? null,
-                    'carnet' => $datos['form_funcionario_carnet'],
+                    'ci' => $datos['form_funcionario_ci'],
+                    'complemento' => $datos['form_funcionario_complemento'] ?? '',
                     'telefono' => $datos['form_funcionario_telefono'] ?? null,
                     'genero' => (int) $datos['form_funcionario_genero'],
                 ]
@@ -235,6 +237,14 @@ class UsuarioController extends Controller
     private function validarUsuario(Request $solicitud, ?User $usuario = null): array
     {
         $idUsuario = $usuario?->id;
+        $solicitud->merge([
+            'form_funcionario_ci' => trim((string) $solicitud->input('form_funcionario_ci')),
+            'form_funcionario_complemento' => mb_strtoupper(
+                trim((string) $solicitud->input('form_funcionario_complemento')),
+                'UTF-8'
+            ),
+        ]);
+        $complementoFuncionario = (string) $solicitud->input('form_funcionario_complemento', '');
         $reglasPassword = $usuario
             ? ['nullable', 'required_with:form_password_confirmation', 'string', 'confirmed']
             : ['required', 'string', 'confirmed'];
@@ -256,12 +266,15 @@ class UsuarioController extends Controller
             'form_funcionario_nombres' => ['required', 'string', 'max:255'],
             'form_funcionario_apellido_paterno' => ['required', 'string', 'max:255'],
             'form_funcionario_apellido_materno' => ['nullable', 'string', 'max:255'],
-            'form_funcionario_carnet' => [
+            'form_funcionario_ci' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('funcionarios', 'carnet')->ignore($usuario?->funcionario?->id),
+                Rule::unique('funcionarios', 'ci')
+                    ->where(fn ($consulta) => $consulta->where('complemento', $complementoFuncionario))
+                    ->ignore($usuario?->funcionario?->id),
             ],
+            'form_funcionario_complemento' => ['nullable', 'string', 'max:10'],
             'form_funcionario_telefono' => ['nullable', 'string', 'max:50'],
             'form_funcionario_genero' => ['required', 'in:0,1'],
             'form_cargos' => ['nullable', 'array'],
@@ -310,7 +323,8 @@ class UsuarioController extends Controller
             'form_funcionario_nombres' => 'nombres',
             'form_funcionario_apellido_paterno' => 'apellido paterno',
             'form_funcionario_apellido_materno' => 'apellido materno',
-            'form_funcionario_carnet' => 'carnet',
+            'form_funcionario_ci' => 'CI',
+            'form_funcionario_complemento' => 'complemento',
             'form_funcionario_telefono' => 'telefono',
             'form_funcionario_genero' => 'genero',
             'form_cargos' => 'cargos',

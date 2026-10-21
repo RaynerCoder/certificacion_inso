@@ -414,7 +414,7 @@ class Certificado extends Model
     // Compatibilidad visual: el trámite se identifica por su ID, no guarda código propio.
     public function getCodigoAttribute(): string
     {
-        return $this->id ? '#'.$this->id : 'Sin ID';
+        return $this->id ? (string) $this->id : 'Sin código';
     }
 
     // Las fechas y PDF oficiales pertenecen a certificados_emitidos.

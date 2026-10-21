@@ -44,6 +44,22 @@
 
         return $abreviatura ? $nombre . ' (' . $abreviatura . ')' : $nombre;
     };
+    // Los campos DECIMAL conservan su precisión en la base de datos, pero MySQL
+    // devuelve todos los decimales definidos. Para la vista se eliminan solamente
+    // los ceros finales, sin redondear ni convertir el valor a número flotante.
+    $formatearCantidad = static function ($valor) {
+        $texto = trim((string) $valor);
+
+        if ($texto === '') {
+            return '-';
+        }
+
+        if (str_contains($texto, '.')) {
+            $texto = rtrim(rtrim($texto, '0'), '.');
+        }
+
+        return $texto === '-0' ? '0' : $texto;
+    };
     $urlEtiqueta = fn ($presentacion) => $presentacion->url_etiqueta
         ? route('productos_presentaciones_etiqueta', $presentacion)
         : null;
@@ -154,7 +170,7 @@
                         <header class="producto-show-presentation-head">
                             <div>
                                 <span>Presentación {{ $loop->iteration }}</span>
-                                <h3>{{ $presentacion->cantidad ?? 'No registrada' }} {{ $unidadCompleta($presentacion) }}</h3>
+                                <h3>{{ $formatearCantidad($presentacion->cantidad) }} {{ $unidadCompleta($presentacion) }}</h3>
                             </div>
                             <span class="producto-show-status {{ $presentacion->estado === 'ACTIVO' ? '' : 'is-inactive' }}">{{ $presentacion->estado ?: 'SIN ESTADO' }}</span>
                         </header>
@@ -181,7 +197,7 @@
                                 <span class="producto-show-block-label">Datos de la presentación</span>
                                 <dl>
                                     <div><dt>Tipo de envase</dt><dd>{{ $presentacion->tipo_envase ?: 'No registrado' }}</dd></div>
-                                    <div><dt>Contenido</dt><dd>{{ $presentacion->cantidad ?? 'No registrada' }} {{ $unidadCompleta($presentacion) }}</dd></div>
+                                    <div><dt>Contenido</dt><dd>{{ $formatearCantidad($presentacion->cantidad) }} {{ $unidadCompleta($presentacion) }}</dd></div>
                                     <div><dt>Descripción</dt><dd>{{ $presentacion->descripcion ?: 'No registrada' }}</dd></div>
                                 </dl>
                             </div>

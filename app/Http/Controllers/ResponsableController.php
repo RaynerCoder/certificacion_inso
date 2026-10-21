@@ -327,7 +327,13 @@ class ResponsableController extends Controller
             Storage::disk('public')->delete($respaldoAnterior);
         }
 
-        return $solicitud->file('form_url_respaldo')->store('responsables', 'public');
+        return $solicitud->file('form_url_respaldo')->store(
+            \App\Support\DirectorioRespaldoEmpresa::paraRol(
+                (int) $solicitud->input('form_id_empresa'),
+                (int) $solicitud->input('form_id_rol')
+            ),
+            'public'
+        );
     }
 
     /**

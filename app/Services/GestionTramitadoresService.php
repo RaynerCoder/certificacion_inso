@@ -14,9 +14,35 @@ use Illuminate\Validation\ValidationException;
 
 class GestionTramitadoresService
 {
+    /** Gestor externo: último destinatario autorizado; las derivaciones al INSO no lo sustituyen. */
+    public function gestorActual(Certificado $certificado): array
+    {
+        $opciones = $this->destinatariosCorreccion($certificado)->keyBy('id');
+        $certificado->loadMissing('seguimientos');
+        $opcion = null;
+        foreach ($certificado->seguimientos->sortByDesc('id') as $movimiento) {
+            if ($movimiento->trashed()) {
+                continue;
+            }
+            $opcion = $opciones->get((int) $movimiento->id_usuario_siguiente);
+            if ($opcion) {
+                break;
+            }
+        }
+
+        // Antes de la primera devolución conserva a quien inició, si sigue autorizado.
+        $opcion ??= $opciones->first(fn ($item) => (int) $item['id_persona'] === (int) $certificado->id_persona_tramitador);
+        if (! $opcion) {
+            return ['persona' => null, 'tipo' => 'Sin gestor externo autorizado'];
+        }
+
+        $persona = Persona::with(['natural', 'empresa', 'telefonos', 'territorio'])->find($opcion['id_persona']);
+        return ['persona' => $persona, 'tipo' => $opcion['tipo']];
+    }
+
     /**
      * Devuelve las cuentas que pueden recibir una correccion del tramite.
-     * En empresas se muestra primero al representante legal y luego a sus tramitadores activos.
+     * Primero muestra a quien inició el trámite, si conserva su autorización.
      */
     public function destinatariosCorreccion(Certificado $certificado): Collection
     {
@@ -37,7 +63,7 @@ class GestionTramitadoresService
             $usuarioBeneficiario = $this->usuarioActivo($beneficiario->usuarioAcceso());
 
             return $usuarioBeneficiario
-                ? collect([$this->opcionDestinatario($usuarioBeneficiario, $beneficiario, 'Beneficiario y tramitador')])
+                ? $this->ordenarDestinatariosPorInicio(collect([$this->opcionDestinatario($usuarioBeneficiario, $beneficiario, 'Persona natural')]), $certificado)
                 : collect();
         }
 
@@ -68,27 +94,23 @@ class GestionTramitadoresService
                 }
             });
 
-        return $destinatarios
-            ->unique('id')
-            ->values();
+        return $this->ordenarDestinatariosPorInicio($destinatarios, $certificado);
     }
 
     /**
-     * Para empresas propone primero al representante legal; en los demás casos conserva al tramitador original.
+     * Propone al iniciador autorizado; en su ausencia, al representante legal disponible.
      */
     public function idDestinatarioPredeterminado(Certificado $certificado): ?int
     {
         $opciones = $this->destinatariosCorreccion($certificado);
+        $iniciador = $opciones->firstWhere('inicio_tramite', true);
+        if ($iniciador) {
+            return $iniciador['id'];
+        }
         $representanteLegal = $opciones->firstWhere('tipo', 'Representante legal');
 
         if ($representanteLegal) {
             return $representanteLegal['id'];
-        }
-
-        $idTramitador = (int) ($certificado->tramitador?->id_usuario ?? 0);
-
-        if ($idTramitador && $opciones->contains('id', $idTramitador)) {
-            return $idTramitador;
         }
 
         $primeraOpcion = $opciones->first();
@@ -139,11 +161,49 @@ class GestionTramitadoresService
             );
     }
 
-    /**
-     * Da de baja al tramitador y transfiere sus correcciones pendientes al beneficiario.
-     */
-    public function darDeBaja(Responsable $tramitador, User $usuarioResponsable): int
+    /** Destinatarios habilitados de la misma empresa, excluyendo a la persona que será dada de baja. */
+    public function destinatariosBaja(Responsable $tramitador): Collection
     {
+        $tramitador->loadMissing('empresa.persona.usuario', 'empresa.responsables.persona.usuario', 'empresa.responsables.persona.natural', 'empresa.responsables.rol');
+        $opciones = collect();
+        $relaciones = $tramitador->empresa?->responsables ?? collect();
+        $representante = $relaciones->filter(fn ($relacion) => $this->responsableTieneRolActivo($relacion, 'solicitante'))->sortByDesc('id')->first();
+        foreach ($relaciones as $relacion) {
+            if ((int) $relacion->id_persona === (int) $tramitador->id_persona) continue;
+            $esRepresentante = $representante && (int) $representante->id === (int) $relacion->id;
+            if (! $esRepresentante && ! $this->responsableEsTramitadorActivo($relacion)) continue;
+            $usuario = $this->usuarioActivo($relacion->persona?->usuario);
+            if ($usuario) {
+                $opciones->push($this->opcionDestinatario($usuario, $relacion->persona, $esRepresentante ? 'Representante legal' : 'Tramitador'));
+            }
+        }
+        // Compatibilidad con las cuentas empresariales anteriores al registro de representantes por persona.
+        if (! $representante) {
+            $beneficiario = $tramitador->empresa?->persona;
+            $usuario = $this->usuarioActivo($beneficiario?->usuarioAcceso());
+            if ($usuario && (int) $usuario->id !== (int) $tramitador->persona?->id_usuario) {
+                $opciones->prepend($this->opcionDestinatario($usuario, $beneficiario, 'Representante legal'));
+            }
+        }
+        return $opciones->unique('id')->sortBy(fn ($opcion) => ($opcion['tipo'] === 'Representante legal' ? '0' : '1').$opcion['nombre'])->values();
+    }
+
+    /** Da de baja la relación y transfiere solo sus correcciones pendientes al destinatario elegido. */
+    public function darDeBaja(Responsable $tramitador, User $usuarioResponsable, string $motivo, ?int $idDestinatario = null): int
+    {
+        $datos = \Illuminate\Support\Facades\Validator::make(['motivo_baja' => trim($motivo)], [
+            'motivo_baja' => ['required', 'string', 'max:2000'],
+        ], [
+            'motivo_baja.required' => 'Indique el motivo de la baja.',
+            'motivo_baja.max' => 'El motivo de la baja no debe superar los 2000 caracteres.',
+        ])->validate();
+
+        if (! Schema::hasColumn('responsables', 'motivo_baja')) {
+            throw ValidationException::withMessages([
+                'motivo_baja' => 'No se puede registrar la baja: falta habilitar el campo motivo de baja en la base de datos. Comuníquese con el administrador.',
+            ]);
+        }
+
         $tramitador->loadMissing('persona.usuario', 'rol', 'empresa.persona.usuario');
 
         if (! $this->responsableEsTramitadorActivo($tramitador)) {
@@ -153,11 +213,23 @@ class GestionTramitadoresService
         }
 
         $pendientes = $this->seguimientosPendientesParaBaja($tramitador);
-        $this->validarBeneficiariosConAcceso($pendientes);
+        $usuarioDestino = null;
+        $destinatario = null;
+        if ($pendientes->isNotEmpty()) {
+            $opciones = $this->destinatariosBaja($tramitador);
+            $destinatario = $idDestinatario
+                ? $opciones->firstWhere('id', $idDestinatario)
+                : $opciones->firstWhere('tipo', 'Representante legal');
+            if (! $destinatario) {
+                throw ValidationException::withMessages([
+                    'id_usuario_destinatario_baja' => 'Seleccione al representante legal o a otro tramitador activo y validado de esta empresa para recibir las correcciones.',
+                ]);
+            }
+            $usuarioDestino = User::findOrFail($destinatario['id']);
+        }
 
         foreach ($pendientes as $seguimiento) {
             $certificado = $seguimiento->certificado;
-            $usuarioBeneficiario = $certificado->beneficiario?->usuarioAcceso();
 
             // La etapa anterior se cierra y se abre otra para conservar el historial completo.
             $seguimiento->update(['fecha_derivacion' => now()]);
@@ -168,16 +240,16 @@ class GestionTramitadoresService
                 'fecha_inicio' => now(),
                 'fecha_derivacion' => null,
                 'fecha_final' => null,
-                'descripcion_final' => 'Correccion transferida al beneficiario por baja del tramitador.',
+                'descripcion_final' => 'Correccion transferida a '.mb_strtolower($destinatario['tipo']).' por baja del tramitador.',
                 'referencia' => null,
                 'id_usuario_anterior' => $seguimiento->id_usuario_siguiente,
                 'id_usuario_origen' => $usuarioResponsable->id,
-                'id_usuario_siguiente' => $usuarioBeneficiario->id,
+                'id_usuario_siguiente' => $usuarioDestino->id,
                 'estado' => 'ACTIVO',
             ]);
 
             $this->crearNotificacion(
-                $usuarioBeneficiario,
+                $usuarioDestino,
                 $certificado,
                 $usuarioResponsable->id,
                 'Tramite pendiente de correccion',
@@ -201,6 +273,7 @@ class GestionTramitadoresService
         $tramitador->update([
             'estado' => 'INACTIVO',
             'fecha_baja' => now()->toDateString(),
+            'motivo_baja' => $datos['motivo_baja'],
             'id_usuario_baja' => $usuarioResponsable->id,
         ]);
 
@@ -210,8 +283,9 @@ class GestionTramitadoresService
     private function seguimientosPendientesParaBaja(Responsable $tramitador): Collection
     {
         $idUsuarioTramitador = $tramitador->persona?->id_usuario;
+        $idBeneficiarioEmpresa = $tramitador->empresa?->id_persona;
 
-        if (! $idUsuarioTramitador) {
+        if (! $idUsuarioTramitador || ! $idBeneficiarioEmpresa) {
             return collect();
         }
 
@@ -220,21 +294,10 @@ class GestionTramitadoresService
             ->where('id_usuario_siguiente', $idUsuarioTramitador)
             ->where('estado', 'ACTIVO')
             ->whereNull('fecha_derivacion')
-            ->whereHas('certificado', fn ($query) => $query->where('estado', 'OBSERVADO'))
+            ->whereHas('certificado', fn ($query) => $query
+                ->where('estado', 'OBSERVADO')
+                ->where('id_persona_beneficiario', $idBeneficiarioEmpresa))
             ->get();
-    }
-
-    private function validarBeneficiariosConAcceso(Collection $pendientes): void
-    {
-        $sinAcceso = $pendientes->first(function (Seguimiento $seguimiento) {
-            return ! $this->usuarioActivo($seguimiento->certificado?->beneficiario?->usuarioAcceso());
-        });
-
-        if ($sinAcceso) {
-            throw ValidationException::withMessages([
-                'tramitador' => 'No se puede dar de baja porque el beneficiario no tiene una cuenta activa para recibir la correccion.',
-            ]);
-        }
     }
 
     private function usuarioTieneRelacionActivaConBeneficiario(User $usuario, Certificado $certificado): bool
@@ -247,7 +310,10 @@ class GestionTramitadoresService
 
         // Comparte la regla usada al iniciar el tramite: persona, empresa, relacion y rol activos.
         return $usuario->relacionesEmpresarialesParaTramites()
-            ->contains(fn (Responsable $relacion) => (int) $relacion->id_empresa === (int) $idEmpresaBeneficiaria);
+            ->contains(fn (Responsable $relacion) => (int) $relacion->id_empresa === (int) $idEmpresaBeneficiaria
+                && ($relacion->rol?->slug === 'solicitante'
+                    || (int) $certificado->id_usuario_registro === (int) $usuario->id
+                    || $certificado->seguimientos()->where('id_usuario_siguiente', $usuario->id)->exists()));
     }
 
     private function responsableEsTramitadorActivo(Responsable $responsable): bool
@@ -274,10 +340,23 @@ class GestionTramitadoresService
             : null;
     }
 
+    private function ordenarDestinatariosPorInicio(Collection $opciones, Certificado $certificado): Collection
+    {
+        $idIniciador = $certificado->id_usuario_registro
+            ?: $certificado->seguimientos()->orderBy('id')->value('id_usuario_origen');
+
+        return $opciones->unique('id')->map(function (array $opcion) use ($idIniciador) {
+            $opcion['inicio_tramite'] = $idIniciador && (int) $opcion['id'] === (int) $idIniciador;
+            $opcion['etiqueta'] = $opcion['tipo'] . ($opcion['inicio_tramite'] ? ' (inició el trámite)' : '');
+            return $opcion;
+        })->sortByDesc('inicio_tramite')->values();
+    }
+
     private function opcionDestinatario(User $usuario, Persona $persona, string $tipo): array
     {
         return [
             'id' => $usuario->id,
+            'id_persona' => $persona->id,
             'nombre' => $this->nombrePersona($persona),
             'tipo' => $tipo,
             'busqueda' => mb_strtolower($this->nombrePersona($persona).' '.$tipo),

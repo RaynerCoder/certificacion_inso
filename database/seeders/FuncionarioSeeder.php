@@ -27,13 +27,13 @@ class FuncionarioSeeder extends Seeder
             10 => [12, 'Guillermo Alejandro', 'Zamora', 'Kraljevic', '4838885 LP', null, 1],
             11 => [13, 'Angela Paola', 'Soria', 'de La Torre', '4261889 LP', null, 0],
             12 => [14, 'Armando', 'Ale', 'Quispe', '4775938 LP', null, 1],
-        ] as $id => [$idUsuario, $nombres, $apellidoPaterno, $apellidoMaterno, $carnet, $telefono, $genero]) {
+        ] as $id => [$idUsuario, $nombres, $apellidoPaterno, $apellidoMaterno, $ci, $telefono, $genero]) {
             $this->guardar('funcionarios', $id, [
                 'id_usuario' => $idUsuario,
                 'nombres' => $nombres,
                 'apellido_paterno' => $apellidoPaterno,
                 'apellido_materno' => $apellidoMaterno,
-                'carnet' => $carnet,
+                'ci' => $ci,
                 'telefono' => $telefono,
                 'genero' => $genero,
             ]);

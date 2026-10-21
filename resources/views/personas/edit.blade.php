@@ -480,4 +480,5 @@
         }
     </script>
 
+    @include('personas.mayusculas')
 </x-admin-layout>

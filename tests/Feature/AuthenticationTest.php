@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Permiso;
+use App\Models\Role;
 use App\Services\LoginCaptcha;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +38,7 @@ class AuthenticationTest extends TestCase
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
+        $this->darAccesoPanel($user);
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -74,6 +77,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create(['estado' => 0]);
         $user->update(['estado' => 1]);
+        $this->darAccesoPanel($user);
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -101,4 +105,51 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_cuenta_sin_permisos_permanece_en_login(): void
+    {
+        $user = User::factory()->create(['estado' => 1]);
+        $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect('/login')->assertSessionHasErrors([
+            'email' => \App\Http\Middleware\VerificarAccesoSistema::MENSAJE,
+        ]);
+        $this->assertGuest();
+    }
+
+    public function test_sesion_sin_permisos_se_cierra_desde_raiz_menu_y_login(): void
+    {
+        $user = User::factory()->create(['estado' => 1]);
+        foreach (['/', '/menu', '/login'] as $url) {
+            $this->actingAs($user)->get($url)
+                ->assertRedirect(route('login'))
+                ->assertSessionHasErrors('email');
+            $this->app['auth']->forgetGuards();
+            $this->assertGuest();
+        }
+        $this->get('/login')->assertOk();
+    }
+
+    public function test_sin_permiso_de_una_seccion_conserva_sesion_y_devuelve_403(): void
+    {
+        $user = User::factory()->create(['estado' => 1]);
+        $this->darAccesoPanel($user);
+        $this->actingAs($user)->get(route('usuarios_index'))->assertForbidden();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_superusuario_sin_permisos_explicitos_conserva_acceso(): void
+    {
+        $user = User::factory()->create(['estado' => 1]);
+        $rol = Role::create(['slug' => 'super-administrador', 'name' => 'Super Administrador', 'estado' => 1]);
+        $user->roles()->attach($rol);
+        $this->actingAs($user)->get('/')->assertRedirect('/menu');
+        $this->assertAuthenticatedAs($user);
+    }
+
+    private function darAccesoPanel(User $user): void
+    {
+        $permiso = Permiso::firstOrCreate(['nombre' => 'dashboard.ver'], ['estado' => 1]);
+        $user->permisosDirectos()->syncWithoutDetaching([$permiso->id]);
+    }
 }

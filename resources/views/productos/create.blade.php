@@ -1362,15 +1362,21 @@
         return marcarErrorProducto(campo, mensaje);
     }
 
-    // Convierte la coma decimal al formato que utiliza la base de datos.
+    // Convierte la coma decimal y elimina ceros finales antes de guardar.
     function normalizarNumeroDecimalProducto(valor) {
-        return String(valor ?? '').trim().replace(',', '.');
+        const numero = String(valor ?? '').trim().replace(',', '.');
+
+        if (!/^\d+(?:\.\d+)?$/.test(numero) || !numero.includes('.')) {
+            return numero;
+        }
+
+        return numero.replace(/0+$/, '').replace(/\.$/, '');
     }
 
     // VALIDA UN CAMPO NUMÉRICO
     // permite definir un mínimo y un máximo; null significa que ese límite no se aplica.
     // devuelve true cuando el número cumple las condiciones.
-    function validarNumeroProducto(idCampo, mensaje, minimo = null, maximo = null) {
+    function validarNumeroProducto(idCampo, mensaje, minimo = null, maximo = null, maximoDecimales = null) {
         const campo = document.getElementById(idCampo);
         const valorNormalizado = normalizarNumeroDecimalProducto(campo?.value);
         const numero = Number(valorNormalizado);
@@ -1389,6 +1395,11 @@
 
         if (maximo !== null && numero > maximo) {
             return marcarErrorProducto(campo, `Debe ser menor o igual a ${maximo}.`);
+        }
+
+        const parteDecimal = valorNormalizado.split('.')[1] || '';
+        if (maximoDecimales !== null && parteDecimal.length > maximoDecimales) {
+            return marcarErrorProducto(campo, `Ingrese como máximo ${maximoDecimales} decimales.`);
         }
 
         limpiarErrorProducto(campo);
@@ -2314,7 +2325,17 @@
         const cantidadPresentacionValida = validarNumeroProducto(
             'form_presentacion_cantidad',
             'Ingrese la cantidad de la presentación.',
-            0.00001
+            0.01,
+            null,
+            2
+        );
+
+        const cantidadRegistroValida = !datos.registro.cantidad || validarNumeroProducto(
+            'form_registro_cantidad',
+            'Ingrese una cantidad registrada válida.',
+            0.01,
+            null,
+            2
         );
 
         const unidadPresentacionValida = validarRequeridoProducto(
@@ -2322,7 +2343,7 @@
             'Seleccione la unidad de la presentación.'
         );
 
-        if (!cantidadPresentacionValida || !unidadPresentacionValida) {
+        if (!cantidadPresentacionValida || !unidadPresentacionValida || !cantidadRegistroValida) {
             return false;
         }
 
@@ -3366,6 +3387,23 @@
         return valor && String(valor).trim() !== '' ? valor : '-';
     }
 
+    // FORMATEA CANTIDADES DECIMALES PARA MOSTRARLAS EN LA REVISIÓN
+    // elimina únicamente los ceros finales que agrega DECIMAL, sin redondear el valor.
+    function formatearCantidadResumenProducto(valor) {
+        const texto = String(valor ?? '').trim();
+
+        if (texto === '') {
+            return '-';
+        }
+
+        if (!/^-?\d+(?:\.\d+)?$/.test(texto)) {
+            return texto;
+        }
+
+        const textoSinCeros = texto.includes('.') ? texto.replace(/0+$/, '').replace(/\.$/, '') : texto;
+        return textoSinCeros === '-0' ? '0' : textoSinCeros;
+    }
+
     // CREA UN ELEMENTO DEL RESUMEN FINAL
     // titulo identifica el dato, valor es su contenido y anchoCompleto indica si ocupa toda la fila.
     // devuelve HTML; no modifica datos del formulario.
@@ -3551,14 +3589,34 @@
                     registro.codigo_autorizacion,
                     registro.numero_lote,
                     formatearFechaRevisionProducto(registro.fecha_vigencia),
-                    registro.cantidad,
+                    formatearCantidadResumenProducto(registro.cantidad),
                     textoUnidadRevisionProducto(registro.id_catalogo_unidad),
                 ]);
-                const listaRegistros = tablaResumenProducto(
+                const listaRegistrosTabla = tablaResumenProducto(
                     ['Código de autorización', 'Número de lote', 'Fecha de vigencia', 'Cantidad', 'Unidad'],
                     filasRegistros,
                     '-'
                 );
+                const listaRegistrosEdicion = registrosAsociados.length ? `
+                    <div class="producto-review-register-list">
+                        ${registrosAsociados.map(([, registro], registroPosicion) => `
+                            <article class="producto-review-register-item">
+                                <header class="producto-review-register-item-head">
+                                    <div class="producto-review-register-title">
+                                        <span><i class="fa-regular fa-file-lines"></i></span>
+                                        <h6>Registro ${registroPosicion + 1}</h6>
+                                    </div>
+                                </header>
+                                <dl class="producto-review-register-data">
+                                    <div><dt>Código de autorización</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.codigo_autorizacion))}</dd></div>
+                                    <div><dt>Número de lote</dt><dd>${escaparHtmlProducto(textoResumenProducto(registro.numero_lote))}</dd></div>
+                                    <div><dt>Fecha de vigencia</dt><dd>${escaparHtmlProducto(formatearFechaRevisionProducto(registro.fecha_vigencia))}</dd></div>
+                                    <div><dt>Cantidad registrada</dt><dd>${escaparHtmlProducto(formatearCantidadResumenProducto(registro.cantidad))}</dd></div>
+                                    <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(textoUnidadRevisionProducto(registro.id_catalogo_unidad)))}</dd></div>
+                                </dl>
+                            </article>`).join('')}
+                    </div>` : '<div class="producto-review-empty">-</div>';
+                const listaRegistros = productoModoEdicion ? listaRegistrosEdicion : listaRegistrosTabla;
 
                 return `
                     <article class="producto-review-presentation">
@@ -3575,7 +3633,7 @@
                             <div class="producto-review-presentation-content">
                                 <dl class="producto-review-presentation-data">
                                     <div><dt>Tipo de envase</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.tipo_envase))}</dd></div>
-                                    <div><dt>Cantidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.cantidad))}</dd></div>
+                                    <div><dt>Cantidad</dt><dd>${escaparHtmlProducto(formatearCantidadResumenProducto(presentacion.cantidad))}</dd></div>
                                     <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(unidadPresentacion))}</dd></div>
                                     <div><dt>Descripción</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</dd></div>
                                 </dl>

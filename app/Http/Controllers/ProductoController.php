@@ -15,6 +15,7 @@ use App\Models\Producto;
 use App\Models\Registro;
 use App\Models\Responsable;
 use App\Models\Territorio;
+use App\Services\EtiquetaPresentacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,8 @@ use Illuminate\Validation\ValidationException;
 
 class ProductoController extends Controller
 {
+    public function __construct(private EtiquetaPresentacionService $etiquetasPresentaciones) {}
+
     /**
      * Muestra el listado de productos.
      */
@@ -44,7 +47,7 @@ class ProductoController extends Controller
         if ($request->filled('form_id_certificado')) {
             $certificado = Certificado::with('tipoCertificado')->findOrFail($request->integer('form_id_certificado'));
 
-            if (!$certificado->requiereEvidencia('PRODUCTO')) {
+            if (! $certificado->requiereEvidencia('PRODUCTO')) {
                 return redirect()
                     ->route('certificados_show', [
                         'certificado' => $certificado,
@@ -242,7 +245,7 @@ class ProductoController extends Controller
         if ($relaciones !== []) {
             session()->flash('swal', [
                 'title' => 'No se puede eliminar',
-                'text' => 'El producto tiene ' . implode(' y ', $relaciones) . '.',
+                'text' => 'El producto tiene '.implode(' y ', $relaciones).'.',
                 'icon' => 'error',
             ]);
 
@@ -634,6 +637,7 @@ class ProductoController extends Controller
             // Si la presentación ya estaba registrada, se reutiliza su ID y no se crea otra fila.
             if ($idPresentacionOrigen) {
                 $presentacionesCreadas[$indice] = (int) $idPresentacionOrigen;
+
                 continue;
             }
 
@@ -641,17 +645,15 @@ class ProductoController extends Controller
 
             if (isset($presentacionesUnicas[$clavePresentacion])) {
                 $presentacionesCreadas[$indice] = $presentacionesUnicas[$clavePresentacion];
+
                 continue;
             }
 
             $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
-            $rutaEtiqueta = $archivoEtiqueta
-                ? $archivoEtiqueta->store('productos/etiquetas', 'public')
-                : null;
 
             $presentacion = Presentacion::create([
                 'id_producto' => $producto->id,
-                'url_etiqueta' => $rutaEtiqueta,
+                'url_etiqueta' => null,
                 'cantidad' => $presentacionDato['cantidad'],
                 'id_catalogo_unidad' => $this->resolverCatalogoUnidad(
                     $request,
@@ -661,6 +663,15 @@ class ProductoController extends Controller
                 'tipo_envase' => $presentacionDato['tipo_envase'] ?? null,
                 'estado' => $presentacionDato['estado'] ?? 'ACTIVO',
             ]);
+
+            if ($archivoEtiqueta) {
+                $presentacion->update([
+                    'url_etiqueta' => $this->etiquetasPresentaciones->guardar(
+                        $archivoEtiqueta,
+                        $producto
+                    ),
+                ]);
+            }
 
             $presentacionesCreadas[$indice] = $presentacion->id;
             $presentacionesUnicas[$clavePresentacion] = $presentacion->id;
@@ -688,7 +699,7 @@ class ProductoController extends Controller
                 'numero_lote' => $registroDato['numero_lote'] ?? null,
                 'fecha_vigencia' => $registroDato['fecha_vigencia'] ?? null,
                 'cantidad' => $registroDato['cantidad'] ?? null,
-                'id_catalogo_unidad' => !empty($registroDato['id_catalogo_unidad'])
+                'id_catalogo_unidad' => ! empty($registroDato['id_catalogo_unidad'])
                     ? $this->resolverCatalogoUnidad($request, $registroDato['id_catalogo_unidad'])
                     : null,
                 'id_presentacion' => $indicePresentacion !== null
@@ -760,11 +771,12 @@ class ProductoController extends Controller
             if ($presentacion) {
                 if ((int) $presentacion->id_producto === (int) $producto->id) {
                     $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
+                    $rutaEtiqueta = $archivoEtiqueta
+                        ? $this->etiquetasPresentaciones->guardar($archivoEtiqueta, $producto)
+                        : $presentacion->url_etiqueta;
 
                     $presentacion->update([
-                        'url_etiqueta' => $archivoEtiqueta
-                            ? $archivoEtiqueta->store('productos/etiquetas', 'public')
-                            : $presentacion->url_etiqueta,
+                        'url_etiqueta' => $rutaEtiqueta,
                         'cantidad' => $datosPresentacion['cantidad'],
                         'id_catalogo_unidad' => $this->resolverCatalogoUnidad(
                             $request,
@@ -779,6 +791,7 @@ class ProductoController extends Controller
                 }
 
                 $presentacionesPorIndice[$indice] = $presentacion->id;
+
                 continue;
             }
 
@@ -786,15 +799,13 @@ class ProductoController extends Controller
 
             if (isset($presentacionesUnicas[$clave])) {
                 $presentacionesPorIndice[$indice] = $presentacionesUnicas[$clave];
+
                 continue;
             }
 
-            $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
             $nuevaPresentacion = Presentacion::create([
                 'id_producto' => $producto->id,
-                'url_etiqueta' => $archivoEtiqueta
-                    ? $archivoEtiqueta->store('productos/etiquetas', 'public')
-                    : null,
+                'url_etiqueta' => null,
                 'cantidad' => $datosPresentacion['cantidad'],
                 'id_catalogo_unidad' => $this->resolverCatalogoUnidad(
                     $request,
@@ -804,6 +815,17 @@ class ProductoController extends Controller
                 'descripcion' => $datosPresentacion['descripcion'] ?? null,
                 'estado' => $datosPresentacion['estado'] ?? 'ACTIVO',
             ]);
+
+            $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
+
+            if ($archivoEtiqueta) {
+                $nuevaPresentacion->update([
+                    'url_etiqueta' => $this->etiquetasPresentaciones->guardar(
+                        $archivoEtiqueta,
+                        $producto
+                    ),
+                ]);
+            }
 
             $presentacionesPorIndice[$indice] = $nuevaPresentacion->id;
             $presentacionesConservadas[] = $nuevaPresentacion->id;
@@ -832,7 +854,7 @@ class ProductoController extends Controller
                 'numero_lote' => $datosRegistro['numero_lote'] ?? null,
                 'fecha_vigencia' => $datosRegistro['fecha_vigencia'] ?? null,
                 'cantidad' => $datosRegistro['cantidad'] ?? null,
-                'id_catalogo_unidad' => !empty($datosRegistro['id_catalogo_unidad'])
+                'id_catalogo_unidad' => ! empty($datosRegistro['id_catalogo_unidad'])
                     ? $this->resolverCatalogoUnidad($request, $datosRegistro['id_catalogo_unidad'])
                     : null,
                 'id_presentacion' => $indicePresentacion !== null
@@ -864,8 +886,8 @@ class ProductoController extends Controller
         foreach ($registrosRetirados as $registro) {
             if ($registro->certificadosRegistros()->exists()) {
                 throw ValidationException::withMessages([
-                    'registros' => 'No puede quitar el registro ' . ($registro->codigo_autorizacion ?: '#' . $registro->id)
-                        . ' porque ya está relacionado con un certificado.',
+                    'registros' => 'No puede quitar el registro '.($registro->codigo_autorizacion ?: '#'.$registro->id)
+                        .' porque ya está relacionado con un certificado.',
                 ]);
             }
 
@@ -887,6 +909,7 @@ class ProductoController extends Controller
         foreach ($presentacionesRetiradas as $presentacion) {
             if ($presentacion->registros()->exists()) {
                 $presentacion->update(['estado' => 'INACTIVO']);
+
                 continue;
             }
 
@@ -900,7 +923,7 @@ class ProductoController extends Controller
      */
     private function relacionarRegistrosConTramite($idCertificado, array $registrosCreados): void
     {
-        if (!$idCertificado || empty($registrosCreados)) {
+        if (! $idCertificado || empty($registrosCreados)) {
             return;
         }
 
@@ -909,7 +932,6 @@ class ProductoController extends Controller
             ->syncWithoutDetaching($registrosCreados);
     }
 
-    
     // Valida la información enviada antes de iniciar la transacción.
     private function validarProducto(Request $request, ?Producto $producto = null): array
     {
@@ -943,7 +965,7 @@ class ProductoController extends Controller
                 'form_presentacion_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
                 'form_presentacion_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_presentacion_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
-                
+
                 'form_registro_unidad_temporal_id' => ['nullable', 'string', 'max:50'],
                 'form_registro_unidad_temporal_nombre' => ['nullable', 'string', 'max:255'],
                 'form_registro_unidad_temporal_abreviatura' => ['nullable', 'string', 'max:50'],
@@ -965,21 +987,20 @@ class ProductoController extends Controller
                 'ingredientes_productos.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
 
                 'presentaciones' => ['nullable', 'array'],
-                'presentaciones.*.cantidad' => ['required_with:presentaciones', 'numeric', 'decimal:0,5', 'gt:0'],
+                'presentaciones.*.cantidad' => ['required_with:presentaciones', 'numeric', 'decimal:0,2', 'gt:0'],
                 'presentaciones.*.id_catalogo_unidad' => ['required_with:presentaciones', 'string', 'max:50'],
                 'presentaciones.*.descripcion' => ['nullable', 'string'],
                 'presentaciones.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
                 'presentaciones.*.id_presentacion_origen' => ['nullable', 'integer', 'exists:presentaciones,id'],
                 'presentaciones.*.url_etiqueta' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
                 'presentaciones.*.tipo_envase' => ['nullable', 'string', 'max:150'],
-                
 
                 'registros' => ['nullable', 'array'],
                 'registros.*.id_registro' => ['nullable', 'integer', 'exists:registros,id'],
                 'registros.*.codigo_autorizacion' => ['nullable', 'string', 'max:255'],
                 'registros.*.numero_lote' => ['nullable', 'string', 'max:150'],
                 'registros.*.fecha_vigencia' => ['nullable', 'date'],
-                'registros.*.cantidad' => ['nullable', 'numeric', 'decimal:0,5', 'gt:0'],
+                'registros.*.cantidad' => ['nullable', 'numeric', 'decimal:0,2', 'gt:0'],
                 'registros.*.id_catalogo_unidad' => ['nullable', 'string', 'max:50'],
                 'registros.*.id_presentacion_temporal' => ['required_with:registros', 'integer'],
                 'registros.*.presentacion_texto' => ['nullable', 'string', 'max:255'],
@@ -1000,10 +1021,10 @@ class ProductoController extends Controller
                 'min' => 'El valor ingresado es menor al permitido.',
                 'form_tipo_producto.in' => 'Seleccione un tipo de producto valido.',
                 'presentaciones.*.cantidad.numeric' => 'La cantidad debe ser un número válido.',
-                'presentaciones.*.cantidad.decimal' => 'La cantidad puede tener hasta 5 decimales.',
+                'presentaciones.*.cantidad.decimal' => 'La cantidad puede tener hasta 2 decimales.',
                 'presentaciones.*.cantidad.gt' => 'La cantidad debe ser mayor que cero.',
                 'registros.*.cantidad.numeric' => 'La cantidad registrada debe ser un número válido.',
-                'registros.*.cantidad.decimal' => 'La cantidad registrada puede tener hasta 5 decimales.',
+                'registros.*.cantidad.decimal' => 'La cantidad registrada puede tener hasta 2 decimales.',
                 'registros.*.cantidad.gt' => 'La cantidad registrada debe ser mayor que cero.',
             ],
             [
@@ -1045,7 +1066,7 @@ class ProductoController extends Controller
 
         $datos = $validador->validate();
 
-        if (!empty($datos['form_id_certificado'])) {
+        if (! empty($datos['form_id_certificado'])) {
             $this->validarTramiteAdmiteProducto(
                 (int) $datos['form_id_certificado'],
                 (int) $datos['form_id_importador_persona']
@@ -1064,14 +1085,13 @@ class ProductoController extends Controller
 
         if (is_array($presentaciones)) {
             foreach ($presentaciones as $indice => $presentacion) {
-                if (!is_array($presentacion) || !array_key_exists('cantidad', $presentacion)) {
+                if (! is_array($presentacion) || ! array_key_exists('cantidad', $presentacion)) {
                     continue;
                 }
 
-                $cantidad = trim((string) $presentacion['cantidad']);
-                $presentaciones[$indice]['cantidad'] = $cantidad === ''
-                    ? null
-                    : str_replace(',', '.', $cantidad);
+                $presentaciones[$indice]['cantidad'] = $this->normalizarCantidadProducto(
+                    $presentacion['cantidad']
+                );
             }
 
             $request->merge(['presentaciones' => $presentaciones]);
@@ -1079,22 +1099,46 @@ class ProductoController extends Controller
 
         $registros = $request->input('registros');
 
-        if (!is_array($registros)) {
+        if (! is_array($registros)) {
             return;
         }
 
         foreach ($registros as $indice => $registro) {
-            if (!is_array($registro) || !array_key_exists('cantidad', $registro)) {
+            if (! is_array($registro) || ! array_key_exists('cantidad', $registro)) {
                 continue;
             }
 
-            $cantidad = trim((string) $registro['cantidad']);
-            $registros[$indice]['cantidad'] = $cantidad === ''
-                ? null
-                : str_replace(',', '.', $cantidad);
+            $registros[$indice]['cantidad'] = $this->normalizarCantidadProducto(
+                $registro['cantidad']
+            );
         }
 
         $request->merge(['registros' => $registros]);
+    }
+
+    /**
+     * Normaliza una cantidad escrita en el módulo de productos.
+     *
+     * Acepta coma o punto decimal y elimina solamente los ceros finales antes de
+     * validar. La base conserva el resultado como DECIMAL(10,2).
+     */
+    private function normalizarCantidadProducto(mixed $valor): ?string
+    {
+        $cantidad = str_replace(',', '.', trim((string) $valor));
+
+        if ($cantidad === '') {
+            return null;
+        }
+
+        if (! preg_match('/^\d+(?:\.\d+)?$/', $cantidad)) {
+            return $cantidad;
+        }
+
+        if (str_contains($cantidad, '.')) {
+            $cantidad = rtrim(rtrim($cantidad, '0'), '.');
+        }
+
+        return $cantidad;
     }
 
     /**
@@ -1104,12 +1148,13 @@ class ProductoController extends Controller
     {
         $valor = $request->input('form_id_fabricante');
 
-        if (!$request->filled('form_id_fabricante') || $this->esIdExistente($valor, Fabricante::class)) {
+        if (! $request->filled('form_id_fabricante') || $this->esIdExistente($valor, Fabricante::class)) {
             return;
         }
 
-        if (!$this->esTemporal($valor) || !$request->filled('form_fabricante_temporal_nombre')) {
+        if (! $this->esTemporal($valor) || ! $request->filled('form_fabricante_temporal_nombre')) {
             $validador->errors()->add('form_id_fabricante', 'Seleccione un fabricante valido o registre uno nuevo.');
+
             return;
         }
 
@@ -1123,6 +1168,7 @@ class ProductoController extends Controller
                 'form_id_fabricante',
                 'Ya existe un fabricante con el mismo nombre. Selecciónelo del listado.'
             );
+
             return;
         }
 
@@ -1143,19 +1189,20 @@ class ProductoController extends Controller
     {
         $valor = $request->input('form_id_clasificacion_toxicologica');
 
-        if (!$request->filled('form_id_clasificacion_toxicologica') || $this->esIdExistente($valor, ClasificacionToxicologica::class)) {
+        if (! $request->filled('form_id_clasificacion_toxicologica') || $this->esIdExistente($valor, ClasificacionToxicologica::class)) {
             return;
         }
 
         if (
-            !$this->esTemporal($valor) ||
-            !$request->filled('form_clasificacion_toxicologica_temporal_codigo') ||
-            !$request->filled('form_clasificacion_toxicologica_temporal_descripcion')
+            ! $this->esTemporal($valor) ||
+            ! $request->filled('form_clasificacion_toxicologica_temporal_codigo') ||
+            ! $request->filled('form_clasificacion_toxicologica_temporal_descripcion')
         ) {
             $validador->errors()->add(
                 'form_id_clasificacion_toxicologica',
                 'Para registrar una clasificación toxicológica debe ingresar el código y la descripción.'
             );
+
             return;
         }
 
@@ -1181,15 +1228,16 @@ class ProductoController extends Controller
     {
         $valor = $request->input('form_id_clasificacion_quimica');
 
-        if (!$request->filled('form_id_clasificacion_quimica') || $this->esIdExistente($valor, ClasificacionQuimica::class)) {
+        if (! $request->filled('form_id_clasificacion_quimica') || $this->esIdExistente($valor, ClasificacionQuimica::class)) {
             return;
         }
 
-        if (!$this->esTemporal($valor) || !$request->filled('form_clasificacion_quimica_temporal_nombre')) {
+        if (! $this->esTemporal($valor) || ! $request->filled('form_clasificacion_quimica_temporal_nombre')) {
             $validador->errors()->add(
                 'form_id_clasificacion_quimica',
                 'Seleccione una clasificación química válida o registre una nueva.'
             );
+
             return;
         }
 
@@ -1215,8 +1263,8 @@ class ProductoController extends Controller
         $nombresAgregados = [];
         $idsExistentes = collect($request->input('ingredientes_productos', []))
             ->pluck('id_ingrediente')
-            ->filter(fn($idIngrediente) => ctype_digit((string) $idIngrediente))
-            ->map(fn($idIngrediente) => (int) $idIngrediente)
+            ->filter(fn ($idIngrediente) => ctype_digit((string) $idIngrediente))
+            ->map(fn ($idIngrediente) => (int) $idIngrediente)
             ->unique()
             ->values();
         $nombresExistentes = $idsExistentes->isEmpty()
@@ -1233,6 +1281,7 @@ class ProductoController extends Controller
                     "ingredientes_productos.$indice.id_ingrediente",
                     'El ingrediente está repetido en la composición del producto.'
                 );
+
                 continue;
             }
 
@@ -1246,20 +1295,23 @@ class ProductoController extends Controller
                         "ingredientes_productos.$indice.id_ingrediente",
                         'El ingrediente está repetido en la composición del producto.'
                     );
+
                     continue;
                 }
 
                 $nombresAgregados[$nombreNormalizado] = true;
+
                 continue;
             }
 
             $nombre = trim((string) ($ingredienteProducto['nombre'] ?? ''));
 
-            if (!$this->esTemporal($idIngrediente) || $nombre === '') {
+            if (! $this->esTemporal($idIngrediente) || $nombre === '') {
                 $validador->errors()->add(
                     "ingredientes_productos.$indice.id_ingrediente",
                     'El ingrediente seleccionado no es válido. Selecciónelo nuevamente o registre uno nuevo.'
                 );
+
                 continue;
             }
 
@@ -1270,6 +1322,7 @@ class ProductoController extends Controller
                     "ingredientes_productos.$indice.id_ingrediente",
                     'El ingrediente está repetido en la composición del producto.'
                 );
+
                 continue;
             }
 
@@ -1295,7 +1348,7 @@ class ProductoController extends Controller
             $idPresentacionOrigen = $presentacionDato['id_presentacion_origen'] ?? null;
             $idUnidad = $presentacionDato['id_catalogo_unidad'] ?? null;
 
-            if (!$this->catalogoUnidadValido($request, $idUnidad)) {
+            if (! $this->catalogoUnidadValido($request, $idUnidad)) {
                 $validador->errors()->add(
                     "presentaciones.$indice.id_catalogo_unidad",
                     'Seleccione una unidad válida o registre una nueva.'
@@ -1312,7 +1365,7 @@ class ProductoController extends Controller
                 );
             }
 
-            if ($idPresentacionOrigen && !$this->presentacionPerteneceAlProductoSolicitado((int) $idPresentacionOrigen, $request)) {
+            if ($idPresentacionOrigen && ! $this->presentacionPerteneceAlProductoSolicitado((int) $idPresentacionOrigen, $request)) {
                 $validador->errors()->add(
                     "presentaciones.$indice.id_presentacion_origen",
                     'La presentacion seleccionada no pertenece al importador y producto actual.'
@@ -1339,17 +1392,18 @@ class ProductoController extends Controller
         foreach ($request->input('registros', []) as $indice => $registroDato) {
             $indicePresentacion = $registroDato['id_presentacion_temporal'] ?? null;
 
-            if ($indicePresentacion === null || !array_key_exists($indicePresentacion, $presentaciones)) {
+            if ($indicePresentacion === null || ! array_key_exists($indicePresentacion, $presentaciones)) {
                 $validador->errors()->add(
                     "registros.$indice.id_presentacion_temporal",
                     'Seleccione una presentacion agregada para este registro.'
                 );
+
                 continue;
             }
 
             $idUnidad = $registroDato['id_catalogo_unidad'] ?? null;
 
-            if ($idUnidad && !$this->catalogoUnidadValido($request, $idUnidad)) {
+            if ($idUnidad && ! $this->catalogoUnidadValido($request, $idUnidad)) {
                 $validador->errors()->add(
                     "registros.$indice.id_catalogo_unidad",
                     'Seleccione una unidad válida o registre una nueva.'
@@ -1373,6 +1427,7 @@ class ProductoController extends Controller
                     "registros.$indice.codigo_autorizacion",
                     'Este registro ya fue agregado para la presentacion seleccionada.'
                 );
+
                 continue;
             }
 
@@ -1405,13 +1460,13 @@ class ProductoController extends Controller
         foreach ($request->input('registros', []) as $indice => $registroDato) {
             $idRegistro = $registroDato['id_registro'] ?? null;
 
-            if (!$idRegistro) {
+            if (! $idRegistro) {
                 continue;
             }
 
             $perteneceAlProducto = $producto->registros()->whereKey($idRegistro)->exists();
 
-            if (!$perteneceAlProducto) {
+            if (! $perteneceAlProducto) {
                 $validador->errors()->add(
                     "registros.$indice.id_registro",
                     'El registro seleccionado no pertenece al producto que está editando.'
@@ -1427,7 +1482,7 @@ class ProductoController extends Controller
     {
         $certificado = Certificado::findOrFail($idCertificado);
 
-        if (!$certificado->requiereEvidencia('PRODUCTO')) {
+        if (! $certificado->requiereEvidencia('PRODUCTO')) {
             throw ValidationException::withMessages([
                 'form_id_certificado' => 'Este tramite no tiene producto configurado como requisito.',
             ]);
@@ -1448,7 +1503,7 @@ class ProductoController extends Controller
         $presentacion = Presentacion::with('producto')->find($idPresentacion);
         $productoOrigen = $presentacion?->producto;
 
-        if (!$productoOrigen || (string) $productoOrigen->id_importador_persona !== (string) $request->input('form_id_importador_persona')) {
+        if (! $productoOrigen || (string) $productoOrigen->id_importador_persona !== (string) $request->input('form_id_importador_persona')) {
             return false;
         }
 
@@ -1496,7 +1551,7 @@ class ProductoController extends Controller
      */
     private function urlRetornoSegura(?string $url): ?string
     {
-        if (!$url) {
+        if (! $url) {
             return null;
         }
 
@@ -1535,7 +1590,7 @@ class ProductoController extends Controller
             ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
             ->first();
 
-        if (!$fabricante) {
+        if (! $fabricante) {
             $fabricante = Fabricante::create([
                 'nombre' => $nombre,
                 'razon_social' => filled($request->input('form_fabricante_temporal_razon_social'))
@@ -1572,7 +1627,7 @@ class ProductoController extends Controller
             ->whereRaw('LOWER(TRIM(descripcion)) = ?', [mb_strtolower($descripcion)])
             ->first();
 
-        if (!$clasificacion) {
+        if (! $clasificacion) {
             $clasificacion = ClasificacionToxicologica::create([
                 'codigo' => $codigo,
                 'descripcion' => $descripcion,
@@ -1605,7 +1660,7 @@ class ProductoController extends Controller
             ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
             ->first();
 
-        if (!$clasificacion) {
+        if (! $clasificacion) {
             $clasificacion = ClasificacionQuimica::create([
                 'nombre' => $nombre,
                 'descripcion' => $request->input('form_clasificacion_quimica_temporal_descripcion'),
@@ -1627,7 +1682,7 @@ class ProductoController extends Controller
      */
     private function datosUnidadTemporal(Request $request, $valor): ?array
     {
-        if (!$this->esTemporal((string) $valor)) {
+        if (! $this->esTemporal((string) $valor)) {
             return null;
         }
 
@@ -1711,7 +1766,7 @@ class ProductoController extends Controller
     {
         $unidad = $this->datosUnidadTemporal($request, $valor);
 
-        if (!$unidad || $unidad['abreviatura'] === '') {
+        if (! $unidad || $unidad['abreviatura'] === '') {
             return false;
         }
 
@@ -1730,7 +1785,7 @@ class ProductoController extends Controller
     {
         $unidad = $this->datosUnidadTemporal($request, $valor);
 
-        if (!$unidad) {
+        if (! $unidad) {
             return false;
         }
 
@@ -1751,7 +1806,7 @@ class ProductoController extends Controller
 
         $datos = $this->datosUnidadTemporal($request, $valor);
 
-        if (!$datos) {
+        if (! $datos) {
             throw ValidationException::withMessages([
                 'unidad' => 'La unidad seleccionada no es válida.',
             ]);
@@ -1762,7 +1817,7 @@ class ProductoController extends Controller
             ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($datos['nombre'])])
             ->first();
 
-        if (!$unidad) {
+        if (! $unidad) {
             $unidad = CatalogoMedida::create([
                 'nombre' => $datos['nombre'],
                 'tipo' => 'unidad de medida',
@@ -1794,7 +1849,7 @@ class ProductoController extends Controller
             ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
             ->first();
 
-        if (!$ingrediente) {
+        if (! $ingrediente) {
             $ingrediente = Ingrediente::create([
                 'nombre' => $nombre,
                 'estado' => 'ACTIVO',

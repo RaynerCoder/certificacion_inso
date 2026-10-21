@@ -272,8 +272,6 @@ Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController:
 Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
-Route::post('/certificados/{certificado}/registros-existentes', [CertificadoController::class, 'vincularRegistroExistente'])
-    ->name('certificados_registros_existentes_vincular');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')
     ->middleware('permiso:certificados.emitir');

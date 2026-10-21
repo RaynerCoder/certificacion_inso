@@ -1330,22 +1330,27 @@
          ].filter(Boolean).join(' ');
      }
 
-     // Limpia el CI/NIT para usarlo como base del nombre de usuario.
+     // Normaliza los nombres para generar la cuenta de la persona.
      function textoUsuarioSeguroPersonaWizard(valor) {
          return String(valor || '')
+             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
              .toLowerCase()
-             .replace(/[^a-z0-9]/g, '');
+             .replace(/[^a-z]/g, '');
      }
 
-     // Para empresa, la cuenta se entrega al responsable; por eso se sugiere su CI.
+     // La cuenta pertenece a la persona natural o al representante de la empresa.
      function sugerirNombreUsuarioPersonaWizard() {
          const tipo = tipoPersonaWizard();
          const responsable = document.querySelector('.responsable-agregado');
-         const base = tipo === 'EMPRESA'
-             ? (valorOcultoResumenPersonaWizard(responsable, 'ci') || valorOcultoResumenPersonaWizard(responsable, 'nit'))
-             : valorPersonaWizard('[name="form_ci"]');
-
-         return textoUsuarioSeguroPersonaWizard(base);
+         const nombres = tipo === 'EMPRESA'
+             ? valorOcultoResumenPersonaWizard(responsable, 'nombres')
+             : valorPersonaWizard('[name="form_nombres"]');
+         const apellido = tipo === 'EMPRESA'
+             ? valorOcultoResumenPersonaWizard(responsable, 'apellido_paterno')
+             : valorPersonaWizard('[name="form_apellido_paterno"]');
+         if (!nombres.trim() || !apellido.trim()) return '';
+         return textoUsuarioSeguroPersonaWizard(nombres.trim().split(/\s+/)[0])
+             + '_' + textoUsuarioSeguroPersonaWizard(apellido);
      }
 
      // Genera una contrasena temporal legible y con longitud suficiente.
@@ -1402,7 +1407,7 @@
              return;
          }
 
-         usuario.readOnly = false;
+         usuario.readOnly = true;
          correo.readOnly = false;
          usuario.classList.remove('bg-slate-100', 'cursor-not-allowed');
          correo.classList.remove('bg-slate-100', 'cursor-not-allowed');
@@ -1415,7 +1420,7 @@
              correo.dataset.manual = '1';
          }
 
-         if (usuarioSugerido && (forzar || usuario.dataset.manual !== '1')) {
+         if (usuarioSugerido) {
              usuario.value = usuarioSugerido;
              usuario.dataset.autocompletado = '1';
          }

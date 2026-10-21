@@ -466,8 +466,13 @@
                         </div>
 
                         <div class="usuario-dato">
-                            <span class="usuario-dato-label">Carnet</span>
-                            <span class="usuario-dato-valor">{{ $funcionario->carnet }}</span>
+                            <span class="usuario-dato-label">CI</span>
+                            <span class="usuario-dato-valor">{{ $funcionario->ci }}</span>
+                        </div>
+
+                        <div class="usuario-dato">
+                            <span class="usuario-dato-label">Complemento</span>
+                            <span class="usuario-dato-valor">{{ $funcionario->complemento ?: 'Sin complemento' }}</span>
                         </div>
 
                         <div class="usuario-dato">

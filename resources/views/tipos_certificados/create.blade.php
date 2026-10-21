@@ -416,6 +416,19 @@
             // Datos temporales que se convierten en inputs hidden antes de enviar el formulario.
             let requisitosAsignados = @json($requisitosAsignadosAnteriores);
             let indiceRequisitoNuevo = requisitosAsignados.length;
+            let mostrarErroresEvidencia = @json($errors->has('requisitos_asignados.*.id_tipo_evidencia'));
+
+            document.getElementById('formTipoCertificadoRequisitos').addEventListener('submit', function (event) {
+                if (!requisitosAsignados.some((requisito) => !String(requisito.id_tipo_evidencia || '').trim())) return;
+
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                mostrarErroresEvidencia = true;
+                renderizarTablaRequisitos();
+                const selector = document.querySelector('[data-evidencia-faltante="true"]');
+                selector?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                selector?.focus({ preventScroll: true });
+            }, true);
             const tiposEvidencias = @json($tiposEvidenciasJson);
             const tiposCertificadosRequeridos = @json($tiposCertificadosJson);
 
@@ -710,6 +723,9 @@
                     <div class="relative">
                         <button type="button"
                             class="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-left transition hover:border-teal-500 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                            data-evidencia-faltante="${!tipoSeleccionado}"
+                            aria-invalid="${mostrarErroresEvidencia && !tipoSeleccionado}"
+                            aria-describedby="errorEvidencia-${index}"
                             onclick="alternarSelectorEvidencia(${index})">
                             ${tipoSeleccionado ? `<span class="block text-xs font-bold leading-tight text-slate-800">${escaparHtml(tipoSeleccionado.codigo)}</span>
                             <span class="mt-0.5 block text-[11px] leading-tight text-slate-500">${escaparHtml(tipoSeleccionado.nombre)}</span>` : 
@@ -727,6 +743,7 @@
                                         <span class="mt-0.5 block text-[11px] leading-tight text-slate-500">${escaparHtml(tipo.nombre)}</span>
                                     </button>
                                 `).join('')}</div>` : ''}
+                        <p id="errorEvidencia-${index}" class="mt-1 text-xs text-red-600" role="alert">${mostrarErroresEvidencia && !tipoSeleccionado ? 'Seleccione el tipo de evidencia para este requisito.' : ''}</p>
                         ${campoCalificacionMinima}
                     </div>
                 `;

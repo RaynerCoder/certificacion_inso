@@ -194,12 +194,10 @@
                                                 "requisitos_revision.$loop->index.cumple",
                                                 $decisionGuardada,
                                             );
-                                            $observacionGuardada = $esNuevaRevision
-                                                ? ''
-                                                : $ultimaObservacion?->observacion ?? '';
+                                            // La observación guardada pertenece al historial, no a la nueva revisión.
                                             $observacionActual = old(
                                                 "requisitos_revision.$loop->index.observacion",
-                                                $observacionGuardada,
+                                                '',
                                             );
                                             $observacionDeOtro =
                                                 $ultimaObservacion &&
@@ -494,7 +492,7 @@
                                             <span class="cert-technical-selected-name"
                                                 data-correction-recipient-name>{{ $destinatarioSeleccionado['nombre'] ?? 'Seleccione una persona' }}</span>
                                             <span class="cert-technical-selected-help"
-                                                data-correction-recipient-type>{{ $destinatarioSeleccionado['tipo'] ?? '' }}</span>
+                                                data-correction-recipient-type>{{ $destinatarioSeleccionado['etiqueta'] ?? $destinatarioSeleccionado['tipo'] ?? '' }}</span>
                                         </span>
                                         <i class="fa-solid fa-chevron-down cert-technical-chevron"></i>
                                     </button>
@@ -520,7 +518,7 @@
                                                         data-correction-recipient-option
                                                         data-value="{{ $destinatario['id'] }}"
                                                         data-nombre="{{ $destinatario['nombre'] }}"
-                                                        data-tipo="{{ $destinatario['tipo'] }}"
+                                                        data-tipo="{{ $destinatario['etiqueta'] ?? $destinatario['tipo'] }}"
                                                         data-busqueda="{{ $destinatario['busqueda'] }}"
                                                         aria-selected="{{ $esDestinatarioSeleccionado ? 'true' : 'false' }}">
                                                         <span class="cert-technical-option-icon">
@@ -529,7 +527,7 @@
                                                         </span>
                                                         <span class="cert-technical-option-main">
                                                             <strong>{{ $destinatario['nombre'] }}</strong>
-                                                            <span>{{ $destinatario['tipo'] }}</span>
+                                                            <span>{{ $destinatario['etiqueta'] ?? $destinatario['tipo'] }}</span>
                                                         </span>
                                                         <span class="cert-correction-option-check" aria-hidden="true">
                                                             <i class="fa-solid fa-check"></i>
@@ -546,6 +544,8 @@
                                 @if ($destinatarioCorreccionBloqueado)
                                     <p class="mt-2 text-sm text-slate-600">La persona natural es
                                         beneficiario y tramitador del mismo trámite.</p>
+                                @elseif ($destinatarioSeleccionado && !$destinatariosCorreccion->contains('inicio_tramite', true))
+                                    <p class="mt-2 text-sm text-slate-600">Quien inició el trámite no está disponible como destinatario autorizado. Se propone otra persona autorizada de la empresa.</p>
                                 @endif
 
                                 <div class="tramite-actions-row mt-5">
@@ -648,6 +648,9 @@
                                                 ->sortByDesc('id')
                                                 ->first();
                                             $valorEvidenciaCorreccion = $evidenciaPrincipalCorreccion?->valor;
+                                            $correccionYaGuardada = filled($valorEvidenciaCorreccion)
+                                                && $ultimaObservacionCorreccion
+                                                && $evidenciaPrincipalCorreccion?->created_at?->gt($ultimaObservacionCorreccion->created_at);
                                             $tamanioMaximoCorreccion =
                                                 (int) ($evidenciaPrincipalCorreccion?->tipoEvidencia
                                                     ?->tamanio_maximo_mb ?? 0);
@@ -699,7 +702,8 @@
                                                             class="cert-correction-file-input" type="file"
                                                             name="documentos_correccion[{{ $requisitoCertificado->id }}]"
                                                             accept="{{ $codigoEvidencia === 'IMAGEN' ? 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' : 'application/pdf,.pdf' }}"
-                                                            data-correction-file-input>
+                                                            data-correction-file-input
+                                                            data-correction-required="{{ $correccionYaGuardada ? '0' : '1' }}">
                                                         <div class="cert-correction-file-info">
                                                             <i
                                                                 class="{{ $codigoEvidencia === 'IMAGEN' ? 'fa-regular fa-image' : 'fa-regular fa-file-pdf' }}"></i>
@@ -736,24 +740,19 @@
                                                     @enderror
                                                 @elseif ($codigoEvidencia === 'TEXTO')
                                                     <textarea name="textos_correccion[{{ $requisitoCertificado->id }}]" class="cert-correction-textarea" rows="3"
-                                                        placeholder="Escriba la corrección solicitada">{{ old("textos_correccion.{$requisitoCertificado->id}", $valorEvidenciaCorreccion) }}</textarea>
+                                                        data-correction-required="{{ $correccionYaGuardada ? '0' : '1' }}"
+                                                        placeholder="Escriba la corrección solicitada">{{ old("textos_correccion.{$requisitoCertificado->id}", $correccionYaGuardada ? $valorEvidenciaCorreccion : '') }}</textarea>
                                                     @error("textos_correccion.{$requisitoCertificado->id}")
                                                         <p class="cert-correction-error">{{ $message }}
                                                         </p>
                                                     @enderror
                                                 @elseif ($codigoEvidencia === 'PRODUCTO')
-                                                    <a href="{{ $rutaProductoCorreccion }}"
-                                                        class="cert-correction-action">
-                                                        <i class="fa-solid fa-box"></i>
-                                                        Registrar producto
-                                                    </a>
-                                                    @error("requisito_producto_{$requisitoCertificado->id}")
-                                                        <p class="cert-correction-error">{{ $message }}
-                                                        </p>
-                                                    @enderror
+                                                    <span class="cert-correction-note">
+                                                        El producto se registra y corrige por personal de INSO.
+                                                    </span>
                                                 @elseif ($codigoEvidencia === 'PAGO')
                                                     <span class="cert-correction-note">
-                                                        No requiere archivo en este requisito.
+                                                        Debe contar con el pago validado para enviar la corrección.
                                                     </span>
                                                 @elseif ($codigoEvidencia === 'CERTIFICADO')
                                                     <span class="cert-correction-note">
@@ -768,6 +767,9 @@
                                                         Revise la observación del técnico.
                                                     </span>
                                                 @endif
+                                                @error("requisito_correccion_{$requisitoCertificado->id}")
+                                                    <p class="cert-correction-error" role="alert">{{ $message }}</p>
+                                                @enderror
                                             </td>
                                         </tr>
                                     @empty
@@ -787,8 +789,7 @@
                                 Salir sin guardar
                             </a>
                             <button type="submit" name="form_accion_correccion" value="enviar"
-                                class="tramite-btn tramite-btn-primary"
-                                onclick="return confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')">
+                                class="tramite-btn tramite-btn-primary">
                                 <i class="fa-solid fa-reply"></i>
                                 Enviar al revisor
                             </button>
@@ -804,8 +805,6 @@
                                     <th>Requisito</th>
                                     <th>Tipo de evidencia</th>
                                     <th class="cert-review-col-result">Cumple</th>
-                                    <th>Estado</th>
-                                    <th class="cert-review-col-observation">Observación</th>
                                     <th>Última evidencia</th>
                                     <th class="cert-review-col-history">Acción</th>
                                 </tr>
@@ -813,7 +812,6 @@
                             <tbody>
                                 @forelse ($certificado->certificadoRequisitos as $requisitoCertificado)
                                     @php
-                                        $ultimaObservacion = $ultimaObservacionDeRequisito($requisitoCertificado);
                                         $codigoEvidencia = $codigoEvidenciaRequisito($requisitoCertificado);
                                         $nombreEvidencia = $nombreEvidenciaRequisito($requisitoCertificado);
                                         $iconoEvidencia = $iconoEvidenciaRequisito($codigoEvidencia);
@@ -838,18 +836,11 @@
                                             'Observado' => 'tramite-pill-danger',
                                             default => 'tramite-pill-warn',
                                         };
-                                        $claseEstadoActual = $claseEstadoRequisito($requisitoCertificado->estado);
                                         $textoCumpleCorto = match ($textoCumple) {
                                             'Cumple' => 'Sí',
                                             'Observado' => 'No',
                                             default => 'Pendiente',
                                         };
-                                        $textoObservacionRequisito =
-                                            $requisitoCertificado->estado === 'PENDIENTE_REVISION'
-                                                ? 'Pendiente de revisión'
-                                                : ($observacionInterna
-                                                    ? 'Pendiente de notificación'
-                                                    : $ultimaObservacion?->observacion ?? 'Sin observación');
                                     @endphp
                                     <tr
                                         class="cert-requirement-row {{ $textoCumple === 'Observado' || $requisitoCertificado->estado === 'OBSERVADO' ? 'is-observed tramite-row-observed' : '' }}">
@@ -868,14 +859,9 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="tramite-pill tramite-status-chip {{ $claseEstadoActual }}">
-                                                {{ $textoEstadoRequisito($requisitoCertificado->estado) }}
-                                            </span>
-                                        </td>
-                                        <td>{{ $textoObservacionRequisito }}</td>
-                                        <td>
                                             @if ($codigoEvidencia === 'PDF' && $documentoRequisito)
                                                 <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener"
+                                                    data-requirement-pdf
                                                     class="cert-latest-evidence-link is-pdf">Ver PDF</a>
                                             @elseif ($codigoEvidencia === 'IMAGEN' && $documentoRequisito)
                                                 <a href="{{ $documentoRequisito }}" target="_blank" rel="noopener"
@@ -889,6 +875,7 @@
                                                     registrado</span>
                                                 @if ($comprobantePago)
                                                     <a href="{{ $comprobantePago }}" target="_blank" rel="noopener"
+                                                        data-requirement-pdf
                                                         class="cert-latest-evidence-link is-pdf">Ver
                                                         PDF</a>
                                                 @endif
@@ -917,7 +904,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center">Este trámite no tiene
+                                        <td colspan="6" class="text-center">Este trámite no tiene
                                             requisitos registrados.</td>
                                     </tr>
                                 @endforelse
@@ -976,5 +963,17 @@
                 </div>
             </aside>
         @endunless
+        <dialog data-requirement-pdf-dialog aria-label="Documento del requisito"
+            style="width: min(1100px, 94vw);max-width:94vw;padding:16px;border:1px solid #cbd5e1;border-radius:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+                <strong>Documento del requisito</strong>
+                <div style="display:flex;gap:16px;align-items:center;">
+                    <a data-requirement-pdf-external target="_blank" rel="noopener">Abrir en otra pestaña</a>
+                    <button type="button" data-requirement-pdf-close aria-label="Cerrar documento">Cerrar ✕</button>
+                </div>
+            </div>
+            <iframe data-requirement-pdf-frame title="Vista previa del PDF"
+                style="display:block;width:100%;height:75vh;border:0;"></iframe>
+        </dialog>
     </section>
 @endif

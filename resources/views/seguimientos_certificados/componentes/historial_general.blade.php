@@ -50,40 +50,53 @@
     };
 
     // Determina la función real de la persona dentro de la empresa beneficiaria.
-    $tipoRelacionSolicitanteTimeline = function ($personaSolicitante, $personaBeneficiaria) {
+    $relacionesSolicitantesTimeline = [];
+    $tipoRelacionSolicitanteTimeline = function ($personaSolicitante, $personaBeneficiaria) use (&$relacionesSolicitantesTimeline, $tipoPersonaTimeline) {
         $empresa = $personaBeneficiaria?->empresa;
 
         if (! $empresa) {
-            return 'Solicitante';
+            return $tipoPersonaTimeline($personaSolicitante);
         }
 
         if (! $personaSolicitante) {
             return 'Relación no identificada';
         }
 
-        $roles = \App\Models\Responsable::query()
+        $claveRelacion = $empresa->id . ':' . $personaSolicitante->id;
+        if (isset($relacionesSolicitantesTimeline[$claveRelacion])) {
+            return $relacionesSolicitantesTimeline[$claveRelacion];
+        }
+
+        $relaciones = \App\Models\Responsable::withTrashed()
             ->with('rol:id,slug')
             ->where('id_empresa', $empresa->id)
             ->where('id_persona', $personaSolicitante->id)
-            ->whereIn('estado', ['1', 'ACTIVO'])
             ->whereHas('rol', fn ($rol) => $rol->whereIn('slug', ['solicitante', 'tramitador']))
-            ->get()
+            ->get();
+        $roles = $relaciones
+            ->filter(fn ($relacion) => ! $relacion->trashed() && in_array((string) $relacion->estado, ['1', 'ACTIVO'], true))
             ->pluck('rol.slug')
             ->filter()
             ->unique();
 
         $esRepresentante = $roles->contains('solicitante');
         $esTramitador = $roles->contains('tramitador');
+        $rolesAnteriores = $relaciones
+            ->filter(fn ($relacion) => $relacion->trashed() || filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+            ->pluck('rol.slug');
 
-        return match (true) {
+        return $relacionesSolicitantesTimeline[$claveRelacion] = match (true) {
+            $esRepresentante && $esTramitador => 'Representante legal y tramitador',
             $esRepresentante => 'Representante legal',
             $esTramitador => 'Tramitador',
-            default => 'Relación no identificada',
+            $rolesAnteriores->contains('tramitador') => 'Ex-Tramitador',
+            $rolesAnteriores->contains('solicitante') => 'Ex-representante legal',
+            default => 'Relación con la empresa no identificada',
         };
     };
 
     // Obtiene el nombre visible del usuario sin mostrar correo cuando existe persona vinculada.
-    $usuarioTimeline = function ($usuario, string $fallback = 'No registrado', string $cargoFallback = 'Sin cargo') use ($nombrePersonaTimeline, $tipoPersonaTimeline) {
+    $usuarioTimeline = function ($usuario, string $fallback = 'No registrado', string $cargoFallback = 'Sin cargo') use ($nombrePersonaTimeline, $tipoRelacionSolicitanteTimeline, $certificado) {
         if (!$usuario) {
             return [
                 'nombre' => $fallback,
@@ -110,7 +123,7 @@
             $cargo = $cargos ?: $cargoFallback;
         } elseif ($usuario->persona) {
             $nombre = $nombrePersonaTimeline($usuario->persona);
-            $cargo = $tipoPersonaTimeline($usuario->persona);
+            $cargo = $tipoRelacionSolicitanteTimeline($usuario->persona, $certificado->beneficiario);
         } else {
             $nombre = $usuario->name ?: $fallback;
             $cargo = 'Sin persona vinculada';
@@ -198,12 +211,10 @@
 
     $seguimientosOrdenadosTimeline = $certificado->seguimientos->sortBy('id');
     $primerSeguimientoTimeline = $seguimientosOrdenadosTimeline->first();
-    $personaSolicitanteTimeline = $certificado->tramitador ?: $certificado->beneficiario;
+    $gestorActualTimeline = app(\App\Services\GestionTramitadoresService::class)->gestorActual($certificado);
+    $personaSolicitanteTimeline = $gestorActualTimeline['persona'];
     $nombreSolicitanteTimeline = $nombrePersonaTimeline($personaSolicitanteTimeline);
-    $tipoSolicitanteTimeline = $tipoRelacionSolicitanteTimeline(
-        $personaSolicitanteTimeline,
-        $certificado->beneficiario
-    );
+    $tipoSolicitanteTimeline = $gestorActualTimeline['tipo'];
     $fechaOrigenTimeline = $certificado->fecha_inicio
         ?: ($primerSeguimientoTimeline?->fecha_inicio ? \Illuminate\Support\Carbon::parse($primerSeguimientoTimeline->fecha_inicio) : null);
 @endphp
@@ -223,7 +234,7 @@
         </article>
 
         <article class="ruta-contexto-item">
-            <span class="ruta-label">Tramitador</span>
+            <span class="ruta-label">Gestionado por</span>
             <span class="ruta-valor">{{ $nombreSolicitanteTimeline }}</span>
             <span class="ruta-rol">{{ $tipoSolicitanteTimeline }}</span>
         </article>
@@ -291,7 +302,7 @@
                     <th>Quién envía</th>
                     <th>Quién recibe</th>
                     <th>Responsable anterior</th>
-                    <th>Referencia</th>
+                    <th>Referencias internas del INSO</th>
                     <th>Descripción final</th>
                 </tr>
             </thead>
@@ -313,14 +324,15 @@
                         // fecha_inicio registra cuándo comenzó el movimiento; created_at cubre datos antiguos.
                         $fechaMovimiento = $seguimiento->fecha_inicio ?: $seguimiento->created_at;
                         $estadoFiltro = strtolower($estadoVisual['filter']);
-                        // La referencia pertenece al movimiento. La descripción final queda vacía
-                        // porque este flujo no solicita ese dato al usuario.
+                        // Cada movimiento muestra su referencia y la descripción registrada al cerrarlo.
                         $referencia = $datoTimeline($seguimiento->referencia, 'Sin referencia');
-                        $descripcionFinal = '';
+                        $descripcionFinal = trim((string) $seguimiento->descripcion_final);
+                        $esTransferenciaPorBaja = str_contains(mb_strtolower($descripcionFinal), 'baja del tramitador');
                         $textoBusqueda = strtolower(implode(' ', array_filter([
                             $seguimiento->id,
                             $certificado->codigo,
                             $referencia,
+                            $descripcionFinal,
                             $seguimiento->estado,
                             $quienEnvia['busqueda'],
                             $quienRecibe['busqueda'],
@@ -339,13 +351,24 @@
                         </td>
 
                         <td>
-                            <span class="ruta-valor">{{ $fechaTimeline($fechaMovimiento) }}</span>
+                            @if ($fechaMovimiento)
+                                <time datetime="{{ \Illuminate\Support\Carbon::parse($fechaMovimiento)->toIso8601String() }}"
+                                    style="display:inline-flex;flex-direction:column;gap:3px;white-space:nowrap;font-variant-numeric:tabular-nums">
+                                    <span class="ruta-valor">{{ \Illuminate\Support\Carbon::parse($fechaMovimiento)->format('H:i') }}</span>
+                                    <span>{{ \Illuminate\Support\Carbon::parse($fechaMovimiento)->format('d/m/Y') }}</span>
+                                </time>
+                            @else
+                                <span class="ruta-valor">Sin fecha</span>
+                            @endif
                         </td>
 
                         <td>
                             <div class="ruta-persona">
                                 <span class="ruta-persona-nombre">{{ $quienEnvia['nombre'] }}</span>
                                 <span class="ruta-persona-cargo">{{ $quienEnvia['cargo'] }}</span>
+                                @if ($esTransferenciaPorBaja)
+                                    <span class="ruta-persona-cargo" style="color:#0f766e">Registró la baja</span>
+                                @endif
                             </div>
                         </td>
 
@@ -353,6 +376,9 @@
                             <div class="ruta-persona">
                                 <span class="ruta-persona-nombre">{{ $quienRecibe['nombre'] }}</span>
                                 <span class="ruta-persona-cargo">{{ $quienRecibe['cargo'] }}</span>
+                                @if ($esTransferenciaPorBaja)
+                                    <span class="ruta-persona-cargo" style="color:#0f766e">Recibe las correcciones pendientes</span>
+                                @endif
                             </div>
                         </td>
 
@@ -370,9 +396,7 @@
                         </td>
 
                         <td>
-                            <div class="ruta-texto ruta-dato-faltante">
-                                {{ $descripcionFinal }}
-                            </div>
+                            <div class="ruta-texto {{ $descripcionFinal !== '' ? '' : 'ruta-dato-faltante' }}" style="white-space: pre-line">{{ $descripcionFinal !== '' ? $descripcionFinal : '—' }}</div>
                         </td>
                     </tr>
                 @empty

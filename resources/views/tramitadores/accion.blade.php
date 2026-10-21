@@ -27,12 +27,22 @@
         @endpermiso
 
         @if ($puedeDarDeBaja)
+            @php
+                $destinatariosBaja = (int) ($registro->tramites_pendientes ?? 0) > 0
+                    ? app(\App\Services\GestionTramitadoresService::class)->destinatariosBaja($registro)->all()
+                    : [];
+            @endphp
             <form action="{{ route('tramitadores_baja', $registro) }}" method="POST"
                 data-tramitador-baja
+                data-usuario-actual="{{ $usuarioActual->id }}"
+                data-destinatarios-baja="{{ json_encode($destinatariosBaja, JSON_UNESCAPED_UNICODE) }}"
                 data-tramitador-nombre="{{ $registro->nombre_tramitador ?: 'este tramitador' }}"
                 data-tramitador-empresa="{{ $registro->nombre_empresa ?: 'esta empresa' }}"
+                data-detalle-tramites="{{ $registro->detalle_tramites_pendientes ?? '[]' }}"
                 data-tramites-pendientes="{{ (int) ($registro->tramites_pendientes ?? 0) }}">
                 @csrf
+                <input type="hidden" name="motivo_baja" value="">
+                <input type="hidden" name="id_usuario_destinatario_baja" value="">
                 <x-wire-button type="submit" red xs>Dar de baja</x-wire-button>
             </form>
         @endif

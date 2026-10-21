@@ -19,7 +19,7 @@
     $bandejaTramiteActual = request('bandeja');
 
     // Si la URL no trae ?bandeja=..., se deduce por la ruta para mantener activo el submenu correcto.
-    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_mis_tramites_beneficiario')) {
+    if (!$bandejaTramiteActual && request()->routeIs('seguimientos_mis_tramites_beneficiario', 'pagos_openbcb_mostrar_pago')) {
         $bandejaTramiteActual = 'enviadas';
     }
 
@@ -52,6 +52,7 @@
         'seguimientos_finalizados',
         'seguimientos_show',
         'seguimientos_tramite_historial',
+        'pagos_openbcb_mostrar_pago',
     );
 
     // Algunas pantallas de detalle usan certificados_show, pero siguen perteneciendo al flujo de Tramites.
@@ -203,7 +204,7 @@
             'description' => 'Pagos registrados',
             'icon' => 'fa-solid fa-credit-card',
             'href' => $href('pagos_index'),
-            'active' => $activo(['pagos_']),
+            'active' => $activo(['pagos_']) && !request()->routeIs('pagos_openbcb_mostrar_pago'),
             'permission' => ['pagos.ver', 'pagos.validar'],
         ],
         // [
@@ -232,7 +233,7 @@
             'name' => 'OpenBCB',
             'description' => 'Prototipo QR y VUCE',
             'icon' => 'fa-solid fa-qrcode',
-            'active' => $activo(['pagos_openbcb_']),
+            'active' => $activo(['pagos_openbcb_']) && !request()->routeIs('pagos_openbcb_mostrar_pago'),
             'permission' => ['pagos.ver', 'pagos.validar'],
             'submenu' => [
                 [
@@ -278,7 +279,7 @@
                     'icon' => 'fa-solid fa-paper-plane',
                     'href' => $href('seguimientos_mis_tramites_beneficiario'),
                     'active' =>
-                        request()->routeIs('seguimientos_mis_tramites_beneficiario') ||
+                        request()->routeIs('seguimientos_mis_tramites_beneficiario', 'pagos_openbcb_mostrar_pago') ||
                         (request()->routeIs(
                             'certificados_show',
                             'seguimientos_show',

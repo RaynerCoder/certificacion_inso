@@ -24,7 +24,7 @@
         <div><dt>Código de autorización</dt><dd>{{ $registro->codigo_autorizacion ?: 'No registrado' }}</dd></div>
         <div><dt>Número de lote</dt><dd>{{ $registro->numero_lote ?: 'No registrado' }}</dd></div>
         <div><dt>Fecha de vigencia</dt><dd>{{ $fechaRegistro }}</dd></div>
-        <div><dt>Cantidad registrada</dt><dd>{{ $registro->cantidad ?? 'No registrada' }}</dd></div>
+        <div><dt>Cantidad registrada</dt><dd>{{ $formatearCantidad($registro->cantidad) }}</dd></div>
         <div><dt>Unidad</dt><dd>{{ $unidadRegistro }}</dd></div>
         <div><dt>Certificados vinculados</dt><dd>{{ $registro->certificadosRegistros->count() }}</dd></div>
     </dl>

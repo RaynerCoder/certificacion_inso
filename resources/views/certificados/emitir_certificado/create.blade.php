@@ -153,7 +153,7 @@
         $fondoPlantilla = $imprimirTransparente
             ? null
             : ($resolverFondoImagen($plantillaCertificado?->url_fondo)
-                ?: $resolverFondoImagen('documentos/plantillas_certificados/modelo_certificado.png'));
+                ?: $resolverFondoImagen('plantillas/certificados/modelo_certificado.png'));
         $elementosPlantilla = $plantillaCertificado?->elementosActivos ?? collect();
         if ($elementosPlantilla->isEmpty()) {
             $elementosPlantilla = collect([

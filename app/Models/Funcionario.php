@@ -18,10 +18,42 @@ class Funcionario extends Model
         'nombres',
         'apellido_paterno',
         'apellido_materno',
-        'carnet',
+        'ci',
+        'complemento',
         'telefono',
         'genero',
     ];
+
+    public function setNombresAttribute(?string $valor): void
+    {
+        $this->attributes['nombres'] = $this->textoEnMayusculas($valor);
+    }
+
+    public function setApellidoPaternoAttribute(?string $valor): void
+    {
+        $this->attributes['apellido_paterno'] = $this->textoEnMayusculas($valor);
+    }
+
+    public function setApellidoMaternoAttribute(?string $valor): void
+    {
+        $this->attributes['apellido_materno'] = $this->textoEnMayusculas($valor);
+    }
+
+    public function setComplementoAttribute(?string $valor): void
+    {
+        $this->attributes['complemento'] = mb_strtoupper(trim((string) $valor), 'UTF-8');
+    }
+
+    private function textoEnMayusculas(?string $valor): ?string
+    {
+        if ($valor === null) {
+            return null;
+        }
+
+        $valor = trim(preg_replace('/\s+/', ' ', $valor));
+
+        return $valor === '' ? null : mb_strtoupper($valor, 'UTF-8');
+    }
 
     // Relación uno a uno: estos datos personales pertenecen a una cuenta de usuario.
     public function usuario()

@@ -39,6 +39,26 @@ class Natural extends Model
         'genero',
     ];
 
+    public function setNombresAttribute(?string $valor): void
+    {
+        $this->attributes['nombres'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
+    public function setApellidoPaternoAttribute(?string $valor): void
+    {
+        $this->attributes['apellido_paterno'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
+    public function setApellidoMaternoAttribute(?string $valor): void
+    {
+        $this->attributes['apellido_materno'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
+    public function setApellidoCasadoAttribute(?string $valor): void
+    {
+        $this->attributes['apellido_casado'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
     // Relacion uno a uno inversa (un natural pertenece a una persona)
     public function persona()
     {

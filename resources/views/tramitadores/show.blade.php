@@ -113,6 +113,12 @@
                         <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fecha de baja</dt>
                         <dd class="mt-1.5 text-sm text-slate-900">{{ $fecha($tramitador->fecha_baja) }}</dd>
                     </div>
+                    @if ($tramitador->fecha_baja && filled($tramitador->motivo_baja))
+                        <div class="min-w-0 sm:col-span-2">
+                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Motivo de la baja</dt>
+                            <dd class="mt-1.5 whitespace-pre-line break-words text-sm text-slate-900">{{ $tramitador->motivo_baja }}</dd>
+                        </div>
+                    @endif
                     @if ($tramitador->fecha_baja && $tramitador->usuarioBaja)
                         <div class="min-w-0">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Dado de baja por</dt>

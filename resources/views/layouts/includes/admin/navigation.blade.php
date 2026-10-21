@@ -440,11 +440,26 @@
                             <div class="border-t border-gray-200"></div>
 
                             <!-- Authentication -->
-                            <form method="POST" action="{{ route('logout') }}" x-data>
+                            {{-- <form method="POST" action="{{ route('logout') }}" x-data>
                                 @csrf
 
-                                <x-dropdown-link href="{{ route('logout') }}"
-                                         @click.prevent="$root.submit();">
+                                <x-dropdown-link href="{{ route('logout') }}" 
+                                    @click.prevent="$root.submit();">
+                                    <span class="inline-flex items-center gap-2 text-red-600">
+                                        <i class="fa-solid fa-right-from-bracket"></i>
+                                        Cerrar sesión
+                                    </span>
+                                </x-dropdown-link>
+                            </form> --}}
+
+                            <form method="POST"
+                                action="{{ route('ciudadania-digital.logout') }}"
+                                x-data>
+                                @csrf
+
+                                <x-dropdown-link
+                                    href="{{ route('ciudadania-digital.logout') }}"
+                                    @click.prevent="$root.submit();">
                                     <span class="inline-flex items-center gap-2 text-red-600">
                                         <i class="fa-solid fa-right-from-bracket"></i>
                                         Cerrar sesión
@@ -557,7 +572,7 @@
             });
 
             if (!respuesta.ok) {
-                return;
+                throw new Error('No se pudieron cargar las notificaciones.');
             }
 
             const datos = await respuesta.json();
@@ -599,7 +614,16 @@
             });
         }
 
-        boton.addEventListener('click', () => panel.classList.toggle('hidden'));
+        const actualizarNotificaciones = () => cargarNotificaciones().catch(() => {
+            if (!lista.querySelector('.tramite-notification-item')) {
+                lista.innerHTML = '<div class="px-4 py-5 text-center text-sm text-red-600" role="alert">No se pudieron cargar las notificaciones. Cierre y abra la campana para reintentar.</div>';
+            }
+        });
+
+        boton.addEventListener('click', () => {
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) actualizarNotificaciones();
+        });
         botonCerrar?.addEventListener('click', () => panel.classList.add('hidden'));
 
         lista.addEventListener('click', async (event) => {
@@ -626,6 +650,7 @@
             cargarNotificaciones();
         });
 
-        setInterval(cargarNotificaciones, 10000);
+        actualizarNotificaciones();
+        setInterval(actualizarNotificaciones, 10000);
     });
 </script>

@@ -175,7 +175,11 @@ class TramitadorController extends Controller
         $documento = $request->validate([
             'form_ci' => ['required', 'string', 'max:50'],
             'form_complemento' => ['nullable', 'string', 'max:10'],
-        ], [], [
+        ], [
+            'form_ci.required' => 'Debe ingresar el CI del tramitador.',
+            'form_ci.max' => 'El CI no debe superar los 50 caracteres.',
+            'form_complemento.max' => 'El complemento no debe superar los 10 caracteres.',
+        ], [
             'form_ci' => 'CI',
             'form_complemento' => 'complemento',
         ]);
@@ -190,7 +194,7 @@ class TramitadorController extends Controller
 
         $datos = $this->validarSolicitud($request, ! $natural);
         $rutaRespaldo = $request->file('form_url_respaldo')->store(
-            "tramitadores/{$empresa->id}",
+            "empresas-tramitadores/{$empresa->id}/tramitadores",
             'local'
         );
 
@@ -432,7 +436,7 @@ class TramitadorController extends Controller
         ]);
 
         $rutaRespaldo = $datos['form_url_respaldo']->store(
-            "tramitadores/{$tramitador->id_empresa}",
+            "empresas-tramitadores/{$tramitador->id_empresa}/tramitadores",
             'local'
         );
 
@@ -515,7 +519,7 @@ class TramitadorController extends Controller
     /**
      * Da de baja una relación activa sin eliminar su historial.
      */
-    public function darBaja(Responsable $tramitador): RedirectResponse
+    public function darBaja(Request $request, Responsable $tramitador): RedirectResponse
     {
         $usuario = auth()->user()?->loadMissing('persona.empresa');
         $permisoRequerido = $usuario?->empresaDeAccesoActiva()
@@ -527,16 +531,26 @@ class TramitadorController extends Controller
         // La empresa puede dar de baja sus relaciones e INSO puede hacerlo durante la supervisión.
         $this->autorizarRelacion($tramitador);
 
+        $datos = $request->validate([
+            'motivo_baja' => ['required', 'string', 'max:2000'],
+            'id_usuario_destinatario_baja' => ['nullable', 'integer'],
+        ], [
+            'motivo_baja.required' => 'Indique el motivo de la baja.',
+            'motivo_baja.max' => 'El motivo de la baja no debe superar los 2000 caracteres.',
+        ]);
+
         try {
             $cantidadTransferida = DB::transaction(fn () => $this->gestionTramitadores->darDeBaja(
                 $tramitador,
-                $usuario
+                $usuario,
+                $datos['motivo_baja'],
+                $datos['id_usuario_destinatario_baja'] ?? null
             ));
 
             session()->flash('swal', [
                 'title' => 'Tramitador dado de baja',
                 'text' => $cantidadTransferida
-                    ? "Se transfirieron {$cantidadTransferida} trámite(s) pendientes al beneficiario."
+                    ? "Se transfirieron {$cantidadTransferida} trámite(s) pendientes al destinatario seleccionado."
                     : 'El tramitador no tenía correcciones pendientes.',
                 'icon' => 'success',
             ]);
@@ -564,12 +578,28 @@ class TramitadorController extends Controller
             'form_apellido_paterno' => [$requeridoSiEsNueva, 'nullable', 'string', 'max:100'],
             'form_apellido_materno' => ['nullable', 'string', 'max:100'],
             'form_apellido_casado' => ['nullable', 'string', 'max:100'],
-            'form_fecha_nacimiento' => ['nullable', 'date'],
+            'form_fecha_nacimiento' => [$requeridoSiEsNueva, 'nullable', 'date', 'before_or_equal:today'],
             'form_genero' => [$requeridoSiEsNueva, 'nullable', Rule::in(['0', '1', 0, 1])],
             'form_id_ocupacion' => ['nullable', 'exists:ocupaciones_cob,id'],
             'form_telefonos_json' => ['nullable', 'json'],
             'form_rubros_json' => ['nullable', 'json'],
-        ], [], [
+        ], [
+            'required' => 'Debe completar el campo :attribute.',
+            'email' => 'Ingrese un correo electrónico válido en :attribute.',
+            'unique' => 'El valor de :attribute ya está registrado.',
+            'exists' => 'Seleccione una opción válida en :attribute.',
+            'in' => 'Seleccione una opción válida en :attribute.',
+            'string' => 'El campo :attribute debe contener texto.',
+            'date' => 'Ingrese una fecha válida en :attribute.',
+            'form_fecha_nacimiento.before_or_equal' => 'La fecha de nacimiento no puede ser posterior a hoy.',
+            'json' => 'Revise los datos de :attribute y vuelva a agregarlos.',
+            'max' => 'El campo :attribute no debe superar :max caracteres.',
+            'form_url_respaldo.required' => 'Debe adjuntar el documento de respaldo o autorización en PDF.',
+            'form_url_respaldo.file' => 'Seleccione un archivo PDF válido para el documento de respaldo.',
+            'form_url_respaldo.uploaded' => 'No se pudo subir el PDF. Vuelva a seleccionarlo; el máximo permitido es 5 MB.',
+            'form_url_respaldo.mimes' => 'El documento de respaldo o autorización debe ser un archivo PDF.',
+            'form_url_respaldo.max' => 'El PDF de respaldo o autorización no debe superar los 5 MB.',
+        ], [
             'form_ci' => 'CI',
             'form_complemento' => 'complemento',
             'form_url_respaldo' => 'documento de respaldo o autorización',
@@ -578,6 +608,15 @@ class TramitadorController extends Controller
             'form_nombres' => 'nombres',
             'form_apellido_paterno' => 'apellido paterno',
             'form_genero' => 'género',
+            'form_domicilio' => 'domicilio',
+            'form_nit' => 'NIT',
+            'form_expedido' => 'expedido',
+            'form_apellido_materno' => 'apellido materno',
+            'form_apellido_casado' => 'apellido de casado',
+            'form_fecha_nacimiento' => 'fecha de nacimiento',
+            'form_id_ocupacion' => 'ocupación',
+            'form_telefonos_json' => 'teléfonos',
+            'form_rubros_json' => 'rubros',
         ]);
     }
 
@@ -612,9 +651,7 @@ class TramitadorController extends Controller
                 Telefono::create([
                     'id_persona' => $persona->id,
                     'numero' => $numero,
-                    'estado' => in_array(($telefono['estado'] ?? null), ['ACTIVO', 'INACTIVO'], true)
-                        ? $telefono['estado']
-                        : 'ACTIVO',
+                    'estado' => 'ACTIVO',
                 ]);
             }
         }
@@ -733,7 +770,7 @@ class TramitadorController extends Controller
             }
 
             $usuario = User::create([
-                'name' => $this->nombreNatural($natural),
+                'name' => \App\Support\NombreUsuarioPersona::generar($natural->nombres, $natural->apellido_paterno),
                 'email' => mb_strtolower(trim($persona->correo)),
                 'password' => $nuevaPassword ?: $natural->ci,
                 'estado' => 1,
@@ -743,6 +780,10 @@ class TramitadorController extends Controller
         } elseif ($nuevaPassword) {
             $usuario->update(['password' => $nuevaPassword]);
         }
+
+        $usuario->update([
+            'name' => \App\Support\NombreUsuarioPersona::generar($natural->nombres, $natural->apellido_paterno),
+        ]);
 
         $usuario->roles()->syncWithoutDetaching([$this->idRolTramitador()]);
         $cambiosRelacion = [

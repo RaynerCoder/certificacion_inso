@@ -26,8 +26,8 @@ return new class extends Migration
             // Fecha de vigencia del registro.
             $table->date('fecha_vigencia')->nullable();
 
-            // Cantidad y unidad autorizada.
-            $table->decimal('cantidad', 10, 5)->nullable();
+            // Cantidad numérica del registro, con un máximo de dos decimales.
+            $table->decimal('cantidad', 10, 2)->nullable();
             $table->foreignId('id_catalogo_unidad')->nullable()->constrained('catalogos_medidas');
 
             // Presentacion relacionada al registro.

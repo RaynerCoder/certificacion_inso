@@ -25,10 +25,8 @@
                 <div class="cert-brand-content">
                     {{-- El recorte muestra el emblema; el nombre institucional queda como texto adaptable. --}}
                     <div class="cert-brand-logo-crop">
-                        <img
-                            src="{{ asset('images/branding/inso-logo.png') }}"
-                            alt="Logotipo del Instituto Nacional de Salud Ocupacional"
-                        >
+                        <img src="{{ asset('images/branding/inso-logo.png') }}"
+                            alt="Logotipo del Instituto Nacional de Salud Ocupacional">
                     </div>
 
                     <div class="cert-brand-copy">
@@ -44,15 +42,11 @@
 
             <section class="cert-login-access" aria-labelledby="login-title">
                 <div class="cert-login-card">
-                    <img
-                        src="{{ asset('images/branding/certificador-icon.svg') }}"
-                        class="cert-login-icon"
-                        alt="Ícono de Certificador"
-                    >
+                    <img src="{{ asset('images/branding/certificador-icon.svg') }}" class="cert-login-icon"
+                        alt="Ícono de Certificador">
 
                     <header class="cert-login-header">
                         <h2 id="login-title">Acceso al sistema</h2>
-                        <p>Ingrese sus credenciales institucionales</p>
                     </header>
 
                     @session('status')
@@ -61,6 +55,38 @@
                         </div>
                     @endsession
 
+                    @error('ciudadania_digital')
+                        <div class="cert-login-status cert-login-status--error" role="alert">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
+                    {{-- Acceso mediante la identidad digital administrada por AGETIC. --}}
+                    <section class="cert-digital-access" aria-labelledby="ciudadania-digital-title">
+                        <img src="{{ asset('images/branding/ciudadania-digital.png') }}"
+                            class="cert-digital-logo" alt="Ciudadanía Digital Bolivia">
+
+                        <div class="cert-digital-content">
+                            {{-- <p id="ciudadania-digital-title" class="cert-digital-title">
+                                Acceso con identidad digital
+                            </p> --}}
+
+                            <a href="{{ route('ciudadania-digital.redirect') }}" class="cert-digital-button">
+                                <span>Ingresar con Ciudadanía Digital</span>
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M5 12h14M14 7l5 5-5 5" />
+                                </svg>
+                            </a>
+
+                            <p class="cert-digital-helper">Autenticación segura administrada por AGETIC</p>
+                        </div>
+                    </section>
+
+                    <div class="cert-login-divider" aria-hidden="true">
+                        <span>O ingrese con correo o usuario</span>
+                    </div>
+
+                    {{-- Acceso tradicional del sistema. --}}
                     <form id="loginForm" method="POST" action="{{ route('login') }}" class="cert-login-form">
                         @csrf
 
@@ -70,16 +96,8 @@
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M3.75 5.75h16.5v12.5H3.75zM4.5 6.5 12 12l7.5-5.5" />
                                 </svg>
-                                <input
-                                    id="email"
-                                    type="text"
-                                    name="email"
-                                    value="{{ old('email') }}"
-                                    placeholder="correo@institucion.gob.bo"
-                                    required
-                                    autofocus
-                                    autocomplete="username"
-                                >
+                                <input id="email" type="text" name="email" value="{{ old('email') }}"
+                                    placeholder="correo@institucion.gob.bo" required autofocus autocomplete="username">
                             </div>
                             @error('email')
                                 <p class="cert-field-error">{{ $message }}</p>
@@ -93,27 +111,17 @@
                                     <rect x="5" y="10" width="14" height="10" rx="2" />
                                     <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2" />
                                 </svg>
-                                <input
-                                    id="password"
-                                    type="password"
-                                    name="password"
-                                    placeholder="Ingrese su contraseña"
-                                    required
-                                    autocomplete="current-password"
-                                >
-                                <button
-                                    id="togglePassword"
-                                    type="button"
-                                    class="cert-input-action"
-                                    aria-label="Mostrar contraseña"
-                                    aria-pressed="false"
-                                >
+                                <input id="password" type="password" name="password"
+                                    placeholder="Ingrese su contraseña" required autocomplete="current-password">
+                                <button id="togglePassword" type="button" class="cert-input-action"
+                                    aria-label="Mostrar contraseña" aria-pressed="false">
                                     <svg data-eye-open viewBox="0 0 24 24" aria-hidden="true">
                                         <path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z" />
                                         <circle cx="12" cy="12" r="2.5" />
                                     </svg>
                                     <svg data-eye-closed class="hidden" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="m3 3 18 18M10.6 7.1A9.5 9.5 0 0 1 12 7c6 0 9.5 5 9.5 5a15 15 0 0 1-2.4 2.7M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 5 9.5 5c1.5 0 2.8-.3 4-.8M9.8 9.8a3 3 0 0 0 4.4 4.4" />
+                                        <path
+                                            d="m3 3 18 18M10.6 7.1A9.5 9.5 0 0 1 12 7c6 0 9.5 5 9.5 5a15 15 0 0 1-2.4 2.7M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 5 9.5 5c1.5 0 2.8-.3 4-.8M9.8 9.8a3 3 0 0 0 4.4 4.4" />
                                     </svg>
                                 </button>
                             </div>
@@ -189,12 +197,8 @@
                         </fieldset>
                         --}}
 
-                        <button
-                            id="loginSubmit"
-                            type="submit"
-                            class="cert-login-submit"
-                            data-loading-text="Ingresando al sistema…"
-                        >
+                        <button id="loginSubmit" type="submit" class="cert-login-submit"
+                            data-loading-text="Ingresando al sistema…">
                             <span class="cert-login-spinner" aria-hidden="true"></span>
                             <span class="cert-login-submit-text">Iniciar sesión</span>
                         </button>

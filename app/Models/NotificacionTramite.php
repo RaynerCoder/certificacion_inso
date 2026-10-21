@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class NotificacionTramite extends Model
 {
-    use SoftDeletes, Auditable;
+    use Auditable, SoftDeletes;
 
     protected $table = 'notificaciones_tramites';
 
@@ -37,6 +37,7 @@ class NotificacionTramite extends Model
             'usuarioEmisor.persona.natural',
             'certificado.beneficiario.natural',
             'certificado.beneficiario.empresa.responsables.persona.natural',
+            'certificado.beneficiario.empresa.responsables.rol',
             'certificado.tramitador.natural',
             'certificado.tramitador.empresa'
         );
@@ -45,6 +46,25 @@ class NotificacionTramite extends Model
         $remitente = $this->datosRemitente($this->usuarioEmisor);
 
         if (! $certificado) {
+            if ($this->usuarioEmisor && ! $this->usuarioEmisor->funcionario && $this->usuarioEmisor->persona?->natural) {
+                $relaciones = $this->usuarioEmisor->relacionesEmpresarialesActivas();
+                $funciones = $relaciones->groupBy('id_empresa')->map(function ($vinculos) use ($relaciones) {
+                    $roles = $vinculos->pluck('rol.slug');
+                    $funcion = match (true) {
+                        $roles->contains('solicitante') && $roles->contains('tramitador') => 'Representante legal y tramitador',
+                        $roles->contains('solicitante') => 'Representante legal',
+                        default => 'Tramitador',
+                    };
+
+                    return $relaciones->pluck('id_empresa')->unique()->count() > 1
+                        ? $funcion . ' de ' . $vinculos->first()->empresa->razon_social
+                        : $funcion;
+                });
+                if ($funciones->isNotEmpty()) {
+                    $remitente['detalle'] = $funciones->implode('; ');
+                }
+            }
+
             return [
                 'tipo_solicitante' => null,
                 'solicitante' => $this->mensaje ?: 'Solicitud de tramitador',
@@ -77,13 +97,21 @@ class NotificacionTramite extends Model
             ];
         }
 
-        // Si la persona tramitadora es distinta de la empresa, actúa como tramitador autorizado.
-        if ($tramitador && (int) $tramitador->id !== (int) $beneficiario?->id) {
+        $personaEmisora = $this->usuarioEmisor?->persona ?: $tramitador;
+        $tipoRelacionEmisor = $this->tipoRelacionEmisorEmpresa($beneficiario, $personaEmisora);
+
+        // La persona que inicia o reenvia el tramite puede ser representante legal o
+        // tramitador. La etiqueta debe salir de su relacion vigente con la empresa,
+        // no solamente de que sea una persona distinta de la empresa beneficiaria.
+        if ($personaEmisora && (int) $personaEmisora->id !== (int) $beneficiario?->id) {
             return [
                 'tipo_solicitante' => $tipoSolicitante,
                 'solicitante' => $this->nombrePersona($beneficiario),
-                'enviado_por' => $this->nombrePersona($tramitador),
-                'actua_como' => 'Tramitador autorizado',
+                'enviado_por' => $this->nombrePersona($personaEmisora),
+                'actua_como' => $tipoRelacionEmisor
+                    ?: ((int) $personaEmisora->id === (int) $tramitador?->id
+                        ? 'Persona que realizó el trámite'
+                        : 'Persona natural'),
             ];
         }
 
@@ -102,6 +130,32 @@ class NotificacionTramite extends Model
                 : 'Sin responsable activo',
             'actua_como' => 'Responsable o representante legal',
         ];
+    }
+
+    /**
+     * Obtiene el vinculo activo de quien emitio la notificacion con la empresa.
+     * Si tiene ambos roles, se muestra primero su calidad de representante legal.
+     */
+    private function tipoRelacionEmisorEmpresa(?Persona $beneficiario, ?Persona $personaEmisora): ?string
+    {
+        if (! $beneficiario?->empresa || ! $personaEmisora) {
+            return null;
+        }
+
+        $roles = $beneficiario->empresa->responsables
+            ->filter(fn (Responsable $responsable) => (int) $responsable->id_persona === (int) $personaEmisora->id
+                && in_array(mb_strtoupper((string) $responsable->estado), ['1', 'ACTIVO'], true)
+                && (string) $responsable->rol?->estado === '1'
+            )
+            ->pluck('rol.slug')
+            ->filter()
+            ->unique();
+
+        return match (true) {
+            $roles->contains('solicitante') => 'Representante legal',
+            $roles->contains('tramitador') => 'Tramitador',
+            default => null,
+        };
     }
 
     /**
@@ -184,5 +238,4 @@ class NotificacionTramite extends Model
     {
         return $this->belongsTo(Certificado::class, 'id_certificado');
     }
-
 }

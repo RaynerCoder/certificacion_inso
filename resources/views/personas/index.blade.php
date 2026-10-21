@@ -22,105 +22,63 @@
 
 
     <style>
-        .personas-table-scroll {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .personas-table-scroll table {
-            width: 100%;
-            min-width: 1240px;
-            table-layout: fixed;
-        }
-
+        .personas-table-scroll { width:100%; max-width:100%; min-width:0; }
+        .personas-table-scroll > div { min-width:0; max-width:100%; }
+        .personas-table-scroll table { width:100%; min-width:0; table-layout:auto; }
         .personas-table-scroll th,
         .personas-table-scroll td {
-            padding-top: 10px !important;
-            padding-bottom: 10px !important;
-            vertical-align: middle;
-            line-height: 1.35;
-            word-break: normal;
-            overflow-wrap: break-word;
+            box-sizing:border-box; padding:10px 12px !important; height:auto;
+            vertical-align:middle; line-height:1.4; text-align:left;
+            white-space:normal !important; overflow-wrap:break-word;
         }
-
-        .personas-table-scroll th:first-child,
-        .personas-table-scroll td:first-child {
-            width: 5%;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        .personas-table-scroll th:nth-child(2),
-        .personas-table-scroll td:nth-child(2) {
-            width: 10%;
-        }
-
-        .personas-table-scroll th:nth-child(3),
-        .personas-table-scroll td:nth-child(3) {
-            width: 20%;
-        }
-
+        .personas-table-scroll th { font-size:11px; }
+        .personas-table-scroll th:nth-child(2) { width:40%; }
+        .personas-table-scroll th:nth-child(3) { width:auto; }
+        .personas-table-scroll th:nth-child(1),
         .personas-table-scroll th:nth-child(4),
-        .personas-table-scroll td:nth-child(4) {
-            width: 20%;
-        }
-
         .personas-table-scroll th:nth-child(5),
-        .personas-table-scroll td:nth-child(5) {
-            width: 10%;
-            white-space: nowrap;
-        }
-
         .personas-table-scroll th:nth-child(6),
-        .personas-table-scroll td:nth-child(6) {
-            width: 14%;
-            white-space: nowrap;
-        }
-
         .personas-table-scroll th:nth-child(7),
-        .personas-table-scroll td:nth-child(7) {
-            width: 8%;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        .personas-table-scroll th:last-child,
-        .personas-table-scroll td:last-child {
-            width: 13%;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        .personas-table-scroll td:nth-child(3),
-        .personas-table-scroll td:nth-child(3) *,
+        .personas-table-scroll td:nth-child(1),
         .personas-table-scroll td:nth-child(4),
-        .personas-table-scroll td:nth-child(4) * {
-            min-width: 0;
-            max-width: 100%;
-            white-space: normal !important;
-            word-break: normal;
-            overflow-wrap: break-word;
+        .personas-table-scroll td:nth-child(5),
+        .personas-table-scroll td:nth-child(6),
+        .personas-table-scroll td:nth-child(7) {
+            width:1%; white-space:nowrap !important; overflow-wrap:normal;
+            padding-left:8px !important; padding-right:8px !important;
         }
-
-        .personas-table-scroll th:first-child > div,
-        .personas-table-scroll th:first-child button,
-        .personas-table-scroll th:nth-child(7) > div,
-        .personas-table-scroll th:nth-child(7) button,
-        .personas-table-scroll th:last-child > div {
-            width: 100%;
-            justify-content: center;
-            text-align: center;
-        }
-
-        .personas-table-scroll td:nth-child(7) .tabla-chip {
-            margin-right: auto;
-            margin-left: auto;
-        }
-
+        .personas-table-scroll td:nth-child(2) *,
+        .personas-table-scroll td:nth-child(3) * { min-width:0; max-width:100%; white-space:normal; }
         .personas-table-scroll td:last-child > div {
-            justify-content: center;
-            flex-wrap: nowrap;
+            display:flex; gap:6px; flex-wrap:nowrap; align-items:center;
+        }
+        .personas-table-scroll td:last-child > div > * { margin:0 !important; }
+        @media(max-width:1199px) {
+            .personas-table-scroll table,
+            .personas-table-scroll tbody { display:block; width:100%; }
+            .personas-table-scroll thead { display:none; }
+            .personas-table-scroll tbody { display:grid; gap:12px; padding:4px; }
+            .personas-table-scroll tbody tr {
+                display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+                background:white; border:1px solid #e2e8f0; border-radius:10px;
+                overflow:hidden;
+            }
+            .personas-table-scroll tbody td {
+                display:block; width:auto !important; min-width:0 !important;
+                border:0 !important; padding:8px 12px !important;
+            }
+            .personas-table-scroll tbody td::before {
+                content:attr(data-label); display:block; margin-bottom:4px;
+                color:#64748b; font-size:11px; font-weight:600;
+            }
+            .personas-table-scroll tbody td:nth-child(2),
+            .personas-table-scroll tbody td:nth-child(3),
+            .personas-table-scroll tbody td:last-child { grid-column:1 / -1; }
+            .personas-table-scroll tbody td:nth-child(2) { font-size:14px; }
+            .personas-table-scroll tbody td:last-child { border-top:1px solid #f1f5f9 !important; }
+            .personas-table-scroll tbody td:last-child > div { flex-wrap:wrap; }
+            .personas-table-scroll tbody td[colspan] { grid-column:1 / -1; }
+            .personas-table-scroll tbody td[colspan]::before { display:none; }
         }
     </style>
 

@@ -24,6 +24,7 @@ use App\Services\ExpedienteTramiteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -199,6 +200,10 @@ class SeguimientoController extends Controller
 
             return $this->respuestaDespuesDeRegistrarTramite($solicitud, $certificado, $tramiteRequierePago);
         } 
+        catch (ValidationException $e) {
+            DB::rollBack();
+            throw $e;
+        }
         catch (\Exception $e) {
             DB::rollBack();
 
@@ -257,10 +262,6 @@ class SeguimientoController extends Controller
     // Si existe un pago pendiente, todavía no se asigna a ningún funcionario.
     private function obtenerDestinoInicialDelTramite(TipoCertificado $tipoCertificado, bool $tramiteRequierePago): array
     {
-        if ($tramiteRequierePago) {
-            return [null, null];
-        }
-
         $areaDestino = $tipoCertificado->area;
 
         if (! $areaDestino) {
@@ -274,7 +275,13 @@ class SeguimientoController extends Controller
         $usuarioDestino = $this->usuarioReceptorArea((int) $areaDestino->id);
 
         if (! $usuarioDestino) {
-            throw new \Exception('No existe un funcionario activo para recibir solicitudes en el area seleccionada.');
+            throw ValidationException::withMessages([
+                'form_id_tipo_certificado' => 'No se tiene un responsable para atender el trámite.',
+            ]);
+        }
+
+        if ($tramiteRequierePago) {
+            return [null, null];
         }
 
         return [$areaDestino, $usuarioDestino];
@@ -1279,22 +1286,7 @@ class SeguimientoController extends Controller
                 ->all();
 
             // El tramite vuelve al ultimo funcionario que observo/reviso un requisito.
-            $ultimaObservacion = $this->ultimaObservacionPorRequisitos($certificado, $idsRequisitosObservados);
-
-            $tecnicoDestinoId = $ultimaObservacion?->revisionRequisito?->id_usuario_revisor
-                ?: $this->ultimoRevisorPorRequisitos($requisitosObservados)
-                ?: $seguimiento->id_usuario_origen;
-
-            $tecnicoDestino = User::query()
-                ->whereKey($tecnicoDestinoId)
-                ->where('estado', 1)
-                ->first();
-
-            if (! $tecnicoDestino) {
-                DB::rollBack();
-
-                return back()->with('error', 'No se encontro el funcionario revisor para devolver el tramite.');
-            }
+            $tecnicoDestino = $this->revisorDestinoCorreccion($certificado, $seguimiento, $requisitosObservados);
 
             foreach ($requisitosObservados as $requisitoCertificado) {
                 // Se reinicia la decision tecnica para que el revisor vuelva a evaluar el requisito corregido.
@@ -1394,7 +1386,6 @@ class SeguimientoController extends Controller
                     'pagos',
                 ])
                 ->firstOrFail();
-            $tecnicoDestinoId = $seguimiento->id_usuario_origen;
             $archivos = $request->file('documentos_correccion', []);
             $textos = $request->input('textos_correccion', []);
             $soloGuardar = $datos['form_accion_correccion'] === 'guardar';
@@ -1405,11 +1396,9 @@ class SeguimientoController extends Controller
                 ->values()
                 ->all();
 
-            if (! $tecnicoDestinoId) {
-                DB::rollBack();
-
-                return back()->with('error', 'No se encontro el revisor que envio la observacion.');
-            }
+            $tecnicoDestinoId = $soloGuardar ? null : $this->revisorDestinoCorreccion(
+                $certificado, $seguimiento, $requisitosObservados
+            )->id;
 
             if (! $soloGuardar) {
                 $this->validarCorreccionesAntesDeDevolver($certificado, $requisitosObservados, $archivos, $textos);
@@ -1417,7 +1406,11 @@ class SeguimientoController extends Controller
 
             foreach ($requisitosObservados as $requisitoCertificado) {
                 $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
-                $tipoEvidencia = $evidencia?->tipoEvidencia;
+                $tipoEvidencia = $evidencia?->tipoEvidencia
+                    ?? RequisitoTipoCertificado::with('tipoEvidencia')
+                        ->where('id_tipo_certificado', $certificado->id_tipo_certificado)
+                        ->where('id_requisito', $requisitoCertificado->id_requisito)
+                        ->first()?->tipoEvidencia;
                 $codigoEvidencia = mb_strtoupper((string) ($tipoEvidencia?->codigo ?? 'PDF'));
                 $archivoCorreccion = $archivos[$requisitoCertificado->id] ?? null;
                 $textoCorreccion = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
@@ -1522,6 +1515,10 @@ class SeguimientoController extends Controller
             ]);
 
             return redirect()->route('seguimientos_mis_tramites_beneficiario');
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -2337,6 +2334,18 @@ class SeguimientoController extends Controller
             $indice = $indicesPorAsignacion[$asignacion->id] ?? null;
 
             if ($indice === null || ! $request->hasFile("documentos_requisitos.$indice")) {
+                if (app()->environment('local')) {
+                    \Illuminate\Support\Facades\Log::warning('inicio_tramite_evidencia_no_recibida', [
+                        'tipo_certificado' => $asignacion->id_tipo_certificado,
+                        'asignacion_esperada' => $asignacion->id,
+                        'indice_esperado' => $indice,
+                        'asignaciones_recibidas' => $indicesPorAsignacion,
+                        'archivos_recibidos' => collect($archivos)->map(fn ($archivo) => [
+                            'error_subida' => $archivo?->getError(),
+                            'valido' => $archivo?->isValid(),
+                        ])->all(),
+                    ]);
+                }
                 throw ValidationException::withMessages([
                     $indice === null ? 'documentos_requisitos' : "documentos_requisitos.$indice" => 'Debe adjuntar la evidencia solicitada para "'.($asignacion->requisito?->descripcion ?? 'este requisito').'".',
                 ]);
@@ -2618,16 +2627,22 @@ class SeguimientoController extends Controller
     private function validarCorreccionesAntesDeDevolver(Certificado $certificado, $requisitosObservados, array $archivos, array $textos): void
     {
         $errores = [];
+        $configuraciones = RequisitoTipoCertificado::with('tipoEvidencia', 'dependenciasRequisitos')
+            ->where('id_tipo_certificado', $certificado->id_tipo_certificado)
+            ->get()->keyBy('id_requisito');
 
         foreach ($requisitosObservados as $requisitoCertificado) {
             $evidencia = $this->evidenciaPrincipalDelRequisito($requisitoCertificado);
-            $codigo = mb_strtoupper((string) ($evidencia?->tipoEvidencia?->codigo ?? 'PDF'));
+            $configuracion = $configuraciones->get($requisitoCertificado->id_requisito);
+            $codigo = mb_strtoupper((string) ($evidencia?->tipoEvidencia?->codigo ?? $configuracion?->tipoEvidencia?->codigo ?? ''));
             $nombreRequisito = $requisitoCertificado->requisito?->descripcion ?? 'Requisito observado';
             $tieneArchivoNuevo = ! empty($archivos[$requisitoCertificado->id]);
             $textoNuevo = trim((string) ($textos[$requisitoCertificado->id] ?? ''));
             $ultimaObservacion = $this->ultimaObservacionRequisito($requisitoCertificado);
             $yaTieneCorreccionGuardada = $evidencia
-                && (! $ultimaObservacion || $evidencia->created_at?->gt($ultimaObservacion->created_at));
+                && filled($evidencia->valor)
+                && $ultimaObservacion
+                && $evidencia->created_at?->gt($ultimaObservacion->created_at);
 
             if (in_array($codigo, ['PDF', 'IMAGEN'], true) && ! $tieneArchivoNuevo && ! $yaTieneCorreccionGuardada) {
                 $errores["documentos_correccion.{$requisitoCertificado->id}"] = "Debe adjuntar la evidencia corregida para: {$nombreRequisito}.";
@@ -2635,6 +2650,32 @@ class SeguimientoController extends Controller
 
             if ($codigo === 'TEXTO' && $textoNuevo === '' && ! $yaTieneCorreccionGuardada) {
                 $errores["textos_correccion.{$requisitoCertificado->id}"] = "Debe registrar el texto corregido para: {$nombreRequisito}.";
+            }
+
+            if (in_array($codigo, ['PDF', 'IMAGEN'], true) && ! $tieneArchivoNuevo && $yaTieneCorreccionGuardada
+                && ! Storage::disk('local')->exists($evidencia->valor) && ! Storage::disk('public')->exists($evidencia->valor)) {
+                $errores["documentos_correccion.{$requisitoCertificado->id}"] = "Debe adjuntar el archivo corregido para: {$nombreRequisito}. El archivo guardado no está disponible.";
+            }
+
+            if ($codigo === 'PAGO' && ! $certificado->pagos()->whereNotNull('fecha_validacion')->exists()) {
+                $errores["requisito_correccion_{$requisitoCertificado->id}"] = "Debe contar con el pago validado para: {$nombreRequisito}.";
+            }
+
+            if ($codigo === 'CERTIFICADO') {
+                if (! $configuracion?->dependenciasRequisitos->where('estado', 'ACTIVO')->isNotEmpty()) {
+                    $errores["requisito_correccion_{$requisitoCertificado->id}"] = "INSO debe configurar el certificado requerido para: {$nombreRequisito}.";
+                } else {
+                    try {
+                        $this->validarCertificadosPrevios((int) $certificado->id_persona_beneficiario, (int) $certificado->id_tipo_certificado);
+                    } catch (ValidationException $e) {
+                        $errores["requisito_correccion_{$requisitoCertificado->id}"] = implode(' ', array_merge(...array_values($e->errors())));
+                    }
+                }
+            }
+
+            // Producto, atención presencial y calificación se completan por personal de INSO.
+            if (! in_array($codigo, ['PDF', 'IMAGEN', 'TEXTO', 'PRODUCTO', 'PAGO', 'CERTIFICADO', 'PRESENCIAL', 'CALIFICACION', 'TRAMITADOR'], true)) {
+                $errores["requisito_correccion_{$requisitoCertificado->id}"] = "No se puede enviar: INSO debe configurar la evidencia de {$nombreRequisito}.";
             }
 
         }
@@ -2696,6 +2737,48 @@ class SeguimientoController extends Controller
             ->first();
     }
 
+    // La persona que registra una baja o transferencia no sustituye al revisor técnico.
+    private function revisorDestinoCorreccion(Certificado $certificado, Seguimiento $seguimiento, Collection $requisitosObservados): User
+    {
+        $revision = RevisionRequisito::query()
+            ->whereIn('id_requisito_certificado', $requisitosObservados->pluck('id'))
+            ->whereHas('requisitoCertificado', fn ($query) => $query->where('id_certificado', $certificado->id))
+            ->where('resultado_cumple', 'NO')
+            ->where('estado', 'ACTIVO')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $idRevisor = $revision?->id_usuario_revisor;
+
+        // Compatibilidad con trámites anteriores sin revisiones: recorre solo su cadena de movimientos.
+        if (! $revision) {
+            $visitados = [];
+            $movimiento = $seguimiento;
+            while ($movimiento && (int) $movimiento->id_certificado === (int) $certificado->id
+                && ! in_array($movimiento->id, $visitados, true)) {
+                $visitados[] = $movimiento->id;
+                $origen = User::find($movimiento->id_usuario_origen);
+                $esTransferenciaPorBaja = str_contains(mb_strtolower((string) $movimiento->descripcion_final), 'baja del tramitador');
+                if (! $esTransferenciaPorBaja && $this->usuarioTieneCargoActivo($origen)) {
+                    $idRevisor = $origen->id;
+                    break;
+                }
+                $movimiento = $movimiento->seguimientoPadre;
+            }
+        }
+
+        $revisor = $idRevisor ? User::find($idRevisor) : null;
+        if (! $this->usuarioTieneCargoActivo($revisor)
+            || (int) $revisor?->id === (int) $seguimiento->id_usuario_siguiente) {
+            throw ValidationException::withMessages([
+                'form_accion_correccion' => 'No se encontró un revisor técnico activo para recibir las correcciones. Comuníquese con INSO.',
+            ]);
+        }
+
+        return $revisor;
+    }
+
     // Toma el ultimo usuario revisor desde revisiones_requisitos cuando no hay observacion activa.
     private function ultimoRevisorPorRequisitos($requisitosObservados): ?int
     {
@@ -2755,7 +2838,7 @@ class SeguimientoController extends Controller
     // Busca quien recibe primero el tramite segun el area configurada en el tipo de certificado.
     private function usuarioReceptorArea(int $idArea): ?User
     {
-        $idsAreas = $this->idsAreaConSuperiores($idArea);
+        $idsAreas = [$idArea];
 
         return User::query()
             ->with('funcionario.cargos')
@@ -2805,25 +2888,6 @@ class SeguimientoController extends Controller
                 };
             })
             ->first();
-    }
-
-    // Devuelve el area seleccionada y sus superiores, en ese orden.
-    private function idsAreaConSuperiores(int $idArea): array
-    {
-        $idsAreas = [];
-        $areaActual = Area::query()
-            ->select('id', 'id_area_padre')
-            ->find($idArea);
-
-        while ($areaActual && ! in_array((int) $areaActual->id, $idsAreas, true)) {
-            $idsAreas[] = (int) $areaActual->id;
-
-            $areaActual = $areaActual->id_area_padre
-                ? Area::query()->select('id', 'id_area_padre')->find($areaActual->id_area_padre)
-                : null;
-        }
-
-        return $idsAreas;
     }
 
     // Envia aviso al funcionario responsable del area inicial.

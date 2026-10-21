@@ -23,7 +23,7 @@
 
         <div class="col-span-6">
             <p class="text-xs leading-5 text-slate-500">
-                La contraseña debe tener al menos 8 caracteres. No utilice nuevamente su carnet como contraseña permanente.
+                La contraseña debe tener al menos 8 caracteres. No utilice nuevamente su CI como contraseña permanente.
             </p>
         </div>
     </x-slot>

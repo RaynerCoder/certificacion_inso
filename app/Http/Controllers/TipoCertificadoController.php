@@ -449,13 +449,16 @@ class TipoCertificadoController extends Controller
             'form_siguiente_correlativo' => ['required', 'integer', 'min:1', 'max:999999999'],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
-            'requisitos_asignados.*.id_tipo_evidencia' => ['nullable', 'integer', 'exists:tipos_evidencias,id'],
+            'requisitos_asignados.*.id_tipo_evidencia' => ['required', 'integer', 'exists:tipos_evidencias,id'],
             'requisitos_asignados.*.calificacion_minima_aprobacion' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'requisitos_asignados.*.id_tipo_certificado_requerido' => ['nullable', 'integer', 'exists:tipos_certificados,id'],
             'requisitos_asignados.*.descripcion' => ['nullable', 'string'],
             'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
             'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
-        ], [], [
+        ], [
+            'requisitos_asignados.*.id_tipo_evidencia.required' => 'Seleccione el tipo de evidencia para este requisito.',
+            'requisitos_asignados.*.id_tipo_evidencia.exists' => 'Seleccione un tipo de evidencia válido para este requisito.',
+        ], [
             'form_id_area' => 'area responsable',
             'form_limite_descargas' => 'límite de descargas',
             'form_modo_emision' => 'forma de emisión',

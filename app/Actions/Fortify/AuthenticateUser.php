@@ -31,7 +31,17 @@ class AuthenticateUser
             return null;
         }
 
-        return Hash::check((string) $request->password, $user->password) ? $user : null;
+        if (!Hash::check((string) $request->password, $user->password)) {
+            return null;
+        }
+
+        if (!$user->tieneAccesoSistema()) {
+            throw ValidationException::withMessages([
+                Fortify::username() => \App\Http\Middleware\VerificarAccesoSistema::MENSAJE,
+            ]);
+        }
+
+        return $user;
     }
 
     private function validateCaptcha(Request $request): void

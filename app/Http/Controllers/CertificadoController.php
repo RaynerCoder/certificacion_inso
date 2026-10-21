@@ -13,12 +13,12 @@ use App\Models\PlantillaElemento;
 use App\Models\Procedencia;
 use App\Models\RequisitoCertificado;
 use App\Models\RequisitoTipoCertificado;
-use App\Models\Registro;
 use App\Models\TipoCertificado;
 use App\Models\User;
 use App\Services\DescargaCertificadoService;
 use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
+use App\Services\PlantillaCertificadoStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,8 @@ class CertificadoController extends Controller
     public function __construct(
         private GestionTramitadoresService $gestionTramitadores,
         private DescargaCertificadoService $descargasCertificados,
-        private ExpedienteTramiteService $expedientesTramites
+        private ExpedienteTramiteService $expedientesTramites,
+        private PlantillaCertificadoStorageService $archivosPlantillas
     ) {}
 
     /**
@@ -84,11 +85,16 @@ class CertificadoController extends Controller
                 'descripcion' => $datos['form_descripcion'] ?? null,
                 'tamano_papel' => $datos['form_tamano_papel'],
                 'orientacion' => $datos['form_orientacion'],
-                'url_fondo' => $this->guardarFondoPlantilla($solicitud),
+                'url_fondo' => null,
                 'estado' => $datos['form_estado'],
             ], $datos, $solicitud);
 
             $plantilla = PlantillaCertificado::create($datosPlantilla);
+
+            $urlFondo = $this->guardarFondoPlantilla($solicitud, $plantilla);
+            if ($urlFondo) {
+                $plantilla->update(['url_fondo' => $urlFondo]);
+            }
 
             $this->guardarElementosPlantilla($plantilla, $solicitud->input('form_elementos_plantilla', '[]'));
 
@@ -170,7 +176,7 @@ class CertificadoController extends Controller
                 );
             }
 
-            $urlFondo = $this->guardarFondoPlantilla($solicitud);
+            $urlFondo = $this->guardarFondoPlantilla($solicitud, $plantillaCertificado);
             if (! $urlFondo && ! $solicitud->boolean('form_quitar_fondo_plantilla')) {
                 $urlFondo = $plantillaCertificado->url_fondo;
             }
@@ -336,6 +342,8 @@ class CertificadoController extends Controller
             'registros.producto.importadorPersona.territorio',
             'registros.producto.ingredientesProductos.ingrediente',
             'registros.producto.presentaciones.catalogoUnidad',
+            'registros.producto.registros.catalogoUnidad',
+            'registros.producto.registros.presentacion.catalogoUnidad',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
             'certificadosRegistros.registro.producto.clasificacionToxicologica',
@@ -523,23 +531,6 @@ class CertificadoController extends Controller
 
         $requiereProductoTramite = $certificado->requiereEvidencia('PRODUCTO');
 
-        // Registros ya existentes del mismo beneficiario que aún no pertenecen a otro trámite.
-        // Permite reutilizar una ficha/lote válida sin volver a crear producto, presentación o registro.
-        $puedeGestionarProductosTramite = $requiereProductoTramite
-            && ! $esSolicitante
-            && ($puedeAsignarTecnico || $puedeRevisarRequisitos);
-        $registrosDisponiblesTramite = $puedeGestionarProductosTramite
-            ? Registro::query()
-                ->with(['producto', 'presentacion.catalogoUnidad'])
-                ->where('estado', 'ACTIVO')
-                ->whereHas('producto', fn ($query) => $query
-                    ->where('estado', 'ACTIVO')
-                    ->where('id_importador_persona', $certificado->id_persona_beneficiario))
-                ->whereDoesntHave('certificadosRegistros')
-                ->orderByDesc('id')
-                ->get()
-            : collect();
-
         $vistaDetalle = request('bandeja') === 'enviadas'
             ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
             : 'certificados.show';
@@ -568,52 +559,8 @@ class CertificadoController extends Controller
             'tecnicosDerivacion',
             'procedenciasPago',
             'configuracionesRequisitos',
-            'resumenEvaluacionCalificaciones',
-            'puedeGestionarProductosTramite',
-            'registrosDisponiblesTramite'
+            'resumenEvaluacionCalificaciones'
         ));
-    }
-
-    /**
-     * Vincula un registro existente al trámite sin duplicar producto, presentación ni lote.
-     */
-    public function vincularRegistroExistente(Request $solicitud, Certificado $certificado)
-    {
-        $usuario = $solicitud->user();
-        $puedeGestionar = $usuario
-            && $usuario->puede('seguimientos_tramite.gestionar')
-            && $certificado->requiereEvidencia('PRODUCTO')
-            && $certificado->seguimientos()
-                ->where('estado', 'ACTIVO')
-                ->whereNull('fecha_derivacion')
-                ->where('id_usuario_siguiente', $usuario->id)
-                ->exists();
-
-        abort_unless($puedeGestionar, 403, 'No puede relacionar productos con este trámite.');
-
-        $datos = $solicitud->validate([
-            'form_id_registro' => ['required', 'integer', 'exists:registros,id'],
-            'form_bandeja' => ['nullable', 'string', 'max:30'],
-        ]);
-
-        $registro = Registro::query()
-            ->with('producto')
-            ->where('estado', 'ACTIVO')
-            ->whereHas('producto', fn ($query) => $query
-                ->where('estado', 'ACTIVO')
-                ->where('id_importador_persona', $certificado->id_persona_beneficiario))
-            ->findOrFail($datos['form_id_registro']);
-
-        if ($registro->certificadosRegistros()->exists()) {
-            return back()->with('error', 'Este registro ya está relacionado con otro trámite.');
-        }
-
-        $certificado->registros()->syncWithoutDetaching([$registro->id]);
-
-        return redirect()->route('certificados_show', [
-            'certificado' => $certificado,
-            'bandeja' => $datos['form_bandeja'] ?? 'recibidas',
-        ])->with('success', 'El registro existente fue vinculado al trámite.');
     }
 
     // VISTA DE EMISION DEL CERTIFICADO
@@ -1330,26 +1277,19 @@ class CertificadoController extends Controller
         return $medidas;
     }
 
-    private function guardarFondoPlantilla(Request $solicitud): ?string
+    private function guardarFondoPlantilla(
+        Request $solicitud,
+        PlantillaCertificado $plantillaCertificado
+    ): ?string
     {
         if (! $solicitud->hasFile('form_url_fondo')) {
             return null;
         }
 
-        $archivo = $solicitud->file('form_url_fondo');
-        $extension = $archivo->getClientOriginalExtension();
-        $nombreArchivo = 'plantilla_'.now()->format('Ymd_His').'_'.uniqid().'.'.$extension;
-        $ruta = $archivo->storeAs('documentos/plantillas_certificados', $nombreArchivo, 'public');
-
-        $rutaStorage = storage_path('app/public/'.$ruta);
-        $rutaPublica = public_path('storage/'.$ruta);
-        File::ensureDirectoryExists(dirname($rutaPublica));
-
-        if (File::exists($rutaStorage)) {
-            File::copy($rutaStorage, $rutaPublica);
-        }
-
-        return $ruta;
+        return $this->archivosPlantillas->guardar(
+            $solicitud->file('form_url_fondo'),
+            $plantillaCertificado
+        );
     }
 
     private function desactivarOtrasPlantillasActivas(int $idTipoCertificado, ?int $idPlantillaActual = null): void

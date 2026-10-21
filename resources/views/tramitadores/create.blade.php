@@ -67,7 +67,7 @@
             </div>
         @endif
 
-        <form id="formTramitador" action="{{ route('tramitadores_store') }}" method="POST"
+        <form id="formTramitador" action="{{ route('tramitadores_store') }}" method="POST" novalidate
             enctype="multipart/form-data"
             class="w-full overflow-hidden rounded-2xl bg-white shadow-xl">
             @csrf
@@ -91,9 +91,6 @@
                                 <input type="text" id="form_ci" name="form_ci" value="{{ old('form_ci') }}"
                                     maxlength="50" required autocomplete="off" placeholder="Ingrese el número de CI"
                                     class="w-full rounded-lg border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500">
-                                @error('form_ci')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
                             <div class="md:col-span-3">
                                 <label for="form_complemento" class="mb-1 block text-sm font-medium text-gray-700">Complemento</label>
@@ -101,9 +98,6 @@
                                     value="{{ old('form_complemento') }}" maxlength="10" autocomplete="off"
                                     placeholder="Ej.: 1A"
                                     class="w-full rounded-lg border-gray-300 text-sm uppercase focus:border-primary-500 focus:ring-primary-500">
-                                @error('form_complemento')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                @enderror
                             </div>
                             <div class="md:col-span-4 md:flex md:items-end">
                                 <button type="button" id="btnBuscarPersona"
@@ -128,11 +122,11 @@
                         <h2 class="text-sm font-bold text-blue-700">2. Información general del tramitador</h2>
                     </div>
                     <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-                        <x-wire-input label="Domicilio" id="form_domicilio" name="form_domicilio"
+                        <x-wire-input errorless label="Domicilio" id="form_domicilio" name="form_domicilio"
                             value="{{ old('form_domicilio') }}" placeholder="Dirección o domicilio" />
-                        <x-wire-input label="NIT" id="form_nit" name="form_nit"
+                        <x-wire-input errorless label="NIT" id="form_nit" name="form_nit"
                             value="{{ old('form_nit') }}" placeholder="NIT si corresponde" />
-                        <x-wire-input label="Correo electrónico" id="form_correo" name="form_correo" type="email"
+                        <x-wire-input errorless label="Correo electrónico" id="form_correo" name="form_correo" type="email"
                             value="{{ old('form_correo') }}" placeholder="correo@ejemplo.com" />
 
                         <div id="contenedorPaisTramitador" class="ocupacion-persona-autocomplete"
@@ -150,7 +144,7 @@
                             </select>
                             <div class="ocupacion-persona-control">
                                 <i class="fa-solid fa-magnifying-glass"></i>
-                                <input type="search" id="buscadorPaisTramitador" placeholder="Escriba código o país" autocomplete="off">
+                                <input type="search" id="buscadorPaisTramitador" placeholder="Seleccione un país" autocomplete="off">
                                 <button type="button" id="limpiarPaisTramitador" class="ocupacion-persona-limpiar" aria-label="Quitar país">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
@@ -167,11 +161,11 @@
                         <h2 class="text-sm font-bold text-violet-700">3. Datos personales del tramitador</h2>
                     </div>
                     <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-                        <x-wire-input label="Nombres" id="form_nombres" name="form_nombres" value="{{ old('form_nombres') }}" />
-                        <x-wire-input label="Apellido paterno" id="form_apellido_paterno" name="form_apellido_paterno" value="{{ old('form_apellido_paterno') }}" />
-                        <x-wire-input label="Apellido materno" id="form_apellido_materno" name="form_apellido_materno" value="{{ old('form_apellido_materno') }}" />
-                        <x-wire-input label="Apellido de casado" id="form_apellido_casado" name="form_apellido_casado" value="{{ old('form_apellido_casado') }}" />
-                        <x-wire-native-select label="Expedido" id="form_expedido" name="form_expedido">
+                        <x-wire-input errorless label="Nombres" id="form_nombres" name="form_nombres" value="{{ old('form_nombres') }}" />
+                        <x-wire-input errorless label="Apellido paterno" id="form_apellido_paterno" name="form_apellido_paterno" value="{{ old('form_apellido_paterno') }}" />
+                        <x-wire-input errorless label="Apellido materno" id="form_apellido_materno" name="form_apellido_materno" value="{{ old('form_apellido_materno') }}" />
+                        <x-wire-input errorless label="Apellido de casado" id="form_apellido_casado" name="form_apellido_casado" value="{{ old('form_apellido_casado') }}" />
+                        <x-wire-native-select errorless label="Expedido" id="form_expedido" name="form_expedido">
                             <option value="">Seleccione expedido</option>
                             @foreach (\App\Models\Natural::EXPEDIDOS as $codigo => $nombre)
                                 <option value="{{ $codigo }}" @selected(old('form_expedido') === $codigo)>{{ $codigo }} - {{ $nombre }}</option>
@@ -182,13 +176,10 @@
                                 Fecha de nacimiento
                             </label>
                             <input type="date" id="form_fecha_nacimiento" name="form_fecha_nacimiento"
-                                value="{{ old('form_fecha_nacimiento') }}"
+                                value="{{ old('form_fecha_nacimiento') }}" max="{{ today()->toDateString() }}"
                                 class="w-full rounded-lg border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500">
-                            @error('form_fecha_nacimiento')
-                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                            @enderror
                         </div>
-                        <x-wire-native-select label="Género" id="form_genero" name="form_genero">
+                        <x-wire-native-select errorless label="Género" id="form_genero" name="form_genero">
                             <option value="">Seleccione una opción</option>
                             <option value="1" @selected(old('form_genero') === '1')>Masculino</option>
                             <option value="0" @selected(old('form_genero') === '0')>Femenino</option>
@@ -234,13 +225,7 @@
                     </div>
                     <div class="space-y-4 p-4">
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
-                            <div class="md:col-span-6"><x-wire-input label="Teléfono" id="telefonoTramitador" placeholder="Ejemplo: 70123456" /></div>
-                            <div class="md:col-span-4">
-                                <x-wire-native-select label="Estado" id="estadoTelefonoTramitador">
-                                    <option value="ACTIVO">Activo</option>
-                                    <option value="INACTIVO">Inactivo</option>
-                                </x-wire-native-select>
-                            </div>
+                            <div class="md:col-span-10"><x-wire-input errorless label="Teléfono" id="telefonoTramitador" placeholder="Ejemplo: 70123456" /></div>
                             <div class="md:col-span-2 md:flex md:h-full md:items-end">
                                 <button type="button" id="btnAgregarTelefono" class="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700">Agregar</button>
                             </div>
@@ -303,8 +288,9 @@
                     </div>
                     <div class="p-4">
                         <div data-error-wrapper="form_url_respaldo">
-                            <label class="mb-1 block text-sm font-medium text-gray-700" for="form_url_respaldo">Documento de respaldo o autorización en PDF</label>
-                            <input type="file" id="form_url_respaldo" name="form_url_respaldo" accept=".pdf,application/pdf" class="sr-only">
+                            <label class="mb-1 block text-sm font-medium text-gray-700" for="form_url_respaldo">Documento de respaldo o autorización en PDF (obligatorio)</label>
+                            <input type="file" id="form_url_respaldo" name="form_url_respaldo" accept=".pdf,application/pdf" aria-required="true" class="sr-only">
+                            <p class="mb-2 text-xs text-gray-500">Adjunte un PDF de hasta 5 MB. Si el formulario tiene errores, deberá volver a seleccionar el archivo.</p>
                             <div id="responsableModalPdfControl" class="responsable-modal-pdf">
                                 <div class="responsable-modal-pdf-info">
                                     <i class="fa-solid fa-file-pdf"></i>
@@ -352,6 +338,105 @@
                 let urlPdfTemporal = null;
                 let documentoConsultado = '';
 
+                const formulario = document.getElementById('formTramitador');
+                const controlesVisibles = {
+                    form_id_territorio: 'buscadorPaisTramitador',
+                    form_id_ocupacion: 'buscadorOcupacionTramitador',
+                    form_telefonos_json: 'telefonoTramitador',
+                    form_rubros_json: 'buscadorRubroTramitador',
+                    form_url_respaldo: 'responsableModalPdfControl',
+                };
+                const mostrarErrorCampo = (nombre, mensaje) => {
+                    const campo = document.getElementById(nombre);
+                    const visible = document.getElementById(controlesVisibles[nombre] || nombre) || campo;
+                    if (!visible) return null;
+                    const idError = `error-tramitador-${nombre}`;
+                    let aviso = document.getElementById(idError);
+                    if (!aviso) {
+                        aviso = document.createElement('p');
+                        aviso.id = idError;
+                        aviso.setAttribute('role', 'alert');
+                        aviso.style.cssText = 'color:#b91c1c;font-size:12px;margin-top:6px;';
+                    }
+                    // WireUI envuelve el input en un label flexible: el error va fuera de ese label.
+                    const cajaInput = visible.closest('label[name="form.wrapper.container"]');
+                    if (cajaInput) {
+                        cajaInput.insertAdjacentElement('afterend', aviso);
+                    } else {
+                        const contenedor = visible.closest('[form-wrapper]')
+                            || visible.closest('.ocupacion-persona-autocomplete')
+                            || visible.parentElement;
+                        contenedor.appendChild(aviso);
+                    }
+                    aviso.textContent = mensaje;
+                    visible.setAttribute('aria-invalid', 'true');
+                    visible.setAttribute('aria-describedby', idError);
+                    visible.style.borderColor = '#dc2626';
+                    return visible;
+                };
+                const erroresServidor = @json($errors->messages());
+                let primerError;
+                Object.entries(erroresServidor).forEach(([nombre, mensajes]) => {
+                    const visible = mostrarErrorCampo(nombre, mensajes.join(' '));
+                    primerError ||= visible;
+                });
+                if (primerError) {
+                    primerError.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+                formulario.addEventListener('submit', (evento) => {
+                    formulario.querySelectorAll('[id^="error-tramitador-"]').forEach((aviso) => aviso.remove());
+                    formulario.querySelectorAll('[aria-invalid="true"]').forEach((control) => {
+                        control.removeAttribute('aria-invalid');
+                        control.removeAttribute('aria-describedby');
+                        control.style.borderColor = '';
+                    });
+                    const errores = {};
+                    if (!document.getElementById('form_ci').value.trim()) {
+                        errores.form_ci = 'Ingrese el CI del tramitador.';
+                    }
+                    if (!document.getElementById('datosPersonaTramitador').disabled) {
+                        const obligatorios = {
+                            form_correo: 'Ingrese el correo electrónico del tramitador.',
+                            form_id_territorio: 'Seleccione el país y la ubicación del tramitador.',
+                            form_nombres: 'Ingrese los nombres del tramitador.',
+                            form_apellido_paterno: 'Ingrese el apellido paterno del tramitador.',
+                            form_genero: 'Seleccione el género del tramitador.',
+                            form_fecha_nacimiento: 'Ingrese la fecha de nacimiento del tramitador.',
+                        };
+                        Object.entries(obligatorios).forEach(([nombre, mensaje]) => {
+                            if (!document.getElementById(nombre).value.trim()) errores[nombre] = mensaje;
+                        });
+                        const correo = document.getElementById('form_correo');
+                        if (correo.value.trim() && correo.validity.typeMismatch) {
+                            errores.form_correo = 'Ingrese un correo electrónico válido, por ejemplo: nombre@correo.com.';
+                        }
+                    }
+                    const pdf = document.getElementById('form_url_respaldo').files[0];
+                    let mensaje = '';
+                    if (!pdf) mensaje = 'Debe adjuntar el documento de respaldo o autorización en PDF.';
+                    else if (!pdf.name.toLowerCase().endsWith('.pdf')) mensaje = 'El documento de respaldo debe ser un archivo PDF.';
+                    else if (pdf.size > 5 * 1024 * 1024) mensaje = 'El PDF de respaldo no debe superar los 5 MB.';
+                    if (mensaje) errores.form_url_respaldo = mensaje;
+                    if (Object.keys(errores).length) {
+                        evento.preventDefault();
+                        let primerCampo;
+                        Object.entries(errores).forEach(([nombre, texto]) => {
+                            const control = mostrarErrorCampo(nombre, texto);
+                            primerCampo ||= control;
+                        });
+                        primerCampo?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                        if (primerCampo?.matches('input, select, button')) primerCampo.focus({ preventScroll: true });
+                        else document.getElementById('form_url_respaldo').focus({ preventScroll: true });
+                    }
+                });
+                document.getElementById('form_url_respaldo').addEventListener('change', () => {
+                    document.getElementById('error-tramitador-form_url_respaldo')?.remove();
+                    const control = document.getElementById('responsableModalPdfControl');
+                    control.removeAttribute('aria-invalid');
+                    control.removeAttribute('aria-describedby');
+                    control.style.borderColor = '';
+                });
+
                 const asignar = (id, valor) => {
                     const campo = document.getElementById(id);
                     if (campo) campo.value = valor ?? '';
@@ -381,7 +466,7 @@
                         const item = document.createElement('span');
                         item.className = 'inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1 text-sm';
                         const texto = document.createElement('span');
-                        texto.textContent = `${telefono.numero} - ${telefono.estado || 'ACTIVO'}`;
+                        texto.textContent = telefono.numero;
                         const quitar = document.createElement('button');
                         quitar.type = 'button';
                         quitar.className = 'font-bold text-red-500';
@@ -461,7 +546,9 @@
                 const seleccionarPais = async (id, nombre = '') => {
                     const select = document.getElementById('paisTramitador');
                     select.value = String(id || '');
-                    document.getElementById('buscadorPaisTramitador').value = nombre || select.options[select.selectedIndex]?.textContent.trim() || '';
+                    document.getElementById('buscadorPaisTramitador').value = id
+                        ? (nombre || select.options[select.selectedIndex]?.textContent.trim() || '')
+                        : '';
                     document.getElementById('limpiarPaisTramitador').classList.toggle('is-visible', Boolean(id));
                     document.getElementById('nivelesTerritorioTramitador').innerHTML = '';
                     guardarTerritorio(id || '');
@@ -727,7 +814,7 @@
                     const campo = document.getElementById('telefonoTramitador');
                     const numero = campo.value.replace(/\D+/g, '');
                     if (!numero) return;
-                    telefonos.push({ numero, estado: document.getElementById('estadoTelefonoTramitador').value });
+                    telefonos.push({ numero, estado: 'ACTIVO' });
                     campo.value = '';
                     renderTelefonos();
                 });
@@ -923,4 +1010,5 @@
             });
         </script>
     @endpush
+    @include('personas.mayusculas')
 </x-admin-layout>

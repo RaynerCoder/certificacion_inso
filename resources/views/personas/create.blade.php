@@ -457,5 +457,6 @@
     </form>
 
     @include('personas.create.scripts')
+    @include('personas.mayusculas')
 
 </x-admin-layout>

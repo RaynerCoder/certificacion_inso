@@ -9,6 +9,70 @@
             const botonesHistorial = vistaDetalleActiva.querySelectorAll('[data-requirement-history-button]');
             const swalDisponible = () => Boolean(window.Swal);
 
+            const formularioCorreccion = vistaDetalleActiva.querySelector('#form-correccion-requisitos-v2');
+            formularioCorreccion?.addEventListener('submit', (evento) => {
+                if (evento.submitter?.value === 'guardar') return;
+                formularioCorreccion.querySelectorAll('[data-correction-validation-error]').forEach((error) => error.remove());
+                let primerCampo;
+                formularioCorreccion.querySelectorAll('[data-correction-required]').forEach((campo) => {
+                    campo.removeAttribute('aria-invalid');
+                    const control = campo.closest('[data-correction-file-control]');
+                    control?.classList.remove('is-invalid');
+                    const vacio = campo.type === 'file' ? !campo.files.length : !campo.value.trim();
+                    if (campo.dataset.correctionRequired !== '1' || !vacio) return;
+                    const aviso = document.createElement('p');
+                    aviso.className = 'cert-correction-error';
+                    aviso.dataset.correctionValidationError = '1';
+                    aviso.setAttribute('role', 'alert');
+                    aviso.textContent = campo.type === 'file'
+                        ? 'Adjunte el archivo corregido de este requisito antes de enviar.'
+                        : 'Escriba la corrección solicitada antes de enviar.';
+                    (control || campo).insertAdjacentElement('afterend', aviso);
+                    control?.classList.add('is-invalid');
+                    campo.setAttribute('aria-invalid', 'true');
+                    primerCampo ||= campo;
+                });
+                if (primerCampo) {
+                    evento.preventDefault();
+                    evento.stopImmediatePropagation();
+                    (primerCampo.closest('tr') || primerCampo).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    primerCampo.focus({ preventScroll: true });
+                    return;
+                }
+                if (!window.confirm('El trámite volverá al mismo revisor que envió la observación. ¿Desea continuar?')) {
+                    evento.preventDefault();
+                    evento.stopImmediatePropagation();
+                }
+            }, true);
+
+            const visorPdf = vistaDetalleActiva.querySelector('[data-requirement-pdf-dialog]');
+            if (visorPdf) {
+                const marcoPdf = visorPdf.querySelector('[data-requirement-pdf-frame]');
+                const enlaceExterno = visorPdf.querySelector('[data-requirement-pdf-external]');
+                let enlaceOrigenPdf;
+                vistaDetalleActiva.querySelectorAll('[data-requirement-pdf]').forEach((enlace) => {
+                    enlace.addEventListener('click', (evento) => {
+                        if (evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey) return;
+                        if (typeof visorPdf.showModal !== 'function') return;
+                        evento.preventDefault();
+                        enlaceOrigenPdf = enlace;
+                        marcoPdf.src = enlace.href;
+                        enlaceExterno.href = enlace.href;
+                        visorPdf.showModal();
+                    });
+                });
+                visorPdf.querySelector('[data-requirement-pdf-close]').addEventListener('click', () => visorPdf.close());
+                visorPdf.addEventListener('click', (evento) => {
+                    const limites = visorPdf.getBoundingClientRect();
+                    if (evento.target === visorPdf && (evento.clientX < limites.left || evento.clientX > limites.right
+                        || evento.clientY < limites.top || evento.clientY > limites.bottom)) visorPdf.close();
+                });
+                visorPdf.addEventListener('close', () => {
+                    marcoPdf.removeAttribute('src');
+                    enlaceOrigenPdf?.focus();
+                });
+            }
+
             // El cierre exige completar la descripcion final antes de enviar el formulario.
             const modalFinalizacion = document.querySelector('[data-finalization-modal]');
             const descripcionFinal = modalFinalizacion?.querySelector('#form_descripcion_final');
@@ -416,6 +480,9 @@
 
                     const estadoLista = estado || 'pending';
 
+                    if (estado === 'NO' && decision.value !== 'NO' && textoObservacion) {
+                        textoObservacion.value = '';
+                    }
                     decision.value = estado;
                     tocado.value = '1';
                     registro.dataset.reviewState = estadoLista;

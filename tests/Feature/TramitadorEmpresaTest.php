@@ -25,6 +25,359 @@ class TramitadorEmpresaTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Campo preparado por SQL manual: se agrega únicamente en SQLite para estas pruebas.
+        \Illuminate\Support\Facades\Schema::table('responsables', function ($table) {
+            $table->text('motivo_baja')->nullable();
+        });
+    }
+
+    public function test_baja_rechaza_un_motivo_vacio_o_solo_espacios(): void
+    {
+        foreach (['', '   '] as $motivo) {
+            try {
+                app(\App\Services\GestionTramitadoresService::class)->darDeBaja(new Responsable(), new User(), $motivo);
+                $this->fail('No debe admitir una baja sin motivo.');
+            } catch (ValidationException $e) {
+                $this->assertSame(['Indique el motivo de la baja.'], $e->errors()['motivo_baja']);
+            }
+        }
+    }
+
+    public function test_baja_permite_elegir_otro_tramitador_y_le_habilita_el_expediente_asignado(): void
+    {
+        [$representante, $empresa, $territorio, $rol] = $this->crearEmpresaConPermisos();
+        $usuarios = [];
+        $personas = [];
+        $relaciones = [];
+        foreach (['ANTERIOR', 'NUEVO'] as $index => $nombre) {
+            $usuarios[$index] = User::factory()->create(['estado' => 1]);
+            $usuarios[$index]->roles()->attach($rol->id);
+            $personas[$index] = $this->crearPersonaNatural($territorio, 'BAJA-'.$index, $nombre, 'GESTOR', $usuarios[$index]);
+            $relaciones[$index] = Responsable::create([
+                'id_empresa' => $empresa->id, 'id_persona' => $personas[$index]->id, 'id_rol' => $rol->id, 'estado' => 'ACTIVO',
+            ]);
+        }
+        $tipo = \App\Models\TipoCertificado::create(['nombre' => 'Transferencia elegida', 'estado' => 'ACTIVO']);
+        $certificado = new \App\Models\Certificado([
+            'id_tipo_certificado' => $tipo->id, 'id_persona_beneficiario' => $empresa->id_persona,
+            'id_persona_tramitador' => $personas[0]->id, 'estado' => 'OBSERVADO',
+        ]);
+        $certificado->codigo = 'BAJA-ELEGIDA';
+        $certificado->id_usuario_registro = $usuarios[0]->id;
+        $certificado->save();
+        \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_usuario_origen' => $representante->id,
+            'id_usuario_siguiente' => $usuarios[0]->id, 'fecha_inicio' => now(), 'estado' => 'ACTIVO',
+        ]);
+        $servicio = app(\App\Services\GestionTramitadoresService::class);
+        $this->assertFalse($servicio->destinatariosBaja($relaciones[0])->contains('id', $usuarios[0]->id));
+        $this->assertTrue($servicio->destinatariosBaja($relaciones[0])->contains('id', $usuarios[1]->id));
+        $this->assertFalse($servicio->usuarioPuedeConsultarTramite($usuarios[1], $certificado));
+        $transferidos = $servicio->darDeBaja($relaciones[0], $representante, 'Cambio de persona autorizada.', $usuarios[1]->id);
+        $this->assertSame(1, $transferidos);
+        $ultimo = $certificado->seguimientos()->latest('id')->firstOrFail();
+        $this->assertSame($usuarios[1]->id, $ultimo->id_usuario_siguiente);
+        $this->assertTrue($servicio->usuarioPuedeConsultarTramite($usuarios[1], $certificado->fresh()));
+        $this->assertTrue($servicio->usuarioPuedeResponderCorreccion($usuarios[1], $certificado->fresh()));
+        $this->assertSame($personas[1]->id, $servicio->gestorActual($certificado->fresh())['persona']->id);
+        $this->assertDatabaseHas('notificaciones_tramites', ['id_certificado' => $certificado->id, 'id_usuario_destino' => $usuarios[1]->id, 'titulo' => 'Tramite pendiente de correccion']);
+        $this->actingAs($usuarios[1]);
+        $tabla = app(\App\Livewire\Datatables\SeguimientoTable::class);
+        $tabla->bandeja = 'enviadas';
+        $this->assertTrue($tabla->builder()->where('id_certificado', $certificado->id)->exists());
+    }
+
+    public function test_baja_rechaza_destinatarios_inactivos_pendientes_de_validacion_o_de_otra_empresa(): void
+    {
+        [$representante, $empresa, $territorio, $rol] = $this->crearEmpresaConPermisos();
+        [, $otraEmpresa] = $this->crearEmpresaConPermisos();
+        $usuarios = [];
+        $relaciones = [];
+        foreach (['ACTIVO', 'PENDIENTE_VALIDACION', 'INACTIVO', 'OTRA_EMPRESA'] as $index => $estado) {
+            $usuarios[$index] = User::factory()->create(['estado' => 1]);
+            $persona = $this->crearPersonaNatural($territorio, 'NO-BAJA-'.$index, 'PERSONA'.$index, 'PRUEBA', $usuarios[$index]);
+            $relaciones[$index] = Responsable::create([
+                'id_empresa' => $index === 3 ? $otraEmpresa->id : $empresa->id,
+                'id_persona' => $persona->id, 'id_rol' => $rol->id,
+                'estado' => $index === 3 ? 'ACTIVO' : $estado,
+            ]);
+        }
+        $tipo = \App\Models\TipoCertificado::create(['nombre' => 'Transferencia bloqueada', 'estado' => 'ACTIVO']);
+        $certificado = new \App\Models\Certificado([
+            'id_tipo_certificado' => $tipo->id, 'id_persona_beneficiario' => $empresa->id_persona,
+            'id_persona_tramitador' => $relaciones[0]->id_persona, 'estado' => 'OBSERVADO',
+        ]);
+        $certificado->codigo = 'BAJA-BLOQUEADA';
+        $certificado->save();
+        $seguimiento = \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_usuario_origen' => $representante->id,
+            'id_usuario_siguiente' => $usuarios[0]->id, 'estado' => 'ACTIVO',
+        ]);
+        foreach ($usuarios as $usuario) {
+            try {
+                app(\App\Services\GestionTramitadoresService::class)->darDeBaja($relaciones[0]->fresh(), $representante, 'Motivo.', $usuario->id);
+                $this->fail('No debe permitir este destinatario.');
+            } catch (ValidationException $e) {
+                $this->assertArrayHasKey('id_usuario_destinatario_baja', $e->errors());
+                $this->assertSame('ACTIVO', $relaciones[0]->fresh()->estado);
+                $this->assertNull($seguimiento->fresh()->fecha_derivacion);
+            }
+        }
+    }
+
+    public function test_gestor_externo_cambia_solo_al_recibir_el_tramite_y_se_conserva_al_volver_al_tecnico(): void
+    {
+        [$cuentaEmpresa, $empresa, $territorio, $rolTramitador] = $this->crearEmpresaConPermisos();
+        $rolRepresentante = Role::where('slug', 'solicitante')->firstOrFail();
+        $usuarios = [];
+        $personas = [];
+        $vinculos = [];
+        foreach (['INICIAL', 'REPRESENTANTE', 'NUEVO'] as $index => $nombre) {
+            $usuarios[$index] = User::factory()->create(['estado' => 1]);
+            $personas[$index] = $this->crearPersonaNatural($territorio, 'GESTOR-'.$index, $nombre, 'PRUEBA', $usuarios[$index]);
+            $vinculos[$index] = Responsable::create([
+                'id_empresa' => $empresa->id, 'id_persona' => $personas[$index]->id,
+                'id_rol' => $index === 1 ? $rolRepresentante->id : $rolTramitador->id,
+                'estado' => 'ACTIVO',
+            ]);
+        }
+        $tipo = \App\Models\TipoCertificado::create(['nombre' => 'Gestión visual', 'estado' => 'ACTIVO']);
+        $certificado = new \App\Models\Certificado([
+            'id_tipo_certificado' => $tipo->id, 'id_persona_beneficiario' => $empresa->id_persona,
+            'id_persona_tramitador' => $personas[0]->id, 'estado' => 'OBSERVADO',
+        ]);
+        $certificado->codigo = 'GESTOR-1';
+        $certificado->id_usuario_registro = $usuarios[0]->id;
+        $certificado->save();
+        $servicio = app(\App\Services\GestionTramitadoresService::class);
+        // El nuevo tramitador ya está registrado, pero no recibió este expediente.
+        $this->assertSame($personas[0]->id, $servicio->gestorActual($certificado->fresh())['persona']->id);
+        $tecnico = User::factory()->create(['estado' => 1]);
+        $movimiento = \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_usuario_origen' => $tecnico->id,
+            'id_usuario_siguiente' => $usuarios[1]->id, 'estado' => 'ACTIVO',
+        ]);
+        $vinculos[0]->update(['estado' => 'INACTIVO', 'fecha_baja' => now()]);
+        $gestor = $servicio->gestorActual($certificado->fresh());
+        $this->assertSame($personas[1]->id, $gestor['persona']->id);
+        $this->assertSame('Representante legal', $gestor['tipo']);
+        $retorno = \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_seguimiento_padre' => $movimiento->id,
+            'id_usuario_origen' => $usuarios[1]->id, 'id_usuario_siguiente' => $tecnico->id, 'estado' => 'ACTIVO',
+        ]);
+        $this->assertSame($personas[1]->id, $servicio->gestorActual($certificado->fresh())['persona']->id);
+        \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_seguimiento_padre' => $retorno->id,
+            'id_usuario_origen' => $tecnico->id, 'id_usuario_siguiente' => $usuarios[2]->id, 'estado' => 'ACTIVO',
+        ]);
+        $gestor = $servicio->gestorActual($certificado->fresh());
+        $this->assertSame($personas[2]->id, $gestor['persona']->id);
+        $this->assertSame('Tramitador', $gestor['tipo']);
+        $this->assertSame($personas[0]->id, $certificado->fresh()->id_persona_tramitador);
+    }
+
+    public function test_correccion_vuelve_al_ultimo_revisor_aunque_haya_transferencias_entre_solicitantes(): void
+    {
+        [$representante, $empresa, $territorio] = $this->crearEmpresaConPermisos();
+        $otroTramitador = User::factory()->create(['estado' => 1]);
+        $persona = $this->crearPersonaNatural($territorio, '9876001', 'NUEVO', 'TRAMITADOR', $otroTramitador);
+        $area = \App\Models\Area::create(['nombre' => 'Área técnica', 'estado' => 1]);
+        $revisores = [];
+        foreach (['ANTERIOR', 'ULTIMO'] as $nombre) {
+            $usuario = User::factory()->create(['estado' => 1]);
+            $funcionario = Funcionario::create([
+                'id_usuario' => $usuario->id, 'nombres' => $nombre, 'apellido_paterno' => 'TECNICO',
+                'ci' => 'REV-'.$usuario->id, 'genero' => 1,
+            ]);
+            $cargo = \App\Models\Cargo::create(['id_area' => $area->id, 'nombre' => 'Revisor '.$nombre, 'estado' => 1]);
+            $funcionario->cargos()->attach($cargo->id);
+            $revisores[] = $usuario;
+        }
+        $tipo = \App\Models\TipoCertificado::create(['nombre' => 'Prueba de retorno', 'estado' => 'ACTIVO']);
+        $certificado = new \App\Models\Certificado([
+            'id_tipo_certificado' => $tipo->id, 'id_persona_beneficiario' => $empresa->id_persona,
+            'id_persona_tramitador' => $persona->id, 'estado' => 'OBSERVADO',
+        ]);
+        $certificado->codigo = 'RETORNO-1';
+        $certificado->save();
+        $requisito = \App\Models\Requisito::create(['descripcion' => 'Documento observado', 'estado' => 'ACTIVO']);
+        $asignacion = \App\Models\RequisitoCertificado::create([
+            'id_certificado' => $certificado->id, 'id_requisito' => $requisito->id, 'cumple' => 'NO', 'estado' => 'OBSERVADO',
+        ]);
+        $notificacion = \App\Models\Seguimiento::create([
+            'id_certificado' => $certificado->id, 'id_usuario_origen' => $revisores[0]->id,
+            'id_usuario_siguiente' => $otroTramitador->id, 'estado' => 'ACTIVO',
+        ]);
+        $transferencia = \App\Models\Seguimiento::create([
+            'id_seguimiento_padre' => $notificacion->id, 'id_certificado' => $certificado->id,
+            'id_usuario_origen' => $representante->id, 'id_usuario_siguiente' => $representante->id, 'estado' => 'ACTIVO',
+        ]);
+        $metodo = new \ReflectionMethod(SeguimientoController::class, 'revisorDestinoCorreccion');
+        $controller = app(SeguimientoController::class);
+        // Los registros antiguos sin revisiones también deben saltar la transferencia administrativa.
+        $this->assertSame($revisores[0]->id, $metodo->invoke($controller, $certificado, $transferencia, collect([$asignacion]))->id);
+        $transferencia->id_usuario_origen = $revisores[1]->id;
+        $transferencia->descripcion_final = 'Correccion transferida al beneficiario por baja del tramitador.';
+        $this->assertSame($revisores[0]->id, $metodo->invoke($controller, $certificado, $transferencia, collect([$asignacion]))->id);
+        $transferencia->id_usuario_origen = $representante->id;
+        foreach ($revisores as $revisor) {
+            \App\Models\RevisionRequisito::create([
+                'id_requisito_certificado' => $asignacion->id, 'id_usuario_revisor' => $revisor->id,
+                'resultado_cumple' => 'NO', 'estado' => 'ACTIVO',
+            ]);
+        }
+        $this->assertSame($revisores[1]->id, $metodo->invoke($controller, $certificado, $transferencia, collect([$asignacion]))->id);
+        // Otro cambio de persona autorizada no cambia al técnico de retorno.
+        $transferencia->id_usuario_origen = $otroTramitador->id;
+        $transferencia->id_usuario_siguiente = $otroTramitador->id;
+        $this->assertSame($revisores[1]->id, $metodo->invoke($controller, $certificado, $transferencia, collect([$asignacion]))->id);
+        // No se redirige a otra persona ni a sí mismo cuando el último revisor está inactivo.
+        $revisores[1]->update(['estado' => 0]);
+        $this->expectException(ValidationException::class);
+        $metodo->invoke($controller, $certificado, $transferencia, collect([$asignacion]));
+    }
+
+    public function test_baja_solo_transfiere_correcciones_de_la_empresa_seleccionada(): void
+    {
+        [$usuarioA, $empresaA, $territorio, $rol] = $this->crearEmpresaConPermisos();
+        [$usuarioB, $empresaB] = $this->crearEmpresaConPermisos();
+        $usuarioTramitador = User::factory()->create(['estado' => 1]);
+        $persona = $this->crearPersonaNatural($territorio, '8899771', 'JUAN', 'COMPARTIDO', $usuarioTramitador);
+        $tipo = \App\Models\TipoCertificado::create(['nombre' => 'Prueba de aislamiento', 'costo' => 0, 'estado' => 'ACTIVO']);
+        $relaciones = [];
+        $pendientes = [];
+        $avisos = [];
+        foreach ([$empresaA, $empresaB] as $empresa) {
+            $relaciones[] = Responsable::create([
+                'id_empresa' => $empresa->id, 'id_persona' => $persona->id,
+                'id_rol' => $rol->id, 'estado' => 'ACTIVO',
+            ]);
+            $certificado = new \App\Models\Certificado;
+            $certificado->forceFill([
+                'id_tipo_certificado' => $tipo->id,
+                'id_persona_beneficiario' => $empresa->id_persona,
+                'id_persona_tramitador' => $persona->id,
+                'codigo' => 'AISLAMIENTO-'.$empresa->id,
+                'estado' => 'OBSERVADO',
+            ])->save();
+            $pendientes[] = \App\Models\Seguimiento::create([
+                'id_certificado' => $certificado->id, 'id_usuario_origen' => $usuarioA->id,
+                'id_usuario_siguiente' => $usuarioTramitador->id,
+                'fecha_inicio' => now(), 'estado' => 'ACTIVO',
+            ]);
+            $avisos[] = \App\Models\NotificacionTramite::create([
+                'id_certificado' => $certificado->id, 'id_usuario_destino' => $usuarioTramitador->id,
+                'titulo' => 'Corrección pendiente', 'estado' => 'ACTIVO',
+            ]);
+        }
+        // Una empresa ajena sin cuenta activa tampoco debe bloquear esta baja.
+        $usuarioB->update(['estado' => 0]);
+        $transferidos = app(\App\Services\GestionTramitadoresService::class)->darDeBaja($relaciones[0], $usuarioA, '  Revocación de la autorización por la empresa.  ');
+        $this->assertSame(1, $transferidos);
+        $this->assertNotNull($pendientes[0]->fresh()->fecha_derivacion);
+        $this->assertNull($pendientes[1]->fresh()->fecha_derivacion);
+        $this->assertSame($usuarioTramitador->id, $pendientes[1]->fresh()->id_usuario_siguiente);
+        $this->assertDatabaseHas('seguimientos', [
+            'id_seguimiento_padre' => $pendientes[0]->id,
+            'id_usuario_siguiente' => $usuarioA->id,
+        ]);
+        $this->assertDatabaseMissing('seguimientos', ['id_seguimiento_padre' => $pendientes[1]->id]);
+        $this->assertSame('INACTIVO', $relaciones[0]->fresh()->estado);
+        $this->assertSame('Revocación de la autorización por la empresa.', $relaciones[0]->fresh()->motivo_baja);
+        $this->assertNull($relaciones[1]->fresh()->motivo_baja);
+        $this->assertSame('ACTIVO', $relaciones[1]->fresh()->estado);
+        $this->assertSame('INACTIVO', $avisos[0]->fresh()->estado);
+        $this->assertSame('ACTIVO', $avisos[1]->fresh()->estado);
+        $this->assertSame(1, (int) $usuarioTramitador->fresh()->estado);
+    }
+
+    public function test_representante_legal_no_desaparece_al_registrar_otros_responsables(): void
+    {
+        [, $empresa, $territorio, $rolTramitador] = $this->crearEmpresaConPermisos();
+        $personaRepresentante = $this->crearPersonaNatural($territorio, '8800111', 'MARIO', 'REPRESENTANTE');
+        $personaTramitador = $this->crearPersonaNatural($territorio, '8800222', 'JUAN', 'TRAMITADOR');
+        $idRolRepresentante = Role::where('slug', 'solicitante')->value('id');
+        $representante = Responsable::create([
+            'id_empresa' => $empresa->id, 'id_persona' => $personaRepresentante->id,
+            'id_rol' => $idRolRepresentante, 'estado' => 'ACTIVO',
+        ]);
+        Responsable::create([
+            'id_empresa' => $empresa->id, 'id_persona' => $personaTramitador->id,
+            'id_rol' => $rolTramitador->id, 'estado' => 'ACTIVO',
+        ]);
+        Responsable::create([
+            'id_empresa' => $empresa->id, 'id_persona' => $personaTramitador->id,
+            'id_rol' => $idRolRepresentante, 'estado' => 'INACTIVO',
+        ]);
+        $this->assertSame($representante->id, $empresa->fresh()->representanteLegalActivo?->id);
+        $this->assertSame($representante->id, Empresa::with('representanteLegalActivo')->findOrFail($empresa->id)->representanteLegalActivo?->id);
+    }
+
+    public function test_correccion_prioriza_al_iniciador_y_usa_representante_si_esta_inactivo(): void
+    {
+        [, $empresa, $territorio, $rolTramitador] = $this->crearEmpresaConPermisos();
+        $representante = User::factory()->create(['estado' => 1]);
+        $tramitador = User::factory()->create(['estado' => 1]);
+        $personaRepresentante = $this->crearPersonaNatural($territorio, '7711001', 'MARIO', 'REPRESENTANTE', $representante);
+        $personaTramitador = $this->crearPersonaNatural($territorio, '7711002', 'JUAN', 'TRAMITADOR', $tramitador);
+        Responsable::create([
+            'id_empresa' => $empresa->id, 'id_persona' => $personaRepresentante->id,
+            'id_rol' => Role::where('slug', 'solicitante')->value('id'), 'estado' => 'ACTIVO',
+        ]);
+        $vinculo = Responsable::create([
+            'id_empresa' => $empresa->id, 'id_persona' => $personaTramitador->id,
+            'id_rol' => $rolTramitador->id, 'estado' => 'ACTIVO',
+        ]);
+        $certificado = new \App\Models\Certificado([
+            'id_persona_beneficiario' => $empresa->id_persona,
+            'id_persona_tramitador' => $personaTramitador->id,
+        ]);
+        $certificado->id_usuario_registro = $tramitador->id;
+        $servicio = app(\App\Services\GestionTramitadoresService::class);
+        $opciones = $servicio->destinatariosCorreccion($certificado);
+        $this->assertSame($tramitador->id, $opciones->first()['id']);
+        $this->assertSame('Tramitador (inició el trámite)', $opciones->first()['etiqueta']);
+        $this->assertSame($tramitador->id, $servicio->idDestinatarioPredeterminado($certificado));
+        $vinculo->update(['estado' => 'INACTIVO']);
+        $certificado->unsetRelation('beneficiario');
+        $this->assertSame($representante->id, $servicio->idDestinatarioPredeterminado($certificado));
+        $this->assertFalse($servicio->destinatariosCorreccion($certificado)->contains('id', $tramitador->id));
+    }
+
+    public function test_registro_informa_campos_faltantes_y_exige_pdf_con_mensajes_claros(): void
+    {
+        [$usuarioEmpresa] = $this->crearEmpresaConPermisos();
+
+        $respuesta = $this->actingAs($usuarioEmpresa)->post(route('tramitadores_store'), [
+            'form_ci' => '9988776655',
+        ]);
+
+        $respuesta->assertSessionHasErrors([
+            'form_url_respaldo' => 'Debe adjuntar el documento de respaldo o autorización en PDF.',
+            'form_nombres' => 'Debe completar el campo nombres.',
+            'form_apellido_paterno' => 'Debe completar el campo apellido paterno.',
+            'form_correo' => 'Debe completar el campo correo.',
+            'form_id_territorio' => 'Debe completar el campo territorio.',
+            'form_genero' => 'Debe completar el campo género.',
+            'form_fecha_nacimiento' => 'Debe completar el campo fecha de nacimiento.',
+        ]);
+    }
+
+    public function test_registro_rechaza_respaldo_que_no_es_pdf(): void
+    {
+        [$usuarioEmpresa] = $this->crearEmpresaConPermisos();
+
+        $this->actingAs($usuarioEmpresa)->post(route('tramitadores_store'), [
+            'form_ci' => '9988776655',
+            'form_url_respaldo' => UploadedFile::fake()->create('respaldo.txt', 10, 'text/plain'),
+        ])->assertSessionHasErrors([
+            'form_url_respaldo' => 'El documento de respaldo o autorización debe ser un archivo PDF.',
+        ]);
+    }
+
     public function test_registro_interno_separa_empresa_beneficiaria_de_sus_personas_tramitadoras(): void
     {
         $funcionario = User::factory()->create(['estado' => 1]);
@@ -411,6 +764,7 @@ class TramitadorEmpresaTest extends TestCase
             'form_correo' => 'nueva.persona@example.com',
             'form_id_territorio' => $territorio->id,
             'form_genero' => '0',
+            'form_fecha_nacimiento' => '1990-01-15',
             'form_url_respaldo' => UploadedFile::fake()->create('carta.pdf', 100, 'application/pdf'),
         ]);
 
@@ -423,6 +777,9 @@ class TramitadorEmpresaTest extends TestCase
 
         $natural = Natural::where('ci', '9900112')->firstOrFail();
         $this->assertNull($natural->persona->id_usuario);
+        $respaldo = Responsable::where('id_empresa', $empresa->id)->where('id_persona', $natural->id_persona)->firstOrFail()->url_respaldo;
+        $this->assertStringStartsWith("empresas-tramitadores/{$empresa->id}/tramitadores/", $respaldo);
+        Storage::disk('local')->assertExists($respaldo);
         $this->assertDatabaseHas('responsables', [
             'id_empresa' => $empresa->id,
             'id_persona' => $natural->id_persona,
@@ -473,6 +830,7 @@ class TramitadorEmpresaTest extends TestCase
         $this->assertSame('PENDIENTE_VALIDACION', $relacionAnterior->estado);
         $this->assertNull($relacionAnterior->fecha_baja);
         $this->assertNotSame('tramitadores/historico/autorizacion-anterior.pdf', $relacionAnterior->url_respaldo);
+        $this->assertStringStartsWith("empresas-tramitadores/{$empresa->id}/tramitadores/", $relacionAnterior->url_respaldo);
         $this->assertSame(now()->format('Y-m-d H:i'), substr($relacionAnterior->fecha_registro, 0, 16));
         Storage::disk('local')->assertExists($relacionAnterior->url_respaldo);
 
@@ -574,6 +932,7 @@ class TramitadorEmpresaTest extends TestCase
             'form_correo' => 'nuevo.tramitador@example.com',
             'form_id_territorio' => $territorio->id,
             'form_genero' => '1',
+            'form_fecha_nacimiento' => '1990-01-15',
             'form_url_respaldo' => UploadedFile::fake()->create('respaldo.pdf', 100, 'application/pdf'),
         ])->assertRedirect(route('tramitadores_index'));
 
@@ -599,6 +958,7 @@ class TramitadorEmpresaTest extends TestCase
         $this->assertSame('ACTIVO', $relacion->estado);
         $this->assertSame($validador->id, $relacion->id_usuario_validacion);
         $this->assertSame('nuevo.tramitador@example.com', $usuarioTramitador->email);
+        $this->assertSame('nuevo_tramitador', $usuarioTramitador->name);
         $this->assertTrue(Hash::check('6655443', $usuarioTramitador->password));
         $this->assertTrue($usuarioTramitador->tieneRol('tramitador'));
         $otroUsuario = User::factory()->create(['estado' => 1]);
@@ -774,7 +1134,7 @@ class TramitadorEmpresaTest extends TestCase
             ->assertSee('Dar de baja');
 
         $this->actingAs($validador)
-            ->post(route('tramitadores_baja', $tramitador))
+            ->post(route('tramitadores_baja', $tramitador), ['motivo_baja' => 'Baja registrada por INSO.'])
             ->assertRedirect(route('tramitadores_index'));
 
         $tramitador->refresh();
@@ -807,7 +1167,7 @@ class TramitadorEmpresaTest extends TestCase
         ]);
 
         $this->actingAs($usuarioEmpresa)
-            ->post(route('tramitadores_baja', $tramitador))
+            ->post(route('tramitadores_baja', $tramitador), ['motivo_baja' => 'Revocación por la empresa.'])
             ->assertRedirect(route('tramitadores_index'));
 
         $tramitador->refresh();
@@ -921,7 +1281,7 @@ class TramitadorEmpresaTest extends TestCase
             'nombres' => 'FUNCIONARIO',
             'apellido_paterno' => 'VALIDADOR',
             'apellido_materno' => 'INSO',
-            'carnet' => uniqid('CI-'),
+            'ci' => uniqid('CI-'),
             'genero' => 1,
         ]);
         $permiso = Permiso::firstOrCreate(

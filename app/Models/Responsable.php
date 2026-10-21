@@ -17,6 +17,7 @@ class Responsable extends Model
         'url_respaldo',
         'fecha_registro',
         'fecha_baja',
+        'motivo_baja',
         'estado',
         'id_usuario_validacion',
         'id_usuario_baja',

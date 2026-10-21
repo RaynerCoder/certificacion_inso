@@ -21,14 +21,20 @@ return Application::configure(basePath: dirname(__DIR__))
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // * Reconoce el protocolo HTTPS enviado por Cloudflare.
+        $middleware->trustProxies(at: '*');
+        
         // Impide que una sesion abierta siga navegando despues de inactivar la cuenta.
         $middleware->appendToGroup('web', VerificarUsuarioActivo::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\VerificarAccesoSistema::class);
 
         // Alias para proteger rutas con permisos guardados en la base de datos.
         $middleware->alias([
             'permiso' => VerificarPermiso::class,
         ]);
+
     })
+    
     ->withExceptions(function (Exceptions $exceptions) {
         // Una sesión o token vencido siempre debe volver al acceso, sin mostrar Page Expired.
         $exceptions->respond(function (Response $response) {

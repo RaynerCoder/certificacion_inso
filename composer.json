@@ -19,6 +19,7 @@
         "livewire/livewire": "^3.0",
         "nnjeim/world": "^1.1",
         "rappasoft/laravel-livewire-tables": "^3.7",
+        "socialiteproviders/openidconnect": "^1.0",
         "wireui/wireui": "^2.4"
     },
     "require-dev": {

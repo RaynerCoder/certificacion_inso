@@ -7,6 +7,7 @@ use App\Models\Persona;
 use App\Models\Seguimiento;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 
@@ -23,6 +24,13 @@ class SeguimientoTable extends DataTableComponent
     {
         $this->setPrimaryKey('id');
         $this->setTableName('seguimientos_' . $this->bandeja);
+
+        if ($this->bandeja === 'finalizados') {
+            $this->setAdditionalSelects([
+                'seguimientos.fecha_inicio as fecha_inicio',
+                'seguimientos.created_at as created_at',
+            ]);
+        }
 
         // En "Mis trámites" la solicitud recién enviada debe quedar al inicio de la lista.
         if ($this->bandeja === 'enviadas') {
@@ -103,11 +111,10 @@ class SeguimientoTable extends DataTableComponent
     private function columnasMisTramites(): array
     {
         return [
-            Column::make('Id', 'id')->sortable(),
             $this->columnaCodigoTramite(),
             $this->columnaTipoTramite(),
             $this->columnaBeneficiario(),
-            $this->columnaTramitador(),
+            $this->columnaTramitadorConRelacion(),
             $this->columnaFechaHora(),
             $this->columnaEstado(),
             $this->columnaAcciones(),
@@ -128,7 +135,7 @@ class SeguimientoTable extends DataTableComponent
             $this->columnaCodigoTramite(),
             $this->columnaTipoTramite(),
             $this->columnaBeneficiario(),
-            $this->columnaTramitador(),
+            $this->columnaTramitadorConRelacion(),
             $this->columnaUsuarioActualTramite(),
             $this->columnaFechaUsuarioActual(),
             $this->columnaEstado(),
@@ -141,10 +148,9 @@ class SeguimientoTable extends DataTableComponent
     {
         return [
             Column::make('Id', 'id')->sortable(),
-            $this->columnaCodigoTramite(),
             $this->columnaTipoTramite(),
             $this->columnaBeneficiario(),
-            $this->columnaTramitador(),
+            $this->columnaTramitadorConRelacion(),
             $this->columnaFechasTramite(),
             $this->columnaUltimoUsuario(),
             $this->columnaRequisitosCumplidos(),
@@ -179,7 +185,7 @@ class SeguimientoTable extends DataTableComponent
     private function columnaCodigoTramite(): Column
     {
         return Column::make('Código trámite', 'id_certificado')
-            ->format(fn ($valor) => $valor ? '#'.$valor : 'Sin ID')
+            ->format(fn ($valor) => $valor ? (string) $valor : 'Sin código')
             ->searchable(function (Builder $query, string $search) {
                 if (ctype_digit($search)) {
                     $query->orWhere('id_certificado', (int) $search);
@@ -219,7 +225,7 @@ class SeguimientoTable extends DataTableComponent
     // En la bandeja de atención también se aclara cómo representa a la empresa beneficiaria.
     private function columnaTramitadorConRelacion(): Column
     {
-        return Column::make('Tramitador', 'id_certificado')
+        return Column::make('Gestionado por', 'id_certificado')
             ->label(fn ($fila) => $this->htmlTramitadorConRelacion($fila))
             ->html()
             ->searchable(function (Builder $query, string $search) {
@@ -237,8 +243,20 @@ class SeguimientoTable extends DataTableComponent
 
     private function columnaFechaHora(): Column
     {
-        return Column::make('Fecha y hora', 'created_at')
-            ->format(fn ($valor) => $valor ? Carbon::parse($valor)->format('d/m/Y H:i') : 'Sin fecha')
+        return Column::make('Inicio del trámite', 'created_at')
+            ->format(function ($valor) {
+                if (! $valor) {
+                    return 'Sin fecha';
+                }
+
+                $inicio = Carbon::parse($valor);
+
+                return '<div style="white-space:nowrap;line-height:1.6;font-variant-numeric:tabular-nums">'
+                    . '<div><span style="color:#64748b">Hora:</span> <strong style="font-weight:600">' . $inicio->format('H:i') . '</strong></div>'
+                    . '<div><span style="color:#64748b">Fecha:</span> ' . $inicio->format('d/m/Y') . '</div>'
+                    . '</div>';
+            })
+            ->html()
             ->sortable();
     }
 
@@ -365,8 +383,15 @@ class SeguimientoTable extends DataTableComponent
             ->unique()
             ->values();
 
+        $soloIniciadosPorTramitador = $relacionesEmpresariales->isNotEmpty()
+            && $relacionesEmpresariales->every(fn ($relacion) => $relacion->rol?->slug === 'tramitador');
+
         return $query->whereHas('certificado', fn (Builder $certificado) => $certificado
-            ->whereIn('id_persona_beneficiario', $idsBeneficiarios));
+            ->whereIn('id_persona_beneficiario', $idsBeneficiarios)
+            ->when($soloIniciadosPorTramitador, fn (Builder $consulta) => $consulta
+                ->where(fn (Builder $propios) => $propios
+                    ->where('id_usuario_registro', $usuario->id)
+                    ->orWhereHas('seguimientos', fn (Builder $asignados) => $asignados->where('id_usuario_siguiente', $usuario->id)))));
     }
 
     // No muestra trámites de otros funcionarios, aunque el usuario conozca su código o URL.
@@ -413,10 +438,11 @@ class SeguimientoTable extends DataTableComponent
                     ->orWhereHas('seguimientos', fn (Builder $movimiento) => $movimiento->where('estado', 'FINALIZADO'));
             })
             ->orderByDesc(
-                Certificado::query()
-                    ->select('fecha_fin')
-                    ->whereColumn('certificados.id', 'seguimientos.id_certificado')
-                    ->limit(1)
+                DB::table('seguimientos as finalizados')
+                    ->selectRaw('MAX(finalizados.fecha_final)')
+                    ->whereColumn('finalizados.id_certificado', 'seguimientos.id_certificado')
+                    ->where('finalizados.estado', 'FINALIZADO')
+                    ->whereNull('finalizados.deleted_at')
             )
             ->latest('id');
     }
@@ -471,9 +497,23 @@ class SeguimientoTable extends DataTableComponent
         $fechaInicio = $seguimiento->fecha_inicio ?: $seguimiento->created_at;
         $fechaFinal = $this->ultimoMovimiento($seguimiento)?->fecha_final;
 
-        return '<div class="min-w-[140px] text-sm leading-5">'
-            . '<div><span class="font-black text-slate-700">Inicio:</span> ' . e($this->formatearFechaHora($fechaInicio)) . '</div>'
-            . '<div class="text-slate-500"><span class="font-black text-slate-600">Fin:</span> ' . e($this->formatearFechaHora($fechaFinal)) . '</div>'
+        $mostrarFecha = function ($fecha): string {
+            if (!$fecha) {
+                return '<span>Sin fecha</span>';
+            }
+
+            $fecha = Carbon::parse($fecha);
+
+            return '<span style="font-weight:700;font-variant-numeric:tabular-nums">' . e($fecha->format('H:i')) . '</span>'
+                . '<span aria-hidden="true" style="color:#94a3b8;text-align:center">|</span>'
+                . '<span style="font-variant-numeric:tabular-nums">' . e($fecha->format('d/m/Y')) . '</span>';
+        };
+
+        $estiloFila = 'display:grid;grid-template-columns:36px 35px 5px auto;column-gap:4px;align-items:center;white-space:nowrap';
+
+        return '<div style="display:inline-grid;row-gap:2px;font-size:13px;line-height:20px;color:#334155">'
+            . '<div style="' . $estiloFila . '"><span style="font-weight:600">Inicio:</span>' . $mostrarFecha($fechaInicio) . '</div>'
+            . '<div style="' . $estiloFila . '"><span style="font-weight:600">Fin:</span>' . $mostrarFecha($fechaFinal) . '</div>'
             . '</div>';
     }
 
@@ -483,7 +523,8 @@ class SeguimientoTable extends DataTableComponent
 
         return $this->htmlUsuarioFuncionario(
             $movimiento?->usuarioSiguiente ?: $movimiento?->usuarioOrigen,
-            'Sin usuario actual'
+            'Sin usuario actual',
+            $seguimiento
         );
     }
 
@@ -507,17 +548,19 @@ class SeguimientoTable extends DataTableComponent
 
     private function htmlTramitadorConRelacion(Seguimiento $seguimiento): string
     {
-        $tramitador = $seguimiento->certificado?->tramitador;
-        $nombre = $this->nombrePersona($tramitador, 'Sin tramitador');
-        $tipoRelacion = $this->tipoRelacionDelTramitador($seguimiento);
+        $gestor = $seguimiento->certificado
+            ? app(\App\Services\GestionTramitadoresService::class)->gestorActual($seguimiento->certificado)
+            : ['persona' => null, 'tipo' => 'Sin gestor externo autorizado'];
+        $nombre = $this->nombrePersona($gestor['persona'], 'Sin gestor asignado');
+        $tipoRelacion = $gestor['tipo'];
 
         return '<div class="min-w-[160px] leading-5">'
             . '<strong class="block whitespace-normal text-slate-800">' . e($nombre) . '</strong>'
-            . '<div class="text-xs font-semibold text-emerald-700">' . e($tipoRelacion) . '</div>'
+            . '<div class="text-xs font-semibold text-emerald-700"' . '>' . e($tipoRelacion) . '</div>'
             . '</div>';
     }
 
-    private function htmlUsuarioFuncionario($usuario, string $textoVacio): string
+    private function htmlUsuarioFuncionario($usuario, string $textoVacio, ?Seguimiento $contexto = null): string
     {
         if (!$usuario) {
             return '<span class="text-slate-500">' . e($textoVacio) . '</span>';
@@ -537,16 +580,45 @@ class SeguimientoTable extends DataTableComponent
 
             return '<div class="min-w-[160px]">'
                 . '<strong class="text-slate-800">' . e($nombreFuncionario ?: ($usuario->email ?: 'Sin funcionario')) . '</strong>'
-                . '<div class="text-xs font-semibold text-slate-500">' . e($cargo) . '</div>'
+                . '<div class="text-xs font-semibold text-slate-500"' . ($contexto ? ' style="color:#2563eb"' : '') . '>' . e($cargo) . '</div>'
                 . '</div>';
         }
 
         $nombrePersona = $this->nombrePersona($usuario->persona, $usuario->name ?: 'Sin usuario');
         $detalleUsuario = $usuario->roles?->pluck('name')->filter()->unique()->implode(', ') ?: 'Sin rol';
+        if ($contexto) {
+            $persona = $usuario->persona;
+            $empresa = $contexto->certificado?->beneficiario?->empresa;
+
+            if ($empresa && $persona?->natural) {
+                $relaciones = $empresa->responsables->filter(fn ($relacion) =>
+                    (int) $relacion->id_persona === (int) $persona->id
+                    && $this->estadoActivo($relacion->estado)
+                    && $this->estadoActivo($relacion->rol?->estado));
+
+                $detalleUsuario = match (true) {
+                    $relaciones->contains(fn ($relacion) => $relacion->rol?->slug === 'solicitante') => 'Representante legal',
+                    $relaciones->contains(fn ($relacion) => $relacion->rol?->slug === 'tramitador') => 'Tramitador',
+                    $empresa->responsables->contains(fn ($relacion) => (int) $relacion->id_persona === (int) $persona->id
+                        && (filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+                        && $relacion->rol?->slug === 'tramitador') => 'Ex-Tramitador',
+                    $empresa->responsables->contains(fn ($relacion) => (int) $relacion->id_persona === (int) $persona->id
+                        && (filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+                        && $relacion->rol?->slug === 'solicitante') => 'Ex-representante legal',
+                    default => 'Relación con la empresa no identificada',
+                };
+            } elseif ($persona?->natural) {
+                $detalleUsuario = (int) $persona->id === (int) $contexto->certificado?->id_persona_beneficiario
+                    ? 'Persona natural'
+                    : 'Tramitador de persona natural';
+            } elseif ($persona?->empresa) {
+                $detalleUsuario = 'Empresa';
+            }
+        }
 
         return '<div class="min-w-[160px]">'
             . '<strong class="text-slate-800">' . e($nombrePersona) . '</strong>'
-            . '<div class="text-xs font-semibold text-slate-500">' . e($detalleUsuario) . '</div>'
+            . '<div class="text-xs font-semibold text-slate-500"' . ($contexto ? ' style="color:#2563eb"' : '') . '>' . e($detalleUsuario) . '</div>'
             . '</div>';
     }
 
@@ -637,8 +709,14 @@ class SeguimientoTable extends DataTableComponent
         $empresaBeneficiaria = $certificado?->beneficiario?->empresa;
         $idTramitador = $certificado?->tramitador?->id;
 
+        if (!$idTramitador) {
+            return 'Sin tramitador asignado';
+        }
+
         if (! $empresaBeneficiaria) {
-            return 'Solicitante';
+            return (int) $idTramitador === (int) $certificado?->id_persona_beneficiario
+                ? 'Persona natural'
+                : 'Tramitador de persona natural';
         }
 
         $esRepresentanteLegal = $empresaBeneficiaria->responsables->contains(function ($responsable) use ($idTramitador) {
@@ -648,7 +726,25 @@ class SeguimientoTable extends DataTableComponent
                 && $this->estadoActivo($responsable->rol?->estado);
         });
 
-        return $esRepresentanteLegal ? 'Representante legal' : 'Tramitador';
+        if ($esRepresentanteLegal) {
+            return 'Representante legal';
+        }
+
+        $relaciones = $empresaBeneficiaria->responsables->where('id_persona', $idTramitador);
+        if ($relaciones->contains(fn ($relacion) => $this->estadoActivo($relacion->estado)
+            && $relacion->rol?->slug === 'tramitador')) {
+            return 'Tramitador';
+        }
+        if ($relaciones->contains(fn ($relacion) => (filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+            && $relacion->rol?->slug === 'tramitador')) {
+            return 'Ex-Tramitador';
+        }
+        if ($relaciones->contains(fn ($relacion) => (filled($relacion->fecha_baja) || (string) $relacion->estado === 'INACTIVO')
+            && $relacion->rol?->slug === 'solicitante')) {
+            return 'Ex-representante legal';
+        }
+
+        return 'Relación con la empresa no identificada';
     }
 
     private function buscarPersonaRelacionada(Builder $query, string $relacion, string $search): void

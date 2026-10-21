@@ -20,8 +20,8 @@ return new class extends Migration
             // URL o ruta de la etiqueta del producto.
             $table->text('url_etiqueta')->nullable();
 
-            // Cantidad y unidad comercial de la presentacion.
-            $table->decimal('cantidad', 10, 5)->nullable();
+            // Cantidad numérica de la presentación, con un máximo de dos decimales.
+            $table->decimal('cantidad', 10, 2)->nullable();
             $table->foreignId('id_catalogo_unidad')->nullable()->constrained('catalogos_medidas');
 
             // Descripcion adicional de la presentacion.

@@ -3797,16 +3797,46 @@
         .tramite-presentation {
             border: 1px solid #dbe4ee;
             border-radius: 8px;
+            display: grid;
+            grid-template-columns: minmax(330px, 0.8fr) minmax(480px, 1.2fr);
             overflow: hidden;
         }
 
         .tramite-presentation-summary {
-            align-items: start;
             background: #f8fafc;
+            border-right: 1px solid #dbe4ee;
+            padding: 12px;
+        }
+
+        .tramite-presentation-summary-content {
+            align-items: start;
             display: grid;
             gap: 14px;
             grid-template-columns: 78px minmax(0, 1fr);
-            padding: 12px;
+        }
+
+        .tramite-presentation-column-title {
+            align-items: center;
+            color: #0f5132;
+            display: flex;
+            font-size: 0.75rem;
+            font-weight: 850;
+            gap: 7px;
+            margin-bottom: 10px;
+        }
+
+        .tramite-presentation-column-title > span {
+            align-items: center;
+            background: #dcfce7;
+            border-radius: 999px;
+            color: #047857;
+            display: inline-flex;
+            font-size: 0.66rem;
+            justify-content: center;
+            margin-left: auto;
+            min-height: 22px;
+            min-width: 22px;
+            padding: 2px 7px;
         }
 
         .tramite-presentation-media {
@@ -3842,20 +3872,27 @@
         }
 
         .tramite-presentation-empty {
+            display: block;
             color: #64748b;
-            font-size: 1rem;
-            font-weight: 800;
+            font-size: 0.68rem;
+            font-weight: 750;
+            padding: 6px;
+            text-align: center;
         }
 
         .tramite-presentation-data {
             display: grid;
-            gap: 10px 22px;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            grid-template-columns: 1fr;
             margin: 0;
         }
 
         .tramite-presentation-data > div {
+            align-items: center;
             border-bottom: 1px solid #e2e8f0;
+            display: grid;
+            gap: 12px;
+            grid-template-columns: minmax(105px, 0.42fr) minmax(0, 1fr);
             min-width: 0;
             padding-bottom: 7px;
         }
@@ -3869,7 +3906,7 @@
             font-size: 0.67rem;
             font-weight: 850;
             letter-spacing: 0.03em;
-            margin-bottom: 3px;
+            margin: 0;
             text-transform: uppercase;
         }
 
@@ -3882,12 +3919,50 @@
         }
 
         .tramite-presentation-records {
-            border-top: 1px solid #dbe4ee;
-            padding: 0 10px 6px;
+            min-width: 0;
+            padding: 12px 10px 6px;
         }
 
         .tramite-presentation-records .tramite-table th {
             background: #ffffff;
+        }
+
+        .tramite-presentation-no-records {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 7px;
+            color: #64748b;
+            display: flex;
+            font-size: 0.75rem;
+            justify-content: center;
+            min-height: 76px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .tramite-presentation-unassigned {
+            align-items: center;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 7px;
+            color: #92400e;
+            display: flex;
+            font-size: 0.75rem;
+            font-weight: 700;
+            gap: 8px;
+            padding: 10px 12px;
+        }
+
+        @media (max-width: 1180px) {
+            .tramite-presentation {
+                grid-template-columns: 1fr;
+            }
+
+            .tramite-presentation-summary {
+                border-bottom: 1px solid #dbe4ee;
+                border-right: 0;
+            }
         }
 
         @media (max-width: 900px) {
@@ -3895,14 +3970,10 @@
             .tramite-product-section .tramite-definition.is-compact {
                 grid-template-columns: 1fr;
             }
-
-            .tramite-presentation-data {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
         }
 
         @media (max-width: 640px) {
-            .tramite-presentation-summary {
+            .tramite-presentation-summary-content {
                 grid-template-columns: 64px minmax(0, 1fr);
             }
 
@@ -3913,6 +3984,11 @@
 
             .tramite-presentation-data {
                 grid-template-columns: 1fr;
+            }
+
+            .tramite-presentation-data > div {
+                gap: 8px;
+                grid-template-columns: 92px minmax(0, 1fr);
             }
 
             .tramite-presentation-data > .is-wide {
@@ -4902,7 +4978,7 @@
             border: 1px solid #dbe4ee;
             border-radius: 8px 8px 0 0;
             display: block;
-            height: 255px;
+            height: clamp(440px, 64vh, 640px);
             object-fit: contain;
             width: 100%;
         }
@@ -5201,7 +5277,7 @@
 
             .review-evidence-preview iframe,
             .review-evidence-preview img {
-                height: 230px;
+                height: clamp(320px, 55vh, 440px);
             }
 
             .review-workbench-footer {
@@ -5399,7 +5475,12 @@
 
         /* En seguimiento se identifica el tipo y se conserva el acceso al último respaldo disponible. */
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly {
-            min-width: 1160px;
+            min-width: 760px;
+            table-layout: fixed;
+        }
+
+        [data-requirement-pdf-dialog]::backdrop {
+            background: rgb(15 23 42 / 60%);
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th {
@@ -5451,37 +5532,49 @@
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(1),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(1) {
             width: 48px;
+            padding-left: 8px;
+            padding-right: 8px;
+            white-space: nowrap;
+            word-break: normal;
+            overflow-wrap: normal;
+            font-variant-numeric: tabular-nums;
             text-align: center;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(2),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(2) {
-            width: 24%;
+            width: auto;
             text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(3),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(3) {
-            width: 175px;
+            width: 165px;
             text-align: left;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(4),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(4) {
-            width: 100px;
+            width: 80px;
             text-align: center;
+        }
+
+        .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(4) {
+            white-space: nowrap;
+            word-break: normal;
+            overflow-wrap: normal;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(5),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5) {
-            width: 140px;
+            width: 110px;
             text-align: center;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(6),
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6) {
-            width: 20%;
-            text-align: left;
+            width: 80px;
+            text-align: center;
         }
 
         .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly th:nth-child(7),
@@ -5707,11 +5800,11 @@
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(5)::before {
-                content: "Estado";
+                content: "Última evidencia";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(6)::before {
-                content: "Observación";
+                content: "Acción";
             }
 
             .tramite-detail-v2 .tramite-section-review .tramite-requirements-table.is-readonly td:nth-child(7)::before {

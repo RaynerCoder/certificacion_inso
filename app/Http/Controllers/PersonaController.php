@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -543,7 +544,9 @@ class PersonaController extends Controller
                 continue;
             }
 
-            $responsables[$indice]['url_respaldo'] = $this->guardarRespaldoResponsable($archivo);
+            $responsables[$indice]['url_respaldo'] = $this->guardarRespaldoResponsable(
+                $archivo, null, (int) ($responsables[$indice]['id_rol'] ?? $this->rolRepresentanteLegalActivo()->id)
+            );
         }
 
         $solicitud->merge([
@@ -897,11 +900,21 @@ class PersonaController extends Controller
                 $idPersonaResponsable = $personaResponsable->id;
             }
 
-            // Guarda el PDF del respaldo en una ruta unica dentro del disco public.
+            // Cada empresa conserva sus PDF separados por la función de la persona.
             $urlRespaldo = $responsable['url_respaldo'] ?? null;
 
             if (! empty($responsable['archivo_respaldo'])) {
-                $urlRespaldo = $this->guardarRespaldoResponsable($responsable['archivo_respaldo']);
+                $urlRespaldo = $this->guardarRespaldoResponsable(
+                    $responsable['archivo_respaldo'], $idEmpresa, (int) $responsable['id_rol']
+                );
+            } elseif ($urlRespaldo && str_starts_with($urlRespaldo, 'empresas-tramitadores/pendientes/')) {
+                $destino = \App\Support\DirectorioRespaldoEmpresa::paraRol($idEmpresa, (int) $responsable['id_rol'])
+                    . '/' . basename($urlRespaldo);
+                if (! Storage::disk('public')->copy($urlRespaldo, $destino)) {
+                    throw new \RuntimeException('No se pudo organizar el PDF de respaldo de la empresa.');
+                }
+                $urlRespaldo = $destino;
+                $this->publicarRespaldoResponsable($urlRespaldo);
             }
 
             // La relacion existente se reutiliza para conservar su historial y evitar duplicados.
@@ -994,17 +1007,27 @@ class PersonaController extends Controller
             ->find($responsable['id_persona']);
     }
 
-    // Guarda el respaldo del responsable como documentos/responsables/nombre_unico.pdf.
-    private function guardarRespaldoResponsable($archivo): string
+    // Conserva temporalmente los PDF si la empresa aún no fue registrada.
+    private function guardarRespaldoResponsable($archivo, ?int $idEmpresa = null, ?int $idRol = null): string
     {
         $nombreArchivo = now()->format('YmdHis').'_'.uniqid().'.pdf';
 
-        $ruta = $archivo->storeAs('documentos/responsables', $nombreArchivo, 'public');
+        $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
+            $idEmpresa, $idRol ?? $this->rolRepresentanteLegalActivo()->id
+        );
+        $ruta = $archivo->storeAs($directorio, $nombreArchivo, 'public');
 
         if (! $ruta) {
             throw new \RuntimeException('No se pudo guardar el PDF de respaldo en storage/app/public.');
         }
 
+        $this->publicarRespaldoResponsable($ruta);
+
+        return $ruta;
+    }
+
+    private function publicarRespaldoResponsable(string $ruta): void
+    {
         // Si el servidor no tiene enlace public/storage, publicamos una copia para que el PDF se pueda visualizar.
         $rutaStorage = storage_path('app/public/'.$ruta);
         $rutaPublica = public_path('storage/'.$ruta);
@@ -1017,7 +1040,6 @@ class PersonaController extends Controller
             }
         }
 
-        return $ruta;
     }
 
     // FUNCION PARA CONVERTIR TEXTO A MAYUSCULAS
@@ -1449,7 +1471,16 @@ class PersonaController extends Controller
      */
     private function guardarCuentaAcceso(User $usuario, array $datos, bool $activa): array
     {
-        $usuario->name = $datos['form_usuario_name'];
+        $identidad = $datos['form_tipo_registro'] === 'EMPRESA'
+            ? ($datos['responsables'][0] ?? [])
+            : ['nombres' => $datos['form_nombres'] ?? null, 'apellido_paterno' => $datos['form_apellido_paterno'] ?? null];
+        $naturalExistente = !empty($identidad['id_persona'])
+            ? Natural::where('id_persona', $identidad['id_persona'])->first()
+            : null;
+        $usuario->name = \App\Support\NombreUsuarioPersona::generar(
+            $naturalExistente?->nombres ?? $identidad['nombres'] ?? null,
+            $naturalExistente?->apellido_paterno ?? $identidad['apellido_paterno'] ?? null
+        );
         $usuario->email = $datos['form_usuario_email'];
         $usuario->estado = $activa ? 1 : 0;
         $passwordGenerada = null;

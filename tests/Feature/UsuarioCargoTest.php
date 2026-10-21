@@ -128,7 +128,7 @@ class UsuarioCargoTest extends TestCase
             'form_funcionario_nombres' => 'Nombre',
             'form_funcionario_apellido_paterno' => 'Apellido',
             'form_funcionario_apellido_materno' => null,
-            'form_funcionario_carnet' => 'CI-PRUEBAS-001',
+            'form_funcionario_ci' => 'CI-PRUEBAS-001',
             'form_funcionario_telefono' => null,
             'form_funcionario_genero' => '1',
             'form_cargos' => [],

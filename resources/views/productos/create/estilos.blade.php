@@ -1584,6 +1584,90 @@
         font-weight: 800;
     }
 
+    .producto-review-register-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .producto-review-register-item {
+        background: #ffffff;
+        border: 1px solid #dbe3ec;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .producto-review-register-item-head {
+        align-items: center;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        padding: 9px 11px;
+    }
+
+    .producto-review-register-title {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .producto-review-register-title>span {
+        align-items: center;
+        background: #eff6ff;
+        border-radius: 7px;
+        color: #2563eb;
+        display: inline-flex;
+        flex: 0 0 auto;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+    }
+
+    .producto-review-register-title h6 {
+        color: #0f172a;
+        font-size: 11px;
+        font-weight: 900;
+        margin: 0;
+    }
+
+    .producto-review-register-data {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: 0;
+    }
+
+    .producto-review-register-data>div {
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        min-width: 0;
+        padding: 9px 11px;
+    }
+
+    .producto-review-register-data>div:nth-child(3n) {
+        border-right: 0;
+    }
+
+    .producto-review-register-data>div:nth-child(n + 4) {
+        border-bottom: 0;
+    }
+
+    .producto-review-register-data>div:last-child {
+        border-right: 0;
+    }
+
+    .producto-review-register-data dt {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 700;
+    }
+
+    .producto-review-register-data dd {
+        color: #0f172a;
+        font-size: 10px;
+        font-weight: 900;
+        margin: 3px 0 0;
+        overflow-wrap: anywhere;
+    }
+
     .producto-review-registers .producto-review-table-block {
         margin: 8px 0 0;
     }
@@ -2558,6 +2642,27 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .producto-review-register-data {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .producto-review-register-data>div,
+        .producto-review-register-data>div:nth-child(3n),
+        .producto-review-register-data>div:nth-child(n + 4) {
+            border-bottom: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .producto-review-register-data>div:nth-child(2n) {
+            border-right: 0;
+        }
+
+        .producto-review-register-data>div:last-child {
+            border-bottom: 0;
+            border-right: 0;
+            grid-column: 1 / -1;
+        }
+
     }
 
     @media (max-width: 640px) {
@@ -2581,6 +2686,22 @@
 
         .producto-review-presentation-data {
             grid-template-columns: 1fr;
+        }
+
+        .producto-review-register-data {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-review-register-data>div,
+        .producto-review-register-data>div:nth-child(2n),
+        .producto-review-register-data>div:nth-child(3n),
+        .producto-review-register-data>div:nth-child(n + 4) {
+            border-bottom: 1px solid #e2e8f0;
+            border-right: 0;
+        }
+
+        .producto-review-register-data>div:last-child {
+            border-bottom: 0;
         }
 
         .producto-action-bar,

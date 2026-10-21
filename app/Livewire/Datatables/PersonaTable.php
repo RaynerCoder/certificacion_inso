@@ -16,6 +16,10 @@ class PersonaTable extends DataTableComponent
         $this->setPrimaryKey('id');
         // Orden principal de la tabla: muestra primero las personas/empresas registradas recientemente.
         $this->setDefaultSort('id', 'desc');
+        $this->setTdAttributes(fn (Column $columna) => [
+            'default' => true,
+            'data-label' => $columna->getTitle(),
+        ]);
     }
 
     public function builder(): Builder
@@ -27,6 +31,7 @@ class PersonaTable extends DataTableComponent
                 'empresa.persona',
                 'empresa.tipoEmpresa',
                 'empresa.representanteLegalActivo.persona.natural',
+                'responsabilidadesEmpresariales.rol',
             ])
             // La persona natural que representa legalmente a una empresa se muestra dentro de esa empresa.
             ->where(function (Builder $consulta) {
@@ -49,22 +54,9 @@ class PersonaTable extends DataTableComponent
             Column::make("ID", "id")
                 ->sortable(),
 
-            Column::make("Tipo")
-                ->label(function ($fila) {
-                    return $fila->empresa ? 'Empresa' : 'Persona Natural';
-                }),
-
             Column::make("Empresa / persona")
                 ->label(function ($fila) {
-                    if ($fila->empresa) {
-                        return $fila->empresa->razon_social ?: '-';
-                    }
-
-                    return trim(implode(' ', array_filter([
-                        $fila->natural?->nombres,
-                        $fila->natural?->apellido_paterno,
-                        $fila->natural?->apellido_materno,
-                    ]))) ?: '-';
+                    return view('personas.nombre-tipo-tabla', ['persona' => $fila]);
                 })
                 ->searchable(function (Builder $query, string $search) {
                     // Permite buscar empresas por razon social.

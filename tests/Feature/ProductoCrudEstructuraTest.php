@@ -65,7 +65,7 @@ class ProductoCrudEstructuraTest extends TestCase
     {
         $request = Request::create('/productos', 'POST', [
             'presentaciones' => [[
-                'cantidad' => '0,1',
+                'cantidad' => '0,25',
             ]],
             'registros' => [[
                 'cantidad' => '12,75',
@@ -83,12 +83,12 @@ class ProductoCrudEstructuraTest extends TestCase
                 'cantidad_registro' => $cantidadRegistro,
             ],
             [
-                'cantidad' => ['required', 'numeric', 'decimal:0,5', 'gt:0'],
-                'cantidad_registro' => ['required', 'numeric', 'decimal:0,5', 'gt:0'],
+                'cantidad' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+                'cantidad_registro' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
             ]
         );
 
-        $this->assertSame('0.1', $cantidad);
+        $this->assertSame('0.25', $cantidad);
         $this->assertSame('12.75', $cantidadRegistro);
         $this->assertTrue($validador->passes());
     }
@@ -186,5 +186,25 @@ class ProductoCrudEstructuraTest extends TestCase
 
         $this->assertSame(200, $respuesta->getStatusCode());
         $this->assertStringContainsString('image/jpeg', (string) $respuesta->headers->get('content-type'));
+    }
+
+    public function test_el_detalle_del_tramite_lee_las_presentaciones_actuales_del_producto(): void
+    {
+        $vista = file_get_contents(resource_path('views/certificados/detalle_tramite/productos.blade.php'));
+
+        $this->assertStringContainsString('$producto?->presentaciones ?? collect()', $vista);
+        $this->assertStringContainsString('$producto?->registros ?? collect()', $vista);
+        $this->assertStringContainsString("route('productos_presentaciones_etiqueta', \$presentacion)", $vista);
+        $this->assertStringContainsString('Presentación {{ $loop->iteration }}', $vista);
+        $this->assertStringContainsString('Registros asociados', $vista);
+    }
+
+    public function test_el_tramite_no_permite_vincular_manualmente_un_registro_existente(): void
+    {
+        $vista = file_get_contents(resource_path('views/certificados/detalle_tramite/productos.blade.php'));
+
+        $this->assertNull(app('router')->getRoutes()->getByName('certificados_registros_existentes_vincular'));
+        $this->assertStringNotContainsString('Vincular registro existente', $vista);
+        $this->assertStringNotContainsString('Vincular al trámite', $vista);
     }
 }

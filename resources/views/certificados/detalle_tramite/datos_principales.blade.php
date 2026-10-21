@@ -19,28 +19,28 @@
 
 {{-- Datos de la persona que realiza el trámite. --}}
 <article class="tramite-detail-panel tramite-panel-tramitador">
-    <h3 class="tramite-detail-title"><i class="fa-regular fa-user"></i>Tramitador</h3>
+    <h3 class="tramite-detail-title"><i class="fa-regular fa-user"></i>Gestionado por</h3>
     <dl class="tramite-definition is-compact">
         
-        <div class="tramite-definition-row"><dt>Tramitador</dt>
-            <dd><span class="block">{{ $nombrePersona($certificado->tramitador) }}</span>
-            <span class="tramite-summary-role">{{ $tipoRelacionTramitadorActual }}</span></dd>
+        <div class="tramite-definition-row"><dt>Gestor actual</dt>
+            <dd><span class="block">{{ $nombrePersona($personaGestoraActual) }}</span>
+            <span class="tramite-summary-role">{{ $tipoGestorActual }}</span></dd>
         </div>
 
         <div class="tramite-definition-row"><dt>CI / NIT</dt>
-            <dd>{{ $identificacionPersona($certificado->tramitador) }}</dd>
+            <dd>{{ $identificacionPersona($personaGestoraActual) }}</dd>
         </div>
         
         <div class="tramite-definition-row"><dt>Correo electronico</dt>
-            <dd>{{ $certificado->tramitador?->correo ?? 'Sin correo' }}</dd>
+            <dd>{{ $personaGestoraActual?->correo ?? 'Sin correo' }}</dd>
         </div>
 
         <div class="tramite-definition-row"><dt>Telefono</dt>
-            <dd>{{ $telefonoPersona($certificado->tramitador) }}</dd>
+            <dd>{{ $telefonoPersona($personaGestoraActual) }}</dd>
         </div>
 
         <div class="tramite-definition-row"><dt>Territorio</dt>
-            <dd>{{ $certificado->tramitador?->territorio?->nombre ?? 'Sin territorio' }}</dd>
+            <dd>{{ $personaGestoraActual?->territorio?->nombre ?? 'Sin territorio' }}</dd>
         </div>
     </dl>
 </article>
@@ -58,9 +58,6 @@
             <dd>{{ $certificado->codigo ?: 'Auto-generado al enviar' }}</dd>
         </div>
         
-        <div class="tramite-definition-row"><dt>Area que recibe</dt>
-            <dd>{{ $seguimientoActualDetalle?->usuarioSiguiente?->funcionario?->cargos?->pluck('area.nombre')->filter()->implode(', ') ?: 'Sin area asignada' }}</dd>
-        </div>
         
         <div class="tramite-definition-row"><dt>Registrado inicialmente por</dt>
             <dd class="tramite-user-stack">
