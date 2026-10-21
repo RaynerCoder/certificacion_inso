@@ -1063,6 +1063,8 @@ class CertificadoController extends Controller
         return [
             'Certificado y trámite' => [
                 ['codigo' => 'certificado.codigo', 'nombre' => 'Código del certificado'],
+                ['codigo' => 'emision.numero_certificado', 'nombre' => 'Número del documento emitido'],
+                ['codigo' => 'emision.fecha', 'nombre' => 'Fecha de emisión'],
                 ['codigo' => 'certificado.fecha_inicio', 'nombre' => 'Fecha de inicio'],
                 ['codigo' => 'certificado.fecha_fin', 'nombre' => 'Fecha final'],
                 ['codigo' => 'certificado.descripcion', 'nombre' => 'Descripción del trámite'],
@@ -1084,6 +1086,8 @@ class CertificadoController extends Controller
                 ['codigo' => 'empresa.razon_social', 'nombre' => 'Razón social'],
                 ['codigo' => 'empresa.matricula', 'nombre' => 'Matrícula de comercio'],
                 ['codigo' => 'empresa.tipo_empresa', 'nombre' => 'Tipo de empresa'],
+                ['codigo' => 'empresa.representante_legal_nombre', 'nombre' => 'Representante legal'],
+                ['codigo' => 'empresa.representante_legal_documento', 'nombre' => 'CI del representante legal'],
                 ['codigo' => 'natural.nombres', 'nombre' => 'Nombres'],
                 ['codigo' => 'natural.apellido_paterno', 'nombre' => 'Apellido paterno'],
                 ['codigo' => 'natural.apellido_materno', 'nombre' => 'Apellido materno'],
@@ -1097,6 +1101,18 @@ class CertificadoController extends Controller
                 ['codigo' => 'tramitador.rol', 'nombre' => 'Rol en la empresa'],
                 ['codigo' => 'tramitador.respaldo', 'nombre' => 'Respaldo registrado'],
             ],
+            'Importador del producto' => [
+                ['codigo' => 'importador.nombre', 'nombre' => 'Nombre o razón social del importador'],
+                ['codigo' => 'importador.documento', 'nombre' => 'CI o NIT del importador'],
+                ['codigo' => 'importador.tipo_persona', 'nombre' => 'Tipo de persona del importador'],
+                ['codigo' => 'importador.domicilio', 'nombre' => 'Domicilio del importador'],
+                ['codigo' => 'importador.territorio', 'nombre' => 'Territorio del importador'],
+                ['codigo' => 'importador.ubicacion', 'nombre' => 'Territorio y domicilio del importador'],
+                ['codigo' => 'importador.correo', 'nombre' => 'Correo del importador'],
+                ['codigo' => 'importador.telefono', 'nombre' => 'Teléfono del importador'],
+                ['codigo' => 'importador.representante_legal_nombre', 'nombre' => 'Representante legal del importador'],
+                ['codigo' => 'importador.representante_legal_documento', 'nombre' => 'CI del representante legal del importador'],
+            ],
             'Productos' => [
                 ['codigo' => 'producto.tabla', 'nombre' => 'Tabla de productos y registros'],
                 ['codigo' => 'producto.nombres_comerciales', 'nombre' => 'Productos separados por coma'],
@@ -1109,16 +1125,27 @@ class CertificadoController extends Controller
                 ['codigo' => 'producto.codigo', 'nombre' => 'Código del primer producto'],
                 ['codigo' => 'producto.nombre_comercial', 'nombre' => 'Nombre comercial del primer producto'],
                 ['codigo' => 'producto.nombre_tecnico', 'nombre' => 'Nombre técnico del primer producto'],
+                ['codigo' => 'producto.tipo_producto', 'nombre' => 'Tipo del primer producto'],
+                ['codigo' => 'producto.pais_origen', 'nombre' => 'País de origen del primer producto'],
                 ['codigo' => 'producto.clasificacion_quimica', 'nombre' => 'Clasificación química del primer producto'],
+                ['codigo' => 'producto.clasificacion_quimica_descripcion', 'nombre' => 'Descripción de la clasificación química'],
                 ['codigo' => 'fabricante.nombre', 'nombre' => 'Fabricante del primer producto'],
+                ['codigo' => 'fabricante.razon_social', 'nombre' => 'Razón social del fabricante'],
+                ['codigo' => 'fabricante.descripcion', 'nombre' => 'Descripción del fabricante'],
                 ['codigo' => 'clasificacion_toxicologica.codigo', 'nombre' => 'Clasificación toxicológica del primer producto'],
+                ['codigo' => 'clasificacion_toxicologica.descripcion', 'nombre' => 'Descripción toxicológica'],
+                ['codigo' => 'clasificacion_toxicologica.completa', 'nombre' => 'Clasificación toxicológica completa'],
                 ['codigo' => 'producto.estado', 'nombre' => 'Estado del primer producto'],
             ],
             'Registros y presentaciones' => [
                 ['codigo' => 'registro.codigos', 'nombre' => 'Registros separados por coma'],
                 ['codigo' => 'registro.lotes', 'nombre' => 'Números de lote separados por coma'],
                 ['codigo' => 'registro.fechas_vigencia', 'nombre' => 'Vigencias separadas por coma'],
+                ['codigo' => 'registro.cantidades', 'nombre' => 'Cantidades registradas separadas por coma'],
+                ['codigo' => 'registro.unidades', 'nombre' => 'Unidades registradas separadas por coma'],
                 ['codigo' => 'presentacion.descripciones', 'nombre' => 'Presentaciones separadas por coma'],
+                ['codigo' => 'presentacion.lista', 'nombre' => 'Presentaciones con cantidad y unidad'],
+                ['codigo' => 'presentacion.cantidades', 'nombre' => 'Cantidades de presentación separadas por coma'],
                 ['codigo' => 'presentacion.unidades', 'nombre' => 'Unidades de presentación separadas por coma'],
                 ['codigo' => 'registro.codigo', 'nombre' => 'Código del primer registro'],
                 ['codigo' => 'registro.numero_lote', 'nombre' => 'Número de lote del primer registro'],
@@ -1127,6 +1154,7 @@ class CertificadoController extends Controller
                 ['codigo' => 'registro.unidad', 'nombre' => 'Unidad registrada'],
                 ['codigo' => 'registro.estado', 'nombre' => 'Estado del registro'],
                 ['codigo' => 'presentacion.descripcion', 'nombre' => 'Presentación'],
+                ['codigo' => 'presentacion.tipo_envase', 'nombre' => 'Tipo de envase'],
                 ['codigo' => 'presentacion.cantidad', 'nombre' => 'Cantidad de presentación'],
                 ['codigo' => 'presentacion.unidad', 'nombre' => 'Unidad de presentación'],
                 ['codigo' => 'presentacion.url_etiqueta', 'nombre' => 'Etiqueta'],
@@ -1135,9 +1163,14 @@ class CertificadoController extends Controller
             'Ingredientes' => [
                 ['codigo' => 'ingrediente.tabla', 'nombre' => 'Tabla de ingredientes'],
                 ['codigo' => 'ingrediente.nombre', 'nombre' => 'Ingrediente'],
+                ['codigo' => 'ingrediente.nombres', 'nombre' => 'Ingredientes separados por coma'],
                 ['codigo' => 'ingrediente.composicion', 'nombre' => 'Composición'],
+                ['codigo' => 'ingrediente.composiciones', 'nombre' => 'Composiciones separadas por coma'],
                 ['codigo' => 'ingrediente.riesgo_salud', 'nombre' => 'Riesgo para la salud'],
+                ['codigo' => 'ingrediente.riesgos_salud', 'nombre' => 'Riesgos para la salud separados por coma'],
                 ['codigo' => 'ingrediente.porcentaje', 'nombre' => 'Porcentaje en el producto'],
+                ['codigo' => 'ingrediente.porcentajes', 'nombre' => 'Porcentajes separados por coma'],
+                ['codigo' => 'ingrediente.resumen', 'nombre' => 'Ingredientes con sus porcentajes'],
             ],
             'Pago' => [
                 ['codigo' => 'pago.resumen', 'nombre' => 'Resumen de pago'],
@@ -1186,6 +1219,8 @@ class CertificadoController extends Controller
                 ['codigo' => 'funcionario.director_cargo', 'nombre' => 'Cargo del director'],
                 ['codigo' => 'funcionario.responsable_area_nombre', 'nombre' => 'Nombre para firma del área'],
                 ['codigo' => 'funcionario.responsable_area_cargo', 'nombre' => 'Cargo para firma del área'],
+                ['codigo' => 'funcionario.emisor_nombre', 'nombre' => 'Funcionario que emitió el certificado'],
+                ['codigo' => 'funcionario.emisor_cargo', 'nombre' => 'Cargo del funcionario emisor'],
             ],
             'Firmas y QR' => [
                 ['codigo' => 'firma.director', 'nombre' => 'Firma director'],
@@ -1948,6 +1983,7 @@ class CertificadoController extends Controller
             'tipoCertificado.area',
             'beneficiario.natural.ocupacionCob',
             'beneficiario.empresa.tipoEmpresa',
+            'beneficiario.empresa.representanteLegalActivo.persona.natural',
             'beneficiario.territorio',
             'beneficiario.usuario',
             'beneficiario.telefonos',
@@ -1956,6 +1992,7 @@ class CertificadoController extends Controller
             'tramitador.territorio',
             'tramitador.usuario',
             'tramitador.telefonos',
+            'tramitador.responsabilidadesEmpresariales.rol',
             'certificadoRequisitos.requisito',
             'certificadoRequisitos.evidenciasRequisitos.tipoEvidencia',
             'certificadoRequisitos.revisionesRequisitos.usuarioRevisor.funcionario.cargos',
@@ -1963,16 +2000,31 @@ class CertificadoController extends Controller
             'registros.producto.clasificacionToxicologica',
             'registros.producto.fabricante',
             'registros.producto.clasificacionQuimica',
+            'registros.producto.territorio',
+            'registros.producto.ingredientesProductos.ingrediente',
+            'registros.producto.importadorPersona.natural',
+            'registros.producto.importadorPersona.empresa.tipoEmpresa',
+            'registros.producto.importadorPersona.empresa.representanteLegalActivo.persona.natural',
+            'registros.producto.importadorPersona.territorio',
+            'registros.producto.importadorPersona.telefonos',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
             'certificadosRegistros.registro.producto.clasificacionToxicologica',
             'certificadosRegistros.registro.producto.fabricante',
             'certificadosRegistros.registro.producto.clasificacionQuimica',
+            'certificadosRegistros.registro.producto.territorio',
+            'certificadosRegistros.registro.producto.ingredientesProductos.ingrediente',
+            'certificadosRegistros.registro.producto.importadorPersona.natural',
+            'certificadosRegistros.registro.producto.importadorPersona.empresa.tipoEmpresa',
+            'certificadosRegistros.registro.producto.importadorPersona.empresa.representanteLegalActivo.persona.natural',
+            'certificadosRegistros.registro.producto.importadorPersona.territorio',
+            'certificadosRegistros.registro.producto.importadorPersona.telefonos',
             'certificadosRegistros.registro.presentacion.catalogoUnidad',
             'certificadosRegistros.registro.catalogoUnidad',
             'certificadosRegistros.emision',
             'emisiones.certificadoRegistro.registro.producto',
             'pagos.procedencia',
+            'pagos.funcionarioUsuario.funcionario.cargos',
             'seguimientos.usuarioOrigen.funcionario.cargos',
             'seguimientos.usuarioSiguiente.funcionario.cargos',
         ];
@@ -2012,18 +2064,90 @@ class CertificadoController extends Controller
         $primerPago = $certificado->pagos->first();
         $ultimoSeguimiento = $certificado->seguimientos->sortByDesc('id')->first();
 
-        $productos = $registros->map(fn ($registro) => $registro->producto)->filter();
-        $presentaciones = $registros->map(fn ($registro) => $registro->presentacion)->filter();
+        $productos = $registros->map(fn ($registro) => $registro->producto)->filter()->unique('id')->values();
+        $presentaciones = $registros->map(fn ($registro) => $registro->presentacion)->filter()->unique('id')->values();
+        $primerProducto = $productos->first();
+        $importadorProducto = $primerProducto?->importadorPersona;
+        $empresaImportadora = $importadorProducto?->empresa;
+        $representanteImportador = $empresaImportadora?->representanteLegalActivo?->persona;
+        $ubicacionImportador = collect([
+            $importadorProducto?->territorio?->nombre,
+            $importadorProducto?->domicilio,
+        ])->filter()->implode(', ');
+        $empresaBeneficiaria = $beneficiario?->empresa;
+        $representanteLegal = $empresaBeneficiaria?->representanteLegalActivo;
+        $personaRepresentanteLegal = $representanteLegal?->persona;
+        $relacionTramitador = collect($tramitador?->responsabilidadesEmpresariales ?? [])
+            ->filter(fn ($responsabilidad) => ! $empresaBeneficiaria
+                || (int) $responsabilidad->id_empresa === (int) $empresaBeneficiaria->id)
+            ->filter(fn ($responsabilidad) => in_array(strtoupper((string) $responsabilidad->estado), ['1', 'ACTIVO'], true))
+            ->sortByDesc('id')
+            ->first();
+        $ingredientesProducto = collect($primerProducto?->ingredientesProductos ?? [])
+            ->filter(fn ($relacion) => in_array(strtoupper((string) $relacion->estado), ['1', 'ACTIVO'], true))
+            ->filter(fn ($relacion) => $relacion->ingrediente)
+            ->values();
+        $primerIngredienteProducto = $ingredientesProducto->first();
+        $primerRequisito = $certificado->certificadoRequisitos->sortBy('orden')->first();
+        $primeraEvidencia = $primerRequisito?->evidenciasRequisitos?->first();
         $ultimaRevision = $certificado->certificadoRequisitos
             ->flatMap(fn ($requisito) => $requisito->revisionesRequisitos)
             ->sortByDesc('id')
             ->first();
+        $ultimaObservacion = $ultimaRevision?->observacionesRequisitos?->sortByDesc('id')->first();
         $usuarioRevisor = $ultimaRevision?->usuarioRevisor;
         $usuarioDestino = $ultimoSeguimiento?->usuarioSiguiente;
         $usuarioOrigen = $ultimoSeguimiento?->usuarioOrigen;
         $usuarioValidadorPago = $primerPago?->funcionarioUsuario;
         $usuarioFirmaArea = $usuarioDestino ?: $usuarioRevisor ?: $usuarioOrigen;
         $usuarioDirector = $this->usuarioDirectorPlantilla();
+        $usuarioEmisor = $emision?->id_usuario_registro
+            ? User::withTrashed()->with('funcionario.cargos')->find($emision->id_usuario_registro)
+            : auth()->user();
+        $presentacionesCompletas = $presentaciones->map(function ($presentacion) {
+            $tipo = trim((string) $presentacion->tipo_envase);
+            $cantidad = $this->formatearDecimalPlantilla($presentacion->cantidad);
+            $unidad = $this->textoCatalogoUnidad($presentacion->catalogoUnidad);
+
+            return trim(implode(' ', array_filter([
+                $tipo !== '' ? $tipo : 'Presentación',
+                $cantidad !== '-' ? 'de '.$cantidad : null,
+                $unidad !== 'Sin unidad' ? $unidad : null,
+            ])));
+        });
+        $ingredientesConPorcentaje = $ingredientesProducto->map(function ($relacion) {
+            $nombre = trim((string) $relacion->ingrediente?->nombre);
+            $porcentaje = $this->formatearDecimalPlantilla($relacion->porcentaje);
+
+            return trim($nombre.($porcentaje !== '-' ? ' '.$porcentaje.'%' : ''));
+        });
+        $resumenProductos = $registros->map(function ($registro) {
+            $producto = $registro->producto;
+            $presentacion = $registro->presentacion;
+
+            return collect([
+                $producto?->codigo,
+                $producto?->nombre_comercial,
+                $registro->codigo_autorizacion,
+                $presentacion ? $this->formatearDecimalPlantilla($presentacion->cantidad).' '.$this->textoCatalogoUnidad($presentacion->catalogoUnidad) : null,
+            ])->filter()->implode(' | ');
+        });
+        $resumenRequisitos = $certificado->certificadoRequisitos->map(function ($requisito) {
+            $revision = $requisito->revisionesRequisitos->sortByDesc('id')->first();
+
+            return collect([
+                $requisito->requisito?->descripcion,
+                $requisito->cumple,
+                $revision?->estado,
+            ])->filter()->implode(' | ');
+        });
+        $resumenSeguimientos = $certificado->seguimientos->sortBy('id')->map(function ($seguimiento) {
+            return collect([
+                $seguimiento->fecha_inicio?->format('d/m/Y H:i'),
+                $seguimiento->referencia,
+                $seguimiento->estado,
+            ])->filter()->implode(' | ');
+        });
         $resumenCalificaciones = $certificado->resumenEvaluacionCalificaciones();
         $resultadoEvaluacion = match ($resumenCalificaciones['resultado']) {
             'APROBADO' => 'APROBADO',
@@ -2055,13 +2179,41 @@ class CertificadoController extends Controller
             'beneficiario.telefono' => $beneficiario?->telefonos?->first()?->numero ?: 'Sin teléfono',
             'beneficiario.territorio' => $beneficiario?->territorio?->nombre ?: 'Sin territorio',
             'beneficiario.tipo_persona' => $beneficiario?->empresa ? 'Empresa' : 'Persona natural',
+            'empresa.razon_social' => $empresaBeneficiaria?->razon_social ?: 'Sin razón social',
+            'empresa.matricula' => $empresaBeneficiaria?->matricula ?: 'Sin matrícula',
+            'empresa.tipo_empresa' => $empresaBeneficiaria?->tipoEmpresa?->descripcion ?: 'Sin tipo de empresa',
+            'empresa.representante_legal_nombre' => $personaRepresentanteLegal
+                ? $this->nombrePersona($personaRepresentanteLegal)
+                : 'Sin representante legal',
+            'empresa.representante_legal_documento' => $this->documentoPersona($personaRepresentanteLegal),
+            'natural.nombres' => $beneficiario?->natural?->nombres ?: 'Sin nombres',
+            'natural.apellido_paterno' => $beneficiario?->natural?->apellido_paterno ?: 'Sin apellido paterno',
+            'natural.apellido_materno' => $beneficiario?->natural?->apellido_materno ?: 'Sin apellido materno',
             'natural.ocupacion' => $beneficiario?->natural?->ocupacionCob?->descripcion_ocupacion ?: 'Sin ocupación',
 
             'tramitador.nombre' => $tramitador ? $this->nombrePersona($tramitador) : 'Sin tramitador',
             'tramitador.documento' => $this->documentoPersona($tramitador),
             'tramitador.correo' => $tramitador?->correo ?: 'Sin correo',
             'tramitador.telefono' => $tramitador?->telefonos?->first()?->numero ?: 'Sin teléfono',
+            'tramitador.rol' => $relacionTramitador?->rol?->name ?: 'Sin rol empresarial',
+            'tramitador.respaldo' => $relacionTramitador?->url_respaldo ?: 'Sin respaldo',
 
+            'importador.nombre' => $importadorProducto
+                ? $this->nombrePersona($importadorProducto)
+                : 'Sin importador',
+            'importador.documento' => $this->documentoPersona($importadorProducto),
+            'importador.tipo_persona' => $empresaImportadora ? 'Empresa' : ($importadorProducto ? 'Persona natural' : 'Sin importador'),
+            'importador.domicilio' => $importadorProducto?->domicilio ?: 'Sin domicilio',
+            'importador.territorio' => $importadorProducto?->territorio?->nombre ?: 'Sin territorio',
+            'importador.ubicacion' => $ubicacionImportador !== '' ? $ubicacionImportador : 'Sin ubicación',
+            'importador.correo' => $importadorProducto?->correo ?: 'Sin correo',
+            'importador.telefono' => $importadorProducto?->telefonos?->first()?->numero ?: 'Sin teléfono',
+            'importador.representante_legal_nombre' => $representanteImportador
+                ? $this->nombrePersona($representanteImportador)
+                : 'Sin representante legal',
+            'importador.representante_legal_documento' => $this->documentoPersona($representanteImportador),
+
+            'producto.tabla' => $resumenProductos->filter()->implode("\n") ?: 'Sin productos',
             'producto.nombres_comerciales' => $this->unirValoresPlantilla($productos->pluck('nombre_comercial')),
             'producto.codigos' => $this->unirValoresPlantilla($productos->pluck('codigo')),
             'producto.nombres_tecnicos' => $this->unirValoresPlantilla($productos->pluck('nombre_tecnico')),
@@ -2072,15 +2224,31 @@ class CertificadoController extends Controller
             'producto.codigo' => $primerRegistro?->producto?->codigo ?: 'Sin producto',
             'producto.nombre_comercial' => $primerRegistro?->producto?->nombre_comercial ?: 'Sin producto',
             'producto.nombre_tecnico' => $primerRegistro?->producto?->nombre_tecnico ?: 'Sin dato',
+            'producto.tipo_producto' => $primerProducto?->tipo_producto ?: 'Sin tipo de producto',
+            'producto.pais_origen' => $primerProducto?->territorio?->nombre ?: 'Sin país de origen',
             'producto.clasificacion_quimica' => $primerRegistro?->producto?->clasificacionQuimica?->nombre ?: 'Sin clasificación química',
-            'fabricante.nombre' => $primerRegistro?->producto?->fabricante?->nombre ?: 'Sin fabricante',
-            'clasificacion_toxicologica.codigo' => $primerRegistro?->producto?->clasificacionToxicologica?->codigo ?: 'Sin clasificación toxicológica',
+            'producto.clasificacion_quimica_descripcion' => $primerProducto?->clasificacionQuimica?->descripcion ?: 'Sin descripción química',
+            'fabricante.nombre' => $primerProducto?->fabricante?->nombre
+                ?: ($primerProducto?->fabricante?->razon_social ?: 'Sin fabricante'),
+            'fabricante.razon_social' => $primerProducto?->fabricante?->razon_social
+                ?: ($primerProducto?->fabricante?->nombre ?: 'Sin fabricante'),
+            'fabricante.descripcion' => $primerProducto?->fabricante?->descripcion ?: 'Sin descripción del fabricante',
+            'clasificacion_toxicologica.codigo' => $primerProducto?->clasificacionToxicologica?->codigo ?: 'Sin clasificación toxicológica',
+            'clasificacion_toxicologica.descripcion' => $primerProducto?->clasificacionToxicologica?->descripcion ?: 'Sin descripción toxicológica',
+            'clasificacion_toxicologica.completa' => trim(implode(' - ', array_filter([
+                $primerProducto?->clasificacionToxicologica?->codigo,
+                $primerProducto?->clasificacionToxicologica?->descripcion,
+            ]))) ?: 'Sin clasificación toxicológica',
             'producto.estado' => $primerRegistro?->producto?->estado ?: 'Sin estado',
 
             'registro.codigos' => $this->unirValoresPlantilla($registros->pluck('codigo_autorizacion')),
             'registro.lotes' => $this->unirValoresPlantilla($registros->pluck('numero_lote')),
             'registro.fechas_vigencia' => $this->unirValoresPlantilla($registros->map(fn ($registro) => $registro->fecha_vigencia ? \Illuminate\Support\Carbon::parse($registro->fecha_vigencia)->format('d/m/Y') : null)),
+            'registro.cantidades' => $this->unirValoresPlantilla($registros->map(fn ($registro) => $this->formatearDecimalPlantilla($registro->cantidad))),
+            'registro.unidades' => $this->unirValoresPlantilla($registros->map(fn ($registro) => $this->textoCatalogoUnidad($registro->catalogoUnidad))),
             'presentacion.descripciones' => $this->unirValoresPlantilla($presentaciones->pluck('descripcion')),
+            'presentacion.lista' => $this->unirValoresPlantilla($presentacionesCompletas),
+            'presentacion.cantidades' => $this->unirValoresPlantilla($presentaciones->map(fn ($presentacion) => $this->formatearDecimalPlantilla($presentacion->cantidad))),
             'presentacion.unidades' => $this->unirValoresPlantilla($presentaciones->map(fn ($presentacion) => $this->textoCatalogoUnidad($presentacion?->catalogoUnidad))),
             'registro.codigo' => $primerRegistro?->codigo_autorizacion ?: 'Sin registro',
             'registro.numero_lote' => $primerRegistro?->numero_lote ?: 'Sin lote',
@@ -2089,21 +2257,73 @@ class CertificadoController extends Controller
             'registro.unidad' => $this->textoCatalogoUnidad($primerRegistro?->catalogoUnidad),
             'registro.estado' => $primerRegistro?->estado ?: 'Sin estado',
             'presentacion.descripcion' => $primerRegistro?->presentacion?->descripcion ?: 'Sin presentación',
-            'presentacion.cantidad' => $primerRegistro?->presentacion?->cantidad ?: 'Sin cantidad',
+            'presentacion.tipo_envase' => $primerRegistro?->presentacion?->tipo_envase ?: 'Sin tipo de envase',
+            'presentacion.cantidad' => $this->formatearDecimalPlantilla($primerRegistro?->presentacion?->cantidad),
             'presentacion.unidad' => $this->textoCatalogoUnidad($primerRegistro?->presentacion?->catalogoUnidad),
+            'presentacion.url_etiqueta' => $primerRegistro?->presentacion?->url_etiqueta ?: 'Sin etiqueta',
+            'presentacion.estado' => $primerRegistro?->presentacion?->estado ?: 'Sin estado',
+
+            'ingrediente.tabla' => $ingredientesProducto->map(function ($relacion) {
+                return collect([
+                    $relacion->ingrediente?->nombre,
+                    $relacion->ingrediente?->composicion,
+                    $this->formatearDecimalPlantilla($relacion->porcentaje).'%',
+                ])->filter()->implode(' | ');
+            })->filter()->implode("\n") ?: 'Sin ingredientes',
+            'ingrediente.nombre' => $primerIngredienteProducto?->ingrediente?->nombre ?: 'Sin ingrediente',
+            'ingrediente.nombres' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $relacion->ingrediente?->nombre)),
+            'ingrediente.composicion' => $primerIngredienteProducto?->ingrediente?->composicion ?: 'Sin composición',
+            'ingrediente.composiciones' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $relacion->ingrediente?->composicion)),
+            'ingrediente.riesgo_salud' => $primerIngredienteProducto?->ingrediente?->riesgo_salud ?: 'Sin riesgo registrado',
+            'ingrediente.riesgos_salud' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $relacion->ingrediente?->riesgo_salud)),
+            'ingrediente.porcentaje' => $primerIngredienteProducto
+                ? $this->formatearDecimalPlantilla($primerIngredienteProducto->porcentaje).' %'
+                : 'Sin porcentaje',
+            'ingrediente.porcentajes' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $this->formatearDecimalPlantilla($relacion->porcentaje).' %')),
+            'ingrediente.resumen' => $this->unirValoresPlantilla($ingredientesConPorcentaje),
 
             'pago.tipo_pago' => $primerPago?->tipo_pago ?: 'Sin pago',
             'pago.fecha' => $primerPago?->fecha ? \Illuminate\Support\Carbon::parse($primerPago->fecha)->format('d/m/Y') : 'Sin fecha',
             'pago.monto' => $primerPago?->monto ? number_format((float) $primerPago->monto, 2, ',', '.') : 'Sin monto',
             'pago.factura' => $primerPago?->factura ?: 'Sin factura',
             'pago.procedencia' => $primerPago?->procedencia?->descripcion ?: 'Sin procedencia',
+            'pago.resumen' => $primerPago
+                ? collect([
+                    $primerPago->tipo_pago,
+                    $primerPago->fecha ? \Illuminate\Support\Carbon::parse($primerPago->fecha)->format('d/m/Y') : null,
+                    $primerPago->monto !== null ? number_format((float) $primerPago->monto, 2, ',', '.') : null,
+                    $primerPago->factura,
+                ])->filter()->implode(' | ')
+                : 'Sin pago',
+            'pago.comprobante' => $primerPago?->comprobante
+                ? basename(str_replace('\\', '/', $primerPago->comprobante))
+                : 'Sin comprobante',
+            'pago.fecha_validacion' => $primerPago?->fecha_validacion?->format('d/m/Y') ?: 'Sin validación',
+            'pago.funcionario_validador' => $this->nombreUsuarioPlantilla($usuarioValidadorPago),
 
+            'requisito.tabla' => $resumenRequisitos->filter()->implode("\n") ?: 'Sin requisitos',
+            'requisito.descripcion' => $primerRequisito?->requisito?->descripcion ?: 'Sin requisito',
+            'requisito.tipo_evidencia' => $primeraEvidencia?->tipoEvidencia?->nombre ?: 'Sin tipo de evidencia',
+            'requisito.cumple' => $primerRequisito?->cumple ?: 'Sin evaluación',
+            'requisito.estado_revision' => $ultimaRevision?->estado ?: 'Sin revisión',
+            'requisito.observacion' => $ultimaObservacion?->observacion ?: 'Sin observación',
+            'evidencia.valor' => $primeraEvidencia?->valor ?: 'Sin evidencia',
+            'evidencia.estado' => $primeraEvidencia?->estado ?: 'Sin estado',
+
+            'seguimiento.tabla' => $resumenSeguimientos->filter()->implode("\n") ?: 'Sin seguimientos',
             'seguimiento.fecha_inicio' => $ultimoSeguimiento?->fecha_inicio ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_inicio)->format('d/m/Y H:i') : 'Sin fecha',
             'seguimiento.fecha_derivacion' => $ultimoSeguimiento?->fecha_derivacion ? \Illuminate\Support\Carbon::parse($ultimoSeguimiento->fecha_derivacion)->format('d/m/Y H:i') : 'Sin fecha',
             'seguimiento.referencia' => $ultimoSeguimiento?->referencia ?: 'Sin referencia',
             'seguimiento.descripcion_final' => $ultimoSeguimiento?->descripcion_final ?: 'Sin descripción',
             'seguimiento.estado' => $ultimoSeguimiento?->estado ?: 'Sin estado',
+            'seguimiento.usuario_origen' => $this->nombreUsuarioPlantilla($usuarioOrigen),
+            'seguimiento.usuario_siguiente' => $this->nombreUsuarioPlantilla($usuarioDestino),
+            'revision.usuario' => $this->nombreUsuarioPlantilla($usuarioRevisor),
+            'revision.resultado' => $ultimaRevision?->resultado_cumple ?: 'Sin resultado',
+            'revision.observacion' => $ultimaObservacion?->observacion ?: 'Sin observación',
 
+            'funcionario.emisor_nombre' => $this->nombreUsuarioPlantilla($usuarioEmisor),
+            'funcionario.emisor_cargo' => $this->cargoFuncionarioUsuario($usuarioEmisor),
             'funcionario.revisor_nombre' => $this->nombreFuncionarioUsuario($usuarioRevisor),
             'funcionario.revisor_cargo' => $this->cargoFuncionarioUsuario($usuarioRevisor),
             'funcionario.destino_nombre' => $this->nombreFuncionarioUsuario($usuarioDestino),
@@ -2201,6 +2421,34 @@ class CertificadoController extends Controller
             ->implode(', ');
 
         return $texto !== '' ? $texto : 'Sin dato';
+    }
+
+    private function formatearDecimalPlantilla(mixed $valor): string
+    {
+        $texto = trim((string) $valor);
+
+        if ($texto === '') {
+            return '-';
+        }
+
+        if (str_contains($texto, '.')) {
+            $texto = rtrim(rtrim($texto, '0'), '.');
+        }
+
+        return $texto === '-0' ? '0' : $texto;
+    }
+
+    private function nombreUsuarioPlantilla(?User $usuario): string
+    {
+        if (! $usuario) {
+            return 'Sin usuario';
+        }
+
+        $nombreFuncionario = $this->nombreFuncionarioUsuario($usuario);
+
+        return $nombreFuncionario !== 'Sin funcionario'
+            ? $nombreFuncionario
+            : ($usuario->name ?: ($usuario->email ?: 'Sin usuario'));
     }
 
     private function textoCatalogoUnidad($unidad): string

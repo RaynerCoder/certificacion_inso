@@ -217,4 +217,35 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
         $this->assertFalse($codigos->contains('evaluacion.notas'));
         $this->assertFalse($codigos->contains('evaluacion.notas_minimas'));
     }
+
+    public function test_expone_los_datos_existentes_del_certificado_de_producto(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'camposDisponiblesPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        $codigos = collect($metodo->invoke($controlador))
+            ->flatten(1)
+            ->pluck('codigo');
+
+        foreach ([
+            'emision.numero_certificado',
+            'emision.fecha',
+            'empresa.representante_legal_nombre',
+            'empresa.representante_legal_documento',
+            'importador.nombre',
+            'importador.documento',
+            'importador.ubicacion',
+            'importador.representante_legal_nombre',
+            'importador.representante_legal_documento',
+            'producto.pais_origen',
+            'fabricante.razon_social',
+            'clasificacion_toxicologica.completa',
+            'presentacion.lista',
+            'ingrediente.composiciones',
+            'ingrediente.resumen',
+            'funcionario.emisor_nombre',
+            'funcionario.emisor_cargo',
+        ] as $codigo) {
+            $this->assertTrue($codigos->contains($codigo), "No se publicó el campo dinámico {$codigo}.");
+        }
+    }
 }
