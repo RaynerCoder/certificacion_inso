@@ -5,7 +5,7 @@
     ['name' => 'Editar'],
 ]">
     @php
-        $urlFondo = $plantilla?->url_fondo ? asset('storage/' . $plantilla->url_fondo) : null;
+        $urlFondo = $plantilla?->url_fondo ? route('certificados_plantillas_archivo', $plantilla) : null;
         $nombreFondo = $plantilla?->url_fondo ? basename($plantilla->url_fondo) : 'Sin archivo seleccionado';
         $elementosGuardados = ($plantilla?->elementos ?? collect())
             ->map(function ($elemento) {
@@ -278,7 +278,7 @@
 
                     <span class="plantilla-toolbar-separator" aria-hidden="true"></span>
 
-                    <select class="plantilla-toolbar-select" data-plantilla-alinear aria-label="Alinear bloque al lienzo">
+                    <select class="plantilla-toolbar-select" data-plantilla-alinear aria-label="Alinear campos seleccionados">
                         <option value="">Alinear...</option>
                         <option value="IZQUIERDA">A la izquierda</option>
                         <option value="CENTRO_H">Centrar horizontal</option>
@@ -286,6 +286,9 @@
                         <option value="ARRIBA">Arriba</option>
                         <option value="CENTRO_V">Centrar vertical</option>
                         <option value="ABAJO">Abajo</option>
+                        <option value="MISMO_ANCHO">Igualar ancho</option>
+                        <option value="MISMO_ALTO">Igualar alto</option>
+                        <option value="MISMO_TAMANO">Igualar ancho y alto</option>
                     </select>
                     <select class="plantilla-toolbar-select" data-plantilla-seleccion aria-label="Acciones de selección">
                         <option value="">Selección...</option>
@@ -299,9 +302,32 @@
                         <option value="VERTICAL">Verticalmente</option>
                     </select>
 
-                    <button type="button" class="plantilla-action-btn plantilla-icon-btn" data-plantilla-tool="grid"
-                        title="Mostrar cuadrícula y ajustar a ella" aria-label="Mostrar cuadrícula y ajustar a ella">
-                        <i class="fa-solid fa-border-all"></i>
+                    <button type="button" class="plantilla-action-btn plantilla-grid-btn" data-plantilla-tool="grid"
+                        title="Mostrar u ocultar cuadrícula" aria-label="Mostrar u ocultar cuadrícula">
+                        <i class="fa-solid fa-border-all"></i> Cuadrícula
+                    </button>
+                    <select class="plantilla-toolbar-select is-grid-control" data-plantilla-grid-type
+                        aria-label="Tipo de cuadrícula" title="Tipo de cuadrícula">
+                        <option value="LINEAS">Líneas</option>
+                        <option value="PUNTOS">Puntos</option>
+                    </select>
+                    <select class="plantilla-toolbar-select is-grid-control" data-plantilla-grid-size
+                        aria-label="Tamaño de cuadrícula" title="Tamaño de cuadrícula">
+                        <option value="5">5 px</option>
+                        <option value="10" selected>10 px</option>
+                        <option value="20">20 px</option>
+                        <option value="25">25 px</option>
+                        <option value="40">40 px</option>
+                        <option value="50">50 px</option>
+                        <option value="75">75 px</option>
+                        <option value="100">100 px</option>
+                        <option value="150">150 px</option>
+                        <option value="200">200 px</option>
+                    </select>
+                    <button type="button" class="plantilla-action-btn plantilla-snap-btn" data-plantilla-tool="snap"
+                        title="Alinear bordes y centros con otros campos y con la cuadrícula"
+                        aria-label="Alinear bordes y centros con otros campos y con la cuadrícula">
+                        <i class="fa-solid fa-magnet"></i> Imán
                     </button>
 
                     <div class="plantilla-zoom-control" aria-label="Control de zoom">

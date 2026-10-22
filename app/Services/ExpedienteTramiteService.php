@@ -17,22 +17,24 @@ class ExpedienteTramiteService
     public const COMPROBANTE_PAGO = 'COMPROBANTE_PAGO';
     public const CERTIFICADO_EMITIDO = 'CERTIFICADO_EMITIDO';
     public const CERTIFICADO_ADJUNTO = 'CERTIFICADO_ADJUNTO';
-    public const ANEXO = 'ANEXO';
 
     /**
      * Guarda el archivo directamente en la carpeta privada del trámite.
-     * Cada archivo usa UUID para no sobrescribir otro; no necesita versiones ni una tabla adicional.
+     * Cuando existe un registro relacionado, su ID se utiliza como nombre estable del archivo.
      */
     public function guardarArchivoSubido(
         Certificado $certificado,
         UploadedFile $archivo,
         string $categoria,
         ?RequisitoCertificado $requisitoCertificado = null,
-        ?Pago $pago = null
+        ?Pago $pago = null,
+        ?string $nombreArchivo = null,
     ): string {
         $extension = strtolower($archivo->getClientOriginalExtension() ?: $archivo->extension() ?: 'bin');
         $directorio = $this->directorio($certificado, $categoria, $requisitoCertificado, $pago);
-        $nombreGuardado = $this->nombreSeguro($archivo->getClientOriginalName(), $extension);
+        $nombreGuardado = filled($nombreArchivo)
+            ? Str::slug($nombreArchivo).'.'.$extension
+            : $this->nombreSeguro($archivo->getClientOriginalName(), $extension);
         $ruta = $archivo->storeAs($directorio, $nombreGuardado, 'local');
 
         if (! is_string($ruta) || $ruta === '') {
@@ -58,6 +60,11 @@ class ExpedienteTramiteService
         }
 
         return $ruta;
+    }
+
+    public function nombreDocumentoEvidencia(int $numeroRespaldo): string
+    {
+        return 'respaldo-'.max(1, $numeroRespaldo);
     }
 
     /**
@@ -95,9 +102,9 @@ class ExpedienteTramiteService
         return match ($categoria) {
             self::EVIDENCIA_REQUISITO => $raiz.'/requisitos/'.$this->idRequerido($requisitoCertificado?->id, 'requisito'),
             self::COMPROBANTE_PAGO => $raiz.'/pagos/'.$this->idRequerido($pago?->id, 'pago'),
-            self::CERTIFICADO_EMITIDO => $raiz.'/certificados/emisiones',
+            self::CERTIFICADO_EMITIDO => $raiz.'/certificados/emitidos',
             self::CERTIFICADO_ADJUNTO => $raiz.'/certificados/adjuntos',
-            default => $raiz.'/anexos',
+            default => throw new RuntimeException('La categoría del archivo del trámite no es válida.'),
         };
     }
 

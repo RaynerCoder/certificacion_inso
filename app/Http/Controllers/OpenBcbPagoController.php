@@ -210,7 +210,7 @@ class OpenBcbPagoController extends Controller
         }
 
         // Guarda como JPG la imagen Base64 devuelta por OpenBCB.
-        $imagenQrPath = $this->guardarImagenQr($idQr, data_get($respuesta, 'datos.imagenQr'));
+        $imagenQrPath = $this->guardarImagenQr($pago->id, $idQr, data_get($respuesta, 'datos.imagenQr'));
 
         // Guardamos la relación entre el pago y el QR generado.
         $pagoOpenBcb = PagoOpenBcb::create([
@@ -326,15 +326,14 @@ class OpenBcbPagoController extends Controller
 
         $rutaImagen = $pagoOpenBcb->imagen_qr_path;
 
-        if (
-            blank($rutaImagen)
-            || !Storage::disk('public')->exists($rutaImagen)
-        ) {
+        $disco = Storage::disk('local')->exists((string) $rutaImagen) ? 'local' : 'public';
+
+        if (blank($rutaImagen) || ! Storage::disk($disco)->exists($rutaImagen)) {
             abort(404, 'No se encontró la imagen del código QR.');
         }
 
         // Devuelve el archivo guardado sin exponer directamente storage.
-        return Storage::disk('public')->response(
+        return Storage::disk($disco)->response(
             $rutaImagen,
             null,
             [
@@ -371,7 +370,7 @@ class OpenBcbPagoController extends Controller
 
 
     // Convierte la imagen Base64 de OpenBCB en un archivo JPG.
-    private function guardarImagenQr(string $idQr, ?string $imagenQrBase64): ?string {
+    private function guardarImagenQr(int $idPago, string $idQr, ?string $imagenQrBase64): ?string {
         // En simulación puede no existir una imagen.
         if (blank($imagenQrBase64)) {
             return null;
@@ -392,9 +391,9 @@ class OpenBcbPagoController extends Controller
         // Evita caracteres no permitidos en el nombre del archivo.
         $nombreArchivo = preg_replace('/[^A-Za-z0-9_-]/', '_', $idQr);
 
-        $imagenQrPath = 'openbcb/qr/'.$nombreArchivo.'.jpg';
+        $imagenQrPath = 'openbcb/qr/'.$idPago.'-pago/'.$nombreArchivo.'-qr.jpg';
 
-        $imagenGuardada = Storage::disk('public')->put($imagenQrPath, $contenidoImagen);
+        $imagenGuardada = Storage::disk('local')->put($imagenQrPath, $contenidoImagen);
 
         if (! $imagenGuardada) {
             throw new \RuntimeException(

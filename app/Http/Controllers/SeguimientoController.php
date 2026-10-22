@@ -2550,11 +2550,16 @@ class SeguimientoController extends Controller
         }
 
         $certificado = $requisitoCertificado->certificado()->firstOrFail();
+        $numeroRespaldo = EvidenciaRequisito::withTrashed()
+            ->where('id_requisito_certificado', $requisitoCertificado->id)
+            ->where('id', '<=', $evidencia->id)
+            ->count();
         $ruta = $this->expedientesTramites->guardarArchivoSubido(
             $certificado,
             $archivo,
             ExpedienteTramiteService::EVIDENCIA_REQUISITO,
-            $requisitoCertificado
+            $requisitoCertificado,
+            nombreArchivo: $this->expedientesTramites->nombreDocumentoEvidencia($numeroRespaldo),
         );
 
         $evidencia->update(['valor' => $ruta]);

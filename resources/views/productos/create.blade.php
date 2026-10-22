@@ -611,10 +611,10 @@
 </div>
 
 
-{{-- MODAL: permite escribir un nuevo tipo de envase.
+{{-- MODAL: permite escribir un nuevo tipo de presentación.
          El valor se agrega al selector de la presentación y se enviará dentro
          de presentaciones[...] cuando se guarde el producto. --}}
-<div class="producto-modal" id="modalTipoEnvaseProducto">
+<div class="producto-modal" id="modalTipoPresentacionProducto">
     <div class="producto-modal-card is-compact">
 
         <div class="producto-modal-head">
@@ -624,9 +624,9 @@
                 </span>
 
                 <div>
-                    <h3 class="producto-modal-title">Nuevo tipo de envase</h3>
+                    <h3 class="producto-modal-title">Nuevo tipo de presentación</h3>
                     <p class="producto-modal-subtitle">
-                        Escriba el tipo de envase que utilizará esta presentación.
+                        Escriba el tipo que utilizará esta presentación.
                     </p>
                 </div>
             </div>
@@ -634,25 +634,25 @@
 
         <div class="producto-modal-body">
             <div>
-                <label class="producto-field-label" for="modal_tipo_envase_nombre">
-                    Tipo de envase
+                <label class="producto-field-label" for="modal_tipo_presentacion_nombre">
+                    Tipo de presentación
                 </label>
 
-                <input class="producto-input" id="modal_tipo_envase_nombre" type="text" maxlength="150"
+                <input class="producto-input" id="modal_tipo_presentacion_nombre" type="text" maxlength="150"
                     placeholder="Ej: Frasco, Bidón, Aerosol o Bolsa">
             </div>
         </div>
 
         <div class="producto-modal-actions">
             <button type="button" class="producto-btn producto-btn-secondary"
-                onclick="cerrarModalProducto('modalTipoEnvaseProducto')">
+                onclick="cerrarModalProducto('modalTipoPresentacionProducto')">
                 Cancelar
             </button>
 
             <button type="button" class="producto-btn producto-btn-primary"
-                onclick="agregarTipoEnvaseTemporalProducto()">
+                onclick="agregarTipoPresentacionTemporalProducto()">
                 <i class="fa-solid fa-plus"></i>
-                Agregar tipo de envase
+                Agregar tipo de presentación
             </button>
         </div>
     </div>
@@ -1171,63 +1171,63 @@
     }
 
 
-    // ABRE EL MODAL PARA CREAR UN TIPO DE ENVASE
+    // ABRE EL MODAL PARA CREAR UN TIPO DE PRESENTACIÓN
     // solo abre el modal y coloca el cursor en el campo de nombre.
-    function abrirModalTipoEnvaseProducto() {
-        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+    function abrirModalTipoPresentacionProducto() {
+        const selectorTipoPresentacion = document.getElementById('form_presentacion_tipo_presentacion');
 
-        if (!selectorTipoEnvase) {
+        if (!selectorTipoPresentacion) {
             return;
         }
 
-        abrirModalProducto('modalTipoEnvaseProducto');
+        abrirModalProducto('modalTipoPresentacionProducto');
 
         requestAnimationFrame(() => {
-            document.getElementById('modal_tipo_envase_nombre')?.focus();
+            document.getElementById('modal_tipo_presentacion_nombre')?.focus();
         });
     }
 
 
-    // AGREGA EL TIPO DE ENVASE ESCRITO EN EL MODAL
+    // AGREGA EL TIPO DE PRESENTACIÓN ESCRITO EN EL MODAL
     // valida el texto, evita duplicados y lo agrega al selector de la presentación.
     // el valor se enviará dentro de presentaciones[...] al guardar el producto.
-    function agregarTipoEnvaseTemporalProducto() {
-        const campoNombre = document.getElementById('modal_tipo_envase_nombre');
-        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
-        const tipoEnvase = campoNombre?.value.trim().replace(/\s+/g, ' ') || '';
+    function agregarTipoPresentacionTemporalProducto() {
+        const campoNombre = document.getElementById('modal_tipo_presentacion_nombre');
+        const selectorTipoPresentacion = document.getElementById('form_presentacion_tipo_presentacion');
+        const tipoPresentacion = campoNombre?.value.trim().replace(/\s+/g, ' ') || '';
 
-        if (!campoNombre || !selectorTipoEnvase) {
+        if (!campoNombre || !selectorTipoPresentacion) {
             return;
         }
 
-        if (!tipoEnvase) {
-            marcarErrorProducto(campoNombre, 'Ingrese el tipo de envase.');
+        if (!tipoPresentacion) {
+            marcarErrorProducto(campoNombre, 'Ingrese el tipo de presentación.');
             return;
         }
 
-        const tipoEnvaseYaExiste = Array.from(selectorTipoEnvase.options)
+        const tipoPresentacionYaExiste = Array.from(selectorTipoPresentacion.options)
             .filter((opcion) => opcion.value)
             .some((opcion) =>
-                normalizarTextoProducto(opcion.value) === normalizarTextoProducto(tipoEnvase)
+                normalizarTextoProducto(opcion.value) === normalizarTextoProducto(tipoPresentacion)
             );
 
-        if (tipoEnvaseYaExiste) {
+        if (tipoPresentacionYaExiste) {
             marcarErrorProducto(
                 campoNombre,
-                'Ese tipo de envase ya existe. Selecciónelo de la lista.'
+                'Ese tipo de presentación ya existe. Selecciónelo de la lista.'
             );
             return;
         }
 
         // crea y deja seleccionada una nueva opción usando el mismo texto como value y etiqueta visible.
-        const opcionNueva = new Option(tipoEnvase, tipoEnvase, true, true);
-        selectorTipoEnvase.add(opcionNueva);
+        const opcionNueva = new Option(tipoPresentacion, tipoPresentacion, true, true);
+        selectorTipoPresentacion.add(opcionNueva);
 
         // Actualiza el buscador visual que acompaña al select.
-        sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvase);
+        sincronizarBuscadorProducto(selectorTipoPresentacion, tipoPresentacion);
 
         limpiarErrorProducto(campoNombre);
-        cerrarModalProducto('modalTipoEnvaseProducto');
+        cerrarModalProducto('modalTipoPresentacionProducto');
     }
     // OBTIENE EL TEXTO VISIBLE DE UNA UNIDAD
     // recibe el id o valor de una unidad y devuelve el nombre mostrado en sus selectores.
@@ -1639,29 +1639,30 @@
         document.getElementById('form_presentacion_cantidad').value = opcion.dataset.cantidad || '';
         establecerUnidadProducto('form_presentacion_unidad', opcion.dataset.unidadId || '');
 
-        // Obtiene el tipo de envase guardado en la presentación seleccionada.
+        // Obtiene el tipo guardado en la presentación seleccionada.
         // Ejemplo: "Frasco", "Bidón" o "Aerosol".
-        const tipoEnvaseGuardado = opcion.dataset.tipoEnvase || '';
-        const selectorTipoEnvase = document.getElementById(
-            'form_presentacion_tipo_envase'
+        const tipoPresentacionGuardado = opcion.dataset.tipoPresentacion || '';
+        const selectorTipoPresentacion = document.getElementById(
+            'form_presentacion_tipo_presentacion'
         );
 
-        if (selectorTipoEnvase) {
-            // Una presentación antigua puede tener un tipo de envase que aún no aparece
+        if (selectorTipoPresentacion) {
+            // Una presentación antigua puede tener un tipo que aún no aparece
             // en el selector. Se agrega solo a esta pantalla para poder mostrarlo.
-            const tipoEnvaseExiste = Array.from(selectorTipoEnvase.options).some((opcionEnvase) => opcionEnvase
-                .value === tipoEnvaseGuardado);
+            const tipoPresentacionExiste = Array.from(selectorTipoPresentacion.options).some(
+                (opcionPresentacion) => opcionPresentacion.value === tipoPresentacionGuardado
+            );
 
-            if (tipoEnvaseGuardado && !tipoEnvaseExiste) {
+            if (tipoPresentacionGuardado && !tipoPresentacionExiste) {
                 const nuevaOpcion = new Option(
-                    tipoEnvaseGuardado,
-                    tipoEnvaseGuardado
+                    tipoPresentacionGuardado,
+                    tipoPresentacionGuardado
                 );
-                selectorTipoEnvase.add(nuevaOpcion);
+                selectorTipoPresentacion.add(nuevaOpcion);
             }
 
-            // Selecciona el envase correspondiente y actualiza el buscador visual.
-            sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvaseGuardado);
+            // Selecciona el tipo correspondiente y actualiza el buscador visual.
+            sincronizarBuscadorProducto(selectorTipoPresentacion, tipoPresentacionGuardado);
         }
 
         document.getElementById('form_presentacion_descripcion').value = opcion.dataset.descripcion || '';
@@ -1740,11 +1741,11 @@
         // Limpia los datos de la presentación anterior para iniciar una nueva.
         document.getElementById('form_presentacion_cantidad').value = '';
 
-        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+        const selectorTipoPresentacion = document.getElementById('form_presentacion_tipo_presentacion');
 
-        if (selectorTipoEnvase) {
-            // Quita el envase anterior y actualiza el buscador visual.
-            sincronizarBuscadorProducto(selectorTipoEnvase, '');
+        if (selectorTipoPresentacion) {
+            // Quita el tipo anterior y actualiza el buscador visual.
+            sincronizarBuscadorProducto(selectorTipoPresentacion, '');
         }
 
         establecerUnidadProducto('form_presentacion_unidad');
@@ -1780,7 +1781,7 @@
         opcion.dataset.cantidad = datos.cantidad || '';
         opcion.dataset.unidadId = datos.id_catalogo_unidad || '';
         opcion.dataset.unidadTexto = datos.unidad_texto || '';
-        opcion.dataset.tipoEnvase = datos.tipo_envase || '';
+        opcion.dataset.tipoPresentacion = datos.tipo_presentacion || '';
         opcion.dataset.descripcion = datos.descripcion || '';
         opcion.dataset.estado = datos.estado || 'ACTIVO';
         opcion.dataset.etiquetaUrl = datos.etiquetaUrl || '';
@@ -1790,9 +1791,9 @@
     }
 
     // BUSCA SI UNA PRESENTACIÓN TEMPORAL YA EXISTE
-    // compara origen, cantidad, unidad, descripción y tipo de envase.
+    // compara origen, cantidad, unidad, descripción y tipo de presentación.
     // devuelve el índice existente o null cuando no encuentra coincidencia.
-    function buscarIndicePresentacionTemporalProducto(origenId, cantidad, idCatalogoUnidad, descripcion, tipoEnvase) {
+    function buscarIndicePresentacionTemporalProducto(origenId, cantidad, idCatalogoUnidad, descripcion, tipoPresentacion) {
         if (origenId) {
             const origenExistente = document.querySelector(
                 `#presentacionesOcultasProducto input[name$="[id_presentacion_origen]"][value="${CSS.escape(origenId)}"]`
@@ -1807,7 +1808,7 @@
             normalizarTextoProducto(cantidad),
             normalizarTextoProducto(idCatalogoUnidad),
             normalizarTextoProducto(descripcion),
-            normalizarTextoProducto(tipoEnvase),
+            normalizarTextoProducto(tipoPresentacion),
         ].join('|');
 
         for (const bloque of document.querySelectorAll('#presentacionesOcultasProducto [data-presentacion-temporal]')) {
@@ -1819,7 +1820,7 @@
                     `input[name="presentaciones[${indice}][id_catalogo_unidad]"]`)?.value),
                 normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][descripcion]"]`)
                     ?.value),
-                normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][tipo_envase]"]`)
+                normalizarTextoProducto(bloque.querySelector(`input[name="presentaciones[${indice}][tipo_presentacion]"]`)
                     ?.value),
             ].join('|');
 
@@ -1849,7 +1850,7 @@
                 <input type="hidden" name="presentaciones[${indicePresentacion}][descripcion]" value="${escaparHtmlProducto(datos.descripcion)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][estado]" value="${escaparHtmlProducto(datos.estado)}">
                 <input type="hidden" name="presentaciones[${indicePresentacion}][id_presentacion_origen]" value="${escaparHtmlProducto(datos.origenId)}">
-                <input type="hidden" name="presentaciones[${indicePresentacion}][tipo_envase]" value="${escaparHtmlProducto(datos.tipo_envase)}">
+                <input type="hidden" name="presentaciones[${indicePresentacion}][tipo_presentacion]" value="${escaparHtmlProducto(datos.tipo_presentacion)}">
                 <span class="presentacion-etiqueta-input"></span>
             `;
 
@@ -2268,7 +2269,7 @@
     // reúne los valores de presentación, registro e imagen sin cambiar el formulario.
     function obtenerDatosRegistroPresentacionProducto() {
         const campos = {
-            tipoEnvase: document.getElementById('form_presentacion_tipo_envase'),
+            tipoPresentacion: document.getElementById('form_presentacion_tipo_presentacion'),
             cantidadPresentacion: document.getElementById('form_presentacion_cantidad'),
             unidadPresentacion: document.getElementById('form_presentacion_unidad'),
             descripcionPresentacion: document.getElementById('form_presentacion_descripcion'),
@@ -2295,7 +2296,7 @@
             presentacion: {
                 cantidad: normalizarNumeroDecimalProducto(campos.cantidadPresentacion.value),
                 unidadId: campos.unidadPresentacion.value,
-                tipoEnvase: campos.tipoEnvase?.value.trim() || '',
+                tipoPresentacion: campos.tipoPresentacion?.value.trim() || '',
                 descripcion: campos.descripcionPresentacion.value.trim(),
                 estado: campos.estadoPresentacion?.value || 'ACTIVO',
                 origenId: campos.origenPresentacion?.value || '',
@@ -2372,7 +2373,7 @@
                 datos.presentacion.cantidad,
                 datos.presentacion.unidadId,
                 datos.presentacion.descripcion,
-                datos.presentacion.tipoEnvase
+                datos.presentacion.tipoPresentacion
             );
 
         const reutilizaPresentacion =
@@ -2396,7 +2397,7 @@
 
         const textoPresentacion = [
                 valorPresentacion,
-                datos.presentacion.tipoEnvase,
+                datos.presentacion.tipoPresentacion,
                 datos.presentacion.descripcion,
             ]
             .filter(Boolean)
@@ -2441,7 +2442,7 @@
             id_catalogo_unidad: datos.presentacion.unidadId,
             unidad_texto: datos.textoUnidadPresentacion,
             descripcion: datos.presentacion.descripcion,
-            tipo_envase: datos.presentacion.tipoEnvase,
+            tipo_presentacion: datos.presentacion.tipoPresentacion,
             estado: datos.presentacion.estado,
             origenId: datos.presentacion.origenId,
         });
@@ -2452,7 +2453,7 @@
             id_catalogo_unidad: datos.presentacion.unidadId,
             unidad_texto: datos.textoUnidadPresentacion,
             descripcion: datos.presentacion.descripcion,
-            tipo_envase: datos.presentacion.tipoEnvase,
+            tipo_presentacion: datos.presentacion.tipoPresentacion,
             estado: datos.presentacion.estado,
             etiquetaUrl: datos.etiquetaUrl,
             etiquetaNombre: datos.etiquetaNombre,
@@ -2500,8 +2501,8 @@
             </div>
         </td>
 
-        <td data-label="Tipo de envase">
-            ${escaparHtmlProducto(datos.presentacion.tipoEnvase || 'Sin especificar')}
+        <td data-label="Tipo de presentación">
+            ${escaparHtmlProducto(datos.presentacion.tipoPresentacion || 'Sin especificar')}
         </td>
 
         <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
@@ -2671,7 +2672,7 @@
             campos.estadoRegistro.value = 'ACTIVO';
         }
 
-        sincronizarBuscadorProducto(campos.tipoEnvase, '');
+        sincronizarBuscadorProducto(campos.tipoPresentacion, '');
 
         establecerUnidadProducto('form_presentacion_unidad');
         establecerUnidadProducto('form_registro_unidad');
@@ -2716,22 +2717,22 @@
             valorCampo(`input[name="presentaciones[${indicePresentacion}][id_catalogo_unidad]"]`)
         );
 
-        // Recupera el envase que pertenece a esta presentación.
+        // Recupera el tipo que pertenece a esta presentación.
         // Ejemplo: si la fila guardó “Frasco”, el selector vuelve a marcar “Frasco”.
-        const selectorTipoEnvase = document.getElementById('form_presentacion_tipo_envase');
+        const selectorTipoPresentacion = document.getElementById('form_presentacion_tipo_presentacion');
 
-        const tipoEnvaseGuardado = valorCampo(`input[name="presentaciones[${indicePresentacion}][tipo_envase]"]`);
+        const tipoPresentacionGuardado = valorCampo(`input[name="presentaciones[${indicePresentacion}][tipo_presentacion]"]`);
 
-        if (selectorTipoEnvase) {
-            const existeTipoEnvase = Array.from(selectorTipoEnvase.options).some(
-                (opcion) => opcion.value === tipoEnvaseGuardado
+        if (selectorTipoPresentacion) {
+            const existeTipoPresentacion = Array.from(selectorTipoPresentacion.options).some(
+                (opcion) => opcion.value === tipoPresentacionGuardado
             );
 
-            if (tipoEnvaseGuardado && !existeTipoEnvase) {
-                selectorTipoEnvase.add(new Option(tipoEnvaseGuardado, tipoEnvaseGuardado));
+            if (tipoPresentacionGuardado && !existeTipoPresentacion) {
+                selectorTipoPresentacion.add(new Option(tipoPresentacionGuardado, tipoPresentacionGuardado));
             }
 
-            sincronizarBuscadorProducto(selectorTipoEnvase, tipoEnvaseGuardado);
+            sincronizarBuscadorProducto(selectorTipoPresentacion, tipoPresentacionGuardado);
         }
 
         document.getElementById('form_presentacion_descripcion').value = valorCampo(
@@ -3632,7 +3633,7 @@
 
                             <div class="producto-review-presentation-content">
                                 <dl class="producto-review-presentation-data">
-                                    <div><dt>Tipo de envase</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.tipo_envase))}</dd></div>
+                                    <div><dt>Tipo de presentación</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.tipo_presentacion))}</dd></div>
                                     <div><dt>Cantidad</dt><dd>${escaparHtmlProducto(formatearCantidadResumenProducto(presentacion.cantidad))}</dd></div>
                                     <div><dt>Unidad</dt><dd>${escaparHtmlProducto(textoResumenProducto(unidadPresentacion))}</dd></div>
                                     <div><dt>Descripción</dt><dd>${escaparHtmlProducto(textoResumenProducto(presentacion.descripcion))}</dd></div>

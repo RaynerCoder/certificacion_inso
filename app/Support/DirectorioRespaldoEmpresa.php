@@ -8,10 +8,12 @@ class DirectorioRespaldoEmpresa
 {
     public static function paraRol(?int $idEmpresa, int $idRol): string
     {
-        $tipo = Role::findOrFail($idRol)->slug === 'tramitador'
-            ? 'tramitadores'
-            : 'representantes-legales';
+        $empresa = $idEmpresa ?? 'pendientes';
 
-        return 'empresas-tramitadores/' . ($idEmpresa ?? 'pendientes') . '/' . $tipo;
+        if (Role::findOrFail($idRol)->slug === 'tramitador') {
+            return 'tramitadores/empresas/'.$empresa;
+        }
+
+        return 'personas-empresas/empresas/'.$empresa.'/representantes-legales';
     }
 }

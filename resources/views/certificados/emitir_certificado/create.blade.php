@@ -117,7 +117,7 @@
             [$anchoImpresion, $altoImpresion] = [$altoImpresion, $anchoImpresion];
         }
 
-        $resolverFondoImagen = function (?string $ruta) {
+        $resolverFondoImagen = function (?string $ruta) use ($plantillaCertificado) {
             if (blank($ruta)) {
                 return null;
             }
@@ -128,6 +128,12 @@
 
             if ($esUrl) {
                 return $esImagen ? $rutaLimpia : null;
+            }
+
+            if ($esImagen
+                && $plantillaCertificado?->url_fondo
+                && ltrim($plantillaCertificado->url_fondo, '/') === $rutaLimpia) {
+                return route('certificados_plantillas_archivo', $plantillaCertificado);
             }
 
             $rutaStorage = \Illuminate\Support\Str::startsWith($rutaLimpia, 'storage/')

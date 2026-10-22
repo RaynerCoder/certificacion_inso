@@ -153,19 +153,6 @@
     // ARCHIVOS, FECHAS Y TEXTOS
     // -----------------------------------------------------------------------------
 
-    // Convierte una ruta guardada en una URL utilizable.
-    $urlArchivo = function (?string $ruta) {
-        if (!$ruta) {
-            return null;
-        }
-
-        if (\Illuminate\Support\Str::startsWith($ruta, ['http://', 'https://'])) {
-            return $ruta;
-        }
-
-        return \Illuminate\Support\Str::startsWith($ruta, 'storage/') ? asset($ruta) : asset('storage/' . $ruta);
-    };
-
     // Formatea fechas para mostrarlas en la vista.
     $fechaCorta = function ($fecha, string $fallback = 'Sin fecha') {
         return $fecha ? \Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y') : $fallback;

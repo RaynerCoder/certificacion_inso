@@ -778,7 +778,7 @@ class TramitadorEmpresaTest extends TestCase
         $natural = Natural::where('ci', '9900112')->firstOrFail();
         $this->assertNull($natural->persona->id_usuario);
         $respaldo = Responsable::where('id_empresa', $empresa->id)->where('id_persona', $natural->id_persona)->firstOrFail()->url_respaldo;
-        $this->assertStringStartsWith("empresas-tramitadores/{$empresa->id}/tramitadores/", $respaldo);
+        $this->assertStringStartsWith("tramitadores/empresas/{$empresa->id}/", $respaldo);
         Storage::disk('local')->assertExists($respaldo);
         $this->assertDatabaseHas('responsables', [
             'id_empresa' => $empresa->id,
@@ -830,7 +830,7 @@ class TramitadorEmpresaTest extends TestCase
         $this->assertSame('PENDIENTE_VALIDACION', $relacionAnterior->estado);
         $this->assertNull($relacionAnterior->fecha_baja);
         $this->assertNotSame('tramitadores/historico/autorizacion-anterior.pdf', $relacionAnterior->url_respaldo);
-        $this->assertStringStartsWith("empresas-tramitadores/{$empresa->id}/tramitadores/", $relacionAnterior->url_respaldo);
+        $this->assertStringStartsWith("tramitadores/empresas/{$empresa->id}/", $relacionAnterior->url_respaldo);
         $this->assertSame(now()->format('Y-m-d H:i'), substr($relacionAnterior->fecha_registro, 0, 16));
         Storage::disk('local')->assertExists($relacionAnterior->url_respaldo);
 
@@ -915,7 +915,7 @@ class TramitadorEmpresaTest extends TestCase
             ->assertOk()
             ->assertHeader(
                 'Content-Disposition',
-                "inline; filename=\"autorizacion-tramitador-{$relacion->id}.pdf\""
+                "inline; filename=\"{$relacion->id}-responsable-respaldo.pdf\""
             );
     }
 

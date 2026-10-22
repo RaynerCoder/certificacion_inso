@@ -15,21 +15,21 @@ class RespaldoEmpresaTest extends TestCase
 
     public function test_separa_pdf_por_empresa_y_funcion_y_conserva_temporales(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $representante = Role::create(['name' => 'Representante legal', 'slug' => 'solicitante', 'estado' => 1]);
         $tramitador = Role::create(['name' => 'Tramitador', 'slug' => 'tramitador', 'estado' => 1]);
         $controlador = app(PersonaController::class);
         $metodo = new \ReflectionMethod($controlador, 'guardarRespaldoResponsable');
 
         foreach ([
-            [12, $representante->id, 'empresas-tramitadores/12/representantes-legales/'],
-            [12, $tramitador->id, 'empresas-tramitadores/12/tramitadores/'],
-            [34, $representante->id, 'empresas-tramitadores/34/representantes-legales/'],
-            [null, $representante->id, 'empresas-tramitadores/pendientes/representantes-legales/'],
+            [12, $representante->id, 'personas-empresas/empresas/12/representantes-legales'],
+            [12, $tramitador->id, 'tramitadores/empresas/12'],
+            [34, $representante->id, 'personas-empresas/empresas/34/representantes-legales'],
+            [null, $representante->id, 'personas-empresas/empresas/pendientes/representantes-legales'],
         ] as [$empresa, $rol, $prefijo]) {
             $ruta = $metodo->invoke($controlador, UploadedFile::fake()->create('respaldo.pdf', 10, 'application/pdf'), $empresa, $rol);
             $this->assertStringStartsWith($prefijo, $ruta);
-            Storage::disk('public')->assertExists($ruta);
+            Storage::disk('local')->assertExists($ruta);
         }
     }
 }

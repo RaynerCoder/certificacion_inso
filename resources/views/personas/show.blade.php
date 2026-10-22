@@ -131,16 +131,6 @@
                 : \Carbon\Carbon::parse($fecha)->format('d/m/Y');
         };
 
-        // Helper para documentos guardados como URL o ruta storage.
-        $urlDocumento = function (?string $ruta) {
-            if (! $ruta) {
-                return null;
-            }
-
-            return \Illuminate\Support\Str::startsWith($ruta, ['http://', 'https://'])
-                ? $ruta
-                : asset(\Illuminate\Support\Str::startsWith($ruta, 'storage/') ? $ruta : 'storage/' . $ruta);
-        };
     @endphp
 
     <style>
@@ -918,7 +908,11 @@
                                     };
                                     $telefonosResponsable = $personaResponsable?->telefonos ?? collect();
                                     $rubrosResponsable = $personaResponsable?->rubros ?? collect();
-                                    $respaldoResponsable = $urlDocumento($responsable->url_respaldo);
+                                    $respaldoResponsable = $responsable->url_respaldo
+                                        ? (\Illuminate\Support\Str::startsWith($responsable->url_respaldo, ['http://', 'https://'])
+                                            ? $responsable->url_respaldo
+                                            : route('responsables_respaldo', $responsable))
+                                        : null;
                                     $nombreRespaldoResponsable = $responsable->url_respaldo
                                         ? urldecode(basename((string) (parse_url($responsable->url_respaldo, PHP_URL_PATH) ?: $responsable->url_respaldo)))
                                         : null;
@@ -1093,7 +1087,9 @@
                                         $aduanasTexto = $producto->aduanas
                                             ->map(fn ($aduana) => ($aduana->codigo_solicitud ?: $aduana->codigo_cotizacion ?: '-') . ($aduana->estado ? ' - ' . $aduana->estado : ''))
                                             ->join(' / ');
-                                        $etiquetaUrl = $urlDocumento($presentacion?->url_etiqueta);
+                                        $etiquetaUrl = $presentacion?->url_etiqueta
+                                            ? route('productos_presentaciones_etiqueta', $presentacion)
+                                            : null;
                                     @endphp
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
@@ -1123,7 +1119,7 @@
                                                 {{ $presentacion->cantidad ?: '-' }} {{ $presentacion->catalogoUnidad?->nombre ?: '' }}
                                                 <span class="persona-o3-muted">{{ $presentacion->descripcion ?: '-' }}</span>
                                                 @if ($etiquetaUrl)
-                                                    <a href="{{ $etiquetaUrl }}" target="_blank" class="persona-o3-link">Ver etiqueta PDF</a>
+                                                    <a href="{{ $etiquetaUrl }}" target="_blank" class="persona-o3-link">Ver etiqueta</a>
                                                 @endif
                                             @else
                                                 -

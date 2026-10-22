@@ -15,22 +15,23 @@ class EtiquetaPresentacionServiceTest extends TestCase
 {
     public function test_guarda_la_etiqueta_por_empresa_producto_y_presentacion(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
-        [$producto] = $this->modelosEmpresa();
+        [$producto, $presentacion] = $this->modelosEmpresa();
         $archivo = UploadedFile::fake()->create('etiqueta.jpg', 10, 'image/jpeg');
 
-        $ruta = app(EtiquetaPresentacionService::class)->guardar($archivo, $producto);
+        $ruta = app(EtiquetaPresentacionService::class)->guardar($archivo, $producto, $presentacion);
 
-        $this->assertStringStartsWith(
-            'empresas-productos/12/productos/34/presentaciones/',
-            $ruta
+        $this->assertSame(
+            'productos/34/presentaciones/56-etiqueta.jpg',
+            $ruta,
         );
-        Storage::disk('public')->assertExists($ruta);
+        Storage::disk('local')->assertExists($ruta);
     }
 
     public function test_mueve_una_etiqueta_anterior_a_la_estructura_organizada(): void
     {
+        Storage::fake('local');
         Storage::fake('public');
         Storage::disk('public')->put('productos/etiquetas/anterior.jpg', 'imagen');
 
@@ -41,11 +42,11 @@ class EtiquetaPresentacionServiceTest extends TestCase
             ->organizarExistente($producto, $presentacion);
 
         $this->assertSame(
-            'empresas-productos/12/productos/34/presentaciones/anterior.jpg',
+            'productos/34/presentaciones/56-etiqueta.jpg',
             $ruta
         );
         Storage::disk('public')->assertMissing('productos/etiquetas/anterior.jpg');
-        Storage::disk('public')->assertExists($ruta);
+        Storage::disk('local')->assertExists($ruta);
     }
 
     private function modelosEmpresa(): array

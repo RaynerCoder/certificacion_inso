@@ -28,7 +28,7 @@
         if ($responsable->url_respaldo) {
             $urlRespaldo = \Illuminate\Support\Str::startsWith($responsable->url_respaldo, ['http://', 'https://'])
                 ? $responsable->url_respaldo
-                : asset('storage/' . $responsable->url_respaldo);
+                : route('responsables_respaldo', $responsable);
         }
     @endphp
 

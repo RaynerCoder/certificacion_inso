@@ -16,17 +16,20 @@ use App\Models\Registro;
 use App\Models\Responsable;
 use App\Models\Territorio;
 use App\Services\EtiquetaPresentacionService;
+use App\Services\ArchivoPrivadoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ProductoController extends Controller
 {
-    public function __construct(private EtiquetaPresentacionService $etiquetasPresentaciones) {}
+    public function __construct(
+        private EtiquetaPresentacionService $etiquetasPresentaciones,
+        private ArchivoPrivadoService $archivosPrivados
+    ) {}
 
     /**
      * Muestra el listado de productos.
@@ -155,11 +158,7 @@ class ProductoController extends Controller
      */
     public function etiquetaPresentacion(Presentacion $presentacion)
     {
-        $ruta = $presentacion->url_etiqueta;
-
-        abort_unless($ruta && Storage::disk('public')->exists($ruta), 404);
-
-        return Storage::disk('public')->response($ruta, basename($ruta), [
+        return $this->archivosPrivados->respuesta($presentacion->url_etiqueta, null, [
             'Cache-Control' => 'private, max-age=3600',
         ]);
     }
@@ -350,16 +349,16 @@ class ProductoController extends Controller
 
             'presentacionesCatalogo' => $presentacionesCatalogo,
 
-            // Lee los tipos de envase ya usados en presentaciones.
-            // No existe una tabla adicional: el valor se obtiene de presentaciones.tipo_envase.
-            'tiposEnvases' => Presentacion::query()
+            // Lee los tipos ya usados en presentaciones.
+            // No existe una tabla adicional: el valor se obtiene de presentaciones.tipo_presentacion.
+            'tiposPresentaciones' => Presentacion::query()
                 ->where('estado', 'ACTIVO')
-                ->whereNotNull('tipo_envase')
-                ->where('tipo_envase', '!=', '')
-                ->select('tipo_envase')
+                ->whereNotNull('tipo_presentacion')
+                ->where('tipo_presentacion', '!=', '')
+                ->select('tipo_presentacion')
                 ->distinct()
-                ->orderBy('tipo_envase')
-                ->pluck('tipo_envase'),
+                ->orderBy('tipo_presentacion')
+                ->pluck('tipo_presentacion'),
         ];
     }
 
@@ -508,7 +507,7 @@ class ProductoController extends Controller
                 'id_presentacion_origen' => $presentacion->id,
                 'cantidad' => $presentacion->cantidad,
                 'id_catalogo_unidad' => $presentacion->id_catalogo_unidad,
-                'tipo_envase' => $presentacion->tipo_envase,
+                'tipo_presentacion' => $presentacion->tipo_presentacion,
                 'descripcion' => $presentacion->descripcion,
                 'estado' => $presentacion->estado,
             ])
@@ -660,7 +659,7 @@ class ProductoController extends Controller
                     $presentacionDato['id_catalogo_unidad']
                 ),
                 'descripcion' => $presentacionDato['descripcion'] ?? null,
-                'tipo_envase' => $presentacionDato['tipo_envase'] ?? null,
+                'tipo_presentacion' => $presentacionDato['tipo_presentacion'] ?? null,
                 'estado' => $presentacionDato['estado'] ?? 'ACTIVO',
             ]);
 
@@ -668,7 +667,8 @@ class ProductoController extends Controller
                 $presentacion->update([
                     'url_etiqueta' => $this->etiquetasPresentaciones->guardar(
                         $archivoEtiqueta,
-                        $producto
+                        $producto,
+                        $presentacion
                     ),
                 ]);
             }
@@ -772,7 +772,7 @@ class ProductoController extends Controller
                 if ((int) $presentacion->id_producto === (int) $producto->id) {
                     $archivoEtiqueta = $request->file("presentaciones.$indice.url_etiqueta");
                     $rutaEtiqueta = $archivoEtiqueta
-                        ? $this->etiquetasPresentaciones->guardar($archivoEtiqueta, $producto)
+                        ? $this->etiquetasPresentaciones->guardar($archivoEtiqueta, $producto, $presentacion)
                         : $presentacion->url_etiqueta;
 
                     $presentacion->update([
@@ -782,7 +782,7 @@ class ProductoController extends Controller
                             $request,
                             $datosPresentacion['id_catalogo_unidad']
                         ),
-                        'tipo_envase' => $datosPresentacion['tipo_envase'] ?? null,
+                        'tipo_presentacion' => $datosPresentacion['tipo_presentacion'] ?? null,
                         'descripcion' => $datosPresentacion['descripcion'] ?? null,
                         'estado' => $datosPresentacion['estado'] ?? 'ACTIVO',
                     ]);
@@ -811,7 +811,7 @@ class ProductoController extends Controller
                     $request,
                     $datosPresentacion['id_catalogo_unidad']
                 ),
-                'tipo_envase' => $datosPresentacion['tipo_envase'] ?? null,
+                'tipo_presentacion' => $datosPresentacion['tipo_presentacion'] ?? null,
                 'descripcion' => $datosPresentacion['descripcion'] ?? null,
                 'estado' => $datosPresentacion['estado'] ?? 'ACTIVO',
             ]);
@@ -822,7 +822,8 @@ class ProductoController extends Controller
                 $nuevaPresentacion->update([
                     'url_etiqueta' => $this->etiquetasPresentaciones->guardar(
                         $archivoEtiqueta,
-                        $producto
+                        $producto,
+                        $nuevaPresentacion
                     ),
                 ]);
             }
@@ -993,7 +994,7 @@ class ProductoController extends Controller
                 'presentaciones.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
                 'presentaciones.*.id_presentacion_origen' => ['nullable', 'integer', 'exists:presentaciones,id'],
                 'presentaciones.*.url_etiqueta' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-                'presentaciones.*.tipo_envase' => ['nullable', 'string', 'max:150'],
+                'presentaciones.*.tipo_presentacion' => ['nullable', 'string', 'max:150'],
 
                 'registros' => ['nullable', 'array'],
                 'registros.*.id_registro' => ['nullable', 'integer', 'exists:registros,id'],

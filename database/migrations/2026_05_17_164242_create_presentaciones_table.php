@@ -27,8 +27,8 @@ return new class extends Migration
             // Descripcion adicional de la presentacion.
             $table->text('descripcion')->nullable();
 
-            // Tipo envase
-            $table->string('tipo_envase', 150)->nullable();
+            // Tipo de presentación.
+            $table->string('tipo_presentacion', 150)->nullable();
 
             // Estados manejados por ahora: ACTIVO e INACTIVO.
             $table->string('estado', 50)->default('ACTIVO');

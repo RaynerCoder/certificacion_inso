@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\PlantillaCertificado;
 use App\Services\PlantillaCertificadoStorageService;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class PlantillaCertificadoStorageServiceTest extends TestCase
 {
@@ -12,9 +12,10 @@ class PlantillaCertificadoStorageServiceTest extends TestCase
     {
         $plantilla = new PlantillaCertificado;
         $plantilla->id = 27;
+        $plantilla->id_tipo_certificado = 9;
 
-        $directorio = (new PlantillaCertificadoStorageService)->directorio($plantilla);
+        $directorio = app(PlantillaCertificadoStorageService::class)->directorio($plantilla);
 
-        $this->assertSame('plantillas/certificados/27', $directorio);
+        $this->assertSame('plantillas/9-certificado', $directorio);
     }
 }

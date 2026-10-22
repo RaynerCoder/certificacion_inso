@@ -14,18 +14,19 @@ use App\Models\Telefono;
 use App\Models\Territorio;
 use App\Models\TipoEmpresa;
 use App\Models\User;
+use App\Services\ArchivoPrivadoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PersonaController extends Controller
 {
+    public function __construct(private readonly ArchivoPrivadoService $archivosPrivados) {}
+
     /**
      * Muestra las personas naturales y juridicas registradas.
      */
@@ -907,14 +908,17 @@ class PersonaController extends Controller
                 $urlRespaldo = $this->guardarRespaldoResponsable(
                     $responsable['archivo_respaldo'], $idEmpresa, (int) $responsable['id_rol']
                 );
-            } elseif ($urlRespaldo && str_starts_with($urlRespaldo, 'empresas-tramitadores/pendientes/')) {
+            } elseif ($urlRespaldo && (
+                str_contains($urlRespaldo, '/pendientes/')
+                || str_starts_with($urlRespaldo, 'empresas-tramitadores/pendientes/')
+            )) {
                 $destino = \App\Support\DirectorioRespaldoEmpresa::paraRol($idEmpresa, (int) $responsable['id_rol'])
                     . '/' . basename($urlRespaldo);
-                if (! Storage::disk('public')->copy($urlRespaldo, $destino)) {
+                $rutaOrganizada = $this->archivosPrivados->moverAPrivado($urlRespaldo, $destino);
+                if (! $rutaOrganizada || $rutaOrganizada === $urlRespaldo) {
                     throw new \RuntimeException('No se pudo organizar el PDF de respaldo de la empresa.');
                 }
-                $urlRespaldo = $destino;
-                $this->publicarRespaldoResponsable($urlRespaldo);
+                $urlRespaldo = $rutaOrganizada;
             }
 
             // La relacion existente se reutiliza para conservar su historial y evitar duplicados.
@@ -944,9 +948,33 @@ class PersonaController extends Controller
                 'estado' => $estadoResponsable,
             ];
 
-            $relacionResponsable
-                ? $relacionResponsable->update($datosRelacion)
-                : Responsable::create($datosRelacion);
+            if ($relacionResponsable) {
+                $relacionResponsable->update($datosRelacion);
+            } else {
+                $relacionResponsable = Responsable::create($datosRelacion);
+            }
+
+            if ($relacionResponsable->url_respaldo) {
+                $rutaActual = $this->archivosPrivados->normalizarNullable($relacionResponsable->url_respaldo);
+
+                if (! $rutaActual) {
+                    continue;
+                }
+
+                $extension = strtolower(pathinfo((string) $rutaActual, PATHINFO_EXTENSION) ?: 'pdf');
+                $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
+                    $relacionResponsable->id_empresa,
+                    $relacionResponsable->id_rol,
+                );
+                $rutaNueva = $directorio.'/'.$relacionResponsable->id.'-responsable-respaldo.'.$extension;
+                $rutaOrganizada = $this->archivosPrivados->moverAPrivado($rutaActual, $rutaNueva);
+
+                if ($rutaOrganizada !== $rutaNueva) {
+                    throw new \RuntimeException('No se pudo organizar el archivo del responsable.');
+                }
+
+                $relacionResponsable->update(['url_respaldo' => $rutaNueva]);
+            }
         }
     }
 
@@ -1010,36 +1038,18 @@ class PersonaController extends Controller
     // Conserva temporalmente los PDF si la empresa aún no fue registrada.
     private function guardarRespaldoResponsable($archivo, ?int $idEmpresa = null, ?int $idRol = null): string
     {
-        $nombreArchivo = now()->format('YmdHis').'_'.uniqid().'.pdf';
+        $nombreArchivo = uniqid().'.pdf';
 
         $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
             $idEmpresa, $idRol ?? $this->rolRepresentanteLegalActivo()->id
         );
-        $ruta = $archivo->storeAs($directorio, $nombreArchivo, 'public');
+        $ruta = $this->archivosPrivados->guardarSubido($archivo, $directorio.'/'.$nombreArchivo);
 
         if (! $ruta) {
-            throw new \RuntimeException('No se pudo guardar el PDF de respaldo en storage/app/public.');
+            throw new \RuntimeException('No se pudo guardar el PDF de respaldo en el almacenamiento privado.');
         }
-
-        $this->publicarRespaldoResponsable($ruta);
 
         return $ruta;
-    }
-
-    private function publicarRespaldoResponsable(string $ruta): void
-    {
-        // Si el servidor no tiene enlace public/storage, publicamos una copia para que el PDF se pueda visualizar.
-        $rutaStorage = storage_path('app/public/'.$ruta);
-        $rutaPublica = public_path('storage/'.$ruta);
-
-        if (File::exists($rutaStorage) && ! File::exists($rutaPublica)) {
-            File::ensureDirectoryExists(dirname($rutaPublica));
-
-            if (! File::copy($rutaStorage, $rutaPublica)) {
-                throw new \RuntimeException('El PDF se guardo, pero no se pudo publicar en public/storage para visualizarlo.');
-            }
-        }
-
     }
 
     // FUNCION PARA CONVERTIR TEXTO A MAYUSCULAS

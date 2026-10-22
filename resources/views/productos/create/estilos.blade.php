@@ -318,7 +318,7 @@
         grid-column: 1 / -1;
     }
 
-    .producto-registro-grid-presentacion .producto-campo-tipo-envase {
+    .producto-registro-grid-presentacion .producto-campo-tipo-presentacion {
         grid-column: span 5;
     }
 
@@ -2420,7 +2420,7 @@
             grid-column: 1 / -1;
         }
 
-        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
+        .producto-registro-grid-presentacion .producto-campo-tipo-presentacion,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado {
@@ -2573,7 +2573,7 @@
         }
 
         .producto-registro-grid .producto-campo-catalogo,
-        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
+        .producto-registro-grid-presentacion .producto-campo-tipo-presentacion,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado,
@@ -2741,7 +2741,7 @@
 
         .producto-registro-grid .md\:col-span-12,
         .producto-registro-grid .producto-campo-catalogo,
-        .producto-registro-grid-presentacion .producto-campo-tipo-envase,
+        .producto-registro-grid-presentacion .producto-campo-tipo-presentacion,
         .producto-registro-grid-presentacion .producto-campo-cantidad,
         .producto-registro-grid-presentacion .producto-campo-unidad,
         .producto-registro-grid-presentacion .producto-campo-estado,

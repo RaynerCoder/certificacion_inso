@@ -16,6 +16,7 @@ use App\Models\RequisitoTipoCertificado;
 use App\Models\TipoCertificado;
 use App\Models\User;
 use App\Services\DescargaCertificadoService;
+use App\Services\ArchivoPrivadoService;
 use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
 use App\Services\PlantillaCertificadoStorageService;
@@ -33,7 +34,8 @@ class CertificadoController extends Controller
         private GestionTramitadoresService $gestionTramitadores,
         private DescargaCertificadoService $descargasCertificados,
         private ExpedienteTramiteService $expedientesTramites,
-        private PlantillaCertificadoStorageService $archivosPlantillas
+        private PlantillaCertificadoStorageService $archivosPlantillas,
+        private ArchivoPrivadoService $archivosPrivados
     ) {}
 
     /**
@@ -127,6 +129,14 @@ class CertificadoController extends Controller
                 ->first();
 
         return view('certificados.plantilla_certificado.show', compact('tipoCertificado', 'plantilla'));
+    }
+
+    public function archivoPlantilla(PlantillaCertificado $plantillaCertificado)
+    {
+        return $this->archivosPrivados->respuesta($plantillaCertificado->url_fondo, null, [
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function editarPlantilla(TipoCertificado $tipoCertificado)
@@ -1154,7 +1164,7 @@ class CertificadoController extends Controller
                 ['codigo' => 'registro.unidad', 'nombre' => 'Unidad registrada'],
                 ['codigo' => 'registro.estado', 'nombre' => 'Estado del registro'],
                 ['codigo' => 'presentacion.descripcion', 'nombre' => 'Presentación'],
-                ['codigo' => 'presentacion.tipo_envase', 'nombre' => 'Tipo de envase'],
+                ['codigo' => 'presentacion.tipo_presentacion', 'nombre' => 'Tipo de presentación'],
                 ['codigo' => 'presentacion.cantidad', 'nombre' => 'Cantidad de presentación'],
                 ['codigo' => 'presentacion.unidad', 'nombre' => 'Unidad de presentación'],
                 ['codigo' => 'presentacion.url_etiqueta', 'nombre' => 'Etiqueta'],
@@ -1858,9 +1868,9 @@ class CertificadoController extends Controller
         $rutaRelativa = str_starts_with($rutaLimpia, 'storage/')
             ? substr($rutaLimpia, strlen('storage/'))
             : $rutaLimpia;
-        $rutaArchivo = storage_path('app/public/'.$rutaRelativa);
+        $rutaArchivo = $this->archivosPrivados->rutaAbsoluta($rutaRelativa);
 
-        if (! File::exists($rutaArchivo) || ! in_array(strtolower(File::extension($rutaArchivo)), ['jpg', 'jpeg', 'png', 'webp'], true)) {
+        if (! $rutaArchivo || ! File::exists($rutaArchivo) || ! in_array(strtolower(File::extension($rutaArchivo)), ['jpg', 'jpeg', 'png', 'webp'], true)) {
             return null;
         }
 
@@ -2114,7 +2124,7 @@ class CertificadoController extends Controller
             ? User::withTrashed()->with('funcionario.cargos')->find($emision->id_usuario_registro)
             : auth()->user();
         $presentacionesCompletas = $presentaciones->map(function ($presentacion) {
-            $tipo = trim((string) $presentacion->tipo_envase);
+            $tipo = trim((string) $presentacion->tipo_presentacion);
             $cantidad = $this->formatearDecimalPlantilla($presentacion->cantidad);
             $unidad = $this->textoCatalogoUnidad($presentacion->catalogoUnidad);
 
@@ -2266,7 +2276,7 @@ class CertificadoController extends Controller
             'registro.unidad' => $this->textoCatalogoUnidad($primerRegistro?->catalogoUnidad),
             'registro.estado' => $primerRegistro?->estado ?: 'Sin estado',
             'presentacion.descripcion' => $primerRegistro?->presentacion?->descripcion ?: 'Sin presentación',
-            'presentacion.tipo_envase' => $primerRegistro?->presentacion?->tipo_envase ?: 'Sin tipo de envase',
+            'presentacion.tipo_presentacion' => $primerRegistro?->presentacion?->tipo_presentacion ?: 'Sin tipo de presentación',
             'presentacion.cantidad' => $this->formatearDecimalPlantilla($primerRegistro?->presentacion?->cantidad),
             'presentacion.unidad' => $this->textoCatalogoUnidad($primerRegistro?->presentacion?->catalogoUnidad),
             'presentacion.url_etiqueta' => $primerRegistro?->presentacion?->url_etiqueta ?: 'Sin etiqueta',

@@ -14,8 +14,9 @@ import {
 const SELECTOR_LIENZO = '[data-plantilla-lienzo]';
 const COLOR_PRINCIPAL = '#0f766e';
 const COLOR_TEXTO = '#0f172a';
-const PASO_CUADRICULA = 10;
-const TOLERANCIA_GUIA = 7;
+const PASO_CUADRICULA_PREDETERMINADO = 10;
+const PASOS_CUADRICULA_PERMITIDOS = [5, 10, 20, 25, 40, 50, 75, 100, 150, 200];
+const TOLERANCIA_GUIA = 15;
 const CALIDAD_PREVISUALIZACION = 2;
 const CALIDAD_EXPORTACION = 3;
 const FUENTES_CERTIFICADO = [
@@ -123,6 +124,8 @@ function crearEditorPlantilla(elementoCanvas) {
         selectorSeleccion: document.querySelector('[data-plantilla-seleccion]'),
         selectorDistribucion: document.querySelector('[data-plantilla-distribuir]'),
         selectorExportacion: document.querySelector('[data-plantilla-exportar]'),
+        selectorTipoCuadricula: document.querySelector('[data-plantilla-grid-type]'),
+        selectorTamanoCuadricula: document.querySelector('[data-plantilla-grid-size]'),
     };
 
     const campos = [...document.querySelectorAll('[data-plantilla-campo]')].map((boton) => ({
@@ -147,8 +150,11 @@ function crearEditorPlantilla(elementoCanvas) {
     let campoSeleccionado = campos[0]?.codigo || null;
     let urlFondo = controles.inputFondo?.dataset.plantillaFondoUrl || '';
     let zoom = 1;
-    // El movimiento comienza libre. La cuadrícula solo ajusta posiciones cuando el usuario la activa.
-    let cuadriculaActiva = false;
+    // La cuadrícula y el imán son independientes: se puede usar la guía visual sin forzar movimientos.
+    let cuadriculaVisible = true;
+    let imanActivo = true;
+    let tipoCuadricula = 'LINEAS';
+    let pasoCuadricula = PASO_CUADRICULA_PREDETERMINADO;
     let historial = [];
     let historialRehacer = [];
     let elementoCopiado = null;
@@ -176,6 +182,7 @@ function crearEditorPlantilla(elementoCanvas) {
         configurarFormulario();
         actualizarTipoSeleccionado();
         actualizarPapel();
+        actualizarCuadricula();
 
         if (urlFondo) {
             mostrarFondo(
@@ -1037,15 +1044,21 @@ function crearEditorPlantilla(elementoCanvas) {
         lienzo.on('object:moving', (evento) => {
             if (!evento.target) return;
             const omitirAjuste = Boolean(evento.e?.altKey);
-            const ajustarPosicion = cuadriculaActiva && !omitirAjuste;
+            const aplicarIman = imanActivo && !omitirAjuste;
+            const ajustarACuadricula = cuadriculaVisible && aplicarIman;
+            const ajusteGuias = ajustarObjetoConGuias(evento.target, aplicarIman);
 
-            if (ajustarPosicion) {
+            if (ajustarACuadricula) {
                 evento.target.set({
-                    left: Math.round(evento.target.left / PASO_CUADRICULA) * PASO_CUADRICULA,
-                    top: Math.round(evento.target.top / PASO_CUADRICULA) * PASO_CUADRICULA,
+                    left: ajusteGuias.vertical
+                        ? evento.target.left
+                        : Math.round(evento.target.left / pasoCuadricula) * pasoCuadricula,
+                    top: ajusteGuias.horizontal
+                        ? evento.target.top
+                        : Math.round(evento.target.top / pasoCuadricula) * pasoCuadricula,
                 });
             }
-            ajustarObjetoConGuias(evento.target, ajustarPosicion);
+            evento.target.setCoords();
             mantenerObjetoDentroDelLienzo(evento.target);
         });
         lienzo.on('mouse:up', ocultarGuiasAlineacion);
@@ -1191,7 +1204,8 @@ function crearEditorPlantilla(elementoCanvas) {
         document.querySelectorAll('[data-plantilla-tool]').forEach((boton) => {
             boton.addEventListener('click', () => ejecutarHerramienta(boton.dataset.plantillaTool));
         });
-        document.querySelector('[data-plantilla-tool="grid"]')?.classList.toggle('is-active', cuadriculaActiva);
+        document.querySelector('[data-plantilla-tool="grid"]')?.classList.toggle('is-active', cuadriculaVisible);
+        document.querySelector('[data-plantilla-tool="snap"]')?.classList.toggle('is-active', imanActivo);
         document.querySelector('[data-plantilla-alinear]')?.addEventListener('change', (evento) => {
             if (evento.target.value) alinearSeleccion(evento.target.value);
             evento.target.value = '';
@@ -1211,6 +1225,17 @@ function crearEditorPlantilla(elementoCanvas) {
         document.querySelectorAll('[data-plantilla-zoom]').forEach((boton) => {
             boton.addEventListener('click', () => cambiarZoom(boton.dataset.plantillaZoom));
         });
+        controles.selectorTipoCuadricula?.addEventListener('change', (evento) => {
+            tipoCuadricula = evento.target.value === 'PUNTOS' ? 'PUNTOS' : 'LINEAS';
+            actualizarCuadricula();
+        });
+        controles.selectorTamanoCuadricula?.addEventListener('change', (evento) => {
+            const pasoSolicitado = Number(evento.target.value);
+            pasoCuadricula = PASOS_CUADRICULA_PERMITIDOS.includes(pasoSolicitado)
+                ? pasoSolicitado
+                : PASO_CUADRICULA_PREDETERMINADO;
+            actualizarCuadricula();
+        });
     }
 
     function ejecutarHerramienta(accion) {
@@ -1227,6 +1252,7 @@ function crearEditorPlantilla(elementoCanvas) {
             duplicar: duplicarSeleccion,
             eliminar: eliminarSeleccion,
             grid: alternarCuadricula,
+            snap: alternarIman,
             maximizar: alternarModoMaximo,
         };
         acciones[accion]?.();
@@ -1421,30 +1447,77 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function alternarCuadricula() {
-        cuadriculaActiva = !cuadriculaActiva;
-        controles.escenario?.classList.toggle('is-grid', cuadriculaActiva);
-        document.querySelector('[data-plantilla-tool="grid"]')?.classList.toggle('is-active', cuadriculaActiva);
+        cuadriculaVisible = !cuadriculaVisible;
+        actualizarCuadricula();
+    }
+
+    function alternarIman() {
+        imanActivo = !imanActivo;
+        document.querySelector('[data-plantilla-tool="snap"]')?.classList.toggle('is-active', imanActivo);
+        if (!imanActivo) ocultarGuiasAlineacion();
+        lienzo.requestRenderAll();
+    }
+
+    function actualizarCuadricula() {
+        controles.escenario?.classList.toggle('is-grid', cuadriculaVisible);
+        controles.escenario?.classList.toggle('is-grid-points', tipoCuadricula === 'PUNTOS');
+        controles.escenario?.style.setProperty('--plantilla-grid-step', `${pasoCuadricula * zoom}px`);
+        document.querySelector('[data-plantilla-tool="grid"]')?.classList.toggle('is-active', cuadriculaVisible);
+        actualizarReglasLienzo(medidasPapel());
         lienzo.requestRenderAll();
     }
 
     function alinearSeleccion(tipo) {
         const seleccionados = indicesSeleccionados().map((indice) => elementos[indice]).filter(Boolean);
         if (!seleccionados.length) return;
+
+        if (['MISMO_ANCHO', 'MISMO_ALTO', 'MISMO_TAMANO'].includes(tipo)) {
+            igualarTamanoSeleccion(seleccionados, tipo);
+            return;
+        }
+
         guardarHistorial();
         const medidas = medidasPapel();
         const limites = limitesElementos(seleccionados);
-        let desplazamientoX = 0;
-        let desplazamientoY = 0;
-        if (tipo === 'IZQUIERDA') desplazamientoX = -limites.izquierda;
-        if (tipo === 'CENTRO_H') desplazamientoX = (medidas.ancho - limites.ancho) / 2 - limites.izquierda;
-        if (tipo === 'DERECHA') desplazamientoX = medidas.ancho - limites.derecha;
-        if (tipo === 'ARRIBA') desplazamientoY = -limites.arriba;
-        if (tipo === 'CENTRO_V') desplazamientoY = (medidas.alto - limites.alto) / 2 - limites.arriba;
-        if (tipo === 'ABAJO') desplazamientoY = medidas.alto - limites.abajo;
-        seleccionados.forEach((elemento) => {
-            elemento.posicion_x += desplazamientoX;
-            elemento.posicion_y += desplazamientoY;
+        const esSeleccionMultiple = seleccionados.length > 1;
+
+        if (esSeleccionMultiple) {
+            const centroX = limites.izquierda + limites.ancho / 2;
+            const centroY = limites.arriba + limites.alto / 2;
+            seleccionados.forEach((elemento) => {
+                if (tipo === 'IZQUIERDA') elemento.posicion_x = limites.izquierda;
+                if (tipo === 'CENTRO_H') elemento.posicion_x = centroX - elemento.ancho / 2;
+                if (tipo === 'DERECHA') elemento.posicion_x = limites.derecha - elemento.ancho;
+                if (tipo === 'ARRIBA') elemento.posicion_y = limites.arriba;
+                if (tipo === 'CENTRO_V') elemento.posicion_y = centroY - elemento.alto / 2;
+                if (tipo === 'ABAJO') elemento.posicion_y = limites.abajo - elemento.alto;
+            });
+        } else {
+            const elemento = seleccionados[0];
+            if (tipo === 'IZQUIERDA') elemento.posicion_x = 0;
+            if (tipo === 'CENTRO_H') elemento.posicion_x = (medidas.ancho - elemento.ancho) / 2;
+            if (tipo === 'DERECHA') elemento.posicion_x = medidas.ancho - elemento.ancho;
+            if (tipo === 'ARRIBA') elemento.posicion_y = 0;
+            if (tipo === 'CENTRO_V') elemento.posicion_y = (medidas.alto - elemento.alto) / 2;
+            if (tipo === 'ABAJO') elemento.posicion_y = medidas.alto - elemento.alto;
+        }
+        renderizarTodo();
+    }
+
+    function igualarTamanoSeleccion(seleccionados, tipo) {
+        if (seleccionados.length < 2) return;
+        guardarHistorial();
+        const referencia = seleccionados[0];
+
+        seleccionados.slice(1).forEach((elemento) => {
+            if (tipo === 'MISMO_ANCHO' || tipo === 'MISMO_TAMANO') {
+                elemento.ancho = referencia.ancho;
+            }
+            if (tipo === 'MISMO_ALTO' || tipo === 'MISMO_TAMANO') {
+                elemento.alto = referencia.alto;
+            }
         });
+
         renderizarTodo();
     }
 
@@ -1510,7 +1583,7 @@ function crearEditorPlantilla(elementoCanvas) {
         if (controles.escenario) {
             controles.escenario.style.width = `${medidas.ancho * zoom}px`;
             controles.escenario.style.height = `${medidas.alto * zoom}px`;
-            controles.escenario.style.setProperty('--plantilla-grid-step', `${PASO_CUADRICULA * zoom}px`);
+            controles.escenario.style.setProperty('--plantilla-grid-step', `${pasoCuadricula * zoom}px`);
         }
         actualizarReglasLienzo(medidas);
         if (controles.zoom) controles.zoom.textContent = `${Math.round(zoom * 100)}%`;
@@ -1530,7 +1603,7 @@ function crearEditorPlantilla(elementoCanvas) {
 
     function actualizarReglasLienzo(medidas) {
         if (!reglas.horizontal || !reglas.vertical) return;
-        const paso = Math.max(2, PASO_CUADRICULA * zoom);
+        const paso = Math.max(2, pasoCuadricula * zoom);
         const pasoMayor = paso * 5;
         reglas.horizontal.style.width = `${medidas.ancho * zoom}px`;
         reglas.vertical.style.height = `${medidas.alto * zoom}px`;
@@ -1567,25 +1640,62 @@ function crearEditorPlantilla(elementoCanvas) {
         const caja = objeto.getBoundingRect();
         const centro = objeto.getCenterPoint();
         const tolerancia = TOLERANCIA_GUIA / zoom;
-        const guiasVerticales = [
-            { posicion: 0, actual: caja.left },
-            { posicion: medidas.ancho / 2, actual: centro.x },
-            { posicion: medidas.ancho, actual: caja.left + caja.width },
-        ];
-        const guiasHorizontales = [
-            { posicion: 0, actual: caja.top },
-            { posicion: medidas.alto / 2, actual: centro.y },
-            { posicion: medidas.alto, actual: caja.top + caja.height },
-        ];
-        const vertical = guiasVerticales.find((guia) => Math.abs(guia.posicion - guia.actual) <= tolerancia);
-        const horizontal = guiasHorizontales.find((guia) => Math.abs(guia.posicion - guia.actual) <= tolerancia);
+        const objetosDelMovimiento = new Set(
+            objeto instanceof ActiveSelection ? objeto.getObjects() : [objeto],
+        );
+        const referenciasVerticales = [0, medidas.ancho / 2, medidas.ancho];
+        const referenciasHorizontales = [0, medidas.alto / 2, medidas.alto];
 
-        // Las guías se muestran siempre, pero no cambian la posición si la cuadrícula está apagada.
-        if (aplicarAjuste && vertical) objeto.left += vertical.posicion - vertical.actual;
-        if (aplicarAjuste && horizontal) objeto.top += horizontal.posicion - horizontal.actual;
+        // Los bordes y centros de los demás campos funcionan como guías magnéticas.
+        lienzo.getObjects()
+            .filter((otro) => !objetosDelMovimiento.has(otro) && otro.visible !== false)
+            .forEach((otro) => {
+                otro.setCoords();
+                const cajaOtro = otro.getBoundingRect();
+                const centroOtro = otro.getCenterPoint();
+                referenciasVerticales.push(cajaOtro.left, centroOtro.x, cajaOtro.left + cajaOtro.width);
+                referenciasHorizontales.push(cajaOtro.top, centroOtro.y, cajaOtro.top + cajaOtro.height);
+            });
+
+        const vertical = guiaMasCercana(
+            [caja.left, centro.x, caja.left + caja.width],
+            referenciasVerticales,
+            tolerancia,
+        );
+        const horizontal = guiaMasCercana(
+            [caja.top, centro.y, caja.top + caja.height],
+            referenciasHorizontales,
+            tolerancia,
+        );
+
+        // Las guías se muestran siempre, pero no cambian la posición si el imán está apagado.
+        if (aplicarAjuste && vertical) objeto.left += vertical.diferencia;
+        if (aplicarAjuste && horizontal) objeto.top += horizontal.diferencia;
         mostrarGuia(guias.vertical, vertical?.posicion, 'vertical');
         mostrarGuia(guias.horizontal, horizontal?.posicion, 'horizontal');
         objeto.setCoords();
+
+        return {
+            vertical: Boolean(aplicarAjuste && vertical),
+            horizontal: Boolean(aplicarAjuste && horizontal),
+        };
+    }
+
+    function guiaMasCercana(puntosObjeto, referencias, tolerancia) {
+        let mejor = null;
+
+        puntosObjeto.forEach((actual) => {
+            referencias.forEach((posicion) => {
+                const diferencia = posicion - actual;
+                const distancia = Math.abs(diferencia);
+
+                if (distancia <= tolerancia && (!mejor || distancia < mejor.distancia)) {
+                    mejor = { posicion, actual, diferencia, distancia };
+                }
+            });
+        });
+
+        return mejor;
     }
 
     function mantenerObjetoDentroDelLienzo(objeto) {
@@ -2377,7 +2487,8 @@ function crearEditorPlantilla(elementoCanvas) {
             lienzo.requestRenderAll();
         }
 
-        controles.escenario?.classList.toggle('is-grid', cuadriculaActiva);
+        controles.escenario?.classList.toggle('is-grid', cuadriculaVisible);
+        controles.escenario?.classList.toggle('is-grid-points', tipoCuadricula === 'PUNTOS');
     }
 
     function ajustarFondoAlLienzo(imagen, ajuste) {

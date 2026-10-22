@@ -31,21 +31,23 @@ class ExpedienteTramiteTest extends TestCase
             $certificado,
             UploadedFile::fake()->create('solicitud-original.pdf', 10, 'application/pdf'),
             ExpedienteTramiteService::EVIDENCIA_REQUISITO,
-            $requisito
+            $requisito,
+            nombreArchivo: $servicio->nombreDocumentoEvidencia(1),
         );
         $segundo = $servicio->guardarArchivoSubido(
             $certificado,
             UploadedFile::fake()->create('solicitud-corregida.pdf', 12, 'application/pdf'),
             ExpedienteTramiteService::EVIDENCIA_REQUISITO,
-            $requisito
+            $requisito,
+            nombreArchivo: $servicio->nombreDocumentoEvidencia(2),
         );
 
         $this->assertMatchesRegularExpression(
-            '#^tramites/17/requisitos/45/[0-9a-f-]{36}__solicitud-original\.pdf$#',
+            '#^tramites/17/requisitos/45/respaldo-1\.pdf$#',
             $primero
         );
         $this->assertMatchesRegularExpression(
-            '#^tramites/17/requisitos/45/[0-9a-f-]{36}__solicitud-corregida\.pdf$#',
+            '#^tramites/17/requisitos/45/respaldo-2\.pdf$#',
             $segundo
         );
         Storage::disk('local')->assertExists($primero);
@@ -79,7 +81,7 @@ class ExpedienteTramiteTest extends TestCase
             $comprobante
         );
         $this->assertMatchesRegularExpression(
-            '#^tramites/23/certificados/emisiones/[0-9a-f-]{36}__certificado-final\.pdf$#',
+            '#^tramites/23/certificados/emitidos/[0-9a-f-]{36}__certificado-final\.pdf$#',
             $emitido
         );
         Storage::disk('local')->assertExists($comprobante);

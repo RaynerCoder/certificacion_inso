@@ -11,15 +11,17 @@ use App\Models\Rubro;
 use App\Models\Role;
 use App\Models\Telefono;
 use App\Models\Territorio;
+use App\Services\ArchivoPrivadoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ResponsableController extends Controller
 {
     private const NUEVO_RESPONSABLE = 'NUEVO';
+
+    public function __construct(private readonly ArchivoPrivadoService $archivosPrivados) {}
 
     /**
      * Display a listing of the resource.
@@ -58,7 +60,7 @@ class ResponsableController extends Controller
         try {
             DB::beginTransaction();
 
-            Responsable::create([
+            $responsable = Responsable::create([
                 'id_empresa' => $datos['form_id_empresa'],
                 'id_persona' => $datos['form_id_persona'],
                 'id_rol' => $datos['form_id_rol'],
@@ -67,6 +69,8 @@ class ResponsableController extends Controller
                 'fecha_baja' => $datos['form_fecha_baja'] ?? null,
                 'estado' => $datos['form_estado'] ?? 'ACTIVO',
             ]);
+
+            $this->organizarArchivoResponsable($responsable);
 
             DB::commit();
 
@@ -102,6 +106,22 @@ class ResponsableController extends Controller
         ]);
 
         return view('responsables.show', compact('responsable'));
+    }
+
+    public function respaldo(Responsable $responsable)
+    {
+        abort_unless($responsable->url_respaldo, 404);
+
+        return $this->archivosPrivados->respuesta(
+            $responsable->url_respaldo,
+            $responsable->id.'-responsable-respaldo.pdf',
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.$responsable->id.'-responsable-respaldo.pdf"',
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
     }
 
     /**
@@ -192,6 +212,8 @@ class ResponsableController extends Controller
                 'fecha_baja' => $datos['form_fecha_baja'] ?? null,
                 'estado' => $datos['form_estado'] ?? 'ACTIVO',
             ]);
+
+            $this->organizarArchivoResponsable($responsable);
 
             DB::commit();
 
@@ -312,7 +334,7 @@ class ResponsableController extends Controller
         // Si el usuario marco quitar PDF, se limpia la referencia y solo se borra archivo fisico si es local.
         if ($solicitud->boolean('form_quitar_respaldo')) {
             if ($respaldoAnterior && ! str_starts_with($respaldoAnterior, 'http')) {
-                Storage::disk('public')->delete($respaldoAnterior);
+                $this->archivosPrivados->eliminar($respaldoAnterior);
             }
 
             $respaldoAnterior = null;
@@ -324,16 +346,42 @@ class ResponsableController extends Controller
 
         // Si llega un PDF nuevo, reemplaza al anterior para no dejar archivos duplicados.
         if ($respaldoAnterior && ! str_starts_with($respaldoAnterior, 'http')) {
-            Storage::disk('public')->delete($respaldoAnterior);
+            $this->archivosPrivados->eliminar($respaldoAnterior);
         }
 
-        return $solicitud->file('form_url_respaldo')->store(
-            \App\Support\DirectorioRespaldoEmpresa::paraRol(
+        $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
                 (int) $solicitud->input('form_id_empresa'),
                 (int) $solicitud->input('form_id_rol')
-            ),
-            'public'
         );
+        $nombre = uniqid().'.pdf';
+
+        return $this->archivosPrivados->guardarSubido(
+            $solicitud->file('form_url_respaldo'),
+            $directorio.'/'.$nombre
+        );
+    }
+
+    private function organizarArchivoResponsable(Responsable $responsable): void
+    {
+        $rutaActual = $this->archivosPrivados->normalizarNullable($responsable->url_respaldo);
+
+        if (! $rutaActual) {
+            return;
+        }
+
+        $extension = strtolower(pathinfo($rutaActual, PATHINFO_EXTENSION) ?: 'pdf');
+        $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
+            $responsable->id_empresa,
+            $responsable->id_rol,
+        );
+        $rutaNueva = $directorio.'/'.$responsable->id.'-responsable-respaldo.'.$extension;
+        $rutaOrganizada = $this->archivosPrivados->moverAPrivado($rutaActual, $rutaNueva);
+
+        if ($rutaOrganizada !== $rutaNueva) {
+            throw new \RuntimeException('No se pudo organizar el archivo del responsable.');
+        }
+
+        $responsable->update(['url_respaldo' => $rutaNueva]);
     }
 
     /**

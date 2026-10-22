@@ -456,6 +456,24 @@
         max-width: 105px;
     }
 
+    .plantilla-toolbar-select.is-grid-control {
+        max-width: 82px;
+    }
+
+    .plantilla-grid-btn,
+    .plantilla-snap-btn {
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    .plantilla-grid-btn {
+        min-width: 100px;
+    }
+
+    .plantilla-snap-btn {
+        min-width: 72px;
+    }
+
     .plantilla-zoom-control {
         align-items: center;
         background: #ffffff;
@@ -539,24 +557,30 @@
 
     .plantilla-alignment-guide.is-vertical {
         top: 0;
-        width: 1px;
+        width: 2px;
     }
 
     .plantilla-alignment-guide.is-horizontal {
-        height: 1px;
+        height: 2px;
         left: 0;
     }
 
     /* La cuadrícula es una guía visual; nunca forma parte del certificado guardado. */
     .plantilla-canvas-stage.is-grid::after {
         background-image:
-            linear-gradient(rgba(15, 118, 110, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(15, 118, 110, 0.08) 1px, transparent 1px);
+            linear-gradient(rgba(15, 118, 110, 0.14) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(15, 118, 110, 0.14) 1px, transparent 1px);
         background-size: var(--plantilla-grid-step, 10px) var(--plantilla-grid-step, 10px);
+        content: '';
         inset: 0;
         pointer-events: none;
         position: absolute;
         z-index: 2;
+    }
+
+    .plantilla-canvas-stage.is-grid.is-grid-points::after {
+        background-image: radial-gradient(circle, rgba(15, 118, 110, 0.28) 1px, transparent 1.25px);
+        background-position: 0 0;
     }
 
     /* Las reglas usan las mismas unidades del lienzo y acompañan el nivel de zoom. */

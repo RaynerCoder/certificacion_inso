@@ -18,7 +18,7 @@ class Presentacion extends Model
         'cantidad',
         'id_catalogo_unidad',
         'descripcion',
-        'tipo_envase',
+        'tipo_presentacion',
         'estado',
     ];
 

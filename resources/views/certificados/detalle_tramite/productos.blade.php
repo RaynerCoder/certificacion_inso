@@ -184,8 +184,8 @@
 
                                                 <dl class="tramite-presentation-data">
                                                     <div>
-                                                        <dt>Tipo de envase</dt>
-                                                        <dd>{{ $mostrarTexto($presentacion->tipo_envase) }}</dd>
+                                                        <dt>Tipo de presentación</dt>
+                                                        <dd>{{ $mostrarTexto($presentacion->tipo_presentacion) }}</dd>
                                                     </div>
                                                     <div>
                                                         <dt>Cantidad</dt>

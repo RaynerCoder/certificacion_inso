@@ -175,6 +175,7 @@ Route::delete('/empresas/{empresa}', [EmpresaController::class, 'destroy'])->nam
 Route::get('/responsables', [ResponsableController::class, 'index'])->name('responsables_index');
 Route::get('/responsables/create', [ResponsableController::class, 'create'])->name('responsables_create');
 Route::post('/responsables', [ResponsableController::class, 'store'])->name('responsables_store');
+Route::get('/responsables/{responsable}/respaldo', [ResponsableController::class, 'respaldo'])->name('responsables_respaldo');
 Route::get('/responsables/{responsable}', [ResponsableController::class, 'show'])->name('responsables_show');
 Route::get('/responsables/{responsable}/edit', [ResponsableController::class, 'edit'])->name('responsables_edit');
 Route::put('/responsables/{responsable}', [ResponsableController::class, 'update'])->name('responsables_update');
@@ -268,6 +269,7 @@ Route::get('/certificados/plantillas/create', [CertificadoController::class, 'cr
 Route::post('/certificados/plantillas', [CertificadoController::class, 'guardarPlantilla'])->name('certificados_plantillas_store');
 Route::put('/certificados/plantillas/guardar/{plantillaCertificado}', [CertificadoController::class, 'actualizarPlantilla'])->name('certificados_plantillas_update');
 Route::delete('/certificados/plantillas/{plantillaCertificado}', [CertificadoController::class, 'eliminarPlantilla'])->name('certificados_plantillas_destroy');
+Route::get('/certificados/plantillas/archivo/{plantillaCertificado}', [CertificadoController::class, 'archivoPlantilla'])->name('certificados_plantillas_archivo');
 Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController::class, 'verPlantilla'])->name('certificados_plantillas_show');
 Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
@@ -524,18 +526,6 @@ Route::get('/ingredientes/{ingrediente}/edit', [IngredienteController::class, 'e
 Route::put('/ingredientes/{ingrediente}', [IngredienteController::class, 'update'])->name('ingredientes_update');
 Route::delete('/ingredientes/{ingrediente}', [IngredienteController::class, 'destroy'])->name('ingredientes_destroy');
 
-
-
-
-/* =========================
-   PRESENTACIONES
-========================= */
-Route::get('/presentaciones', [PresentacionController::class, 'index'])->name('presentaciones_index');
-Route::get('/presentaciones/create', [PresentacionController::class, 'create'])->name('presentaciones_create');
-Route::post('/presentaciones', [PresentacionController::class, 'store'])->name('presentaciones_store');
-Route::get('/presentaciones/{presentacion}/edit', [PresentacionController::class, 'edit'])->name('presentaciones_edit');
-Route::put('/presentaciones/{presentacion}', [PresentacionController::class, 'update'])->name('presentaciones_update');
-Route::delete('/presentaciones/{presentacion}', [PresentacionController::class, 'destroy'])->name('presentaciones_destroy');
 
 
 

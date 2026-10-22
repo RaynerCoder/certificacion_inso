@@ -37,7 +37,7 @@
                         style="width: {{ (int) ($plantilla->ancho_lienzo_px ?: 816) }}px; height: {{ (int) ($plantilla->alto_lienzo_px ?: 1056) }}px;">
                         @if ($plantilla->url_fondo)
                             <img class="plantilla-canvas-bg is-visible"
-                                src="{{ asset('storage/' . $plantilla->url_fondo) }}"
+                                src="{{ route('certificados_plantillas_archivo', $plantilla) }}"
                                 alt="Plantilla del certificado"
                                 style="object-fit: {{ $ajusteFondo }};">
                         @endif

@@ -14,6 +14,7 @@ use App\Models\Telefono;
 use App\Models\Territorio;
 use App\Models\User;
 use App\Services\GestionTramitadoresService;
+use App\Services\ArchivoPrivadoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,10 @@ use Throwable;
 
 class TramitadorController extends Controller
 {
-    public function __construct(private GestionTramitadoresService $gestionTramitadores) {}
+    public function __construct(
+        private GestionTramitadoresService $gestionTramitadores,
+        private ArchivoPrivadoService $archivosPrivados,
+    ) {}
 
     /**
      * La empresa ve sus registros; INSO ve todos cuando puede validarlos.
@@ -193,8 +197,11 @@ class TramitadorController extends Controller
         }
 
         $datos = $this->validarSolicitud($request, ! $natural);
-        $rutaRespaldo = $request->file('form_url_respaldo')->store(
-            "empresas-tramitadores/{$empresa->id}/tramitadores",
+        $idRolTramitador = $this->idRolTramitador();
+        $directorioRespaldo = \App\Support\DirectorioRespaldoEmpresa::paraRol($empresa->id, $idRolTramitador);
+        $rutaRespaldo = $request->file('form_url_respaldo')->storeAs(
+            $directorioRespaldo,
+            uniqid().'.pdf',
             'local'
         );
 
@@ -256,6 +263,8 @@ class TramitadorController extends Controller
             Storage::disk('local')->delete($rutaRespaldo);
             throw $exception;
         }
+
+        $relacionRegistrada = $this->organizarArchivoTramitador($relacionRegistrada);
 
         $relacionRegistrada->loadMissing('persona.natural', 'empresa');
         $personaRegistrada = $relacionRegistrada->persona;
@@ -435,8 +444,13 @@ class TramitadorController extends Controller
             'form_url_respaldo' => 'documento de respaldo o autorización',
         ]);
 
-        $rutaRespaldo = $datos['form_url_respaldo']->store(
-            "empresas-tramitadores/{$tramitador->id_empresa}/tramitadores",
+        $directorioRespaldo = \App\Support\DirectorioRespaldoEmpresa::paraRol(
+            $tramitador->id_empresa,
+            $tramitador->id_rol
+        );
+        $rutaRespaldo = $datos['form_url_respaldo']->storeAs(
+            $directorioRespaldo,
+            uniqid().'.pdf',
             'local'
         );
 
@@ -484,6 +498,8 @@ class TramitadorController extends Controller
             throw $exception;
         }
 
+        $solicitud = $this->organizarArchivoTramitador($solicitud);
+
         $solicitud->loadMissing(['persona.natural', 'empresa']);
         $this->notificarValidadores($solicitud);
 
@@ -511,9 +527,34 @@ class TramitadorController extends Controller
 
         return response()->file(Storage::disk($disco)->path($tramitador->url_respaldo), [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => "inline; filename=\"respaldo-tramitador-{$tramitador->id}.pdf\"",
+            'Content-Disposition' => "inline; filename=\"{$tramitador->id}-responsable-respaldo.pdf\"",
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    private function organizarArchivoTramitador(Responsable $tramitador): Responsable
+    {
+        $rutaActual = $this->archivosPrivados->normalizarNullable($tramitador->url_respaldo);
+
+        if (! $rutaActual) {
+            return $tramitador;
+        }
+
+        $extension = strtolower(pathinfo($rutaActual, PATHINFO_EXTENSION) ?: 'pdf');
+        $directorio = \App\Support\DirectorioRespaldoEmpresa::paraRol(
+            $tramitador->id_empresa,
+            $tramitador->id_rol,
+        );
+        $rutaNueva = $directorio.'/'.$tramitador->id.'-responsable-respaldo.'.$extension;
+        $rutaOrganizada = $this->archivosPrivados->moverAPrivado($rutaActual, $rutaNueva);
+
+        if ($rutaOrganizada !== $rutaNueva) {
+            throw new \RuntimeException('No se pudo organizar el archivo del tramitador.');
+        }
+
+        $tramitador->update(['url_respaldo' => $rutaNueva]);
+
+        return $tramitador->fresh();
     }
 
     /**

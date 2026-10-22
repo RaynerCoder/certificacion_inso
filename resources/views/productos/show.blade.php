@@ -196,7 +196,7 @@
                             <div class="producto-show-presentation-data">
                                 <span class="producto-show-block-label">Datos de la presentación</span>
                                 <dl>
-                                    <div><dt>Tipo de envase</dt><dd>{{ $presentacion->tipo_envase ?: 'No registrado' }}</dd></div>
+                                    <div><dt>Tipo de presentación</dt><dd>{{ $presentacion->tipo_presentacion ?: 'No registrado' }}</dd></div>
                                     <div><dt>Contenido</dt><dd>{{ $formatearCantidad($presentacion->cantidad) }} {{ $unidadCompleta($presentacion) }}</dd></div>
                                     <div><dt>Descripción</dt><dd>{{ $presentacion->descripcion ?: 'No registrada' }}</dd></div>
                                 </dl>

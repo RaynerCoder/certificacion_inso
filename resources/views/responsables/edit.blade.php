@@ -82,7 +82,7 @@
         $urlRespaldoActual = $responsable->url_respaldo
             ? (\Illuminate\Support\Str::startsWith($responsable->url_respaldo, ['http://', 'https://'])
                 ? $responsable->url_respaldo
-                : asset('storage/' . $responsable->url_respaldo))
+                : route('responsables_respaldo', $responsable))
             : null;
         $nombreRespaldoActual = $responsable->url_respaldo ? basename($responsable->url_respaldo) : null;
         $respaldoFueQuitado = old('form_quitar_respaldo') === '1';

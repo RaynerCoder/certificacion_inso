@@ -170,7 +170,7 @@
                                             data-importador-id="{{ $productoCatalogo?->id_importador_persona }}"
                                             data-producto-codigo="{{ $productoCatalogo?->codigo }}"
                                             data-producto-nombre="{{ $productoCatalogo?->nombre_comercial }}"
-                                            data-tipo-envase="{{ $presentacionCatalogo->tipo_envase }}"
+                                            data-tipo-presentacion="{{ $presentacionCatalogo->tipo_presentacion }}"
                                             data-cantidad="{{ $presentacionCatalogo->cantidad }}"
                                             data-unidad-id="{{ $presentacionCatalogo->id_catalogo_unidad }}"
                                             data-unidad-texto="{{ $textoUnidadCatalogo }}"
@@ -188,28 +188,28 @@
                                 <input type="hidden" id="form_presentacion_origen_id" value="">
                             </div>
 
-                            {{-- TIPO DE ENVASE
-                                $tiposEnvases llega desde el controlador.
+                            {{-- TIPO DE PRESENTACIÓN
+                                $tiposPresentaciones llega desde el controlador.
                             El usuario también puede agregar una opción temporal desde el modal. --}}
-                            <div class="producto-campo-tipo-envase">
+                            <div class="producto-campo-tipo-presentacion">
                                 <div class="producto-field-label-row">
-                                    <label class="producto-field-label" for="form_presentacion_tipo_envase">
-                                        Tipo de presentación o envase
+                                    <label class="producto-field-label" for="form_presentacion_tipo_presentacion">
+                                        Tipo de presentación
                                     </label>
                                     <button type="button" class="producto-field-link"
-                                        onclick="abrirModalTipoEnvaseProducto()">
-                                        + Nuevo tipo de envase
+                                        onclick="abrirModalTipoPresentacionProducto()">
+                                        + Nuevo tipo de presentación
                                     </button>
                                 </div>
                                 <select class="producto-select producto-select-search"
-                                    id="form_presentacion_tipo_envase" data-producto-buscador="1"
-                                    data-producto-placeholder="Buscar tipo de envase">
-                                    <option value="">Seleccione tipo de envase</option>
+                                    id="form_presentacion_tipo_presentacion" data-producto-buscador="1"
+                                    data-producto-placeholder="Buscar tipo de presentación">
+                                    <option value="">Seleccione tipo de presentación</option>
 
-                                    {{-- Tipos de envase recibidos desde el controlador. --}}
-                                    @foreach ($tiposEnvases ?? [] as $tipoEnvase)
-                                        <option value="{{ $tipoEnvase }}">
-                                            {{ $tipoEnvase }}
+                                    {{-- Tipos de presentación recibidos desde el controlador. --}}
+                                    @foreach ($tiposPresentaciones ?? [] as $tipoPresentacion)
+                                        <option value="{{ $tipoPresentacion }}">
+                                            {{ $tipoPresentacion }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -402,7 +402,7 @@
                                 <th>#</th>
                                 <th>Producto asociado</th>
                                 <th>Nombre de la presentación</th>
-                                <th>Tipo de envase</th>
+                                <th>Tipo de presentación</th>
                                 <th>Etiqueta</th>
                                 <th>Acciones</th>
                             </tr>
@@ -428,7 +428,7 @@
                                         $registroOld['presentacion_texto'] ??
                                             'Presentación #' . ((int) $indicePresentacion + 1);
                                     $presentacionDescripcion = $presentacionOld['descripcion'] ?? '';
-                                    $tipoEnvaseOld = $presentacionOld['tipo_envase'] ?? '';
+                                    $tipoPresentacionOld = $presentacionOld['tipo_presentacion'] ?? '';
                                     $presentacionTexto = trim(
                                         $presentacionValor .
                                             ($presentacionDescripcion ? ' - ' . $presentacionDescripcion : ''),
@@ -477,8 +477,8 @@
                                             name="presentaciones[{{ $indicePresentacion }}][descripcion]"
                                             value="{{ $presentacionOld['descripcion'] ?? '' }}">
                                         <input type="hidden"
-                                            name="presentaciones[{{ $indicePresentacion }}][tipo_envase]"
-                                            value="{{ $tipoEnvaseOld }}">
+                                            name="presentaciones[{{ $indicePresentacion }}][tipo_presentacion]"
+                                            value="{{ $tipoPresentacionOld }}">
                                         <input type="hidden"
                                             name="presentaciones[{{ $indicePresentacion }}][estado]"
                                             value="{{ $presentacionOld['estado'] ?? 'ACTIVO' }}">
@@ -486,8 +486,8 @@
                                             name="presentaciones[{{ $indicePresentacion }}][id_presentacion_origen]"
                                             value="{{ $presentacionOld['id_presentacion_origen'] ?? '' }}">
                                     </td>
-                                    <td data-label="Tipo de envase">
-                                        {{ $tipoEnvaseOld ?: 'Sin especificar' }}
+                                    <td data-label="Tipo de presentación">
+                                        {{ $tipoPresentacionOld ?: 'Sin especificar' }}
                                     </td>
                                     <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
                                         <input class="producto-upload-input"
