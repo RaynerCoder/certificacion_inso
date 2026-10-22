@@ -79,6 +79,13 @@ class VerificarPermiso
                 'tramitadores.validar'
             ],
 
+            // El respaldo del representante se consulta tanto desde Personas
+            // como desde el módulo específico de responsables.
+            'responsables_respaldo' => [
+                'personas.ver',
+                'responsables.ver',
+            ],
+
             // Para editar se necesita permiso de validación.
             'tramitadores_edit' => 'tramitadores.validar',
             'tramitadores_update' => 'tramitadores.validar',

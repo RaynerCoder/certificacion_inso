@@ -36,11 +36,14 @@ class RespaldoEmpresaTest extends TestCase
     public function test_el_formulario_no_convierte_un_respaldo_privado_en_url_publica(): void
     {
         $controlador = file_get_contents(app_path('Http/Controllers/PersonaController.php'));
+        $middleware = file_get_contents(app_path('Http/Middleware/VerificarPermiso.php'));
         $scripts = file_get_contents(resource_path('views/personas/create/scripts.blade.php'));
 
         $this->assertStringContainsString("'url_respaldo_ver' =>", $controlador);
         $this->assertStringContainsString("route('responsables_respaldo', \$responsable)", $controlador);
         $this->assertStringContainsString('datos.urlRespaldoVer', $scripts);
         $this->assertStringNotContainsString('`storage/${rutaLimpia}`', $scripts);
+        $this->assertStringContainsString("'responsables_respaldo' => [", $middleware);
+        $this->assertStringContainsString("'personas.ver',", $middleware);
     }
 }
