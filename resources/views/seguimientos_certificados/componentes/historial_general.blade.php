@@ -160,31 +160,9 @@
     // 3) ESTADOS VISUALES
     // =========================
 
-    // Traduce el estado/movimiento a etiquetas claras para la hoja de ruta.
+    // Respeta el estado guardado y solo especializa movimientos operativos explícitos.
     $estadoMovimientoTimeline = function ($seguimiento) {
-        $texto = strtolower(($seguimiento->estado ?? '') . ' ' . ($seguimiento->descripcion_final ?? '') . ' ' . ($seguimiento->referencia ?? ''));
-
-        if (str_contains($texto, 'observ')) {
-            return ['label' => 'Observado', 'class' => 'is-danger', 'filter' => 'observado'];
-        }
-
-        if (str_contains($texto, 'devuelto') || str_contains($texto, 'correccion') || str_contains($texto, 'corregir')) {
-            return ['label' => 'Devuelto', 'class' => 'is-warning', 'filter' => 'devuelto'];
-        }
-
-        if (str_contains($texto, 'deriv') || str_contains($texto, 'asign')) {
-            return ['label' => 'Derivado', 'class' => 'is-info', 'filter' => 'derivado'];
-        }
-
-        if (str_contains($texto, 'recib')) {
-            return ['label' => 'Recibido', 'class' => 'is-success', 'filter' => 'recibido'];
-        }
-
-        return [
-            'label' => ucfirst(strtolower($seguimiento->estado ?: 'Movimiento')),
-            'class' => 'is-neutral',
-            'filter' => strtolower($seguimiento->estado ?: 'movimiento'),
-        ];
+        return $seguimiento->estadoVisualHistorial();
     };
 
     // Estado principal del tramite en formato chip, separado del estado de cada movimiento.
@@ -274,10 +252,8 @@
                 <select data-ruta-status>
                     <option value="">Todos los estados</option>
                     <option value="activo">Activo</option>
-                    <option value="recibido">Recibido</option>
-                    <option value="derivado">Derivado</option>
                     <option value="observado">Observado</option>
-                    <option value="devuelto">Devuelto</option>
+                    <option value="finalizado">Finalizado</option>
                 </select>
             </label>
         </div>

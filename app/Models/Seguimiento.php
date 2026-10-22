@@ -69,4 +69,24 @@ class Seguimiento extends Model
     {
         return $this->belongsTo(User::class, 'id_usuario_siguiente');
     }
+
+    /**
+     * Presenta únicamente el estado real guardado, sin deducir estados desde
+     * la descripción ni desde la referencia del movimiento.
+     */
+    public function estadoVisualHistorial(): array
+    {
+        $estado = mb_strtoupper(trim((string) $this->estado));
+
+        return match ($estado) {
+            'FINALIZADO' => ['label' => 'Finalizado', 'class' => 'is-success', 'filter' => 'finalizado'],
+            'ACTIVO' => ['label' => 'Activo', 'class' => 'is-neutral', 'filter' => 'activo'],
+            'OBSERVADO' => ['label' => 'Observado', 'class' => 'is-danger', 'filter' => 'observado'],
+            default => [
+                'label' => $estado !== '' ? ucfirst(mb_strtolower(str_replace('_', ' ', $estado))) : 'Movimiento',
+                'class' => 'is-neutral',
+                'filter' => $estado !== '' ? mb_strtolower($estado) : 'movimiento',
+            ],
+        };
+    }
 }
