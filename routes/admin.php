@@ -286,6 +286,9 @@ Route::get('/certificados/{certificado}/evidencias/{evidenciaRequisito}/archivo'
 Route::get('/certificados/{certificado}/edit', [CertificadoController::class, 'edit'])->name('certificados_edit');
 Route::put('/certificados/{certificado}', [CertificadoController::class, 'update'])->name('certificados_update');
 Route::delete('/certificados/{certificado}', [CertificadoController::class, 'destroy'])->name('certificados_destroy');
+Route::post('/certificados/{certificado}/productos/vincular', [CertificadoController::class, 'vincularProductoExistente'])
+    ->name('certificados_productos_vincular')
+    ->middleware('permiso:seguimientos_tramite.gestionar');
 Route::get('/certificados/{certificado}',[CertificadoController::class, 'show'])->name('certificados_show');
 
 

@@ -338,6 +338,7 @@
     // -----------------------------------------------------------------------------
 
     // Agrupa registros del mismo producto para evitar duplicados.
+    $productosDisponiblesTramite = $productosDisponiblesTramite ?? collect();
     $registrosPorProducto = $certificado->registros->groupBy(
         fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
     );
@@ -543,10 +544,7 @@
 
     // Habilita el registro de productos solo cuando corresponde al trámite
     // y el usuario tiene permisos para hacerlo.
-    $puedeRegistrarProductoTramite = $requiereProductoTramite
-        && !$esSolicitante
-        && ($puedeAsignarTecnico || $puedeRevisarRequisitos)
-        && filled($certificado->beneficiario?->id)
+    $puedeRegistrarProductoTramite = ($puedeGestionarProductoTramite ?? false)
         && \Illuminate\Support\Facades\Route::has('productos_create');
 
     $urlRetornoProductoTramite = route('certificados_show', [

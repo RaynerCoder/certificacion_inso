@@ -199,12 +199,15 @@ class ProductoCrudEstructuraTest extends TestCase
         $this->assertStringContainsString('Registros asociados', $vista);
     }
 
-    public function test_el_tramite_no_permite_vincular_manualmente_un_registro_existente(): void
+    public function test_el_tramite_permite_seleccionar_un_producto_registrado(): void
     {
         $vista = file_get_contents(resource_path('views/certificados/detalle_tramite/productos.blade.php'));
 
-        $this->assertNull(app('router')->getRoutes()->getByName('certificados_registros_existentes_vincular'));
-        $this->assertStringNotContainsString('Vincular registro existente', $vista);
-        $this->assertStringNotContainsString('Vincular al trámite', $vista);
+        $ruta = app('router')->getRoutes()->getByName('certificados_productos_vincular');
+
+        $this->assertNotNull($ruta);
+        $this->assertStringEndsWith('@vincularProductoExistente', $ruta->getActionName());
+        $this->assertStringContainsString('Seleccionar producto registrado', $vista);
+        $this->assertStringContainsString('Registrar nuevo producto', $vista);
     }
 }

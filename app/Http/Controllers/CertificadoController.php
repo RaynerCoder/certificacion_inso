@@ -11,6 +11,7 @@ use App\Models\Persona;
 use App\Models\PlantillaCertificado;
 use App\Models\PlantillaElemento;
 use App\Models\Procedencia;
+use App\Models\Producto;
 use App\Models\RequisitoCertificado;
 use App\Models\RequisitoTipoCertificado;
 use App\Models\TipoCertificado;
@@ -540,6 +541,13 @@ class CertificadoController extends Controller
         $resumenEvaluacionCalificaciones = $certificado->resumenEvaluacionCalificaciones();
 
         $requiereProductoTramite = $certificado->requiereEvidencia('PRODUCTO');
+        $puedeGestionarProductoTramite = $requiereProductoTramite
+            && ! $esSolicitante
+            && ($puedeAsignarTecnico || $puedeRevisarRequisitos)
+            && filled($certificado->id_persona_beneficiario);
+        $productosDisponiblesTramite = $puedeGestionarProductoTramite
+            ? $this->productosDisponiblesParaTramite($certificado)
+            : collect();
 
         $vistaDetalle = request('bandeja') === 'enviadas'
             ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
@@ -569,8 +577,143 @@ class CertificadoController extends Controller
             'tecnicosDerivacion',
             'procedenciasPago',
             'configuracionesRequisitos',
-            'resumenEvaluacionCalificaciones'
+            'resumenEvaluacionCalificaciones',
+            'puedeGestionarProductoTramite',
+            'productosDisponiblesTramite'
         ));
+    }
+
+    /**
+     * Relaciona un producto ya registrado con el trámite mediante todos sus registros activos.
+     */
+    public function vincularProductoExistente(Request $request, Certificado $certificado)
+    {
+        $this->autorizarGestionProductoTramite($request, $certificado);
+
+        $datos = $request->validate(
+            [
+                'id_producto' => ['required', 'integer', 'exists:productos,id'],
+                'bandeja' => ['nullable', 'string', 'max:30'],
+            ],
+            [
+                'id_producto.required' => 'Seleccione un producto registrado.',
+                'id_producto.exists' => 'El producto seleccionado ya no se encuentra disponible.',
+            ]
+        );
+
+        DB::transaction(function () use ($certificado, $datos) {
+            $producto = $this->consultaProductosDisponiblesParaTramite($certificado)
+                ->lockForUpdate()
+                ->find($datos['id_producto']);
+
+            if (! $producto) {
+                throw ValidationException::withMessages([
+                    'id_producto' => 'El producto no pertenece al beneficiario, está inactivo o ya fue asociado a otro trámite.',
+                ]);
+            }
+
+            $idsRegistros = $producto->registros()
+                ->where('estado', 'ACTIVO')
+                ->whereDoesntHave('certificadosRegistros')
+                ->lockForUpdate()
+                ->pluck('id')
+                ->all();
+
+            if ($idsRegistros === []) {
+                throw ValidationException::withMessages([
+                    'id_producto' => 'El producto no tiene registros activos disponibles para asociar.',
+                ]);
+            }
+
+            $certificado->registros()->syncWithoutDetaching($idsRegistros);
+        });
+
+        return redirect()
+            ->route('certificados_show', [
+                'certificado' => $certificado,
+                'bandeja' => $datos['bandeja'] ?? 'recibidas',
+            ])
+            ->with('success', 'Producto asociado correctamente al trámite.');
+    }
+
+    /**
+     * La acción queda limitada al funcionario que actualmente atiende el trámite.
+     */
+    private function autorizarGestionProductoTramite(Request $request, Certificado $certificado): void
+    {
+        $usuario = $request->user()?->loadMissing('funcionario.cargos', 'roles');
+        $seguimientoActual = $certificado->seguimientos()
+            ->whereNull('fecha_derivacion')
+            ->where('estado', 'ACTIVO')
+            ->latest('id')
+            ->first();
+        $esUsuarioInterno = $usuario && (
+            $usuario->tieneRol('administrador')
+            || $usuario->tieneRol('funcionario')
+            || $this->usuarioTieneCargoActivo($usuario)
+        );
+
+        if (
+            ! $usuario
+            || ! $usuario->puede('seguimientos_tramite.gestionar')
+            || ! $esUsuarioInterno
+            || $request->input('bandeja') === 'todos'
+            || (int) $seguimientoActual?->id_usuario_siguiente !== (int) $usuario->id
+        ) {
+            abort(403, 'No tiene permiso para asociar productos a este trámite.');
+        }
+
+        if (! $certificado->requiereEvidencia('PRODUCTO')) {
+            throw ValidationException::withMessages([
+                'id_producto' => 'Este trámite no tiene producto configurado como requisito.',
+            ]);
+        }
+
+        if (! $certificado->id_persona_beneficiario) {
+            throw ValidationException::withMessages([
+                'id_producto' => 'El trámite no tiene un beneficiario al cual pertenezca el producto.',
+            ]);
+        }
+    }
+
+    /**
+     * Devuelve productos activos del beneficiario, con registros activos y todavía libres.
+     */
+    private function consultaProductosDisponiblesParaTramite(Certificado $certificado)
+    {
+        $certificado->loadMissing('registros.producto');
+
+        $tiposProductoAsociados = $certificado->registros
+            ->pluck('producto.tipo_producto')
+            ->filter()
+            ->unique();
+        $tipoProductoAsociado = $tiposProductoAsociados->count() === 1
+            ? $tiposProductoAsociados->first()
+            : null;
+
+        return Producto::query()
+            ->where('id_importador_persona', $certificado->id_persona_beneficiario)
+            ->where('estado', 'ACTIVO')
+            ->whereIn('tipo_producto', array_keys(Producto::TIPOS_PRODUCTO))
+            ->when($tipoProductoAsociado, fn ($consulta, $tipo) => $consulta->where('tipo_producto', $tipo))
+            ->whereHas('registros', fn ($consulta) => $consulta->where('estado', 'ACTIVO'))
+            ->whereDoesntHave('registros.certificadosRegistros');
+    }
+
+    private function productosDisponiblesParaTramite(Certificado $certificado)
+    {
+        return $this->consultaProductosDisponiblesParaTramite($certificado)
+            ->with([
+                'importadorPersona.natural',
+                'importadorPersona.empresa',
+            ])
+            ->withCount([
+                'presentaciones as presentaciones_activas_count' => fn ($consulta) => $consulta->where('estado', 'ACTIVO'),
+                'registros as registros_activos_count' => fn ($consulta) => $consulta->where('estado', 'ACTIVO'),
+            ])
+            ->orderBy('nombre_comercial')
+            ->orderBy('codigo')
+            ->get();
     }
 
     // VISTA DE EMISION DEL CERTIFICADO

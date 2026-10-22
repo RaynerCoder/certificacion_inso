@@ -27,12 +27,126 @@
             </h3>
 
             @if ($urlRegistrarProductoTramite)
-                <a href="{{ $urlRegistrarProductoTramite }}" class="tramite-product-register-btn">
-                    <i class="fa-solid fa-plus"></i>
-                    Registrar producto
-                </a>
+                <div class="tramite-product-actions">
+                    <button type="button" class="tramite-product-register-btn is-select"
+                        data-open-product-selector>
+                        <i class="fa-solid fa-list-check"></i>
+                        Seleccionar producto registrado
+                    </button>
+                    <a href="{{ $urlRegistrarProductoTramite }}" class="tramite-product-register-btn">
+                        <i class="fa-solid fa-plus"></i>
+                        Registrar nuevo producto
+                    </a>
+                </div>
             @endif
         </div>
+
+        @if ($urlRegistrarProductoTramite)
+            <div class="tramite-product-selector-backdrop {{ $errors->has('id_producto') ? 'is-open' : '' }}"
+                data-product-selector aria-hidden="{{ $errors->has('id_producto') ? 'false' : 'true' }}">
+                <section class="tramite-product-selector" role="dialog" aria-modal="true"
+                    aria-labelledby="titulo-selector-producto">
+                    <header class="tramite-product-selector-head">
+                        <div>
+                            <h4 id="titulo-selector-producto">Seleccionar producto registrado</h4>
+                            <p>Solo se muestran productos activos del beneficiario y todavía no asociados a otro trámite.</p>
+                        </div>
+                        <button type="button" class="tramite-product-selector-close" data-close-product-selector
+                            aria-label="Cerrar">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </header>
+
+                    <form method="POST"
+                        action="{{ route('certificados_productos_vincular', ['certificado' => $certificado]) }}">
+                        @csrf
+                        <input type="hidden" name="bandeja" value="{{ request('bandeja', 'recibidas') }}">
+
+                        <div class="tramite-product-selector-body">
+                            @if ($productosDisponiblesTramite->isNotEmpty())
+                                <label for="id_producto_existente" class="tramite-product-selector-label">
+                                    Producto disponible
+                                </label>
+                                <select id="id_producto_existente" name="id_producto"
+                                    class="tramite-product-selector-select" data-product-select required>
+                                    <option value="">Seleccione un producto</option>
+                                    @foreach ($productosDisponiblesTramite as $productoDisponible)
+                                        <option value="{{ $productoDisponible->id }}"
+                                            data-product-preview="producto-disponible-{{ $productoDisponible->id }}"
+                                            @selected((string) old('id_producto') === (string) $productoDisponible->id)>
+                                            {{ $mostrarTexto($productoDisponible->nombre_comercial) }} ·
+                                            {{ $mostrarTexto($productoDisponible->codigo) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                <p class="tramite-product-selector-help">
+                                    Al confirmar se asociarán todos los registros activos de este producto.
+                                </p>
+
+                                @foreach ($productosDisponiblesTramite as $productoDisponible)
+                                    <dl id="producto-disponible-{{ $productoDisponible->id }}"
+                                        class="tramite-product-preview" data-product-preview-panel hidden>
+                                        <div>
+                                            <dt>Nombre comercial</dt>
+                                            <dd>{{ $mostrarTexto($productoDisponible->nombre_comercial) }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Código</dt>
+                                            <dd>{{ $mostrarTexto($productoDisponible->codigo) }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Tipo de producto</dt>
+                                            <dd>{{ \App\Models\Producto::TIPOS_PRODUCTO[$productoDisponible->tipo_producto] ?? $mostrarTexto($productoDisponible->tipo_producto) }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Importador</dt>
+                                            <dd>{{ $nombrePersona($productoDisponible->importadorPersona) }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Presentaciones activas</dt>
+                                            <dd>{{ $productoDisponible->presentaciones_activas_count }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Registros que se asociarán</dt>
+                                            <dd>{{ $productoDisponible->registros_activos_count }}</dd>
+                                        </div>
+                                    </dl>
+                                @endforeach
+                            @else
+                                <div class="tramite-product-selector-empty">
+                                    <i class="fa-regular fa-folder-open"></i>
+                                    <div>
+                                        <strong>No hay productos registrados disponibles.</strong>
+                                        <span>Puede registrar uno nuevo para este beneficiario.</span>
+                                    </div>
+                                </div>
+                            @endif
+
+                            @error('id_producto')
+                                <p class="tramite-product-selector-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <footer class="tramite-product-selector-footer">
+                            <button type="button" class="tramite-product-selector-cancel"
+                                data-close-product-selector>Cancelar</button>
+                            @if ($productosDisponiblesTramite->isNotEmpty())
+                                <button type="submit" class="tramite-product-selector-submit" data-product-submit disabled>
+                                    <i class="fa-solid fa-link"></i>
+                                    Asociar al trámite
+                                </button>
+                            @else
+                                <a href="{{ $urlRegistrarProductoTramite }}" class="tramite-product-selector-submit">
+                                    <i class="fa-solid fa-plus"></i>
+                                    Registrar nuevo producto
+                                </a>
+                            @endif
+                        </footer>
+                    </form>
+                </section>
+            </div>
+        @endif
 
         <div class="tramite-product-list">
             @forelse ($registrosPorProducto as $grupoRegistros)
@@ -266,4 +380,70 @@
             @endforelse
         </div>
     </article>
+
+    @if ($urlRegistrarProductoTramite)
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const backdrop = document.querySelector('[data-product-selector]');
+                const selector = backdrop?.querySelector('[data-product-select]');
+                const botonConfirmar = backdrop?.querySelector('[data-product-submit]');
+
+                if (!backdrop) {
+                    return;
+                }
+
+                const actualizarProducto = () => {
+                    backdrop.querySelectorAll('[data-product-preview-panel]').forEach((panel) => {
+                        panel.hidden = true;
+                    });
+
+                    const opcion = selector?.selectedOptions?.[0];
+                    const idPanel = opcion?.dataset.productPreview;
+                    const panel = idPanel ? document.getElementById(idPanel) : null;
+
+                    if (panel) {
+                        panel.hidden = false;
+                    }
+
+                    if (botonConfirmar) {
+                        botonConfirmar.disabled = !selector?.value;
+                    }
+                };
+
+                const abrir = () => {
+                    backdrop.classList.add('is-open');
+                    backdrop.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('has-product-selector-open');
+                    actualizarProducto();
+                    window.setTimeout(() => selector?.focus(), 0);
+                };
+
+                const cerrar = () => {
+                    backdrop.classList.remove('is-open');
+                    backdrop.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('has-product-selector-open');
+                };
+
+                document.querySelector('[data-open-product-selector]')?.addEventListener('click', abrir);
+                backdrop.querySelectorAll('[data-close-product-selector]').forEach((boton) => {
+                    boton.addEventListener('click', cerrar);
+                });
+                backdrop.addEventListener('click', (evento) => {
+                    if (evento.target === backdrop) {
+                        cerrar();
+                    }
+                });
+                document.addEventListener('keydown', (evento) => {
+                    if (evento.key === 'Escape' && backdrop.classList.contains('is-open')) {
+                        cerrar();
+                    }
+                });
+                selector?.addEventListener('change', actualizarProducto);
+
+                if (backdrop.classList.contains('is-open')) {
+                    abrir();
+                }
+            });
+        </script>
+    @endif
 @endif
