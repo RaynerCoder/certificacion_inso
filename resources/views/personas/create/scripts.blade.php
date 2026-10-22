@@ -624,7 +624,6 @@
      const claveBorradorPersona = esModoEdicionPersona
          ? `certificador.personas.edit.${formPersonaWizard?.dataset.personaId || 'registro'}`
          : 'certificador.personas.create.borrador';
-     const baseAssetPersonaWizard = @json(asset(''));
 
      // Items del panel lateral de progreso.
      const progresoPersonaWizard = {
@@ -1138,25 +1137,8 @@
          return '-';
      }
 
-     // Convierte una ruta guardada en storage a una URL visible para abrir el PDF.
-     function urlDocumentoPersonaWizard(ruta) {
-         const valor = String(ruta || '').trim();
-
-         if (!valor) return '';
-
-         if (/^https?:\/\//i.test(valor)) {
-             return valor;
-         }
-
-         const base = String(baseAssetPersonaWizard || '').replace(/\/$/, '');
-         const rutaLimpia = valor.replace(/^\/+/, '');
-         const rutaStorage = rutaLimpia.startsWith('storage/') ? rutaLimpia : `storage/${rutaLimpia}`;
-
-         return `${base}/${rutaStorage}`;
-     }
-
-     // Muestra el PDF del responsable con su nombre y un enlace, tanto antes como después de guardarlo.
-     function respaldoResponsableRevisionPersonaWizard(urlGuardada, archivoNuevo = null) {
+     // Muestra el PDF usando una URL protegida; la ruta física privada nunca se expone al navegador.
+     function respaldoResponsableRevisionPersonaWizard(urlGuardada, archivoNuevo = null, urlVisualizacion = '') {
          const archivoSeleccionado = archivoNuevo && typeof archivoNuevo === 'object' && archivoNuevo.name
              ? archivoNuevo
              : null;
@@ -1178,7 +1160,7 @@
             `;
          }
 
-         const url = urlDocumentoPersonaWizard(urlGuardada);
+         const url = String(urlVisualizacion || '').trim();
 
          if (url) {
              const nombreArchivo = escaparHtmlPersonaWizard(nombreArchivoResponsableDesdeUrl(urlGuardada));
@@ -1272,6 +1254,7 @@
              const territorioNombre = valorOcultoResumenPersonaWizard(item, 'territorio_nombre');
              const archivoRespaldo = item.querySelector('input[type="file"]');
              const respaldoGuardado = valorOcultoResumenPersonaWizard(item, 'url_respaldo');
+             const respaldoVerGuardado = valorOcultoResumenPersonaWizard(item, 'url_respaldo_ver');
              const tieneRespaldo = archivoRespaldo?.files?.length || respaldoGuardado;
              const estado = valorOcultoResumenPersonaWizard(item, 'estado') || '-';
 
@@ -1312,7 +1295,7 @@
                         <section>
                             <h6>Rol del responsable</h6>
                             ${datoResponsableRevisionPersonaWizard('Rol', textoSelectPorValorPersonaWizard('#nuevo_id_rol', valorOcultoResumenPersonaWizard(item, 'id_rol')) || '-')}
-                            ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, archivoRespaldo?.files?.[0] || null)}
+                            ${respaldoResponsableRevisionPersonaWizard(respaldoGuardado, archivoRespaldo?.files?.[0] || null, respaldoVerGuardado)}
                         </section>
 
                         <section class="is-list">
@@ -3221,7 +3204,7 @@
                 <section>
                     <h6>Rol del responsable</h6>
                     ${datoResponsableRevisionPersonaWizard('Rol', datos.rolNombre || '-')}
-                    ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, archivoRespaldo)}
+                    ${respaldoResponsableRevisionPersonaWizard(datos.urlRespaldo, archivoRespaldo, datos.urlRespaldoVer)}
                 </section>
 
                 <section class="is-list">
@@ -3257,6 +3240,7 @@
 
             <input type="hidden" name="responsables[${indiceFormulario}][id_rol]" value="${datos.idRol || ''}">
             ${datos.urlRespaldo ? `<input type="hidden" name="responsables[${indiceFormulario}][url_respaldo]" value="${datos.urlRespaldo}">` : ''}
+            ${datos.urlRespaldoVer ? `<input type="hidden" name="responsables[${indiceFormulario}][url_respaldo_ver]" value="${escaparHtmlPersonaWizard(datos.urlRespaldoVer)}">` : ''}
             <input type="hidden" name="responsables[${indiceFormulario}][estado]" value="${estado}">
 
             ${hiddenTelefonos}
@@ -3471,9 +3455,12 @@
          telefonosResponsableTemporal = sublistaResponsableDesdeItem(item, 'telefonos');
          rubrosResponsableTemporal = sublistaResponsableDesdeItem(item, 'rubros');
 
-         document.getElementById('modalNuevoResponsable').dataset.urlRespaldoActual =
-             valorOcultoResumenPersonaWizard(item, 'url_respaldo');
-         mostrarRespaldoGuardadoResponsableModal(valorOcultoResumenPersonaWizard(item, 'url_respaldo'));
+         const urlRespaldoActual = valorOcultoResumenPersonaWizard(item, 'url_respaldo');
+         const urlRespaldoVerActual = valorOcultoResumenPersonaWizard(item, 'url_respaldo_ver');
+         const modalResponsable = document.getElementById('modalNuevoResponsable');
+         modalResponsable.dataset.urlRespaldoActual = urlRespaldoActual;
+         modalResponsable.dataset.urlRespaldoVerActual = urlRespaldoVerActual;
+         mostrarRespaldoGuardadoResponsableModal(urlRespaldoActual, urlRespaldoVerActual);
 
          prepararModoEdicionResponsable();
          renderTelefonosResponsable(false);
@@ -3621,6 +3608,7 @@
              ? responsableEditandoElemento.querySelector('input[type="file"][name*="[archivo_respaldo]"]')
              : null;
          const urlRespaldoActual = document.getElementById('modalNuevoResponsable')?.dataset.urlRespaldoActual || '';
+         const urlRespaldoVerActual = document.getElementById('modalNuevoResponsable')?.dataset.urlRespaldoVerActual || '';
 
          item.className = 'responsable-agregado responsable-review-row';
          item.dataset.indiceResponsable = indiceDestino;
@@ -3669,6 +3657,7 @@
              estadoResponsable,
              nombreCompleto,
              urlRespaldo: urlRespaldoActual,
+             urlRespaldoVer: urlRespaldoVerActual,
              indiceFormulario: indiceDestino,
              numeroVisible: responsableEditandoElemento
                  ? Number(item.querySelector('.responsables-review-number')?.textContent) || indiceDestino + 1
@@ -3832,6 +3821,7 @@
              estadoResponsable: responsable.estado || 'ACTIVO',
              nombreCompleto,
              urlRespaldo: responsable.url_respaldo || '',
+             urlRespaldoVer: responsable.url_respaldo_ver || '',
              telefonos: responsable.telefonos || [],
              rubros: responsable.rubros || [],
          }, hiddenTelefonos, hiddenRubros);
@@ -3960,7 +3950,10 @@
          const modal = document.getElementById('modalNuevoResponsable');
 
          if (inputPdf) inputPdf.value = '';
-         if (modal) modal.dataset.urlRespaldoActual = '';
+         if (modal) {
+             modal.dataset.urlRespaldoActual = '';
+             modal.dataset.urlRespaldoVerActual = '';
+         }
 
          liberarPdfTemporalResponsableModal();
          actualizarVistaRespaldoResponsableModal('-', mensaje, '', false);
@@ -3968,10 +3961,10 @@
      }
 
      // Carga en el control compacto el PDF guardado de un responsable que se esta editando.
-     function mostrarRespaldoGuardadoResponsableModal(url) {
+     function mostrarRespaldoGuardadoResponsableModal(ruta, urlVisualizacion = '') {
          liberarPdfTemporalResponsableModal();
 
-         if (!url) {
+         if (!ruta) {
              actualizarVistaRespaldoResponsableModal(
                  '-',
                  'Seleccione un respaldo PDF si corresponde.',
@@ -3982,9 +3975,9 @@
          }
 
          actualizarVistaRespaldoResponsableModal(
-             nombreArchivoResponsableDesdeUrl(url),
+             nombreArchivoResponsableDesdeUrl(ruta),
              'PDF guardado actualmente.',
-             url,
+             urlVisualizacion,
              true
          );
      }
@@ -3996,7 +3989,10 @@
          limpiarListasResponsableModal();
 
          const modal = document.getElementById('modalNuevoResponsable');
-         if (modal) modal.dataset.urlRespaldoActual = '';
+         if (modal) {
+             modal.dataset.urlRespaldoActual = '';
+             modal.dataset.urlRespaldoVerActual = '';
+         }
 
          const ids = [
              'nuevo_telefono',
@@ -4355,7 +4351,10 @@
          liberarPdfTemporalResponsableModal();
 
          const modalResponsable = document.getElementById('modalNuevoResponsable');
-         if (modalResponsable) modalResponsable.dataset.urlRespaldoActual = '';
+         if (modalResponsable) {
+             modalResponsable.dataset.urlRespaldoActual = '';
+             modalResponsable.dataset.urlRespaldoVerActual = '';
+         }
 
          pdfTemporalResponsableModal = URL.createObjectURL(file);
 

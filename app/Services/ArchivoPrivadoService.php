@@ -151,6 +151,27 @@ class ArchivoPrivadoService
 
         $ruta = ltrim($ruta, '/');
 
+        // El disco local ya apunta a storage/app/private. En instalaciones
+        // históricas algunas rutas se guardaron incluyendo esa raíz completa;
+        // se elimina para evitar búsquedas duplicadas como private/private/....
+        foreach ([
+            'storage/app/private/',
+            'storage/app/public/',
+            'public/storage/',
+            'app/private/',
+            'app/public/',
+        ] as $raiz) {
+            $posicion = strpos($ruta, $raiz);
+
+            if ($posicion !== false) {
+                return ltrim(substr($ruta, $posicion + strlen($raiz)), '/');
+            }
+        }
+
+        if (str_starts_with($ruta, 'private/')) {
+            return substr($ruta, strlen('private/'));
+        }
+
         return str_starts_with($ruta, 'storage/')
             ? substr($ruta, strlen('storage/'))
             : $ruta;

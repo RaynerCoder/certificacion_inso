@@ -521,15 +521,16 @@ class TramitadorController extends Controller
 
         abort_unless($tramitador->url_respaldo, 404);
 
-        // Los documentos nuevos son privados. El segundo disco mantiene accesibles respaldos históricos.
-        $disco = Storage::disk('local')->exists($tramitador->url_respaldo) ? 'local' : 'public';
-        abort_unless(Storage::disk($disco)->exists($tramitador->url_respaldo), 404);
-
-        return response()->file(Storage::disk($disco)->path($tramitador->url_respaldo), [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => "inline; filename=\"{$tramitador->id}-responsable-respaldo.pdf\"",
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return $this->archivosPrivados->respuesta(
+            $tramitador->url_respaldo,
+            $tramitador->id.'-responsable-respaldo.pdf',
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "inline; filename=\"{$tramitador->id}-responsable-respaldo.pdf\"",
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
     }
 
     private function organizarArchivoTramitador(Responsable $tramitador): Responsable

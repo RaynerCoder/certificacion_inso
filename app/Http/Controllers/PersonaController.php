@@ -1182,6 +1182,7 @@ class PersonaController extends Controller
                 )
                 ->take(1)
                 ->map(fn ($responsable) => [
+                    'id_responsable' => $responsable->id,
                     'tipo' => 'EXISTENTE',
                     'id_persona' => $responsable->id_persona,
                     'domicilio' => $responsable->persona?->domicilio,
@@ -1208,6 +1209,9 @@ class PersonaController extends Controller
                     'id_rol' => $responsable->id_rol,
                     'rol_nombre' => $responsable->rol?->name,
                     'url_respaldo' => $responsable->url_respaldo,
+                    'url_respaldo_ver' => $responsable->url_respaldo
+                        ? route('responsables_respaldo', $responsable)
+                        : null,
                     'estado' => $responsable->estado,
                     'telefonos' => $responsable->persona?->telefonos
                         ? $responsable->persona->telefonos->map(fn ($telefono) => [
