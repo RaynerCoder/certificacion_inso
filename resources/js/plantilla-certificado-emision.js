@@ -233,7 +233,37 @@ function crearMarcador(texto, ancho, alto) {
     ], { width: ancho, height: alto });
 }
 
-function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado, filaIndice = 0, etiqueta = false) {
+function colorTabla(valor, predeterminado) {
+    return /^#[0-9a-f]{6}$/i.test(String(valor || '')) ? String(valor) : predeterminado;
+}
+
+function estiloCeldaTabla(elemento, filaIndice, columnaIndice, encabezado = false) {
+    const tabla = elemento.configuracion?.tabla || {};
+    const esEtiqueta = tabla.tipo === 'CAMPO_VALOR' && columnaIndice % 2 === 0;
+    const estiloGuardado = elemento.estilos_celdas?.[filaIndice]?.[columnaIndice] || {};
+    const tipoLetra = FUENTES.includes(estiloGuardado.tipo_letra)
+        ? estiloGuardado.tipo_letra
+        : (elemento.tipo_letra || 'Arial');
+    const alineacionCelda = String(estiloGuardado.alineacion || elemento.alineacion || 'IZQUIERDA').toUpperCase();
+
+    return {
+        tipo_letra: tipoLetra,
+        tamano_letra: Math.max(6, Math.min(160, numero(estiloGuardado.tamano_letra, elemento.tamano_letra || 11))),
+        negrita: encabezado
+            ? true
+            : (typeof estiloGuardado.negrita === 'boolean'
+                ? estiloGuardado.negrita
+                : Boolean(elemento.negrita || (esEtiqueta && tabla.etiquetas_negrita !== false))),
+        cursiva: typeof estiloGuardado.cursiva === 'boolean' ? estiloGuardado.cursiva : Boolean(elemento.cursiva),
+        subrayado: typeof estiloGuardado.subrayado === 'boolean' ? estiloGuardado.subrayado : Boolean(elemento.subrayado),
+        color_texto: colorTabla(estiloGuardado.color_texto, elemento.color_texto || '#0f172a'),
+        alineacion: ['IZQUIERDA', 'CENTRO', 'DERECHA', 'JUSTIFICADO'].includes(alineacionCelda)
+            ? alineacionCelda
+            : 'IZQUIERDA',
+    };
+}
+
+function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado, filaIndice = 0, etiqueta = false, formatoCelda = null) {
     const estilo = elemento.configuracion?.tabla || {};
     const tablaCampoValor = estilo.tipo === 'CAMPO_VALOR';
     const fondo = encabezado
@@ -247,20 +277,23 @@ function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado,
     const paddingY = numero(estilo.padding_y, 4);
     const anchoTexto = Math.max(10, ancho - paddingX * 2);
     const altoTexto = Math.max(10, alto - paddingY * 2);
+    const formato = formatoCelda || estiloCeldaTabla(elemento, filaIndice, 0, encabezado);
     const textoCelda = textoAjustadoCelda(
         texto,
         anchoTexto,
         altoTexto,
-        numero(elemento.tamano_letra, 11),
+        formato.tamano_letra,
         numero(estilo.tamano_minimo, 7),
-        estilo.ajustar_texto !== false,
+        estilo.ajustar_texto !== false && estilo.tipo !== 'CAMPO_VALOR',
         {
             left: paddingX,
             top: paddingY,
-            fontFamily: elemento.tipo_letra || 'Arial',
-            fontWeight: encabezado || elemento.negrita || (etiqueta && estilo.etiquetas_negrita !== false) ? 'bold' : 'normal',
-            fill: encabezado ? (estilo.encabezado_texto || '#0f172a') : (elemento.color_texto || '#0f172a'),
-            textAlign: alineacion(elemento.alineacion),
+            fontFamily: formato.tipo_letra,
+            fontWeight: formato.negrita ? 'bold' : 'normal',
+            fontStyle: formato.cursiva ? 'italic' : 'normal',
+            underline: formato.subrayado,
+            fill: encabezado ? (estilo.encabezado_texto || '#0f172a') : formato.color_texto,
+            textAlign: alineacion(formato.alineacion),
         },
     );
     const altoRealTexto = Math.min(numero(textoCelda.height), altoTexto);
@@ -338,40 +371,93 @@ function crearTabla(elemento) {
     const estilo = elemento.configuracion?.tabla || {};
     const mostrarEncabezado = estilo.mostrar_encabezado !== false;
     const tablaCampoValor = estilo.tipo === 'CAMPO_VALOR';
-    const cantidadFilasVisuales = Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0));
-    const alturaFila = Math.max(24, numero(elemento.alto, 118) / cantidadFilasVisuales);
-    const desfaseFilas = mostrarEncabezado ? 1 : 0;
-    let izquierda = 0;
+    const anchoTabla = numero(elemento.ancho, 520);
+    const anchosColumnas = columnas.map((columna) => (
+        anchoTabla * (numero(columna.ancho, 100 / Math.max(1, columnas.length)) / 100)
+    ));
+    const alturaMinimaFila = Math.max(28, Math.min(42, numero(elemento.alto, 118) / Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0))));
+    const alturaEncabezado = mostrarEncabezado ? Math.max(28, alturaMinimaFila) : 0;
+    const alturasFilas = filas.map((fila, filaIndice) => alturaFilaTabla(
+        elemento,
+        fila,
+        filaIndice,
+        columnas,
+        anchosColumnas,
+        alturaMinimaFila,
+    ));
+    let arriba = 0;
 
-    columnas.forEach((columna, columnaIndice) => {
-        const ancho = numero(elemento.ancho, 520) * (numero(columna.ancho, 100 / Math.max(1, columnas.length)) / 100);
-        if (mostrarEncabezado) {
-            objetos.push(crearCelda(elemento, izquierda, 0, ancho, alturaFila, columna.titulo_columna || 'Columna', true));
-        }
-        filas.forEach((fila, filaIndice) => {
+    if (mostrarEncabezado) {
+        let izquierda = 0;
+        columnas.forEach((columna, columnaIndice) => {
             objetos.push(crearCelda(
                 elemento,
                 izquierda,
-                alturaFila * (filaIndice + desfaseFilas),
-                ancho,
-                alturaFila,
-                fila[columnaIndice],
+                arriba,
+                anchosColumnas[columnaIndice],
+                alturaEncabezado,
+                columna.titulo_columna || 'Columna',
+                true,
+                -1,
+                false,
+                estiloCeldaTabla(elemento, -1, columnaIndice, true),
+            ));
+            izquierda += anchosColumnas[columnaIndice];
+        });
+        arriba += alturaEncabezado;
+    }
+
+    filas.forEach((fila, filaIndice) => {
+        let izquierda = 0;
+        columnas.forEach((columna, columnaIndice) => {
+            objetos.push(crearCelda(
+                elemento,
+                izquierda,
+                arriba,
+                anchosColumnas[columnaIndice],
+                alturasFilas[filaIndice],
+                fila[columnaIndice] ?? '',
                 false,
                 filaIndice,
                 tablaCampoValor && columnaIndice % 2 === 0,
+                estiloCeldaTabla(elemento, filaIndice, columnaIndice),
             ));
+            izquierda += anchosColumnas[columnaIndice];
         });
-        izquierda += ancho;
+        arriba += alturasFilas[filaIndice];
     });
 
-    return new Group(objetos, { width: numero(elemento.ancho, 520), height: alturaFila * cantidadFilasVisuales });
+    return new Group(objetos, { width: anchoTabla, height: arriba });
+}
+
+function alturaFilaTabla(elemento, fila, filaIndice, columnas, anchosColumnas, alturaMinima) {
+    if (elemento.configuracion?.tabla?.tipo !== 'CAMPO_VALOR') return alturaMinima;
+
+    const tabla = elemento.configuracion?.tabla || {};
+    const paddingX = numero(tabla.padding_x, 6);
+    const paddingY = numero(tabla.padding_y, 4);
+
+    return columnas.reduce((alturaMayor, columna, columnaIndice) => {
+        const formato = estiloCeldaTabla(elemento, filaIndice, columnaIndice);
+        const texto = new Textbox(String(fila[columnaIndice] ?? ''), {
+            width: Math.max(10, anchosColumnas[columnaIndice] - paddingX * 2),
+            fontSize: formato.tamano_letra,
+            fontFamily: formato.tipo_letra,
+            fontWeight: formato.negrita ? 'bold' : 'normal',
+            fontStyle: formato.cursiva ? 'italic' : 'normal',
+            underline: formato.subrayado,
+            lineHeight: 1.05,
+            splitByGrapheme: true,
+        });
+        return Math.max(alturaMayor, texto.height + paddingY * 2);
+    }, alturaMinima);
 }
 
 async function crearObjeto(elemento, valores = {}) {
     const tipo = String(elemento.tipo_elemento || 'CAMPO').toUpperCase();
     const configuracion = elemento.configuracion || {};
     const ancho = Math.max(1, numero(elemento.ancho, 1));
-    const alto = Math.max(1, numero(elemento.alto, 1));
+    let alto = Math.max(1, numero(elemento.alto, 1));
     let objeto;
 
     if (tipo === 'FORMA') {
@@ -438,6 +524,8 @@ async function crearObjeto(elemento, valores = {}) {
 
     const anchoNatural = Math.max(1, objeto.width || ancho);
     const altoNatural = Math.max(1, objeto.height || alto);
+    const tablaDatos = tipo === 'TABLA' && configuracion.tabla?.tipo === 'CAMPO_VALOR';
+    if (tablaDatos) alto = altoNatural;
     objeto.set({
         left: numero(elemento.posicion_x),
         top: numero(elemento.posicion_y),
@@ -446,7 +534,7 @@ async function crearObjeto(elemento, valores = {}) {
         angle: numero(configuracion.rotacion),
         opacity: numero(configuracion.opacidad, 1),
         scaleX: ancho / anchoNatural,
-        scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(tipo) ? 1 : alto / altoNatural,
+        scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(tipo) || tablaDatos ? 1 : alto / altoNatural,
         visible: configuracion.visible !== false,
         selectable: false,
         evented: false,
@@ -512,10 +600,33 @@ async function iniciarPrevisualizacion() {
             version: disenoFabric.version,
             objects: disenoFabric.objects,
         });
-        lienzo.getObjects().forEach((objeto) => {
+        const objetosGuardados = [...lienzo.getObjects()];
+        const elementosPorIndice = new Map((datos.elementos || [])
+            .filter((elemento) => Number.isInteger(Number(elemento.indice_plantilla)))
+            .map((elemento) => [Number(elemento.indice_plantilla), elemento]));
+        const objetosFinales = await Promise.all(objetosGuardados.map(async (objeto, posicion) => {
+            const indice = Number(objeto.plantillaIndice);
+            const elemento = Number.isInteger(indice)
+                ? elementosPorIndice.get(indice)
+                : datos.elementos?.[posicion];
+
+            // Una tabla se reconstruye con los valores reales: así sus filas crecen
+            // antes de generar el certificado y ningún nombre largo queda recortado.
+            if (String(elemento?.tipo_elemento || '').toUpperCase() === 'TABLA') {
+                const tabla = await crearObjeto(elemento, datos.valores || {});
+                tabla.plantillaIndice = Number.isInteger(indice) ? indice : posicion;
+                tabla.plantillaTipoElemento = 'TABLA';
+                tabla.plantillaCodigoElemento = elemento.codigo_elemento || null;
+                tabla.plantillaTextoPlantilla = elemento.texto_plantilla || '';
+                return tabla;
+            }
+
             aplicarDatosDinamicos(objeto, datos.valores || {});
             objeto.set({ selectable: false, evented: false });
-        });
+            return objeto;
+        }));
+        lienzo.remove(...objetosGuardados);
+        lienzo.add(...objetosFinales);
         await agregarFondo(lienzo, datos);
     } else {
         await agregarFondo(lienzo, datos);

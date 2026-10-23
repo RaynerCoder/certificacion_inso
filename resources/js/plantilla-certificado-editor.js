@@ -416,8 +416,49 @@ function crearEditorPlantilla(elementoCanvas) {
         }
     }
 
-    function guardarFilasTabla(elemento, filas) {
-        elemento.texto_fijo = JSON.stringify({ filas });
+    function estilosConfiguradosTabla(elemento) {
+        try {
+            const datos = JSON.parse(elemento.texto_fijo || '{}');
+            return Array.isArray(datos.estilos)
+                ? datos.estilos.map((fila) => (Array.isArray(fila) ? fila.map((estilo) => ({ ...(estilo || {}) })) : []))
+                : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function estiloCeldaTabla(elemento, filaIndice, columnaIndice, encabezado = false) {
+        const tabla = elemento.configuracion.tabla;
+        const esEtiqueta = tabla.tipo === 'CAMPO_VALOR' && columnaIndice % 2 === 0;
+        const estiloGuardado = estilosConfiguradosTabla(elemento)?.[filaIndice]?.[columnaIndice] || {};
+        const tipoLetra = FUENTES_CERTIFICADO.includes(estiloGuardado.tipo_letra)
+            ? estiloGuardado.tipo_letra
+            : elemento.tipo_letra;
+
+        return {
+            tipo_letra: tipoLetra || 'Arial',
+            tamano_letra: limitar(numero(estiloGuardado.tamano_letra, elemento.tamano_letra), 6, 160),
+            negrita: encabezado
+                ? true
+                : (typeof estiloGuardado.negrita === 'boolean'
+                    ? estiloGuardado.negrita
+                    : Boolean(elemento.negrita || (esEtiqueta && tabla.etiquetas_negrita))),
+            cursiva: typeof estiloGuardado.cursiva === 'boolean'
+                ? estiloGuardado.cursiva
+                : Boolean(elemento.cursiva),
+            subrayado: typeof estiloGuardado.subrayado === 'boolean'
+                ? estiloGuardado.subrayado
+                : Boolean(elemento.subrayado),
+            color_texto: normalizarColorTexto(estiloGuardado.color_texto || elemento.color_texto),
+            alineacion: normalizarAlineacion(estiloGuardado.alineacion || elemento.alineacion),
+        };
+    }
+
+    function guardarFilasTabla(elemento, filas, estilos = estilosConfiguradosTabla(elemento)) {
+        const estilosNormalizados = filas.map((fila, filaIndice) => fila.map((_, columnaIndice) => (
+            { ...(estilos?.[filaIndice]?.[columnaIndice] || {}) }
+        )));
+        elemento.texto_fijo = JSON.stringify({ filas, estilos: estilosNormalizados });
         const cantidadFilas = Math.max(1, filas.length);
         const encabezado = elemento.configuracion.tabla.mostrar_encabezado ? 1 : 0;
         const alturaFilaMinima = elemento.configuracion.tabla.pares_por_fila === 2 ? 42 : 36;
@@ -425,12 +466,15 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function entradasTablaDatos(elemento) {
-        return filasConfiguradasTabla(elemento).flatMap((fila) => {
+        const estilos = estilosConfiguradosTabla(elemento);
+        return filasConfiguradasTabla(elemento).flatMap((fila, filaIndice) => {
             const entradas = [];
             for (let indice = 0; indice < fila.length; indice += 2) {
                 entradas.push({
                     etiqueta: String(fila[indice] || ''),
                     codigo: codigoDesdeMarcador(fila[indice + 1]),
+                    estiloEtiqueta: { ...(estilos?.[filaIndice]?.[indice] || {}) },
+                    estiloValor: { ...(estilos?.[filaIndice]?.[indice + 1] || {}) },
                 });
             }
             return entradas;
@@ -440,21 +484,26 @@ function crearEditorPlantilla(elementoCanvas) {
     function reagruparTablaDatos(elemento, entradas, paresPorFila, actualizarColumnas = true) {
         const pares = paresPorFila === 2 ? 2 : 1;
         const filas = [];
+        const estilos = [];
 
         for (let indice = 0; indice < entradas.length; indice += pares) {
             const fila = [];
+            const estilosFila = [];
             for (let par = 0; par < pares; par += 1) {
                 const entrada = entradas[indice + par];
                 if (!entrada) continue;
                 fila.push(entrada.etiqueta || '');
                 fila.push(entrada.codigo ? marcador(entrada.codigo) : '');
+                estilosFila.push({ ...(entrada.estiloEtiqueta || {}) });
+                estilosFila.push({ ...(entrada.estiloValor || {}) });
             }
             filas.push(fila);
+            estilos.push(estilosFila);
         }
 
         elemento.configuracion.tabla.pares_por_fila = pares;
         if (actualizarColumnas) elemento.columnas = columnasTablaDatos(pares);
-        guardarFilasTabla(elemento, filas.length ? filas : [['', '']]);
+        guardarFilasTabla(elemento, filas.length ? filas : [['', '']], estilos.length ? estilos : [[{}, {}]]);
     }
 
     function crearTablaDatos() {
@@ -463,7 +512,7 @@ function crearEditorPlantilla(elementoCanvas) {
             alto: 64,
             tamano_letra: 11,
             columnas: columnasTablaDatos(1),
-            texto_fijo: JSON.stringify({ filas: [['', '']] }),
+            texto_fijo: JSON.stringify({ filas: [['', '']], estilos: [[{}, {}]] }),
             configuracion: {
                 nombre_capa: 'Tabla de datos',
                 tabla: {
@@ -542,7 +591,9 @@ function crearEditorPlantilla(elementoCanvas) {
 
     async function cargarDisenoFabricGuardado() {
         if (!Array.isArray(disenoFabricInicial?.objects)
-            || disenoFabricInicial.objects.length !== elementos.length) {
+            || disenoFabricInicial.objects.length !== elementos.length
+            // La tabla Campo/Valor se recompone para medir el contenido y conservar sus filas autoajustables.
+            || elementos.some((elemento) => esTablaDatos(elemento))) {
             return false;
         }
 
@@ -690,7 +741,7 @@ function crearEditorPlantilla(elementoCanvas) {
             angle: elemento.configuracion.rotacion,
             opacity: elemento.configuracion.opacidad,
             scaleX: elemento.ancho / anchoNatural,
-            scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(elemento.tipo_elemento)
+            scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(elemento.tipo_elemento) || esTablaDatos(elemento)
                 ? 1
                 : elemento.alto / altoNatural,
             visible: elemento.configuracion.visible,
@@ -762,24 +813,51 @@ function crearEditorPlantilla(elementoCanvas) {
         const filas = filasTabla(elemento, columnas);
         const objetos = [];
         const mostrarEncabezado = elemento.configuracion.tabla.mostrar_encabezado;
-        const cantidadFilasVisuales = Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0));
-        const alturaFila = Math.max(24, elemento.alto / cantidadFilasVisuales);
-        const desfaseFilas = mostrarEncabezado ? 1 : 0;
-        let izquierda = 0;
+        const anchosColumnas = columnas.map((columna) => (
+            elemento.ancho * (numero(columna.ancho, 100 / Math.max(1, columnas.length)) / 100)
+        ));
+        const alturaMinimaFila = Math.max(28, Math.min(42, elemento.alto / Math.max(1, filas.length + (mostrarEncabezado ? 1 : 0))));
+        const alturaEncabezado = mostrarEncabezado ? Math.max(28, alturaMinimaFila) : 0;
+        const alturasFilas = filas.map((fila, filaIndice) => alturaFilaTabla(
+            elemento,
+            fila,
+            filaIndice,
+            columnas,
+            anchosColumnas,
+            alturaMinimaFila,
+        ));
+        let arriba = 0;
 
-        columnas.forEach((columna, columnaIndice) => {
-            const anchoColumna = elemento.ancho * (numero(columna.ancho, 100 / columnas.length) / 100);
-            if (mostrarEncabezado) {
-                objetos.push(celdaTabla(izquierda, 0, anchoColumna, alturaFila, columna.titulo_columna || 'Columna', true, elemento));
-            }
-            filas.forEach((fila, filaIndice) => {
+        if (mostrarEncabezado) {
+            let izquierda = 0;
+            columnas.forEach((columna, columnaIndice) => {
+                objetos.push(celdaTabla(
+                    izquierda,
+                    arriba,
+                    anchosColumnas[columnaIndice],
+                    alturaEncabezado,
+                    columna.titulo_columna || 'Columna',
+                    true,
+                    elemento,
+                    -1,
+                    false,
+                    estiloCeldaTabla(elemento, -1, columnaIndice, true),
+                ));
+                izquierda += anchosColumnas[columnaIndice];
+            });
+            arriba += alturaEncabezado;
+        }
+
+        filas.forEach((fila, filaIndice) => {
+            let izquierda = 0;
+            columnas.forEach((columna, columnaIndice) => {
                 const tieneCelda = Object.prototype.hasOwnProperty.call(fila, columnaIndice);
                 const contenidoCelda = tieneCelda ? fila[columnaIndice] : '';
                 objetos.push(celdaTabla(
                     izquierda,
-                    alturaFila * (filaIndice + desfaseFilas),
-                    anchoColumna,
-                    alturaFila,
+                    arriba,
+                    anchosColumnas[columnaIndice],
+                    alturasFilas[filaIndice],
                     esTablaDatos(elemento) && !String(contenidoCelda ?? '').trim()
                         ? (columnaIndice % 2 === 0 ? 'Campo' : 'Valor')
                         : (tieneCelda ? contenidoCelda : marcador(columna.codigo_campo)),
@@ -787,15 +865,44 @@ function crearEditorPlantilla(elementoCanvas) {
                     elemento,
                     filaIndice,
                     esTablaDatos(elemento) && columnaIndice % 2 === 0,
+                    estiloCeldaTabla(elemento, filaIndice, columnaIndice),
                 ));
+                izquierda += anchosColumnas[columnaIndice];
             });
-            izquierda += anchoColumna;
+            arriba += alturasFilas[filaIndice];
         });
 
-        return new Group(objetos, { width: elemento.ancho, height: alturaFila * cantidadFilasVisuales });
+        if (esTablaDatos(elemento)) elemento.alto = Math.max(1, redondear(arriba));
+
+        return new Group(objetos, { width: elemento.ancho, height: arriba });
     }
 
-    function celdaTabla(left, top, width, height, texto, encabezado, elemento, filaIndice = 0, etiqueta = false) {
+    function alturaFilaTabla(elemento, fila, filaIndice, columnas, anchosColumnas, alturaMinima) {
+        if (!esTablaDatos(elemento)) return alturaMinima;
+
+        const paddingX = numero(elemento.configuracion.tabla.padding_x, 6);
+        const paddingY = numero(elemento.configuracion.tabla.padding_y, 4);
+
+        return columnas.reduce((alturaMayor, columna, columnaIndice) => {
+            const contenido = Object.prototype.hasOwnProperty.call(fila, columnaIndice)
+                ? fila[columnaIndice]
+                : marcador(columna.codigo_campo);
+            const estiloCelda = estiloCeldaTabla(elemento, filaIndice, columnaIndice);
+            const textoMedido = new Textbox(String(contenido ?? ''), {
+                width: Math.max(10, anchosColumnas[columnaIndice] - paddingX * 2),
+                fontSize: estiloCelda.tamano_letra,
+                fontFamily: estiloCelda.tipo_letra,
+                fontWeight: estiloCelda.negrita ? 'bold' : 'normal',
+                fontStyle: estiloCelda.cursiva ? 'italic' : 'normal',
+                underline: estiloCelda.subrayado,
+                lineHeight: 1.05,
+                splitByGrapheme: true,
+            });
+            return Math.max(alturaMayor, textoMedido.height + paddingY * 2);
+        }, alturaMinima);
+    }
+
+    function celdaTabla(left, top, width, height, texto, encabezado, elemento, filaIndice = 0, etiqueta = false, estiloCelda = null) {
         const estilo = elemento.configuracion.tabla;
         const fondo = encabezado
             ? estilo.encabezado_fondo
@@ -804,20 +911,23 @@ function crearEditorPlantilla(elementoCanvas) {
         const paddingY = numero(estilo.padding_y, 4);
         const anchoTexto = Math.max(10, width - paddingX * 2);
         const altoTexto = Math.max(10, height - paddingY * 2);
+        const formato = estiloCelda || estiloCeldaTabla(elemento, filaIndice, 0, encabezado);
         const textoCelda = textoAjustadoCelda(
             texto,
             anchoTexto,
             altoTexto,
-            numero(elemento.tamano_letra, 11),
+            formato.tamano_letra,
             numero(estilo.tamano_minimo, 7),
-            estilo.ajustar_texto !== false,
+            estilo.ajustar_texto !== false && !esTablaDatos(elemento),
             {
                 left: paddingX,
                 top: paddingY,
-                fontFamily: elemento.tipo_letra,
-                fontWeight: encabezado || elemento.negrita || (etiqueta && estilo.etiquetas_negrita) ? 'bold' : 'normal',
-                fill: encabezado ? estilo.encabezado_texto : elemento.color_texto,
-                textAlign: alineacionFabric(elemento.alineacion),
+                fontFamily: formato.tipo_letra,
+                fontWeight: formato.negrita ? 'bold' : 'normal',
+                fontStyle: formato.cursiva ? 'italic' : 'normal',
+                underline: formato.subrayado,
+                fill: encabezado ? estilo.encabezado_texto : formato.color_texto,
+                textAlign: alineacionFabric(formato.alineacion),
                 selectable: false,
                 evented: false,
             },
@@ -2239,6 +2349,32 @@ function crearEditorPlantilla(elementoCanvas) {
                 <optgroup label="${escaparAtributo(grupo)}">
                     ${camposGrupo.map((campo) => `<option value="${escaparAtributo(campo.codigo)}" ${campo.codigo === codigoSeleccionado ? 'selected' : ''}>${escaparHtml(campo.nombre)}</option>`).join('')}
                 </optgroup>`).join('')}`;
+        const controlesFormatoCelda = (titulo, tipoCelda, indice, estilo) => `
+            <details class="plantilla-tabla-formato">
+                <summary>${titulo}</summary>
+                <div class="plantilla-tabla-formato-grid">
+                    <label><span class="plantilla-prop-label">Fuente</span>
+                        <select class="plantilla-prop-select" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="tipo_letra" data-tabla-indice="${indice}">
+                            ${FUENTES_CERTIFICADO.map((fuente) => `<option value="${fuente}" ${fuente === estilo.tipo_letra ? 'selected' : ''}>${fuente}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label><span class="plantilla-prop-label">Tamaño</span>
+                        <input type="number" min="6" max="160" step="1" class="plantilla-prop-input" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="tamano_letra" data-tabla-indice="${indice}" value="${estilo.tamano_letra}">
+                    </label>
+                    <label><span class="plantilla-prop-label">Color</span>
+                        <input type="color" class="plantilla-prop-input" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="color_texto" data-tabla-indice="${indice}" value="${estilo.color_texto}">
+                    </label>
+                    <label><span class="plantilla-prop-label">Alineación</span>
+                        <select class="plantilla-prop-select" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="alineacion" data-tabla-indice="${indice}">
+                            ${[['IZQUIERDA', 'Izquierda'], ['CENTRO', 'Centro'], ['DERECHA', 'Derecha'], ['JUSTIFICADO', 'Justificado']]
+                                .map(([valor, texto]) => `<option value="${valor}" ${valor === estilo.alineacion ? 'selected' : ''}>${texto}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="plantilla-check-row"><input type="checkbox" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="negrita" data-tabla-indice="${indice}" ${estilo.negrita ? 'checked' : ''}> Negrita</label>
+                    <label class="plantilla-check-row"><input type="checkbox" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="cursiva" data-tabla-indice="${indice}" ${estilo.cursiva ? 'checked' : ''}> Cursiva</label>
+                    <label class="plantilla-check-row"><input type="checkbox" data-tabla-estilo="${tipoCelda}" data-tabla-estilo-prop="subrayado" data-tabla-indice="${indice}" ${estilo.subrayado ? 'checked' : ''}> Subrayado</label>
+                </div>
+            </details>`;
 
         const editorContenido = tablaDatos
             ? `<div class="plantilla-prop-full plantilla-editor-ayuda">Cada fila mantiene alineados el nombre del dato y su valor. Elija una variable; al emitir se reemplazará automáticamente.</div>
@@ -2265,6 +2401,8 @@ function crearEditorPlantilla(elementoCanvas) {
                             <label><span class="plantilla-prop-label">Valor dinámico</span>
                                 <select class="plantilla-prop-select" data-tabla-codigo="${indice}">${opcionesCampo(entrada.codigo)}</select>
                             </label>
+                            ${controlesFormatoCelda('Formato del campo', 'etiqueta', indice, estiloCeldaTabla(elemento, Math.floor(indice / tabla.pares_por_fila), (indice % tabla.pares_por_fila) * 2))}
+                            ${controlesFormatoCelda('Formato del valor', 'valor', indice, estiloCeldaTabla(elemento, Math.floor(indice / tabla.pares_por_fila), (indice % tabla.pares_por_fila) * 2 + 1))}
                         </div>`).join('')}
                 </div>
                 <button type="button" class="plantilla-action-btn plantilla-prop-full" data-tabla-agregar>+ Agregar dato</button>`
@@ -2300,10 +2438,12 @@ function crearEditorPlantilla(elementoCanvas) {
             <label class="plantilla-check-row">
                 <input type="checkbox" data-tabla-config="mostrar_encabezado" ${tabla.mostrar_encabezado ? 'checked' : ''}> Mostrar encabezado
             </label>
-            <label class="plantilla-check-row plantilla-prop-full">
-                <input type="checkbox" data-tabla-config="ajustar_texto" ${tabla.ajustar_texto ? 'checked' : ''}> Ajustar texto largo dentro de cada celda
-            </label>
-            <div class="plantilla-prop-full plantilla-editor-ayuda">El texto baja de línea y reduce su tamaño solo hasta el mínimo indicado. Si aun así no cabe, se muestra con puntos suspensivos para que nunca invada otra celda.</div>
+            ${tablaDatos
+                ? '<div class="plantilla-prop-full plantilla-editor-ayuda">Las filas de Campo/Valor se amplían automáticamente cuando un nombre o valor necesita más líneas. El texto conserva su tamaño y nunca invade otra celda.</div>'
+                : `<label class="plantilla-check-row plantilla-prop-full">
+                    <input type="checkbox" data-tabla-config="ajustar_texto" ${tabla.ajustar_texto ? 'checked' : ''}> Ajustar texto largo dentro de cada celda
+                </label>
+                <div class="plantilla-prop-full plantilla-editor-ayuda">El texto baja de línea y reduce su tamaño solo hasta el mínimo indicado. Si aun así no cabe, se muestra con puntos suspensivos para que nunca invada otra celda.</div>`}
             ${tablaDatos ? `<label class="plantilla-check-row">
                 <input type="checkbox" data-tabla-config="etiquetas_negrita" ${tabla.etiquetas_negrita ? 'checked' : ''}> Nombres en negrita
             </label>` : ''}`;
@@ -2313,6 +2453,35 @@ function crearEditorPlantilla(elementoCanvas) {
         const elemento = elementoSeleccionado();
         const objetivo = evento.target;
         if (!elemento || !(objetivo instanceof HTMLInputElement || objetivo instanceof HTMLSelectElement || objetivo instanceof HTMLTextAreaElement)) return;
+
+        if (objetivo.dataset.tablaEstilo !== undefined) {
+            const indice = Number(objetivo.dataset.tablaIndice);
+            const propiedad = objetivo.dataset.tablaEstiloProp;
+            const entradas = entradasTablaDatos(elemento);
+            const entrada = entradas[indice];
+            if (!entrada || !['etiqueta', 'valor'].includes(objetivo.dataset.tablaEstilo || '') || !propiedad) return;
+
+            const claveEstilo = objetivo.dataset.tablaEstilo === 'etiqueta' ? 'estiloEtiqueta' : 'estiloValor';
+            const estilo = { ...(entrada[claveEstilo] || {}) };
+            if (['negrita', 'cursiva', 'subrayado'].includes(propiedad)) {
+                estilo[propiedad] = objetivo.checked;
+            } else if (propiedad === 'tamano_letra') {
+                estilo[propiedad] = limitar(numero(objetivo.value, elemento.tamano_letra), 6, 160);
+            } else if (propiedad === 'tipo_letra' && FUENTES_CERTIFICADO.includes(objetivo.value)) {
+                estilo[propiedad] = objetivo.value;
+            } else if (propiedad === 'color_texto') {
+                estilo[propiedad] = normalizarColorTexto(objetivo.value);
+            } else if (propiedad === 'alineacion') {
+                estilo[propiedad] = normalizarAlineacion(objetivo.value);
+            } else {
+                return;
+            }
+            entrada[claveEstilo] = estilo;
+            reagruparTablaDatos(elemento, entradas, elemento.configuracion.tabla.pares_por_fila, false);
+            actualizarInput();
+            if (evento.type === 'change') renderizarTodo();
+            return;
+        }
 
         if (objetivo.dataset.tablaEtiqueta !== undefined || objetivo.dataset.tablaCodigo !== undefined) {
             const indice = Number(objetivo.dataset.tablaEtiqueta ?? objetivo.dataset.tablaCodigo);

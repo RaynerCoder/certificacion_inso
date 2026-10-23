@@ -1234,8 +1234,8 @@ class CertificadoController extends Controller
         return [
             'Certificado y trámite' => [
                 ['codigo' => 'certificado.codigo', 'nombre' => 'Código del certificado'],
-                ['codigo' => 'emision.numero_certificado', 'nombre' => 'Número del documento emitido'],
-                ['codigo' => 'emision.fecha', 'nombre' => 'Fecha de emisión'],
+                ['codigo' => 'emision.numero_certificado', 'nombre' => 'Número de registro autorizado', 'ayuda' => 'Es la numeración oficial asignada al guardar la emisión del certificado.'],
+                ['codigo' => 'emision.fecha', 'nombre' => 'Fecha de emisión del certificado', 'ayuda' => 'Puede acompañarla de un texto fijo para el lugar: por ejemplo, “La Paz, ”.'],
                 ['codigo' => 'certificado.fecha_inicio', 'nombre' => 'Fecha de inicio de vigencia'],
                 ['codigo' => 'certificado.fecha_fin', 'nombre' => 'Fecha final de vigencia'],
                 ['codigo' => 'certificado.descripcion', 'nombre' => 'Descripción del trámite'],
@@ -1326,7 +1326,7 @@ class CertificadoController extends Controller
                 ['codigo' => 'registro.cantidades', 'nombre' => 'Cantidades de todos los registros'],
                 ['codigo' => 'registro.unidades', 'nombre' => 'Unidades de todos los registros'],
                 ['codigo' => 'presentacion.descripciones', 'nombre' => 'Descripciones de todas las presentaciones'],
-                ['codigo' => 'presentacion.lista', 'nombre' => 'Presentaciones con cantidad y unidad'],
+                ['codigo' => 'presentacion.lista', 'nombre' => 'Presentaciones agrupadas por tipo', 'ayuda' => 'No repite el tipo: Envase de 210 ml y de 500 ml (aerosol); Frasco de 1 litro.'],
                 ['codigo' => 'presentacion.cantidades', 'nombre' => 'Cantidades de todas las presentaciones'],
                 ['codigo' => 'presentacion.unidades', 'nombre' => 'Unidades de todas las presentaciones'],
             ],
@@ -1346,6 +1346,8 @@ class CertificadoController extends Controller
                 ['codigo' => 'ingrediente.tabla', 'nombre' => 'Tabla de ingredientes', 'ayuda' => 'Se completa cuando el trámite tiene un único producto o al emitir por lote.'],
                 ['codigo' => 'ingrediente.nombre', 'nombre' => 'Ingrediente del producto individual'],
                 ['codigo' => 'ingrediente.nombres', 'nombre' => 'Ingredientes del producto individual'],
+                ['codigo' => 'ingrediente.formula_quimica', 'nombre' => 'Fórmula química', 'ayuda' => 'Se completa solamente cuando el producto tiene un único ingrediente activo.'],
+                ['codigo' => 'ingrediente.formulas_quimicas', 'nombre' => 'Fórmulas químicas de los ingredientes', 'ayuda' => 'Cuando existen varios ingredientes, muestra cada ingrediente con su fórmula química.'],
                 ['codigo' => 'ingrediente.composicion', 'nombre' => 'Composición'],
                 ['codigo' => 'ingrediente.composiciones', 'nombre' => 'Composiciones separadas por coma'],
                 ['codigo' => 'ingrediente.riesgo_salud', 'nombre' => 'Riesgo para la salud'],
@@ -1353,6 +1355,7 @@ class CertificadoController extends Controller
                 ['codigo' => 'ingrediente.porcentaje', 'nombre' => 'Porcentaje en el producto'],
                 ['codigo' => 'ingrediente.porcentajes', 'nombre' => 'Porcentajes separados por coma'],
                 ['codigo' => 'ingrediente.resumen', 'nombre' => 'Ingredientes con sus porcentajes'],
+                ['codigo' => 'ingrediente.composicion_cuantitativa', 'nombre' => 'Composición cuantitativa de ingredientes y otras sustancias', 'ayuda' => 'Combina el ingrediente, su porcentaje y la composición registrada.'],
             ],
             'Frases reglamentarias del producto individual o del lote' => [
                 ['codigo' => 'frases.riesgo.codigos', 'nombre' => 'Códigos de frases de riesgo'],
@@ -1583,6 +1586,10 @@ class CertificadoController extends Controller
             $tipoElemento = strtoupper((string) ($item['tipo_elemento'] ?? 'CAMPO'));
             $textoFijo = $item['texto_fijo'] ?? null;
 
+            if ($tipoElemento === 'TABLA') {
+                $textoFijo = $this->normalizarContenidoTablaPlantilla($textoFijo);
+            }
+
             if (! in_array($tipoElemento, $tiposPermitidos, true)) {
                 continue;
             }
@@ -1663,6 +1670,83 @@ class CertificadoController extends Controller
         return in_array($valor, ['IZQUIERDA', 'CENTRO', 'DERECHA', 'JUSTIFICADO'], true)
             ? $valor
             : 'IZQUIERDA';
+    }
+
+    /**
+     * Normaliza el contenido y los estilos individuales de una tabla.
+     * La configuración vive junto a las filas existentes para no crear una tabla adicional.
+     */
+    private function normalizarContenidoTablaPlantilla(mixed $contenido): ?string
+    {
+        if (! is_string($contenido)) {
+            return null;
+        }
+
+        $datos = json_decode($contenido, true);
+        if (! is_array($datos)) {
+            return $contenido;
+        }
+
+        $filasEntrada = is_array($datos['filas'] ?? null) ? array_slice($datos['filas'], 0, 100) : [];
+        $estilosEntrada = is_array($datos['estilos'] ?? null) ? $datos['estilos'] : [];
+        $filas = [];
+        $estilos = [];
+
+        foreach ($filasEntrada as $indiceFila => $fila) {
+            if (! is_array($fila)) {
+                continue;
+            }
+
+            $filaNormalizada = [];
+            $estilosFila = [];
+            foreach (array_slice($fila, 0, 8) as $indiceCelda => $celda) {
+                $filaNormalizada[] = mb_substr((string) $celda, 0, 5000);
+                $estilosFila[] = $this->normalizarEstiloCeldaTablaPlantilla(
+                    is_array(data_get($estilosEntrada, $indiceFila.'.'.$indiceCelda))
+                        ? data_get($estilosEntrada, $indiceFila.'.'.$indiceCelda)
+                        : []
+                );
+            }
+
+            $filas[] = $filaNormalizada;
+            $estilos[] = $estilosFila;
+        }
+
+        return json_encode([
+            'filas' => $filas,
+            'estilos' => $estilos,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** @return array<string, bool|float|string> */
+    private function normalizarEstiloCeldaTablaPlantilla(array $estilo): array
+    {
+        $resultado = [];
+        $fuentesPermitidas = [
+            'Arial', 'Arial Narrow', 'Agency FB', 'Bahnschrift SemiBold Condensed',
+            'Calibri', 'Cambria', 'Times New Roman', 'Lucida Bright',
+            'Monotype Corsiva', 'Georgia', 'Verdana', 'Tahoma', 'Courier New',
+        ];
+
+        if (in_array($estilo['tipo_letra'] ?? null, $fuentesPermitidas, true)) {
+            $resultado['tipo_letra'] = $estilo['tipo_letra'];
+        }
+        if (array_key_exists('tamano_letra', $estilo) && is_numeric($estilo['tamano_letra'])) {
+            $resultado['tamano_letra'] = max(6, min(160, (float) $estilo['tamano_letra']));
+        }
+        foreach (['negrita', 'cursiva', 'subrayado'] as $propiedad) {
+            if (array_key_exists($propiedad, $estilo) && is_bool($estilo[$propiedad])) {
+                $resultado[$propiedad] = $estilo[$propiedad];
+            }
+        }
+        if (isset($estilo['color_texto']) && preg_match('/^#[0-9a-f]{6}$/i', (string) $estilo['color_texto'])) {
+            $resultado['color_texto'] = strtolower((string) $estilo['color_texto']);
+        }
+        if (isset($estilo['alineacion'])) {
+            $resultado['alineacion'] = $this->normalizarAlineacionPlantilla((string) $estilo['alineacion']);
+        }
+
+        return $resultado;
     }
 
     /**
@@ -2027,6 +2111,9 @@ class CertificadoController extends Controller
             'filas' => $tipoElemento === 'TABLA'
                 ? $this->filasTablaDocumento($elemento, $valoresConAlias)
                 : [],
+            'estilos_celdas' => $tipoElemento === 'TABLA'
+                ? $this->estilosCeldasTablaDocumento($elemento)
+                : [],
         ];
     }
 
@@ -2055,6 +2142,24 @@ class CertificadoController extends Controller
                 ->map(fn ($celda) => $this->resolverMarcadoresDocumento((string) $celda, $valores))
                 ->values()
                 ->all())
+            ->values()
+            ->all();
+    }
+
+    private function estilosCeldasTablaDocumento(PlantillaElemento $elemento): array
+    {
+        $contenido = json_decode((string) $elemento->texto_fijo, true);
+        $estilos = is_array($contenido['estilos'] ?? null) ? $contenido['estilos'] : [];
+
+        return collect($estilos)
+            ->map(fn ($fila) => is_array($fila)
+                ? collect($fila)
+                    ->map(fn ($estilo) => $this->normalizarEstiloCeldaTablaPlantilla(
+                        is_array($estilo) ? $estilo : []
+                    ))
+                    ->values()
+                    ->all()
+                : [])
             ->values()
             ->all();
     }
@@ -2350,23 +2455,43 @@ class CertificadoController extends Controller
         $usuarioEmisor = $emision?->id_usuario_registro
             ? User::withTrashed()->with('funcionario.cargos')->find($emision->id_usuario_registro)
             : auth()->user();
-        $presentacionesCompletas = $presentaciones->map(function ($presentacion) {
-            $tipo = trim((string) $presentacion->tipo_presentacion);
-            $cantidad = $this->formatearDecimalPlantilla($presentacion->cantidad);
-            $unidad = $this->textoCatalogoUnidad($presentacion->catalogoUnidad);
-
-            return trim(implode(' ', array_filter([
-                $tipo !== '' ? $tipo : 'Presentación',
-                $cantidad !== '-' ? 'de '.$cantidad : null,
-                $unidad !== 'Sin unidad' ? $unidad : null,
-            ])));
-        });
+        $presentacionesCompletas = $this->resumenPresentacionesPlantilla($presentaciones);
         $ingredientesConPorcentaje = $ingredientesProducto->map(function ($relacion) {
             $nombre = trim((string) $relacion->ingrediente?->nombre);
             $porcentaje = $this->formatearDecimalPlantilla($relacion->porcentaje);
 
             return trim($nombre.($porcentaje !== '-' ? ' '.$porcentaje.'%' : ''));
         });
+        $formulasQuimicasIngredientes = $ingredientesProducto->map(function ($relacion) {
+            $formula = $this->formatearFormulaQuimicaPlantilla($relacion->ingrediente?->formula_quimica);
+
+            return [
+                'nombre' => trim((string) $relacion->ingrediente?->nombre),
+                'formula' => $formula,
+            ];
+        })->filter(fn ($ingrediente) => $ingrediente['formula'] !== '')->values();
+        $formulaQuimicaIndividual = $formulasQuimicasIngredientes->count() === 1
+            ? $formulasQuimicasIngredientes->first()['formula']
+            : '-';
+        $formulasQuimicasConIngredientes = $formulasQuimicasIngredientes
+            ->map(function ($ingrediente) use ($formulasQuimicasIngredientes) {
+                if ($formulasQuimicasIngredientes->count() === 1 || $ingrediente['nombre'] === '') {
+                    return $ingrediente['formula'];
+                }
+
+                return $ingrediente['nombre'].': '.$ingrediente['formula'];
+            })
+            ->unique()
+            ->values()
+            ->implode('; ') ?: 'Sin fórmula química';
+        $composicionCuantitativa = $ingredientesProducto->map(function ($relacion) {
+            $nombre = trim((string) $relacion->ingrediente?->nombre);
+            $porcentaje = $this->formatearDecimalPlantilla($relacion->porcentaje);
+            $composicion = trim((string) $relacion->ingrediente?->composicion);
+            $ingrediente = trim($nombre.($porcentaje !== '-' ? ' '.$porcentaje.' %' : ''));
+
+            return collect([$ingrediente, $composicion])->filter()->implode('; ');
+        })->filter()->implode('; ') ?: 'Sin composición';
         $textoFrasesReglamentarias = static fn ($frases) => $frases
             ->map(fn ($frase) => trim(implode(' - ', array_filter([$frase->codigo, $frase->descripcion]))))
             ->filter()
@@ -2506,7 +2631,7 @@ class CertificadoController extends Controller
             'registro.cantidades' => $this->unirValoresPlantilla($registros->map(fn ($registro) => $this->formatearDecimalPlantilla($registro->cantidad))),
             'registro.unidades' => $this->unirValoresPlantilla($registros->map(fn ($registro) => $this->textoCatalogoUnidad($registro->catalogoUnidad))),
             'presentacion.descripciones' => $this->unirValoresPlantilla($presentaciones->pluck('descripcion')),
-            'presentacion.lista' => $this->unirValoresPlantilla($presentacionesCompletas),
+            'presentacion.lista' => $presentacionesCompletas,
             'presentacion.cantidades' => $this->unirValoresPlantilla($presentaciones->map(fn ($presentacion) => $this->formatearDecimalPlantilla($presentacion->cantidad))),
             'presentacion.unidades' => $this->unirValoresPlantilla($presentaciones->map(fn ($presentacion) => $this->textoCatalogoUnidad($presentacion?->catalogoUnidad))),
             'registro.codigo' => $registroIndividual?->codigo_autorizacion ?: '-',
@@ -2529,6 +2654,8 @@ class CertificadoController extends Controller
             })->filter()->implode("\n") ?: 'Sin ingredientes',
             'ingrediente.nombre' => $primerIngredienteProducto?->ingrediente?->nombre ?: 'Sin ingrediente',
             'ingrediente.nombres' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $relacion->ingrediente?->nombre)),
+            'ingrediente.formula_quimica' => $formulaQuimicaIndividual,
+            'ingrediente.formulas_quimicas' => $formulasQuimicasConIngredientes,
             'ingrediente.composicion' => $primerIngredienteProducto?->ingrediente?->composicion ?: 'Sin composición',
             'ingrediente.composiciones' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $relacion->ingrediente?->composicion)),
             'ingrediente.riesgo_salud' => $primerIngredienteProducto?->ingrediente?->riesgo_salud ?: 'Sin riesgo registrado',
@@ -2538,6 +2665,7 @@ class CertificadoController extends Controller
                 : 'Sin porcentaje',
             'ingrediente.porcentajes' => $this->unirValoresPlantilla($ingredientesProducto->map(fn ($relacion) => $this->formatearDecimalPlantilla($relacion->porcentaje).' %')),
             'ingrediente.resumen' => $this->unirValoresPlantilla($ingredientesConPorcentaje),
+            'ingrediente.composicion_cuantitativa' => $composicionCuantitativa,
             'frases.riesgo.codigos' => $this->unirValoresPlantilla($frasesRiesgo->pluck('codigo')),
             'frases.riesgo.completas' => $textoFrasesReglamentarias($frasesRiesgo),
             'frases.seguridad.codigos' => $this->unirValoresPlantilla($frasesSeguridad->pluck('codigo')),
@@ -2679,6 +2807,91 @@ class CertificadoController extends Controller
             ->implode(', ');
 
         return $texto !== '' ? $texto : 'Sin dato';
+    }
+
+    /**
+     * Crea una sola frase por tipo de presentación para evitar textos repetidos
+     * como "Envase de 100 ml, Envase de 210 ml".
+     */
+    private function resumenPresentacionesPlantilla($presentaciones): string
+    {
+        $grupos = collect($presentaciones)
+            ->filter()
+            ->groupBy(function ($presentacion) {
+                $tipo = trim((string) $presentacion->tipo_presentacion);
+
+                return mb_strtolower($tipo !== '' ? $tipo : 'Presentación');
+            });
+
+        $resumen = $grupos->map(function ($presentacionesTipo) {
+            $primeraPresentacion = $presentacionesTipo->first();
+            $tipo = trim((string) $primeraPresentacion?->tipo_presentacion) ?: 'Presentación';
+            $descripciones = $presentacionesTipo
+                ->map(fn ($presentacion) => trim((string) $presentacion->descripcion))
+                ->filter()
+                ->unique()
+                ->values();
+            $descripcionComun = $descripciones->count() === 1 ? $descripciones->first() : null;
+            $detalles = $presentacionesTipo->map(function ($presentacion) use ($descripcionComun) {
+                $cantidad = $this->formatearDecimalPlantilla($presentacion->cantidad);
+                $unidad = $this->textoCatalogoUnidad($presentacion->catalogoUnidad);
+                $descripcion = trim((string) $presentacion->descripcion);
+                $detalle = trim(implode(' ', array_filter([
+                    $cantidad !== '-' ? 'de '.$cantidad : null,
+                    $unidad !== 'Sin unidad' ? $unidad : null,
+                ])));
+
+                if ($descripcionComun === null && $descripcion !== '') {
+                    $detalle = trim($detalle.' ('.$descripcion.')');
+                }
+
+                return $detalle;
+            })->filter()->unique()->values();
+
+            if ($detalles->isEmpty()) {
+                return $tipo;
+            }
+
+            $resultado = $tipo.' '.$this->unirListaNaturalPlantilla($detalles);
+
+            return $descripcionComun !== null ? $resultado.' ('.$descripcionComun.')' : $resultado;
+        })->filter()->values();
+
+        return $resumen->isEmpty() ? 'Sin presentación' : $resumen->implode('; ');
+    }
+
+    private function unirListaNaturalPlantilla($valores): string
+    {
+        $valores = collect($valores)
+            ->filter(fn ($valor) => filled($valor))
+            ->unique()
+            ->values();
+
+        if ($valores->count() <= 1) {
+            return (string) $valores->first();
+        }
+
+        if ($valores->count() === 2) {
+            return $valores->first().' y '.$valores->last();
+        }
+
+        return $valores->slice(0, -1)->implode(', ').' y '.$valores->last();
+    }
+
+    private function formatearFormulaQuimicaPlantilla(?string $formula): string
+    {
+        return strtr(trim((string) $formula), [
+            '0' => '₀',
+            '1' => '₁',
+            '2' => '₂',
+            '3' => '₃',
+            '4' => '₄',
+            '5' => '₅',
+            '6' => '₆',
+            '7' => '₇',
+            '8' => '₈',
+            '9' => '₉',
+        ]);
     }
 
     private function formatearDecimalPlantilla(mixed $valor): string

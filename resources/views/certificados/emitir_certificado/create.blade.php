@@ -161,7 +161,9 @@
             ? null
             : ($resolverFondoImagen($plantillaCertificado?->url_fondo)
                 ?: $resolverFondoImagen('plantillas/certificados/modelo_certificado.png'));
-        $elementosPlantilla = $plantillaCertificado?->elementosActivos ?? collect();
+        // Se conservan los índices del diseño Fabric aunque alguna capa esté inactiva.
+        // Así una tabla posterior siempre se reconstruye con el dato que le corresponde.
+        $elementosPlantilla = ($plantillaCertificado?->elementos ?? collect())->values();
         if ($elementosPlantilla->isEmpty()) {
             $elementosPlantilla = collect([
                 (object) ['tipo_elemento' => 'CAMPO', 'codigo_elemento' => 'certificado.codigo', 'texto_fijo' => null, 'posicion_x' => 670, 'posicion_y' => 205, 'ancho' => 150, 'alto' => 24, 'tamano_letra' => 12, 'alineacion' => 'CENTRO', 'negrita' => true],
@@ -209,9 +211,24 @@
                 ->values()
                 ->all();
         };
+        $estilosTablaPlantilla = function ($elemento) {
+            $datos = json_decode((string) ($elemento->texto_fijo ?? ''), true);
+            $estilos = is_array($datos['estilos'] ?? null) ? $datos['estilos'] : [];
+
+            return collect($estilos)
+                ->map(fn ($fila) => is_array($fila)
+                    ? collect($fila)
+                        ->map(fn ($estilo) => is_array($estilo) ? $estilo : [])
+                        ->values()
+                        ->all()
+                    : [])
+                ->values()
+                ->all();
+        };
         $elementosEmision = $elementosPlantilla
-            ->filter(fn ($elemento) => (bool) data_get($elemento->configuracion ?? [], 'visible', true))
-            ->map(function ($elemento) use ($resolverTextoPlantilla, $filasTablaPlantilla, $valoresPlantilla, $resolverFondoImagen) {
+            ->filter(fn ($elemento) => ($elemento->estado ?? 'ACTIVO') === 'ACTIVO'
+                && (bool) data_get($elemento->configuracion ?? [], 'visible', true))
+            ->map(function ($elemento, $indice) use ($resolverTextoPlantilla, $filasTablaPlantilla, $estilosTablaPlantilla, $valoresPlantilla, $resolverFondoImagen) {
                 $tipo = strtoupper((string) $elemento->tipo_elemento);
                 $valor = match ($tipo) {
                     'TEXTO' => $resolverTextoPlantilla($elemento->texto_fijo),
@@ -227,6 +244,7 @@
 
                 return [
                     'id' => $elemento->id ?? null,
+                    'indice_plantilla' => (int) $indice,
                     'tipo_elemento' => $tipo,
                     'codigo_elemento' => $elemento->codigo_elemento ?? null,
                     'texto_plantilla' => $elemento->texto_fijo ?? '',
@@ -251,6 +269,7 @@
                         'ancho' => (float) ($columna->ancho ?: 25),
                     ])->values()->all(),
                     'filas' => $tipo === 'TABLA' ? $filasTablaPlantilla($elemento) : [],
+                    'estilos_celdas' => $tipo === 'TABLA' ? $estilosTablaPlantilla($elemento) : [],
                 ];
             })
             ->values()

@@ -806,6 +806,45 @@
         color: #dc2626;
     }
 
+    .plantilla-tabla-formato {
+        border-top: 1px solid #e2e8f0;
+        margin-top: 8px;
+        padding-top: 8px;
+    }
+
+    .plantilla-tabla-formato summary {
+        color: #0f766e;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 800;
+        list-style: none;
+    }
+
+    .plantilla-tabla-formato summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .plantilla-tabla-formato summary::before {
+        content: '▸';
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    .plantilla-tabla-formato[open] summary::before {
+        transform: rotate(90deg);
+    }
+
+    .plantilla-tabla-formato-grid {
+        display: grid;
+        gap: 7px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 8px;
+    }
+
+    .plantilla-tabla-formato-grid .plantilla-check-row {
+        font-size: 11px;
+    }
+
     .plantilla-preview-box {
         background: #f8fafc;
         border: 1px dashed #cbd5e1;

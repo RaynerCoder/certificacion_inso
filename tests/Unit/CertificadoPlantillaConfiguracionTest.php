@@ -134,6 +134,45 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
         ], $filas);
     }
 
+    public function test_conserva_solo_los_estilos_individuales_permitidos_en_tabla_campo_valor(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'normalizarContenidoTablaPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        $contenido = $metodo->invoke($controlador, json_encode([
+            'filas' => [['Razón social:', '{{beneficiario_nombre}}']],
+            'estilos' => [[
+                [
+                    'tipo_letra' => 'Cambria',
+                    'tamano_letra' => 12,
+                    'negrita' => true,
+                    'color_texto' => '#1E3A5F',
+                    'alineacion' => 'IZQUIERDA',
+                    'css_inseguro' => 'position:fixed',
+                ],
+                [
+                    'tipo_letra' => 'No disponible',
+                    'cursiva' => true,
+                    'subrayado' => false,
+                    'color_texto' => 'red',
+                ],
+            ]],
+        ], JSON_THROW_ON_ERROR));
+
+        $datos = json_decode((string) $contenido, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame([
+            'tipo_letra' => 'Cambria',
+            'tamano_letra' => 12,
+            'negrita' => true,
+            'color_texto' => '#1e3a5f',
+            'alineacion' => 'IZQUIERDA',
+        ], $datos['estilos'][0][0]);
+        $this->assertSame([
+            'cursiva' => true,
+            'subrayado' => false,
+        ], $datos['estilos'][0][1]);
+    }
+
     public function test_conserva_los_datos_del_panel_de_capas(): void
     {
         $metodo = new ReflectionMethod(CertificadoController::class, 'normalizarConfiguracionElementoPlantilla');
@@ -306,8 +345,11 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
             'clasificacion_toxicologica.con_observacion',
             'producto.observacion_toxicologica_muestra',
             'presentacion.lista',
+            'ingrediente.formula_quimica',
+            'ingrediente.formulas_quimicas',
             'ingrediente.composiciones',
             'ingrediente.resumen',
+            'ingrediente.composicion_cuantitativa',
             'frases.riesgo.codigos',
             'frases.riesgo.completas',
             'frases.seguridad.codigos',
@@ -330,5 +372,44 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
         ] as $codigo) {
             $this->assertFalse($codigos->contains($codigo), "No debe publicarse el campo de estado {$codigo}.");
         }
+    }
+
+    public function test_agrupa_presentaciones_del_mismo_tipo_sin_repetirlo(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'resumenPresentacionesPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        $unidadMililitro = (object) ['nombre' => 'ml', 'abreviatura' => null];
+        $unidadLitro = (object) ['nombre' => 'L', 'abreviatura' => null];
+
+        $resultado = $metodo->invoke($controlador, [
+            (object) [
+                'tipo_presentacion' => 'Envase',
+                'cantidad' => '210.00000',
+                'descripcion' => 'aerosol',
+                'catalogoUnidad' => $unidadMililitro,
+            ],
+            (object) [
+                'tipo_presentacion' => 'Envase',
+                'cantidad' => '500.00000',
+                'descripcion' => 'aerosol',
+                'catalogoUnidad' => $unidadMililitro,
+            ],
+            (object) [
+                'tipo_presentacion' => 'Frasco',
+                'cantidad' => '1.00000',
+                'descripcion' => '',
+                'catalogoUnidad' => $unidadLitro,
+            ],
+        ]);
+
+        $this->assertSame('Envase de 210 ml y de 500 ml (aerosol); Frasco de 1 L', $resultado);
+    }
+
+    public function test_formatea_los_subindices_de_la_formula_quimica_para_la_plantilla(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'formatearFormulaQuimicaPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+
+        $this->assertSame('C₁₉H₂₂F₄O₃', $metodo->invoke($controlador, 'C19H22F4O3'));
     }
 }
