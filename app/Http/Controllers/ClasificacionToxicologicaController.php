@@ -169,8 +169,8 @@ class ClasificacionToxicologicaController extends Controller
     private function datosClasificacionToxicologica(array $datos): array
     {
         return [
-            'codigo' => trim($datos['form_codigo']),
-            'descripcion' => trim($datos['form_descripcion']),
+            'codigo' => mb_strtoupper(trim($datos['form_codigo']), 'UTF-8'),
+            'descripcion' => mb_strtoupper(trim($datos['form_descripcion']), 'UTF-8'),
             'estado' => $datos['form_estado'] ?? 'ACTIVO',
         ];
     }

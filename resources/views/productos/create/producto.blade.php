@@ -116,7 +116,12 @@
                 <label class="producto-field-label" for="form_nombre_tecnico">Nombre técnico</label>
                 <input class="producto-input{{ $claseErrorProducto('form_nombre_tecnico') }}"
                     id="form_nombre_tecnico" name="form_nombre_tecnico" type="text"
-                    value="{{ $valorProducto('form_nombre_tecnico') }}" placeholder="Ingrese el nombre técnico">
+                    value="{{ $valorProducto('form_nombre_tecnico') }}"
+                    placeholder="Se completa con: Ingrediente 1 + Ingrediente 2" readonly
+                    aria-describedby="form_nombre_tecnico_ayuda">
+                <p id="form_nombre_tecnico_ayuda" class="producto-field-help">
+                    Se genera automáticamente con los ingredientes agregados, por ejemplo: Ingrediente 1 + Ingrediente 2.
+                </p>
                 @error('form_nombre_tecnico')
                     <p class="producto-field-error">{{ $message }}</p>
                 @enderror
@@ -147,6 +152,20 @@
                         </option>
                     @endforeach
                 </select>
+            </div>
+
+            <div class="lg:col-span-12">
+                <label class="producto-field-label" for="form_observacion_toxicologica_muestra">
+                    Observación toxicológica de muestra
+                </label>
+                <textarea class="producto-textarea{{ $claseErrorProducto('form_observacion_toxicologica_muestra') }}"
+                    id="form_observacion_toxicologica_muestra" name="form_observacion_toxicologica_muestra"
+                    rows="3" maxlength="2000"
+                    placeholder="Ej.: DL-50 oral aguda > 2000 mg/kg">{{ $valorProducto('form_observacion_toxicologica_muestra') }}</textarea>
+                <p class="producto-field-help">Puede incluir números, signos y unidades tal como figuran en el análisis.</p>
+                @error('form_observacion_toxicologica_muestra')
+                    <p class="producto-field-error">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="lg:col-span-6">

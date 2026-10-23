@@ -7,6 +7,8 @@ use App\Models\Certificado;
 use App\Models\ClasificacionQuimica;
 use App\Models\ClasificacionToxicologica;
 use App\Models\Fabricante;
+use App\Models\FraseReglamentaria;
+use App\Models\FraseReglamentariaProducto;
 use App\Models\Ingrediente;
 use App\Models\IngredienteProducto;
 use App\Models\Persona;
@@ -17,9 +19,12 @@ use App\Models\Responsable;
 use App\Models\Territorio;
 use App\Services\EtiquetaPresentacionService;
 use App\Services\ArchivoPrivadoService;
+use App\Services\FormulaQuimicaPubChemService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -28,7 +33,8 @@ class ProductoController extends Controller
 {
     public function __construct(
         private EtiquetaPresentacionService $etiquetasPresentaciones,
-        private ArchivoPrivadoService $archivosPrivados
+        private ArchivoPrivadoService $archivosPrivados,
+        private FormulaQuimicaPubChemService $formulasQuimicas
     ) {}
 
     /**
@@ -75,6 +81,7 @@ class ProductoController extends Controller
     public function store(Request $request)
     {
         $datos = $this->validarProducto($request);
+        $datos['form_nombre_tecnico'] = $this->nombreTecnicoDesdeIngredientes($request);
 
         $productoCreado = DB::transaction(function () use ($request, $datos) {
             // Los catálogos creados desde los modales llegan como TEMP-* y aquí se convierten a IDs reales.
@@ -96,6 +103,11 @@ class ProductoController extends Controller
             );
 
             $this->guardarIngredientes($request, $producto);
+            $this->sincronizarFrasesReglamentariasProducto(
+                $datos['frases_reglamentarias'],
+                $producto,
+                $datos['frases_reglamentarias_temporales'] ?? []
+            );
 
             // Se conserva la relación entre el índice temporal del formulario y el ID real de la presentación.
             $presentacionesCreadas = $this->guardarPresentaciones($request, $producto);
@@ -142,6 +154,7 @@ class ProductoController extends Controller
             'clasificacionToxicologica',
             'clasificacionQuimica',
             'ingredientesProductos.ingrediente',
+            'frasesReglamentarias',
             'presentaciones.catalogoUnidad',
             'registros.catalogoUnidad',
             'registros.presentacion.catalogoUnidad',
@@ -164,12 +177,122 @@ class ProductoController extends Controller
     }
 
     /**
+     * Busca una única fórmula publicada para un ingrediente existente.
+     * La consulta no modifica la base de datos: el usuario aún debe confirmarla.
+     */
+    public function consultarFormulaQuimicaIngrediente(Ingrediente $ingrediente)
+    {
+        if (filled($ingrediente->formula_quimica)) {
+            return response()->json([
+                'encontrada' => true,
+                'formula_quimica' => $ingrediente->formula_quimica,
+                'ya_registrada' => true,
+            ]);
+        }
+
+        try {
+            $resultado = $this->formulasQuimicas->buscarPorNombre((string) $ingrediente->nombre);
+        } catch (\Throwable $exception) {
+            Log::warning('No se pudo consultar la fórmula química del ingrediente.', [
+                'id_ingrediente' => $ingrediente->id,
+                'mensaje' => $exception->getMessage(),
+            ]);
+
+            $this->guardarConsultaFormulaTemporal($ingrediente, null, true);
+
+            return response()->json([
+                'message' => 'No fue posible consultar la fuente química. Inténtelo nuevamente más tarde.',
+                'permite_formula_manual' => true,
+            ], 503);
+        }
+
+        if ($resultado['estado'] === 'AMBIGUA') {
+            $this->guardarConsultaFormulaTemporal($ingrediente, null, true);
+
+            return response()->json([
+                'encontrada' => false,
+                'message' => 'La búsqueda devolvió más de una sustancia posible; no se asociará ninguna fórmula.',
+                'permite_formula_manual' => true,
+            ]);
+        }
+
+        if ($resultado['estado'] !== 'ENCONTRADA') {
+            $this->guardarConsultaFormulaTemporal($ingrediente, null, true);
+
+            return response()->json([
+                'encontrada' => false,
+                'message' => 'No se encontró una fórmula química verificable para este ingrediente.',
+                'permite_formula_manual' => true,
+            ]);
+        }
+
+        $this->guardarConsultaFormulaTemporal($ingrediente, $resultado['formula_quimica']);
+
+        return response()->json([
+            'encontrada' => true,
+            'formula_quimica' => $resultado['formula_quimica'],
+            'ya_registrada' => false,
+        ]);
+    }
+
+    /**
+     * Confirma temporalmente la fórmula obtenida por el servidor.
+     * La base de datos no cambia aquí: solo se actualizará con la transacción final del producto.
+     */
+    public function confirmarFormulaQuimicaIngrediente(Request $request, Ingrediente $ingrediente)
+    {
+        if (filled($ingrediente->formula_quimica)) {
+            return response()->json([
+                'formula_quimica' => $ingrediente->formula_quimica,
+                'message' => 'Este ingrediente ya tiene una fórmula química registrada.',
+            ]);
+        }
+
+        $consulta = Cache::get($this->claveConsultaFormulaQuimica($ingrediente), []);
+        $formulaManual = $this->normalizarFormulaQuimicaManual(
+            (string) $request->input('formula_quimica_manual', '')
+        );
+        $esManual = $formulaManual !== '';
+
+        if ($esManual && ! ($consulta['permite_formula_manual'] ?? false)) {
+            return response()->json([
+                'message' => 'Primero consulte la fórmula química antes de ingresarla manualmente.',
+            ], 422);
+        }
+
+        if ($esManual && ! $this->esFormulaQuimicaManualValida($formulaManual)) {
+            return response()->json([
+                'message' => 'La fórmula debe usar símbolos químicos, números, paréntesis, puntos o signos de carga.',
+            ], 422);
+        }
+
+        $formula = $esManual
+            ? $formulaManual
+            : trim((string) ($consulta['formula_quimica'] ?? ''));
+
+        if ($formula === '') {
+            return response()->json([
+                'message' => 'La consulta ya no está disponible. Vuelva a buscar la fórmula antes de confirmarla.',
+            ], 422);
+        }
+
+        $this->guardarConsultaFormulaTemporal($ingrediente, $formula, false, true, $esManual ? 'MANUAL' : 'CONSULTA');
+
+        return response()->json([
+            'formula_quimica' => $formula,
+            'origen' => $esManual ? 'MANUAL' : 'CONSULTA',
+            'message' => 'La fórmula se asociará al ingrediente al guardar el producto.',
+        ]);
+    }
+
+    /**
      * Reutiliza el formulario de registro y lo carga con los datos guardados.
      */
     public function edit(Producto $producto)
     {
         $producto->load([
             'ingredientesProductos.ingrediente',
+            'frasesReglamentarias',
             'presentaciones.catalogoUnidad',
             'registros.catalogoUnidad',
             'registros.presentacion.catalogoUnidad',
@@ -190,6 +313,7 @@ class ProductoController extends Controller
     public function update(Request $request, Producto $producto)
     {
         $datos = $this->validarProducto($request, $producto);
+        $datos['form_nombre_tecnico'] = $this->nombreTecnicoDesdeIngredientes($request);
 
         DB::transaction(function () use ($request, $datos, $producto) {
             $idFabricante = $this->resolverFabricante($request, $datos['form_id_fabricante']);
@@ -210,6 +334,11 @@ class ProductoController extends Controller
             ));
 
             $this->sincronizarIngredientesProducto($request, $producto);
+            $this->sincronizarFrasesReglamentariasProducto(
+                $datos['frases_reglamentarias'],
+                $producto,
+                $datos['frases_reglamentarias_temporales'] ?? []
+            );
 
             [$presentaciones, $presentacionesConservadas] = $this->sincronizarPresentacionesProducto(
                 $request,
@@ -339,6 +468,23 @@ class ProductoController extends Controller
             'clasificacionesQuimicas' => ClasificacionQuimica::query()
                 ->where('estado', 'ACTIVO')
                 ->orderBy('nombre')
+                ->get(),
+
+            // Catálogo oficial que se selecciona en el paso Riesgos y seguridad.
+            'frasesReglamentariasCatalogo' => FraseReglamentaria::query()
+                ->where(function ($consulta) use ($producto) {
+                    $consulta->where('estado', 'ACTIVO');
+
+                    // Al editar no se oculta una frase histórica ya asociada al producto.
+                    if ($producto) {
+                        $consulta->orWhereIn(
+                            'id',
+                            $producto->frasesReglamentarias->pluck('id')
+                        );
+                    }
+                })
+                ->orderBy('tipo')
+                ->orderBy('codigo')
                 ->get(),
 
             'catalogosMedidas' => CatalogoMedida::query()
@@ -495,6 +641,7 @@ class ProductoController extends Controller
             ->map(fn (IngredienteProducto $relacion) => [
                 'id_ingrediente' => $relacion->id_ingrediente,
                 'nombre' => $relacion->ingrediente?->nombre,
+                'formula_quimica' => $relacion->ingrediente?->formula_quimica,
                 'porcentaje' => $relacion->porcentaje,
                 'estado' => $relacion->estado,
             ])
@@ -535,6 +682,11 @@ class ProductoController extends Controller
 
         return [
             'ingredientesIniciales' => $ingredientes,
+            'frasesReglamentariasIniciales' => $producto->frasesReglamentarias
+                ->pluck('id')
+                ->map(fn ($id) => (string) $id)
+                ->values()
+                ->all(),
             'presentacionesIniciales' => $presentaciones,
             'registrosIniciales' => $registros,
         ];
@@ -600,8 +752,44 @@ class ProductoController extends Controller
             'tipo_producto' => $datos['form_tipo_producto'],
             'nombre_tecnico' => $datos['form_nombre_tecnico'] ?? null,
             'id_clasificacion_quimica' => $idClasificacionQuimica,
+            'observacion_toxicologica_muestra' => $datos['form_observacion_toxicologica_muestra'] ?? null,
             'estado' => $datos['form_estado'],
         ];
+    }
+
+    /**
+     * El nombre técnico es la composición visible: ingrediente 1 + ingrediente 2.
+     * Para ingredientes existentes se consulta el catálogo, nunca el texto enviado por el navegador.
+     */
+    private function nombreTecnicoDesdeIngredientes(Request $request): ?string
+    {
+        $ingredientes = collect($request->input('ingredientes_productos', []));
+        $idsIngredientes = $ingredientes
+            ->pluck('id_ingrediente')
+            ->filter(fn ($idIngrediente) => ctype_digit((string) $idIngrediente))
+            ->map(fn ($idIngrediente) => (int) $idIngrediente)
+            ->unique()
+            ->values();
+        $nombresCatalogo = $idsIngredientes->isEmpty()
+            ? collect()
+            : Ingrediente::withTrashed()
+                ->whereIn('id', $idsIngredientes)
+                ->pluck('nombre', 'id');
+
+        $nombres = $ingredientes
+            ->map(function (array $ingrediente) use ($nombresCatalogo) {
+                $idIngrediente = $ingrediente['id_ingrediente'] ?? null;
+
+                return ctype_digit((string) $idIngrediente)
+                    ? $nombresCatalogo->get((int) $idIngrediente)
+                    : ($ingrediente['nombre'] ?? null);
+            })
+            ->map(fn ($nombre) => trim((string) $nombre))
+            ->filter()
+            ->unique(fn (string $nombre) => mb_strtolower($nombre))
+            ->values();
+
+        return $nombres->isEmpty() ? null : $nombres->implode(' + ');
     }
 
     /**
@@ -611,6 +799,11 @@ class ProductoController extends Controller
     {
         foreach ($request->input('ingredientes_productos', []) as $ingredienteProducto) {
             $idIngrediente = $this->resolverIngrediente($ingredienteProducto);
+            $this->guardarFormulaQuimicaConfirmada(
+                $idIngrediente,
+                $ingredienteProducto['formula_quimica'] ?? null,
+                $this->esTemporal($ingredienteProducto['id_ingrediente'] ?? null)
+            );
 
             IngredienteProducto::create([
                 'id_producto' => $producto->id,
@@ -619,6 +812,98 @@ class ProductoController extends Controller
                 'estado' => $ingredienteProducto['estado'] ?? 'ACTIVO',
             ]);
         }
+    }
+
+    /**
+     * Mantiene las frases de riesgo y seguridad elegidas para el producto.
+     * Si una frase se había retirado antes, se reactiva la misma fila para no
+     * crear duplicados ni perder su auditoría.
+     */
+    private function sincronizarFrasesReglamentariasProducto(
+        array $idsFrases,
+        Producto $producto,
+        array $frasesTemporales = []
+    ): void
+    {
+        $idsFrases = collect($idsFrases)
+            ->map(fn ($idFrase) => $this->resolverFraseReglamentaria($idFrase, $frasesTemporales))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $relacionesExistentes = FraseReglamentariaProducto::withTrashed()
+            ->where('id_producto', $producto->id)
+            ->whereIn('id_frase_reglamentaria', $idsFrases)
+            ->get()
+            ->keyBy(fn (FraseReglamentariaProducto $relacion) => (int) $relacion->id_frase_reglamentaria);
+
+        $relacionesConservadas = [];
+
+        foreach ($idsFrases as $idFrase) {
+            $relacion = $relacionesExistentes->get((int) $idFrase);
+
+            if ($relacion) {
+                if ($relacion->trashed()) {
+                    $relacion->restore();
+                }
+
+                $relacion->update(['estado' => 'ACTIVO']);
+            } else {
+                $relacion = FraseReglamentariaProducto::create([
+                    'id_producto' => $producto->id,
+                    'id_frase_reglamentaria' => $idFrase,
+                    'estado' => 'ACTIVO',
+                ]);
+            }
+
+            $relacionesConservadas[] = $relacion->id;
+        }
+
+        $producto->frasesReglamentariasProductos()
+            ->when(
+                $relacionesConservadas !== [],
+                fn ($consulta) => $consulta->whereNotIn('id', $relacionesConservadas)
+            )
+            ->get()
+            ->each(function (FraseReglamentariaProducto $relacion) {
+                $relacion->update(['estado' => 'INACTIVO']);
+                $relacion->delete();
+            });
+    }
+
+    /**
+     * Obtiene la frase elegida o crea la que se agregó temporalmente desde el
+     * modal. La validación previa garantiza que su código no existe todavía.
+     */
+    private function resolverFraseReglamentaria($valor, array $frasesTemporales): int
+    {
+        if (ctype_digit((string) $valor)) {
+            return (int) $valor;
+        }
+
+        $datosFrase = $frasesTemporales[(string) $valor] ?? null;
+
+        if (! is_array($datosFrase)) {
+            throw ValidationException::withMessages([
+                'frases_reglamentarias' => 'La frase reglamentaria seleccionada no es válida.',
+            ]);
+        }
+
+        $codigo = mb_strtoupper(trim((string) ($datosFrase['codigo'] ?? '')), 'UTF-8');
+        $fraseExistente = FraseReglamentaria::withTrashed()
+            ->whereRaw('UPPER(TRIM(codigo)) = ?', [$codigo])
+            ->first();
+
+        if ($fraseExistente) {
+            return $fraseExistente->id;
+        }
+
+        return FraseReglamentaria::create([
+            'tipo' => $datosFrase['tipo'],
+            'codigo' => $codigo,
+            'descripcion' => trim((string) ($datosFrase['descripcion'] ?? '')),
+            'estado' => 'ACTIVO',
+        ])->id;
     }
 
     /**
@@ -727,6 +1012,11 @@ class ProductoController extends Controller
 
         foreach ($request->input('ingredientes_productos', []) as $datosIngrediente) {
             $idIngrediente = $this->resolverIngrediente($datosIngrediente);
+            $this->guardarFormulaQuimicaConfirmada(
+                $idIngrediente,
+                $datosIngrediente['formula_quimica'] ?? null,
+                $this->esTemporal($datosIngrediente['id_ingrediente'] ?? null)
+            );
             $relacion = $relacionesActuales->get((string) $idIngrediente);
             $datosRelacion = [
                 'id_producto' => $producto->id,
@@ -950,6 +1240,7 @@ class ProductoController extends Controller
                 'form_id_territorio_pais' => ['required', 'integer', 'exists:territorios,id'],
                 'form_id_fabricante' => ['required', 'string', 'max:50'],
                 'form_id_clasificacion_toxicologica' => ['required', 'string', 'max:50'],
+                'form_observacion_toxicologica_muestra' => ['nullable', 'string', 'max:2000'],
                 'form_estado' => ['required', 'in:ACTIVO,INACTIVO'],
 
                 // Datos temporales de catálogos que se pueden crear desde los modales.
@@ -984,8 +1275,22 @@ class ProductoController extends Controller
                 'ingredientes_productos' => ['nullable', 'array'],
                 'ingredientes_productos.*.id_ingrediente' => ['required_with:ingredientes_productos', 'string', 'max:50'],
                 'ingredientes_productos.*.nombre' => ['nullable', 'string', 'max:255'],
+                'ingredientes_productos.*.formula_quimica' => ['required_with:ingredientes_productos', 'string', 'max:255'],
                 'ingredientes_productos.*.porcentaje' => ['required_with:ingredientes_productos', 'numeric', 'decimal:0,5', 'min:0', 'max:100'],
                 'ingredientes_productos.*.estado' => ['nullable', 'in:ACTIVO,INACTIVO'],
+
+                // Cada producto debe iniciar con al menos una frase vigente de riesgo o seguridad.
+                'frases_reglamentarias' => ['required', 'array', 'min:1'],
+                'frases_reglamentarias.*' => [
+                    'required',
+                    'string',
+                    'max:50',
+                    'distinct',
+                ],
+                'frases_reglamentarias_temporales' => ['nullable', 'array'],
+                'frases_reglamentarias_temporales.*.tipo' => ['nullable', Rule::in(array_keys(FraseReglamentaria::TIPOS))],
+                'frases_reglamentarias_temporales.*.codigo' => ['nullable', 'string', 'max:50'],
+                'frases_reglamentarias_temporales.*.descripcion' => ['nullable', 'string', 'max:1000'],
 
                 'presentaciones' => ['nullable', 'array'],
                 'presentaciones.*.cantidad' => ['required_with:presentaciones', 'numeric', 'decimal:0,2', 'gt:0'],
@@ -1020,7 +1325,11 @@ class ProductoController extends Controller
                 'mimes' => 'La etiqueta debe ser una imagen JPG, PNG o WEBP.',
                 'max' => 'El dato ingresado supera el limite permitido.',
                 'min' => 'El valor ingresado es menor al permitido.',
+                'frases_reglamentarias.required' => 'Seleccione al menos una frase de riesgo o seguridad.',
+                'frases_reglamentarias.min' => 'Seleccione al menos una frase de riesgo o seguridad.',
+                'frases_reglamentarias.*.distinct' => 'No puede seleccionar la misma frase más de una vez.',
                 'form_tipo_producto.in' => 'Seleccione un tipo de producto valido.',
+                'ingredientes_productos.*.formula_quimica.required_with' => 'Cada ingrediente debe tener una fórmula química.',
                 'presentaciones.*.cantidad.numeric' => 'La cantidad debe ser un número válido.',
                 'presentaciones.*.cantidad.decimal' => 'La cantidad puede tener hasta 2 decimales.',
                 'presentaciones.*.cantidad.gt' => 'La cantidad debe ser mayor que cero.',
@@ -1036,8 +1345,15 @@ class ProductoController extends Controller
                 'form_id_territorio_pais' => 'pais',
                 'form_id_fabricante' => 'fabricante',
                 'form_id_clasificacion_toxicologica' => 'clasificación toxicológica',
+                'form_observacion_toxicologica_muestra' => 'observación toxicológica de muestra',
                 'ingredientes_productos.*.id_ingrediente' => 'ingrediente',
+                'ingredientes_productos.*.formula_quimica' => 'fórmula química',
                 'ingredientes_productos.*.porcentaje' => 'porcentaje',
+                'frases_reglamentarias' => 'frases de riesgo y seguridad',
+                'frases_reglamentarias.*' => 'frase reglamentaria',
+                'frases_reglamentarias_temporales.*.tipo' => 'tipo de frase',
+                'frases_reglamentarias_temporales.*.codigo' => 'código de frase',
+                'frases_reglamentarias_temporales.*.descripcion' => 'frase reglamentaria',
                 'presentaciones.*.cantidad' => 'cantidad',
                 'presentaciones.*.id_catalogo_unidad' => 'unidad de presentación',
                 'presentaciones.*.id_presentacion_origen' => 'presentacion registrada',
@@ -1057,6 +1373,7 @@ class ProductoController extends Controller
             $this->validarClasificacionToxicologicaTemporal($validador, $request);
             $this->validarClasificacionQuimicaTemporal($validador, $request);
             $this->validarIngredientesTemporales($validador, $request);
+            $this->validarFrasesReglamentariasDisponibles($validador, $request, $producto);
             $this->validarPresentaciones($validador, $request);
             $this->validarRegistros($validador, $request);
 
@@ -1140,6 +1457,125 @@ class ProductoController extends Controller
         }
 
         return $cantidad;
+    }
+
+    /**
+     * Verifica las frases existentes y las nuevas agregadas desde el modal.
+     * El código se revisa también contra registros eliminados para que nunca se
+     * vuelva a utilizar como si fuera una frase distinta.
+     */
+    private function validarFrasesReglamentariasDisponibles(
+        $validador,
+        Request $request,
+        ?Producto $producto
+    ): void {
+        $frasesSeleccionadas = $request->input('frases_reglamentarias', []);
+        $frasesTemporales = $request->input('frases_reglamentarias_temporales', []);
+        $idsSolicitados = collect($frasesSeleccionadas)
+            ->filter(fn ($idFrase) => ctype_digit((string) $idFrase))
+            ->map(fn ($idFrase) => (int) $idFrase)
+            ->unique()
+            ->values();
+        $idsHistoricos = $producto
+            ? $producto->frasesReglamentarias()->pluck('frases_reglamentarias.id')
+            : collect();
+
+        $frasesExistentes = $idsSolicitados->isEmpty()
+            ? collect()
+            : FraseReglamentaria::query()
+                ->whereIn('id', $idsSolicitados)
+                ->get()
+                ->keyBy('id');
+        $codigosTemporales = [];
+
+        foreach ($frasesSeleccionadas as $indice => $idFrase) {
+            if (ctype_digit((string) $idFrase)) {
+                $frase = $frasesExistentes->get((int) $idFrase);
+
+                if (! $frase) {
+                    $validador->errors()->add(
+                        "frases_reglamentarias.$indice",
+                        'La frase reglamentaria seleccionada no existe o fue eliminada.'
+                    );
+
+                    continue;
+                }
+
+                if ($frase->estado !== 'ACTIVO' && ! $idsHistoricos->contains($frase->id)) {
+                    $validador->errors()->add(
+                        "frases_reglamentarias.$indice",
+                        'La frase reglamentaria seleccionada ya no está activa.'
+                    );
+                }
+
+                continue;
+            }
+
+            $datosTemporales = $frasesTemporales[(string) $idFrase] ?? null;
+
+            if (! $this->esFraseReglamentariaTemporal($idFrase) || ! is_array($datosTemporales)) {
+                $validador->errors()->add(
+                    "frases_reglamentarias.$indice",
+                    'La frase reglamentaria seleccionada no es válida.'
+                );
+
+                continue;
+            }
+
+            $tipo = mb_strtoupper(trim((string) ($datosTemporales['tipo'] ?? '')), 'UTF-8');
+            $codigo = mb_strtoupper(trim((string) ($datosTemporales['codigo'] ?? '')), 'UTF-8');
+            $descripcion = trim((string) ($datosTemporales['descripcion'] ?? ''));
+
+            if (! array_key_exists($tipo, FraseReglamentaria::TIPOS)) {
+                $validador->errors()->add(
+                    "frases_reglamentarias_temporales.$idFrase.tipo",
+                    'Seleccione si la nueva frase corresponde a riesgo o seguridad.'
+                );
+            }
+
+            if ($codigo === '') {
+                $validador->errors()->add(
+                    "frases_reglamentarias_temporales.$idFrase.codigo",
+                    'Ingrese el código de la frase.'
+                );
+            }
+
+            if ($descripcion === '') {
+                $validador->errors()->add(
+                    "frases_reglamentarias_temporales.$idFrase.descripcion",
+                    'Ingrese el texto de la frase.'
+                );
+            }
+
+            if ($codigo === '') {
+                continue;
+            }
+
+            if (isset($codigosTemporales[$codigo])) {
+                $validador->errors()->add(
+                    "frases_reglamentarias_temporales.$idFrase.codigo",
+                    'El código de frase está repetido en este producto.'
+                );
+
+                continue;
+            }
+
+            $codigosTemporales[$codigo] = true;
+
+            if (FraseReglamentaria::withTrashed()
+                ->whereRaw('UPPER(TRIM(codigo)) = ?', [$codigo])
+                ->exists()) {
+                $validador->errors()->add(
+                    "frases_reglamentarias_temporales.$idFrase.codigo",
+                    'Ya existe una frase reglamentaria con ese código. Selecciónela del listado.'
+                );
+            }
+        }
+    }
+
+    private function esFraseReglamentariaTemporal($valor): bool
+    {
+        return preg_match('/^TEMP-FRASE-\d+$/', (string) $valor) === 1;
     }
 
     /**
@@ -1268,11 +1704,12 @@ class ProductoController extends Controller
             ->map(fn ($idIngrediente) => (int) $idIngrediente)
             ->unique()
             ->values();
-        $nombresExistentes = $idsExistentes->isEmpty()
+        $ingredientesExistentes = $idsExistentes->isEmpty()
             ? collect()
             : Ingrediente::withTrashed()
                 ->whereIn('id', $idsExistentes)
-                ->pluck('nombre', 'id');
+                ->get(['id', 'nombre', 'formula_quimica'])
+                ->keyBy('id');
 
         foreach ($request->input('ingredientes_productos', []) as $indice => $ingredienteProducto) {
             $idIngrediente = $ingredienteProducto['id_ingrediente'] ?? null;
@@ -1288,8 +1725,9 @@ class ProductoController extends Controller
 
             $ingredientesAgregados[(string) $idIngrediente] = true;
 
-            if (ctype_digit((string) $idIngrediente) && $nombresExistentes->has((int) $idIngrediente)) {
-                $nombreNormalizado = mb_strtolower(trim((string) $nombresExistentes->get((int) $idIngrediente)));
+            if (ctype_digit((string) $idIngrediente) && $ingredientesExistentes->has((int) $idIngrediente)) {
+                $ingredienteExistente = $ingredientesExistentes->get((int) $idIngrediente);
+                $nombreNormalizado = mb_strtolower(trim((string) $ingredienteExistente->nombre));
 
                 if (isset($nombresAgregados[$nombreNormalizado])) {
                     $validador->errors()->add(
@@ -1301,6 +1739,17 @@ class ProductoController extends Controller
                 }
 
                 $nombresAgregados[$nombreNormalizado] = true;
+
+                $consultaFormula = Cache::get($this->claveConsultaFormulaQuimica($ingredienteExistente), []);
+                $formulaConfirmada = trim((string) ($consultaFormula['formula_quimica'] ?? ''));
+
+                if (! filled($ingredienteExistente->formula_quimica) &&
+                    (! ($consultaFormula['confirmada'] ?? false) || $formulaConfirmada === '')) {
+                    $validador->errors()->add(
+                        "ingredientes_productos.$indice.formula_quimica",
+                        'Busque la fórmula química o ingrésela manualmente antes de agregar este ingrediente.'
+                    );
+                }
 
                 continue;
             }
@@ -1328,6 +1777,17 @@ class ProductoController extends Controller
             }
 
             $nombresAgregados[$nombreNormalizado] = true;
+
+            $formulaTemporal = $this->normalizarFormulaQuimicaManual(
+                (string) ($ingredienteProducto['formula_quimica'] ?? '')
+            );
+
+            if (! $this->esFormulaQuimicaManualValida($formulaTemporal)) {
+                $validador->errors()->add(
+                    "ingredientes_productos.$indice.formula_quimica",
+                    'Ingrese una fórmula química válida antes de agregar el ingrediente nuevo.'
+                );
+            }
 
             if (Ingrediente::withTrashed()
                 ->whereRaw('LOWER(TRIM(nombre)) = ?', [$nombreNormalizado])
@@ -1620,8 +2080,8 @@ class ProductoController extends Controller
             return (int) $valor;
         }
 
-        $codigo = trim((string) $request->input('form_clasificacion_toxicologica_temporal_codigo'));
-        $descripcion = trim((string) $request->input('form_clasificacion_toxicologica_temporal_descripcion'));
+        $codigo = mb_strtoupper(trim((string) $request->input('form_clasificacion_toxicologica_temporal_codigo')), 'UTF-8');
+        $descripcion = mb_strtoupper(trim((string) $request->input('form_clasificacion_toxicologica_temporal_descripcion')), 'UTF-8');
 
         $clasificacion = ClasificacionToxicologica::withTrashed()
             ->whereRaw('LOWER(TRIM(codigo)) = ?', [mb_strtolower($codigo)])
@@ -1846,6 +2306,16 @@ class ProductoController extends Controller
         }
 
         $nombre = trim((string) $ingredienteProducto['nombre']);
+        $formulaQuimica = $this->normalizarFormulaQuimicaManual(
+            (string) ($ingredienteProducto['formula_quimica'] ?? '')
+        );
+
+        if (! $this->esFormulaQuimicaManualValida($formulaQuimica)) {
+            throw ValidationException::withMessages([
+                'ingredientes_productos' => 'Cada ingrediente debe tener una fórmula química válida.',
+            ]);
+        }
+
         $ingrediente = Ingrediente::withTrashed()
             ->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])
             ->first();
@@ -1853,14 +2323,99 @@ class ProductoController extends Controller
         if (! $ingrediente) {
             $ingrediente = Ingrediente::create([
                 'nombre' => $nombre,
+                'formula_quimica' => $formulaQuimica,
                 'estado' => 'ACTIVO',
             ]);
         } elseif ($ingrediente->trashed()) {
             $ingrediente->restore();
             $ingrediente->estado = 'ACTIVO';
+            if (! filled($ingrediente->formula_quimica)) {
+                $ingrediente->formula_quimica = $formulaQuimica;
+            }
             $ingrediente->save();
         }
 
         return $ingrediente->id;
+    }
+
+    private function claveConsultaFormulaQuimica(Ingrediente $ingrediente): string
+    {
+        return 'productos:formula-quimica:'.auth()->id().':'.$ingrediente->id;
+    }
+
+    /**
+     * Guarda únicamente el resultado temporal de la consulta; nunca persiste el ingrediente.
+     */
+    private function guardarConsultaFormulaTemporal(
+        Ingrediente $ingrediente,
+        ?string $formulaQuimica,
+        bool $permiteFormulaManual = false,
+        bool $confirmada = false,
+        ?string $origen = null
+    ): void {
+        Cache::put(
+            $this->claveConsultaFormulaQuimica($ingrediente),
+            [
+                'formula_quimica' => $formulaQuimica,
+                'permite_formula_manual' => $permiteFormulaManual,
+                'confirmada' => $confirmada,
+                'origen' => $origen,
+            ],
+            now()->addHours(4)
+        );
+    }
+
+    /**
+     * Convierte subíndices copiados desde una vista a dígitos normales antes de almacenar.
+     */
+    private function normalizarFormulaQuimicaManual(string $formula): string
+    {
+        $formula = strtr(trim($formula), [
+            '₀' => '0', '₁' => '1', '₂' => '2', '₃' => '3', '₄' => '4',
+            '₅' => '5', '₆' => '6', '₇' => '7', '₈' => '8', '₉' => '9',
+        ]);
+
+        return preg_replace('/\s+/u', '', $formula) ?? '';
+    }
+
+    /**
+     * La validación impide texto libre, pero admite notación molecular habitual, sales y paréntesis.
+     */
+    private function esFormulaQuimicaManualValida(string $formula): bool
+    {
+        return preg_match('/^(?=.*[A-Z])(?:\d+|[A-Z][a-z]?|[()\[\]{}]|[·.+\-])+$/u', $formula) === 1;
+    }
+
+    /**
+     * Se ejecuta dentro de la transacción de store/update.
+     * La fórmula no se toma del navegador: debe seguir confirmada temporalmente para el usuario.
+     */
+    private function guardarFormulaQuimicaConfirmada(
+        int $idIngrediente,
+        ?string $formulaTemporal = null,
+        bool $ingredienteTemporal = false
+    ): void
+    {
+        $ingrediente = Ingrediente::find($idIngrediente);
+
+        if (! $ingrediente || filled($ingrediente->formula_quimica)) {
+            return;
+        }
+
+        $consulta = Cache::get($this->claveConsultaFormulaQuimica($ingrediente));
+        $formula = trim((string) ($consulta['formula_quimica'] ?? ''));
+
+        if ((! ($consulta['confirmada'] ?? false) || $formula === '') && $ingredienteTemporal) {
+            $formula = $this->normalizarFormulaQuimicaManual((string) $formulaTemporal);
+        }
+
+        if ($formula === '' || ! $this->esFormulaQuimicaManualValida($formula)) {
+            throw ValidationException::withMessages([
+                'ingredientes_productos' => 'Cada ingrediente debe tener una fórmula química válida.',
+            ]);
+        }
+
+        $ingrediente->update(['formula_quimica' => $formula]);
+        Cache::forget($this->claveConsultaFormulaQuimica($ingrediente));
     }
 }

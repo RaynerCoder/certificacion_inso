@@ -18,6 +18,16 @@ class ClasificacionToxicologica extends Model
         'estado',
     ];
 
+    public function setCodigoAttribute(?string $valor): void
+    {
+        $this->attributes['codigo'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
+    public function setDescripcionAttribute(?string $valor): void
+    {
+        $this->attributes['descripcion'] = $valor === null ? null : mb_strtoupper(trim($valor), 'UTF-8');
+    }
+
     // Productos asociados a esta clasificación toxicológica.
     public function productos()
     {

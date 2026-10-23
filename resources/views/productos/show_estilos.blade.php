@@ -19,6 +19,12 @@
     .producto-show-table td { border-bottom: 1px solid #f1f5f9; color: #334155; padding: 9px 12px; font-size: 11px; }
     .producto-show-table tbody tr:last-child td { border-bottom: 0; }
     .producto-show-empty { padding: 22px !important; text-align: center; color: #64748b !important; }
+    .producto-show-frases-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px 16px 16px; }
+    .producto-show-frases-group { min-width: 0; }
+    .producto-show-frases-group h3 { margin: 0 0 7px; color: #0f172a; font-size: 11px; font-weight: 900; }
+    .producto-show-frases-group:first-child h3 { color: #b45309; }
+    .producto-show-frases-group:last-child h3 { color: #047857; }
+    .producto-show-frases-group .producto-show-table-wrap { margin: 0; }
     .producto-show-presentations { display: grid; gap: 14px; padding: 14px; }
     .producto-show-presentation { overflow: hidden; border: 1px solid #dbe3ec; border-radius: 9px; background: #fff; }
     .producto-show-presentation-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; padding: 10px 14px; }
@@ -63,6 +69,7 @@
 
     @media (max-width: 1100px) {
         .producto-show-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .producto-show-frases-grid { grid-template-columns: 1fr; }
         .producto-show-presentation-body { grid-template-columns: 140px minmax(0, 1fr); }
         .producto-show-presentation-data { border-right: 0; padding-right: 0; }
         .producto-show-registers { grid-column: 1 / -1; }

@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('nombre_comercial', 255)->nullable();
             $table->string('nombre_tecnico', 255)->nullable();
             $table->foreignId('id_clasificacion_quimica')->nullable()->constrained('clasificaciones_quimicas');
+            $table->text('observacion_toxicologica_muestra')->nullable();
             $table->foreignId('id_clasificacion_toxicologica')->constrained('clasificaciones_toxicologicas');
             // Estados manejados por ahora: ACTIVO e INACTIVO.
             $table->string('estado', 50)->default('ACTIVO');

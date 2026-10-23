@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('nombre', 255)->nullable();
+            $table->string('formula_quimica', 255);
             $table->string('composicion', 255)->nullable();
             $table->string('riesgo_salud', 255)->nullable();
             // Estados manejados por ahora: ACTIVO e INACTIVO.

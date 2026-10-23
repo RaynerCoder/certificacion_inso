@@ -336,6 +336,10 @@ Route::get('/ingredientes/{ingrediente}',[IngredienteController::class, 'show'])
 Route::get('/productos', [ProductoController::class, 'index'])->name('productos_index');
 Route::get('/productos/create', [ProductoController::class, 'create'])->name('productos_create');
 Route::post('/productos', [ProductoController::class, 'store'])->name('productos_store');
+Route::post('/productos/ingredientes/{ingrediente}/consultar-formula-quimica', [ProductoController::class, 'consultarFormulaQuimicaIngrediente'])
+    ->name('productos_ingredientes_consultar_formula_quimica');
+Route::post('/productos/ingredientes/{ingrediente}/confirmar-formula-quimica', [ProductoController::class, 'confirmarFormulaQuimicaIngrediente'])
+    ->name('productos_ingredientes_confirmar_formula_quimica');
 Route::get('/productos/presentaciones/{presentacion}/etiqueta', [ProductoController::class, 'etiquetaPresentacion'])
     ->name('productos_presentaciones_etiqueta');
 Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])->name('productos_edit');

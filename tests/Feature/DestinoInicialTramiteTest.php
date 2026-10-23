@@ -96,6 +96,9 @@ class DestinoInicialTramiteTest extends TestCase
             'form_id_area' => $area->id,
             'form_id_funcionario_receptor_inicial' => $usuario->funcionario->id,
             'form_modo_emision' => 'UNICO_POR_TRAMITE',
+            'form_vigencia_cantidad' => 4,
+            'form_vigencia_unidad' => 'ANIO',
+            'form_costo' => '250,50',
             'form_siguiente_correlativo' => 1,
         ]);
 
@@ -108,6 +111,8 @@ class DestinoInicialTramiteTest extends TestCase
         $tipo->refresh();
         $this->assertSame($area->id, $tipo->id_area);
         $this->assertSame($usuario->funcionario->id, $tipo->id_funcionario_receptor_inicial);
+        $this->assertSame('4_ANIO', $tipo->vigencia);
+        $this->assertSame('250.50', $tipo->costo);
     }
 
     private function destino(Area $area, bool $requierePago, ?User $receptor = null): array

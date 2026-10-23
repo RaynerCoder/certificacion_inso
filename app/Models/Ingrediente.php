@@ -14,6 +14,7 @@ class Ingrediente extends Model
 
     protected $fillable = [
         'nombre',
+        'formula_quimica',
         'composicion',
         'riesgo_salud',
         'estado',

@@ -232,6 +232,164 @@
         display: block;
     }
 
+    /* =========================================================
+    FRASES REGLAMENTARIAS
+    ========================================================= */
+    .producto-frases-intro {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #f8fafc;
+        padding: 13px 15px;
+    }
+
+    .producto-frases-intro-icon {
+        display: inline-flex;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: #ecfdf5;
+        color: #047857;
+        font-size: 13px;
+    }
+
+    .producto-frases-intro h3,
+    .producto-frases-group-head h4 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 900;
+    }
+
+    .producto-frases-intro p {
+        margin: 3px 0 0;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+
+    .producto-frases-selector {
+        display: block;
+    }
+
+    .producto-frases-selector-field {
+        min-width: 0;
+    }
+
+    .producto-frases-selector-field .producto-catalog-search {
+        width: 100%;
+    }
+
+
+    .producto-frases-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .producto-frases-grid.is-invalid {
+        border-radius: 10px;
+        outline: 2px solid #fecaca;
+        outline-offset: 3px;
+    }
+
+    .producto-frases-group {
+        overflow: hidden;
+        border: 1px solid #dbe4ee;
+        border-radius: 10px;
+        background: #fff;
+    }
+
+    .producto-frases-group-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        padding: 11px 13px;
+    }
+
+    .producto-frases-group-head>div>span {
+        display: block;
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .producto-frases-group-head>strong {
+        display: inline-flex;
+        min-width: 25px;
+        height: 25px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 900;
+    }
+
+    .producto-frases-group-head.is-risk h4 { color: #b45309; }
+    .producto-frases-group-head.is-safety h4 { color: #047857; }
+
+    .producto-frases-list {
+        display: grid;
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    .producto-frase-option {
+        display: flex;
+        cursor: default;
+        align-items: flex-start;
+        gap: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 11px 13px;
+        transition: background 140ms ease;
+    }
+
+    .producto-frase-option:last-child { border-bottom: 0; }
+    .producto-frase-option:hover { background: #f8fafc; }
+    .producto-frase-option.is-selected { background: #f0fdfa; }
+    .producto-frase-option input { position: absolute; opacity: 0; pointer-events: none; }
+
+    .producto-frase-check {
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        background: #fff;
+        color: transparent;
+        font-size: 10px;
+    }
+
+    .producto-frase-option.is-selected .producto-frase-check {
+        border-color: #0d9488;
+        background: #0d9488;
+        color: #fff;
+    }
+
+    .producto-frase-copy { display: grid; min-width: 0; flex: 1 1 auto; gap: 2px; }
+    .producto-frase-copy strong { color: #0f172a; font-size: 11px; font-weight: 900; }
+    .producto-frase-copy span { color: #475569; font-size: 11px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .producto-frase-remove { display: inline-flex; width: 26px; height: 26px; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid #fecaca; border-radius: 7px; background: #fff; color: #dc2626; font-size: 11px; }
+    .producto-frase-remove:hover { background: #fef2f2; }
+    .producto-frases-empty { margin: 0; color: #64748b; padding: 16px; text-align: center; font-size: 11px; font-weight: 700; }
+    .producto-frases-error { margin: -6px 0 0; }
+
     /* Distribución principal del paso Registro y presentación. */
     .producto-registro-presentacion {
         container: producto-registro / inline-size;
@@ -497,6 +655,19 @@
     .producto-textarea:focus {
         border-color: #0d9488;
         box-shadow: 0 0 0 3px #ccfbf1;
+    }
+
+    .producto-input[readonly] {
+        background: #f8fafc;
+        color: #475569;
+        cursor: default;
+    }
+
+    .producto-field-help {
+        margin: 6px 0 0;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.45;
     }
 
     .producto-ingredient-native-select {
@@ -883,7 +1054,7 @@
 
     /* La tabla de ingredientes es compacta porque cada fila contiene un solo dato por columna. */
     .producto-table-ingredientes {
-        min-width: 640px;
+        min-width: 840px;
         table-layout: fixed;
     }
 
@@ -899,19 +1070,26 @@
         text-align: center;
     }
 
-    .producto-table-ingredientes th:nth-child(2) {
-        width: 44%;
+    .producto-table-ingredientes th:nth-child(2),
+    .producto-table-ingredientes td:nth-child(2) {
+        width: 30%;
     }
 
     .producto-table-ingredientes th:nth-child(3),
     .producto-table-ingredientes td:nth-child(3) {
-        width: 150px;
-        text-align: center;
+        width: 24%;
+        overflow-wrap: anywhere;
     }
 
     .producto-table-ingredientes th:nth-child(4),
     .producto-table-ingredientes td:nth-child(4) {
-        width: 130px;
+        width: 120px;
+        text-align: center;
+    }
+
+    .producto-table-ingredientes th:nth-child(5),
+    .producto-table-ingredientes td:nth-child(5) {
+        width: 120px;
         text-align: center;
     }
 
@@ -927,6 +1105,12 @@
 
     .producto-table-ingredientes .producto-ingredient-percentage {
         font-variant-numeric: tabular-nums;
+    }
+
+    .producto-table-ingredientes .producto-ingredient-formula {
+        color: #334155;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
     }
 
     .producto-table-ingredientes .producto-pill {
@@ -997,6 +1181,134 @@
         font-size: 11px;
         font-weight: 600;
         line-height: 1.35;
+    }
+
+    .producto-formula-ingrediente {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 10px;
+        padding: 10px 12px;
+        border: 1px solid #dbe4ee;
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+
+    .producto-formula-ingrediente[hidden] {
+        display: none;
+    }
+
+    .producto-formula-ingrediente-label,
+    .producto-formula-confirmacion span {
+        display: block;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    .producto-formula-ingrediente strong,
+    .producto-formula-confirmacion strong {
+        display: block;
+        margin-top: 2px;
+        color: #0f172a;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13px;
+    }
+
+    .producto-formula-ingrediente sub,
+    .producto-formula-confirmacion sub,
+    .producto-ingredient-formula sub {
+        font-size: .75em;
+        line-height: 0;
+        vertical-align: sub;
+    }
+
+    .producto-formula-ingrediente-help {
+        margin: 3px 0 0;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+    .producto-formula-ingrediente-button {
+        flex: 0 0 auto;
+    }
+
+    .producto-formula-confirmacion {
+        padding: 10px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .producto-formula-confirmacion:last-of-type {
+        border-bottom: 0;
+    }
+
+    .producto-formula-manual {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 12px;
+        margin-top: 10px;
+        padding: 12px;
+        border: 1px solid #99f6e4;
+        border-radius: 8px;
+        background: #f0fdfa;
+    }
+
+    .producto-formula-manual[hidden] {
+        display: none;
+    }
+
+    .producto-formula-manual .producto-field-label,
+    .producto-formula-manual .producto-input,
+    .producto-formula-manual .producto-formula-ingrediente-help {
+        grid-column: 1 / -1;
+        margin: 0;
+    }
+
+    .producto-formula-manual-preview {
+        min-width: 0;
+    }
+
+    .producto-formula-manual-preview span {
+        display: block;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    .producto-formula-manual-preview strong {
+        display: block;
+        margin-top: 2px;
+        color: #0f172a;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13px;
+    }
+
+    .producto-formula-manual-preview sub {
+        font-size: .75em;
+        line-height: 0;
+        vertical-align: sub;
+    }
+
+    .producto-formula-manual-actions {
+        display: flex;
+        align-items: end;
+    }
+
+    @media (max-width: 560px) {
+        .producto-formula-manual {
+            grid-template-columns: 1fr;
+        }
+
+        .producto-formula-manual-actions {
+            justify-content: flex-start;
+        }
     }
 
     .producto-rp-listado {
@@ -1396,6 +1708,30 @@
         padding: 10px;
         font-size: 12px;
         font-weight: 800;
+    }
+
+    .producto-review-frases-grid {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        width: 100%;
+    }
+
+    .producto-review-frases-title {
+        display: inline-flex;
+        margin: 4px 0 0;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .producto-review-frases-title.is-risk { color: #b45309; }
+    .producto-review-frases-title.is-safety { color: #047857; }
+
+    .producto-review-frases-grid .producto-review-table {
+        min-width: 420px;
     }
 
     .producto-review-presentations {
@@ -2638,6 +2974,11 @@
             grid-column: 1 / -1;
         }
 
+        .producto-frases-grid,
+        .producto-review-frases-grid {
+            grid-template-columns: 1fr;
+        }
+
         .producto-review-presentation-data {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -2811,6 +3152,11 @@
         .producto-review-list {
             grid-template-columns: 1fr;
         }
+
+        .producto-frases-intro {
+            padding: 12px;
+        }
+
 
         .producto-review-row {
             grid-template-columns: 1fr;

@@ -1,4 +1,14 @@
 {{-- Paso 2: tabla pivote ingredientes_productos. --}}
+@php
+    // La base conserva la fórmula sin marcado (ej. C8H12MnN4S8Zn).
+    // Solo la vista usa subíndices para que se lea como una fórmula química.
+    $formatearFormulaQuimica = static function ($formula) {
+        $formula = trim((string) $formula);
+
+        return $formula === '' ? '-' : preg_replace('/(\d+)/', '<sub>$1</sub>', e($formula));
+    };
+@endphp
+
 <div class="producto-step" data-producto-step="1">
     <section class="producto-section">
         <div class="producto-step-grid space-y-5">
@@ -16,7 +26,8 @@
                         <option value="">Seleccione un ingrediente</option>
                         @foreach ($ingredientesCatalogo as $ingrediente)
                             <option value="{{ $ingrediente->id }}"
-                                data-nombre="{{ $ingrediente->nombre }}">
+                                data-nombre="{{ $ingrediente->nombre }}"
+                                data-formula-quimica="{{ $ingrediente->formula_quimica }}">
                                 {{ $ingrediente->nombre }}
                             </option>
                         @endforeach
@@ -49,6 +60,41 @@
                             <div class="producto-ingredient-options" id="form_ingrediente_options" role="listbox"></div>
                         </div>
                     </div>
+
+                    <div id="detalleFormulaQuimicaIngredienteProducto" class="producto-formula-ingrediente" hidden
+                        data-url-consulta-template="{{ route('productos_ingredientes_consultar_formula_quimica', ['ingrediente' => '__INGREDIENTE__']) }}"
+                        data-url-confirmacion-template="{{ route('productos_ingredientes_confirmar_formula_quimica', ['ingrediente' => '__INGREDIENTE__']) }}">
+                        <div>
+                            <span class="producto-formula-ingrediente-label">Fórmula química obligatoria</span>
+                            <strong id="formulaQuimicaIngredienteProducto">-</strong>
+                            <p id="formulaQuimicaIngredienteAyuda" class="producto-formula-ingrediente-help"></p>
+                        </div>
+                        <button type="button" id="buscarFormulaQuimicaIngredienteProducto"
+                            class="producto-btn producto-btn-secondary producto-formula-ingrediente-button">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                            Buscar fórmula química
+                        </button>
+                    </div>
+
+                    <div id="ingresoFormulaQuimicaManualProducto" class="producto-formula-manual" hidden>
+                        <label class="producto-field-label" for="form_formula_quimica_manual">Fórmula química manual obligatoria</label>
+                        <input class="producto-input" id="form_formula_quimica_manual" type="text"
+                            maxlength="255" autocomplete="off" spellcheck="false"
+                            placeholder="Ej.: C18H12Cl2N2O">
+                        <p id="formulaQuimicaManualAyuda" class="producto-formula-ingrediente-help">
+                            Escriba la fórmula verificada con números normales. No se guarda hasta guardar el producto.
+                        </p>
+                        <div class="producto-formula-manual-preview">
+                            <span>Vista previa</span>
+                            <strong id="formulaQuimicaManualVistaPrevia">-</strong>
+                        </div>
+                        <div class="producto-formula-manual-actions">
+                            <button type="button" class="producto-btn producto-btn-primary"
+                                onclick="usarFormulaQuimicaManualProducto()">
+                                Usar fórmula manual
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="lg:col-span-3">
@@ -67,7 +113,9 @@
             </div>
 
             <div class="flex justify-end">
-                <button type="button" class="producto-btn producto-btn-verde" onclick="agregarIngredienteProducto()">
+                <button type="button" id="agregarIngredienteProductoBoton" class="producto-btn producto-btn-verde"
+                    title="Defina una fórmula química válida para habilitar esta acción" disabled
+                    onclick="agregarIngredienteProducto()">
                     <i class="fa-solid fa-plus"></i>
                     Agregar ingrediente
                 </button>
@@ -79,6 +127,7 @@
                         <tr>
                             <th>#</th>
                             <th>Nombre ingrediente</th>
+                            <th>Fórmula química</th>
                             <th>Porcentaje</th>
                             <th>Estado</th>
                             <th>Acción</th>
@@ -94,8 +143,11 @@
                                 $nombreIngrediente = $ingredienteOld['nombre']
                                     ?? $ingredienteCatalogo?->nombre
                                     ?? 'Ingrediente sin nombre';
+                                $formulaIngrediente = $ingredienteOld['formula_quimica']
+                                    ?? $ingredienteCatalogo?->formula_quimica;
                                 $estadoIngrediente = $ingredienteOld['estado'] ?? 'ACTIVO';
                                 $errorIngrediente = $errors->first("ingredientes_productos.$indice.id_ingrediente");
+                                $errorFormulaIngrediente = $errors->first("ingredientes_productos.$indice.formula_quimica");
                             @endphp
                             <tr @class(['is-invalid' => filled($errorIngrediente)])>
                                 <td class="producto-ingredient-index">{{ $loop->iteration }}</td>
@@ -106,12 +158,20 @@
                                         value="{{ $ingredienteOld['id_ingrediente'] ?? '' }}">
                                     <input type="hidden" name="ingredientes_productos[{{ $indice }}][nombre]"
                                         value="{{ $nombreIngrediente }}">
+                                    <input type="hidden" name="ingredientes_productos[{{ $indice }}][formula_quimica]"
+                                        value="{{ $formulaIngrediente }}">
                                     <input type="hidden" name="ingredientes_productos[{{ $indice }}][porcentaje]"
                                         value="{{ $ingredienteOld['porcentaje'] ?? '' }}">
                                     <input type="hidden" name="ingredientes_productos[{{ $indice }}][estado]"
                                         value="{{ $estadoIngrediente }}">
                                     @if ($errorIngrediente)
                                         <p class="producto-table-field-error">{{ $errorIngrediente }}</p>
+                                    @endif
+                                </td>
+                                <td class="producto-ingredient-formula" data-ingrediente-formula="{{ $ingredienteOld['id_ingrediente'] ?? '' }}">
+                                    {!! $formatearFormulaQuimica($formulaIngrediente) !!}
+                                    @if ($errorFormulaIngrediente)
+                                        <p class="producto-table-field-error">{{ $errorFormulaIngrediente }}</p>
                                     @endif
                                 </td>
                                 <td class="producto-ingredient-percentage">
@@ -128,7 +188,7 @@
                             </tr>
                         @empty
                             <tr id="sinIngredientesProducto">
-                                <td colspan="5">
+                                <td colspan="6">
                                     <div class="producto-empty">Todavía no agregaste ingredientes.</div>
                                 </td>
                             </tr>
@@ -136,7 +196,7 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="5">
+                            <td colspan="6">
                                 <div class="producto-ingredientes-total">
                                     <div class="producto-ingredientes-total-head">
                                         <span>Total de porcentaje de ingredientes</span>

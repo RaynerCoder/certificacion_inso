@@ -326,7 +326,7 @@
                                             </div>
                                             @if ($registrosPresentacion->isNotEmpty())
                                                 <div class="tramite-table-wrap">
-                                                    <table class="tramite-table">
+                                                    <table class="tramite-table tramite-presentation-records-table">
                                                         <thead>
                                                             <tr>
                                                                 <th>Código de autorización</th>

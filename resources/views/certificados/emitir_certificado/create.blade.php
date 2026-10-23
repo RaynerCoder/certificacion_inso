@@ -11,7 +11,7 @@
         $esConsultaDocumento = !$puedeGestionarEmision && in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true);
         $vieneDeFinalizados = request('bandeja') === 'finalizados';
         $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
-        $abrirModalEmision = $errors->emisionCertificado->any();
+        $abrirModalEmision = $errors->emisionCertificado->any() && $datosVigenciaEmision['disponible'];
 
         // Nombre visible: razon social para empresa o nombre completo para persona natural.
         $nombrePersona = function ($persona) {
@@ -82,9 +82,10 @@
         );
         $filasLote = $certificado->certificadosRegistros
             ->filter(fn ($fila) => $fila->registro && filled($fila->registro->numero_lote));
-        $puedeCrearEmision = $esEmisionPorLote
+        $puedeCrearEmisionSinVigencia = $esEmisionPorLote
             ? $registroSeleccionado && ! $registroSeleccionado->emision
             : $certificado->emisiones->isEmpty();
+        $puedeCrearEmision = $puedeCrearEmisionSinVigencia && $datosVigenciaEmision['disponible'];
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
@@ -807,6 +808,13 @@
             </div>
         </header>
 
+        @if ($puedeGestionarEmision && $puedeCrearEmisionSinVigencia && ! $datosVigenciaEmision['disponible'])
+            <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                {{ $datosVigenciaEmision['mensaje'] }}
+            </div>
+        @endif
+
         <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
                 @csrf
@@ -818,8 +826,8 @@
 
                 <div class="emit-modal-head">
                     <div>
-                        <h2 class="emit-modal-title">Datos finales del certificado</h2>
-                        <p class="emit-subtitle">Complete la información que quedará registrada antes de enviar al solicitante.</p>
+                        <h2 class="emit-modal-title">Confirmar emisión del certificado</h2>
+                        <p class="emit-subtitle">La vigencia se calcula automáticamente con la configuración del tipo de certificado.</p>
                     </div>
                     <button type="button" class="emit-modal-close" data-cerrar-modal-emision aria-label="Cerrar">
                         <i class="fa-solid fa-xmark"></i>
@@ -833,36 +841,23 @@
                             · {{ $registroSeleccionado?->registro?->producto?->nombre_comercial ?: 'Sin producto' }}.
                         </div>
                     @endif
-                    <div>
-                        <x-wire-input id="form_fecha_inicio" label="Fecha de inicio" name="form_fecha_inicio" type="date"
-                            value="{{ old('form_fecha_inicio', $certificado->fecha_inicio?->format('Y-m-d') ?: now()->format('Y-m-d')) }}" />
-                        @error('form_fecha_inicio', 'emisionCertificado')
-                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
 
-                    <div>
-                        <x-wire-input id="form_vigencia_dias" label="Días de vigencia" name="form_vigencia_dias" type="number" min="1"
-                            value="{{ old('form_vigencia_dias') }}" />
-                        <p class="mt-1 text-xs text-slate-500">Solo se usa para calcular la fecha final.</p>
-                        @error('form_vigencia_dias', 'emisionCertificado')
-                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
-                        @enderror
+                    <div class="emit-modal-field-full grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Fecha de inicio</p>
+                            <p class="mt-1 text-sm font-bold text-slate-800">{{ $datosVigenciaEmision['fecha_inicio']?->format('d/m/Y') }}</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Vigencia configurada</p>
+                            <p class="mt-1 text-sm font-bold text-slate-800">{{ $datosVigenciaEmision['texto'] }}</p>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Fecha final</p>
+                            <p class="mt-1 text-sm font-bold text-slate-800">
+                                {{ $datosVigenciaEmision['vigencia_indefinida'] ? 'Indefinida' : $datosVigenciaEmision['fecha_fin']?->format('d/m/Y') }}
+                            </p>
+                        </div>
                     </div>
-
-                    <div>
-                        <x-wire-input id="form_fecha_fin" label="Fecha final" name="form_fecha_fin" type="date"
-                            value="{{ old('form_fecha_fin', $certificado->fecha_fin?->format('Y-m-d') ?? '') }}" />
-                        @error('form_fecha_fin', 'emisionCertificado')
-                            <p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <label class="emit-modal-field-full flex items-center gap-2 text-sm font-semibold text-slate-700">
-                        <input id="form_vigencia_indefinida" name="form_vigencia_indefinida" type="checkbox" value="1"
-                            @checked(old('form_vigencia_indefinida'))>
-                        Vigencia indefinida
-                    </label>
 
                     <div class="emit-modal-field-full text-sm text-slate-600">
                         @if ($certificado->url_documento)
@@ -893,7 +888,7 @@
                     <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-emision>Cancelar</button>
                     <button type="submit" class="emit-btn emit-btn-primary" data-requiere-render-certificado disabled>
                         <i class="fa-solid fa-floppy-disk"></i>
-                        Guardar emisión
+                        Emitir certificado
                     </button>
                 </div>
             </form>
@@ -1474,34 +1469,7 @@
                 const modal = document.querySelector('[data-modal-emision]');
                 const botonAbrir = document.querySelector('[data-abrir-modal-emision]');
                 const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-emision]');
-                const fechaInicio = document.getElementById('form_fecha_inicio');
-                const diasVigencia = document.getElementById('form_vigencia_dias');
-                const fechaFinal = document.getElementById('form_fecha_fin');
-                const vigenciaIndefinida = document.getElementById('form_vigencia_indefinida');
                 const formulario = modal?.querySelector('form');
-
-                // Los días son un apoyo del formulario: la fecha final sigue siendo el valor que se guarda.
-                const actualizarFechaFinal = () => {
-                    if (!fechaFinal || !vigenciaIndefinida) {
-                        return;
-                    }
-
-                    const esIndefinida = vigenciaIndefinida.checked;
-                    fechaFinal.disabled = esIndefinida;
-
-                    if (esIndefinida) {
-                        fechaFinal.value = '';
-                        return;
-                    }
-
-                    if (!fechaInicio?.value || !diasVigencia?.value) {
-                        return;
-                    }
-
-                    const fecha = new Date(`${fechaInicio.value}T00:00:00`);
-                    fecha.setDate(fecha.getDate() + Number(diasVigencia.value));
-                    fechaFinal.value = fecha.toISOString().slice(0, 10);
-                };
 
                 if (!modal || !botonAbrir) {
                     return;
@@ -1517,17 +1485,6 @@
                     });
                 });
 
-                fechaInicio?.addEventListener('change', actualizarFechaFinal);
-                diasVigencia?.addEventListener('input', actualizarFechaFinal);
-                vigenciaIndefinida?.addEventListener('change', actualizarFechaFinal);
-                actualizarFechaFinal();
-
-                const fechaVisible = (valor, textoVacio = 'Sin fecha') => {
-                    if (!valor) return textoVacio;
-                    const [anio, mes, dia] = valor.split('-');
-                    return anio && mes && dia ? `${dia}/${mes}/${anio}` : textoVacio;
-                };
-
                 let preparandoEnvio = false;
                 formulario?.addEventListener('submit', async (evento) => {
                     if (preparandoEnvio) return;
@@ -1535,24 +1492,8 @@
                     evento.preventDefault();
                     if (!formulario.reportValidity()) return;
 
-                    const inicio = fechaVisible(fechaInicio?.value);
-                    const fin = vigenciaIndefinida?.checked
-                        ? 'Vigencia indefinida'
-                        : fechaVisible(fechaFinal?.value);
-                    const valores = {
-                        'certificado.fecha_inicio': inicio,
-                        'certificado_fecha_inicio': inicio,
-                        'certificado.fecha_fin': fin,
-                        'certificado_fecha_fin': fin,
-                    };
-
-                    const actualizarDocumento = window.actualizarDatosCertificadoEmision;
-                    if (typeof actualizarDocumento === 'function') {
-                        formulario.querySelectorAll('button').forEach((boton) => { boton.disabled = true; });
-                        await actualizarDocumento(valores);
-                    }
-
                     preparandoEnvio = true;
+                    formulario.querySelectorAll('button').forEach((boton) => { boton.disabled = true; });
                     HTMLFormElement.prototype.submit.call(formulario);
                 });
             }

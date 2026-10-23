@@ -27,6 +27,9 @@
             'form_id_funcionario_receptor_inicial',
             $tipoCertificado->id_funcionario_receptor_inicial ?? ''
         );
+        $datosVigencia = $tipoCertificado->datosVigencia();
+        $cantidadVigencia = old('form_vigencia_cantidad', $datosVigencia['cantidad'] ?? '');
+        $unidadVigencia = old('form_vigencia_unidad', $datosVigencia['unidad'] ?? '');
 
         $tiposEvidenciasJson = $tiposEvidenciasDisponibles
             ->map(function ($tipo) {
@@ -186,7 +189,42 @@
                             </p>
                         </div>
 
-                        <div class="lg:col-span-3">
+                        <div class="lg:col-span-4">
+                            <label for="form_vigencia_cantidad" class="mb-1 block text-sm font-medium text-slate-700">
+                                Vigencia
+                            </label>
+                            <div class="flex gap-2">
+                                <input id="form_vigencia_cantidad" name="form_vigencia_cantidad" type="number"
+                                    min="1" max="9999" value="{{ $cantidadVigencia }}" placeholder="Ej.: 4"
+                                    class="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-600 focus:ring-teal-600">
+                                <select id="form_vigencia_unidad" name="form_vigencia_unidad"
+                                    class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-600 focus:ring-teal-600">
+                                    <option value="">Seleccione</option>
+                                    @foreach (\App\Models\TipoCertificado::UNIDADES_VIGENCIA as $valor => $etiqueta)
+                                        <option value="{{ $valor }}" @selected($unidadVigencia === $valor)>{{ $etiqueta }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Ej.: 30 días, 6 meses, 4 años o indefinida.</p>
+                            @error('form_vigencia_cantidad')
+                                <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('form_vigencia_unidad')
+                                <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="lg:col-span-4">
+                            <x-wire-input label="Costo (Bs.)" id="form_costo" name="form_costo" type="text"
+                                inputmode="decimal" maxlength="11" placeholder="Ej.: 250,50"
+                                value="{{ old('form_costo', $tipoCertificado->costo) }}" />
+                            <p class="mt-1 text-xs text-slate-500">Déjelo vacío si el costo aún no está definido. Acepta hasta dos decimales.</p>
+                            @error('form_costo')
+                                <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="lg:col-span-4">
                             <x-wire-input label="Descargas por usuario" id="limite_descargas"
                                 name="form_limite_descargas" type="number" min="0" max="65535"
                                 placeholder="Sin límite"
@@ -194,14 +232,14 @@
                             <p class="mt-1 text-xs text-slate-500">Déjelo vacío para permitir descargas ilimitadas. Use 0 para bloquearlas.</p>
                         </div>
 
-                        <div class="lg:col-span-6">
+                        <div class="lg:col-span-8">
                             <x-wire-input label="Prefijo del número de certificado" id="form_prefijo_numero_certificado"
                                 name="form_prefijo_numero_certificado" maxlength="100" placeholder="Ej.: CAP-07-2026-"
                                 value="{{ old('form_prefijo_numero_certificado', $tipoCertificado->prefijo_numero_certificado) }}" />
                             <p class="mt-1 text-xs text-slate-500">Se conserva tal cual; el sistema añade el correlativo al final.</p>
                         </div>
 
-                        <div class="lg:col-span-3">
+                        <div class="lg:col-span-4">
                             <x-wire-input label="Siguiente correlativo" id="form_siguiente_correlativo"
                                 name="form_siguiente_correlativo" type="number" min="1" max="999999999"
                                 value="{{ old('form_siguiente_correlativo', $tipoCertificado->siguiente_correlativo ?? 1) }}" />
@@ -489,6 +527,22 @@
                 selector?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 selector?.focus({ preventScroll: true });
             }, true);
+
+            function actualizarCantidadVigencia() {
+                const cantidad = document.getElementById('form_vigencia_cantidad');
+                const unidad = document.getElementById('form_vigencia_unidad');
+
+                if (!cantidad || !unidad) return;
+
+                const esIndefinida = unidad.value === 'INDEFINIDA';
+                cantidad.disabled = esIndefinida;
+                cantidad.required = !esIndefinida;
+                cantidad.placeholder = esIndefinida ? 'No aplica' : 'Ej.: 4';
+
+                if (esIndefinida) cantidad.value = '';
+            }
+
+            document.getElementById('form_vigencia_unidad')?.addEventListener('change', actualizarCantidadVigencia);
             const tiposEvidencias = @json($tiposEvidenciasJson);
             const tiposCertificadosRequeridos = @json($tiposCertificadosJson);
             const funcionariosReceptores = @json($funcionariosReceptoresDisponibles);
@@ -1018,6 +1072,7 @@
             }
 
             // Reconstruye la tabla al cargar la vista.
+            actualizarCantidadVigencia();
             renderizarSelectorFuncionarioReceptor(true);
             renderizarTablaRequisitos();
         </script>

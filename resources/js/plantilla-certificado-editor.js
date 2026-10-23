@@ -379,7 +379,7 @@ function crearEditorPlantilla(elementoCanvas) {
             'requisito.tabla': [
                 { codigo_campo: 'requisito.descripcion', titulo_columna: 'Requisito', ancho: 45, estado: 'ACTIVO' },
                 { codigo_campo: 'requisito.tipo_evidencia', titulo_columna: 'Evidencia', ancho: 25, estado: 'ACTIVO' },
-                { codigo_campo: 'requisito.estado_revision', titulo_columna: 'Estado', ancho: 30, estado: 'ACTIVO' },
+                { codigo_campo: 'requisito.cumple', titulo_columna: 'Cumple', ancho: 30, estado: 'ACTIVO' },
             ],
         };
         return (tablas[codigo] || []).map((columna) => ({ ...columna }));

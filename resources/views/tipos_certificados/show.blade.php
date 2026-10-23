@@ -382,6 +382,18 @@
                                             {{ $tipoCertificado->textoModoEmision() }}
                                         </strong>
                                     </p>
+                                    <p class="cert-root-area">
+                                        Vigencia:
+                                        <strong class="font-semibold text-slate-600">
+                                            {{ $tipoCertificado->textoVigencia() }}
+                                        </strong>
+                                    </p>
+                                    <p class="cert-root-area">
+                                        Costo:
+                                        <strong class="font-semibold text-slate-600">
+                                            {{ $tipoCertificado->costo === null ? 'No definido' : 'Bs. ' . number_format((float) $tipoCertificado->costo, 2, ',', '.') }}
+                                        </strong>
+                                    </p>
                                 </article>
                             </div>
                         </section>

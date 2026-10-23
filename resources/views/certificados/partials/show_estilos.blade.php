@@ -4077,6 +4077,7 @@
         .tramite-presentation {
             border: 1px solid #dbe4ee;
             border-radius: 8px;
+            container-type: inline-size;
             display: grid;
             grid-template-columns: minmax(330px, 0.8fr) minmax(480px, 1.2fr);
             overflow: hidden;
@@ -4205,6 +4206,56 @@
 
         .tramite-presentation-records .tramite-table th {
             background: #ffffff;
+        }
+
+        /* La tabla se desplaza cuando no caben sus cinco columnas; nunca se enciman los encabezados. */
+        .tramite-presentation-records-table {
+            min-width: 680px;
+            table-layout: auto;
+        }
+
+        .tramite-presentation-records-table th,
+        .tramite-presentation-records-table td {
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .tramite-presentation-records-table th:nth-child(1),
+        .tramite-presentation-records-table td:nth-child(1) {
+            min-width: 155px;
+        }
+
+        .tramite-presentation-records-table th:nth-child(2),
+        .tramite-presentation-records-table td:nth-child(2) {
+            min-width: 125px;
+        }
+
+        .tramite-presentation-records-table th:nth-child(3),
+        .tramite-presentation-records-table td:nth-child(3) {
+            min-width: 90px;
+        }
+
+        .tramite-presentation-records-table th:nth-child(4),
+        .tramite-presentation-records-table td:nth-child(4) {
+            min-width: 80px;
+        }
+
+        .tramite-presentation-records-table th:nth-child(5),
+        .tramite-presentation-records-table td:nth-child(5) {
+            min-width: 110px;
+        }
+
+        /* El ancho útil cambia por el menú lateral, aun si la ventana no parece pequeña. */
+        @container (max-width: 1080px) {
+            .tramite-presentation-summary,
+            .tramite-presentation-records {
+                grid-column: 1 / -1;
+            }
+
+            .tramite-presentation-summary {
+                border-bottom: 1px solid #dbe4ee;
+                border-right: 0;
+            }
         }
 
         .tramite-presentation-no-records {

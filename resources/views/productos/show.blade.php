@@ -9,6 +9,11 @@
         ])));
     };
     $estadoActivo = fn ($estado) => in_array(strtoupper(trim((string) $estado)), ['1', 'ACTIVO'], true);
+    $formatearFormulaQuimica = static function ($formula) {
+        $formula = trim((string) $formula);
+
+        return $formula === '' ? '-' : preg_replace('/(\d+)/', '<sub>$1</sub>', e($formula));
+    };
 
     $representantesLegales = collect();
     if ($empresaImportadora) {
@@ -66,6 +71,8 @@
     $registrosSinPresentacion = $producto->registros
         ->filter(fn ($registro) => !$registro->id_presentacion)
         ->values();
+    $frasesRiesgo = $producto->frasesReglamentarias->where('tipo', 'RIESGO')->values();
+    $frasesSeguridad = $producto->frasesReglamentarias->where('tipo', 'SEGURIDAD')->values();
 @endphp
 
 <x-admin-layout title="Detalle del producto | Certificador" :breadcrumbs="[
@@ -114,6 +121,7 @@
                 <div><dt>País de origen</dt><dd>{{ $producto->territorio?->nombre ?: 'No registrado' }}</dd></div>
                 <div><dt>Fabricante</dt><dd>{{ $producto->fabricante?->razon_social ?: ($producto->fabricante?->nombre ?: 'No registrado') }}</dd></div>
                 <div><dt>Clasificación química</dt><dd>{{ $producto->clasificacionQuimica?->nombre ?: 'No registrada' }}</dd></div>
+                <div class="producto-show-field-wide"><dt>Observación toxicológica de muestra</dt><dd>{{ $producto->observacion_toxicologica_muestra ?: '-' }}</dd></div>
                 <div class="producto-show-field-wide"><dt>Clasificación toxicológica</dt><dd>{{ trim(($producto->clasificacionToxicologica?->codigo ?? '') . ' ' . ($producto->clasificacionToxicologica?->descripcion ?? '')) ?: 'No registrada' }}</dd></div>
                 <div><dt>Operaciones de aduana</dt><dd>{{ $producto->aduanas->count() }}</dd></div>
             </dl>
@@ -130,16 +138,17 @@
 
             <div class="producto-show-table-wrap">
                 <table class="producto-show-table">
-                    <thead><tr><th>#</th><th>Ingrediente</th><th>Porcentaje</th></tr></thead>
+                    <thead><tr><th>#</th><th>Ingrediente</th><th>Fórmula química</th><th>Porcentaje</th></tr></thead>
                     <tbody>
                         @forelse ($producto->ingredientesProductos as $relacion)
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
                                 <td><strong>{{ $relacion->ingrediente?->nombre ?: 'Sin nombre' }}</strong></td>
+                                <td>{!! $formatearFormulaQuimica($relacion->ingrediente?->formula_quimica) !!}</td>
                                 <td>{{ rtrim(rtrim(number_format((float) $relacion->porcentaje, 5, '.', ''), '0'), '.') }}%</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="producto-show-empty">No hay ingredientes registrados.</td></tr>
+                            <tr><td colspan="4" class="producto-show-empty">No hay ingredientes registrados.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -149,6 +158,50 @@
         <section class="producto-show-section">
             <header class="producto-show-section-head">
                 <span class="producto-show-section-number">3</span>
+                <div>
+                    <h2>Riesgos y seguridad</h2>
+                    <p>Frases reglamentarias seleccionadas para este producto.</p>
+                </div>
+            </header>
+
+            <div class="producto-show-frases-grid">
+                <section class="producto-show-frases-group">
+                    <h3>Frases de riesgo</h3>
+                    <div class="producto-show-table-wrap">
+                        <table class="producto-show-table">
+                            <thead><tr><th>Código</th><th>Frase</th></tr></thead>
+                            <tbody>
+                                @forelse ($frasesRiesgo as $frase)
+                                    <tr><td><strong>{{ $frase->codigo }}</strong></td><td>{{ $frase->descripcion }}</td></tr>
+                                @empty
+                                    <tr><td colspan="2" class="producto-show-empty">-</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="producto-show-frases-group">
+                    <h3>Frases de seguridad</h3>
+                    <div class="producto-show-table-wrap">
+                        <table class="producto-show-table">
+                            <thead><tr><th>Código</th><th>Frase</th></tr></thead>
+                            <tbody>
+                                @forelse ($frasesSeguridad as $frase)
+                                    <tr><td><strong>{{ $frase->codigo }}</strong></td><td>{{ $frase->descripcion }}</td></tr>
+                                @empty
+                                    <tr><td colspan="2" class="producto-show-empty">-</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="producto-show-section">
+            <header class="producto-show-section-head">
+                <span class="producto-show-section-number">4</span>
                 <div>
                     <h2>Presentaciones y registros vinculados</h2>
                     <p>Cada presentación muestra su etiqueta y únicamente los registros que le corresponden.</p>

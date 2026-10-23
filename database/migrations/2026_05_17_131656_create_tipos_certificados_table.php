@@ -29,6 +29,9 @@ return new class extends Migration
 
             // Precio que se cobrará por este tipo de certificado.
             $table->decimal('costo', 10, 2)->nullable();
+
+            // Regla de vigencia: por ejemplo 30_DIAS, 6_MESES, 4_ANIOS o INDEFINIDA.
+            $table->string('vigencia', 30)->nullable();
             
             // Estado general del tipo de certificado: ACTIVO, INACTIVO, etc.
             $table->string('estado', 50)->default('ACTIVO');

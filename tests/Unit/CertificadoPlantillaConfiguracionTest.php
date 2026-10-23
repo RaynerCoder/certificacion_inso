@@ -283,23 +283,52 @@ class CertificadoPlantillaConfiguracionTest extends TestCase
         foreach ([
             'emision.numero_certificado',
             'emision.fecha',
+            'certificado.fecha_inicio',
+            'certificado.fecha_fin',
+            'tramite.fecha_registro',
+            'tramite.funcionario_finalizador',
+            'tramite.funcionario_finalizador_cargo',
+            'beneficiario.expedido',
+            'empresa.representante_legal_expedido',
+            'tramitador.expedido',
             'empresa.representante_legal_nombre',
             'empresa.representante_legal_documento',
             'importador.nombre',
             'importador.documento',
+            'importador.expedido',
             'importador.ubicacion',
             'importador.representante_legal_nombre',
             'importador.representante_legal_documento',
+            'importador.representante_legal_expedido',
             'producto.pais_origen',
             'fabricante.razon_social',
             'clasificacion_toxicologica.completa',
+            'clasificacion_toxicologica.con_observacion',
+            'producto.observacion_toxicologica_muestra',
             'presentacion.lista',
             'ingrediente.composiciones',
             'ingrediente.resumen',
+            'frases.riesgo.codigos',
+            'frases.riesgo.completas',
+            'frases.seguridad.codigos',
+            'frases.seguridad.completas',
             'funcionario.emisor_nombre',
             'funcionario.emisor_cargo',
         ] as $codigo) {
             $this->assertTrue($codigos->contains($codigo), "No se publicó el campo dinámico {$codigo}.");
+        }
+
+        foreach ([
+            'certificado.estado',
+            'producto.estados',
+            'producto.estado',
+            'registro.estado',
+            'presentacion.estado',
+            'requisito.estado_revision',
+            'evidencia.estado',
+            'seguimiento.estado',
+        ] as $codigo) {
+            $this->assertFalse($codigos->contains($codigo), "No debe publicarse el campo de estado {$codigo}.");
         }
     }
 }

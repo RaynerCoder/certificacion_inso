@@ -27,6 +27,7 @@ class Producto extends Model
         'tipo_producto',
         'nombre_tecnico',
         'id_clasificacion_quimica',
+        'observacion_toxicologica_muestra',
         'estado',
     ];
     
@@ -95,6 +96,26 @@ class Producto extends Model
             'id_ingrediente'
         )
             ->withPivot('id', 'porcentaje', 'estado')
+            ->withTimestamps()
+            ->wherePivotNull('deleted_at');
+    }
+
+    // Relación uno a muchos con las asignaciones de frases reglamentarias.
+    public function frasesReglamentariasProductos()
+    {
+        return $this->hasMany(FraseReglamentariaProducto::class, 'id_producto');
+    }
+
+    // Relación muchos a muchos con frases de riesgo y seguridad.
+    public function frasesReglamentarias()
+    {
+        return $this->belongsToMany(
+            FraseReglamentaria::class,
+            'frases_reglamentarias_productos',
+            'id_producto',
+            'id_frase_reglamentaria'
+        )
+            ->withPivot('id', 'estado')
             ->withTimestamps()
             ->wherePivotNull('deleted_at');
     }

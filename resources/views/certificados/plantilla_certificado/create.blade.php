@@ -168,6 +168,9 @@
                                             data-grupo="{{ $grupo }}"
                                             title="Dato interno: {{ $campo['codigo'] }}">
                                             <span class="plantilla-field-name">{{ $campo['nombre'] }}</span>
+                                            @if (! empty($campo['ayuda']))
+                                                <span class="plantilla-field-help">{{ $campo['ayuda'] }}</span>
+                                            @endif
                                         </button>
                                     @endforeach
                                 </div>

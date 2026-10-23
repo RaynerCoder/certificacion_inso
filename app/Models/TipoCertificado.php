@@ -16,6 +16,14 @@ class TipoCertificado extends Model
         'POR_LOTE' => 'Un certificado por lote',
     ];
 
+    // Valores permitidos para la unidad que compone la vigencia guardada en una sola columna.
+    public const UNIDADES_VIGENCIA = [
+        'DIA' => 'Días',
+        'MES' => 'Meses',
+        'ANIO' => 'Años',
+        'INDEFINIDA' => 'Indefinida',
+    ];
+
     protected $table = 'tipos_certificados';
 
     protected $fillable = [
@@ -24,6 +32,7 @@ class TipoCertificado extends Model
         'id_funcionario_receptor_inicial',
         'limite_descargas',
         'costo',
+        'vigencia',
 
         'modo_emision',
         'prefijo_numero_certificado',
@@ -42,6 +51,54 @@ class TipoCertificado extends Model
     public function textoModoEmision(): string
     {
         return self::MODOS_EMISION[$this->modo_emision] ?? self::MODOS_EMISION['UNICO_POR_TRAMITE'];
+    }
+
+    // Convierte la configuración de pantalla en el único valor que se guarda en la base de datos.
+    public static function valorVigencia(?int $cantidad, string $unidad): string
+    {
+        return $unidad === 'INDEFINIDA'
+            ? 'INDEFINIDA'
+            : ((int) $cantidad).'_'.$unidad;
+    }
+
+    // Separa el valor guardado para volver a cargar el formulario de configuración.
+    public function datosVigencia(): array
+    {
+        $vigencia = strtoupper(trim((string) $this->vigencia));
+
+        if ($vigencia === 'INDEFINIDA') {
+            return ['cantidad' => null, 'unidad' => 'INDEFINIDA'];
+        }
+
+        if (preg_match('/^([1-9][0-9]*)_(DIA|MES|ANIO)$/', $vigencia, $coincidencias)) {
+            return ['cantidad' => (int) $coincidencias[1], 'unidad' => $coincidencias[2]];
+        }
+
+        return ['cantidad' => null, 'unidad' => null];
+    }
+
+    // Muestra la regla con texto natural en lugar del valor técnico almacenado.
+    public function textoVigencia(): string
+    {
+        $datos = $this->datosVigencia();
+
+        if ($datos['unidad'] === 'INDEFINIDA') {
+            return 'Indefinida';
+        }
+
+        if ($datos['cantidad'] === null || $datos['unidad'] === null) {
+            return 'No configurada';
+        }
+
+        $unidades = [
+            'DIA' => ['día', 'días'],
+            'MES' => ['mes', 'meses'],
+            'ANIO' => ['año', 'años'],
+        ];
+        $cantidad = $datos['cantidad'];
+        $unidad = $unidades[$datos['unidad']][$cantidad === 1 ? 0 : 1];
+
+        return $cantidad.' '.$unidad;
     }
 
     // Relación muchos a uno (muchos tipos de certificados pertenecen a un área)

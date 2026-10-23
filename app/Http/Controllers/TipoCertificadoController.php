@@ -472,15 +472,32 @@ class TipoCertificadoController extends Controller
     }
 
     /**
-     * Guarda área, forma de emisión, descargas, requisitos y evidencias del tipo de certificado.
+     * Guarda los datos operativos, costo, requisitos y evidencias del tipo de certificado.
      */
     public function actualizarConfiguracion(Request $solicitud, TipoCertificado $tipoCertificado)
     {
+        // Admite la coma decimal usada habitualmente al registrar importes en bolivianos.
+        if ($solicitud->filled('form_costo')) {
+            $solicitud->merge([
+                'form_costo' => str_replace(',', '.', trim((string) $solicitud->input('form_costo'))),
+            ]);
+        }
+
         $datos = $solicitud->validate([
             'form_id_area' => ['required', 'integer', 'exists:areas,id'],
             'form_id_funcionario_receptor_inicial' => ['required', 'integer', 'exists:funcionarios,id'],
             'form_limite_descargas' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'form_costo' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
             'form_modo_emision' => ['required', Rule::in(array_keys(TipoCertificado::MODOS_EMISION))],
+            'form_vigencia_unidad' => ['required', Rule::in(array_keys(TipoCertificado::UNIDADES_VIGENCIA))],
+            'form_vigencia_cantidad' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:9999',
+                'required_unless:form_vigencia_unidad,INDEFINIDA',
+                'prohibited_if:form_vigencia_unidad,INDEFINIDA',
+            ],
             'form_prefijo_numero_certificado' => ['nullable', 'string', 'max:100'],
             'form_siguiente_correlativo' => ['required', 'integer', 'min:1', 'max:999999999'],
             'requisitos_asignados' => ['nullable', 'array'],
@@ -494,11 +511,16 @@ class TipoCertificadoController extends Controller
         ], [
             'requisitos_asignados.*.id_tipo_evidencia.required' => 'Seleccione el tipo de evidencia para este requisito.',
             'requisitos_asignados.*.id_tipo_evidencia.exists' => 'Seleccione un tipo de evidencia válido para este requisito.',
+            'form_vigencia_cantidad.required_unless' => 'Ingrese la cantidad de la vigencia.',
+            'form_vigencia_cantidad.prohibited_if' => 'No ingrese una cantidad cuando la vigencia es indefinida.',
         ], [
             'form_id_area' => 'area responsable',
             'form_id_funcionario_receptor_inicial' => 'funcionario receptor inicial',
             'form_limite_descargas' => 'límite de descargas',
+            'form_costo' => 'costo',
             'form_modo_emision' => 'forma de emisión',
+            'form_vigencia_unidad' => 'unidad de vigencia',
+            'form_vigencia_cantidad' => 'cantidad de vigencia',
             'form_prefijo_numero_certificado' => 'prefijo del número de certificado',
             'form_siguiente_correlativo' => 'siguiente correlativo',
         ]);
@@ -528,7 +550,12 @@ class TipoCertificadoController extends Controller
                 'id_area' => $datos['form_id_area'],
                 'id_funcionario_receptor_inicial' => $datos['form_id_funcionario_receptor_inicial'],
                 'limite_descargas' => $datos['form_limite_descargas'] ?? null,
+                'costo' => $datos['form_costo'] ?? null,
                 'modo_emision' => $datos['form_modo_emision'],
+                'vigencia' => TipoCertificado::valorVigencia(
+                    $datos['form_vigencia_cantidad'] ?? null,
+                    $datos['form_vigencia_unidad']
+                ),
                 'prefijo_numero_certificado' => $datos['form_prefijo_numero_certificado'] ?? null,
                 'siguiente_correlativo' => $datos['form_siguiente_correlativo'],
             ]);

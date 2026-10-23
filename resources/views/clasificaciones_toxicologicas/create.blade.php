@@ -18,10 +18,11 @@
             @csrf
 
             <x-wire-input label="Código" id="codigo" name="form_codigo" type="text" placeholder="Ej: CLASE II"
-                value="{{ old('form_codigo') }}" required />
+                value="{{ old('form_codigo') }}" oninput="this.value = this.value.toLocaleUpperCase('es-BO')" required />
 
             <x-wire-textarea label="Descripción" id="descripcion" name="form_descripcion"
-                placeholder="Ej: Moderadamente peligroso" required>{{ old('form_descripcion') }}</x-wire-textarea>
+                placeholder="Ej: MODERADAMENTE PELIGROSO"
+                oninput="this.value = this.value.toLocaleUpperCase('es-BO')" required>{{ old('form_descripcion') }}</x-wire-textarea>
                
             <x-wire-input label="Estado" id="estado" name="form_estado" type="text" placeholder="Estado de la clasificación toxicológica"
                 value="{{ old('form_estado') }}" />    

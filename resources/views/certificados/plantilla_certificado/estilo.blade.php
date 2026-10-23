@@ -410,6 +410,17 @@
         line-height: 1.25;
     }
 
+    .plantilla-field-help {
+        color: #64748b;
+        display: block;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.35;
+        margin-top: 3px;
+        text-align: left;
+        text-transform: none;
+    }
+
     .plantilla-toolbar {
         align-items: center;
         border-bottom: 1px solid #dbe4ee;

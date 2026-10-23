@@ -145,6 +145,7 @@
             'form_tipo_producto' => $productoEnEdicion?->tipo_producto,
             'form_nombre_tecnico' => $productoEnEdicion?->nombre_tecnico,
             'form_id_clasificacion_quimica' => $productoEnEdicion?->id_clasificacion_quimica,
+            'form_observacion_toxicologica_muestra' => $productoEnEdicion?->observacion_toxicologica_muestra,
             'form_id_clasificacion_toxicologica' => $productoEnEdicion?->id_clasificacion_toxicologica,
         ];
 
@@ -278,6 +279,10 @@
             </button>
             <button type="button" class="producto-burbuja" data-producto-ir="3">
                 <span class="producto-circulo">4</span>
+                <span>Riesgos y seguridad</span>
+            </button>
+            <button type="button" class="producto-burbuja" data-producto-ir="4">
+                <span class="producto-circulo">5</span>
                 <span>Revisión</span>
             </button>
         </div>
@@ -296,7 +301,7 @@
 
     <div class="producto-layout">
         <section class="producto-card">
-            {{-- Encabezado dinamico: muestra el numero de color, titulo del paso y conserva el indicador Paso X de 5. --}}
+            {{-- Encabezado dinamico: muestra el número, título y avance del paso actual. --}}
             <div id="productoEncabezadoPaso" class="producto-form-head">
                 <div class="producto-form-head-left">
                     <div class="producto-form-icon">
@@ -310,7 +315,7 @@
                     </div>
                 </div>
 
-                <span id="productoEtiquetaPaso" class="producto-pill">Paso 1 de 4</span>
+                <span id="productoEtiquetaPaso" class="producto-pill">Paso 1 de 5</span>
             </div>
 
             <div class="producto-body">
@@ -326,7 +331,10 @@
                 {{-- Los registros se agregan dentro del paso de presentaciones para mantener la relacion. --}}
                 {{-- @include('productos.create.registros') --}}
 
-                {{-- Paso 4: resumen antes de guardar producto. --}}
+                {{-- Paso 4: selección de frases reglamentarias. --}}
+                @include('productos.create.frases_reglamentarias')
+
+                {{-- Paso 5: resumen antes de guardar producto. --}}
                 @include('productos.create.revision')
 
             </div>
@@ -451,14 +459,15 @@
             <div>
                 <label class="producto-field-label" for="modal_clasificacion_toxicologica_codigo">Código</label>
                 <input class="producto-input" id="modal_clasificacion_toxicologica_codigo" type="text"
-                    placeholder="Ej: CLASE II">
+                    placeholder="Ej: CLASE II" oninput="this.value = this.value.toLocaleUpperCase('es-BO')">
             </div>
 
             <div>
                 <label class="producto-field-label"
                     for="modal_clasificacion_toxicologica_descripcion">Descripción</label>
                 <input class="producto-input" id="modal_clasificacion_toxicologica_descripcion" type="text"
-                    placeholder="Ej: Moderadamente peligroso">
+                    placeholder="Ej: MODERADAMENTE PELIGROSO"
+                    oninput="this.value = this.value.toLocaleUpperCase('es-BO')">
             </div>
         </div>
 
@@ -610,6 +619,93 @@
     </div>
 </div>
 
+{{-- MODAL: confirma una fórmula consultada. No escribe en base de datos hasta el guardado final. --}}
+<div class="producto-modal" id="modalFormulaQuimicaIngredienteProducto">
+    <div class="producto-modal-card is-compact">
+        <div class="producto-modal-head">
+            <div class="producto-modal-title-row">
+                <span class="producto-modal-icon">
+                    <i class="fa-solid fa-atom"></i>
+                </span>
+                <div>
+                    <h3 class="producto-modal-title">Fórmula química encontrada</h3>
+                    <p class="producto-modal-subtitle">Verifique que corresponda al ingrediente seleccionado.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="producto-modal-body">
+            <div class="producto-formula-confirmacion">
+                <span>Ingrediente</span>
+                <strong id="formulaQuimicaModalIngrediente">-</strong>
+            </div>
+            <div class="producto-formula-confirmacion">
+                <span>Fórmula química</span>
+                <strong id="formulaQuimicaModalValor">-</strong>
+            </div>
+            <p class="producto-field-help !mt-0">
+                Al confirmar, la fórmula queda preparada para este formulario. Se guardará únicamente al guardar el producto.
+            </p>
+        </div>
+
+        <div class="producto-modal-actions">
+            <button type="button" class="producto-btn producto-btn-secondary"
+                onclick="cerrarModalProducto('modalFormulaQuimicaIngredienteProducto')">Cancelar</button>
+            <button type="button" class="producto-btn producto-btn-primary"
+                onclick="confirmarFormulaQuimicaIngredienteProducto()">
+                Usar fórmula
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL: agrega una frase reglamentaria temporal al catálogo del producto. --}}
+<div class="producto-modal" id="modalFraseReglamentariaProducto">
+    <div class="producto-modal-card">
+        <div class="producto-modal-head">
+            <div class="producto-modal-title-row">
+                <span class="producto-modal-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </span>
+                <div>
+                    <h3 class="producto-modal-title">Nueva frase reglamentaria</h3>
+                    <p class="producto-modal-subtitle">Registre el código y el texto oficial que utilizará el producto.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="producto-modal-body">
+            <div>
+                <label class="producto-field-label" for="modal_frase_reglamentaria_tipo">Tipo</label>
+                <select class="producto-select" id="modal_frase_reglamentaria_tipo">
+                    <option value="RIESGO">Riesgo</option>
+                    <option value="SEGURIDAD">Seguridad</option>
+                </select>
+            </div>
+            <div>
+                <label class="producto-field-label" for="modal_frase_reglamentaria_codigo">Código</label>
+                <input class="producto-input uppercase" id="modal_frase_reglamentaria_codigo" type="text"
+                    maxlength="50" placeholder="Ej: R20/21 o S1">
+            </div>
+            <div>
+                <label class="producto-field-label" for="modal_frase_reglamentaria_descripcion">Frase</label>
+                <textarea class="producto-textarea" id="modal_frase_reglamentaria_descripcion" rows="3"
+                    maxlength="1000" placeholder="Escriba el texto oficial de la frase."></textarea>
+            </div>
+        </div>
+
+        <div class="producto-modal-actions">
+            <button type="button" class="producto-btn producto-btn-secondary"
+                onclick="cerrarModalProducto('modalFraseReglamentariaProducto')">Cancelar</button>
+            <button type="button" class="producto-btn producto-btn-primary"
+                onclick="agregarFraseReglamentariaTemporalProducto()">
+                <i class="fa-solid fa-plus"></i>
+                Agregar a la lista
+            </button>
+        </div>
+    </div>
+</div>
+
 
 {{-- MODAL: permite escribir un nuevo tipo de presentación.
          El valor se agrega al selector de la presentación y se enviará dentro
@@ -741,10 +837,11 @@
         ['Datos principales del producto', 'Identifique el producto, importador, fabricante y tipo.'],
         ['Ingredientes', 'Agregue los ingredientes y sus porcentajes.'],
         ['Presentaciones y registros', 'Agregue los formatos comerciales y relacione sus registros.'],
+        ['Riesgos y seguridad', 'Seleccione las frases oficiales que correspondan al producto.'],
         ['Revisión', ''],
     ];
 
-    const productoColoresPaso = ['is-blue', 'is-teal', 'is-amber', 'is-teal'];
+    const productoColoresPaso = ['is-blue', 'is-teal', 'is-amber', 'is-blue', 'is-teal'];
 
     // MUESTRA UN PASO DEL FORMULARIO
     // muestra el paso indicado y actualiza burbujas, encabezado, botones y resumen.
@@ -787,7 +884,7 @@
             botonSiguiente.innerHTML = productoModoEdicion ?
                 '<i class="fa-solid fa-floppy-disk"></i> Actualizar producto' :
                 '<i class="fa-solid fa-floppy-disk"></i> Guardar producto';
-        } else if (productoPasoActual === 2) {
+        } else if (productoPasoActual === 3) {
             botonSiguiente.innerHTML = 'Continuar a revisión <i class="fa-solid fa-chevron-right"></i>';
         } else {
             botonSiguiente.innerHTML = 'Siguiente <i class="fa-solid fa-chevron-right"></i>';
@@ -2119,6 +2216,28 @@
     // toma los datos form_ingrediente_*, los valida y crea una fila con ingredientes_productos[indice][...].
     // esos inputs son los que finalmente recibirá el controlador.
 
+    // COMPLETA EL NOMBRE TÉCNICO CON LA COMPOSICIÓN ACTUAL DEL PRODUCTO.
+    // El campo es de solo lectura: siempre conserva el orden de los ingredientes agregados.
+    function actualizarNombreTecnicoProducto() {
+        const campo = document.getElementById('form_nombre_tecnico');
+
+        if (!campo) {
+            return;
+        }
+
+        const nombres = Array.from(document.querySelectorAll(
+            '#tablaIngredientesProducto input[name*="[nombre]"]'
+        )).map((input) => input.value.trim())
+            .filter(Boolean)
+            .filter((nombre, indice, lista) =>
+                lista.findIndex((actual) =>
+                    actual.localeCompare(nombre, 'es', { sensitivity: 'accent' }) === 0
+                ) === indice
+            );
+
+        campo.value = nombres.join(' + ');
+    }
+
 
     function agregarIngredienteProducto() {
         const select = document.getElementById('form_ingrediente_select');
@@ -2127,11 +2246,20 @@
         const ingredienteId = select.value;
         const opcionIngrediente = select.options[select.selectedIndex];
         const ingredienteNombre = opcionIngrediente?.dataset.nombre || opcionIngrediente?.text || 'Sin nombre';
+        const ingredienteFormula = opcionIngrediente?.dataset.formulaQuimica?.trim() || '';
         const ingredienteValido = validarRequeridoProducto('form_ingrediente_select', 'Seleccione un ingrediente.');
         const porcentajeValido = validarNumeroProducto('form_ingrediente_porcentaje', 'Ingrese un porcentaje valido.',
             0, 100);
 
         if (!ingredienteValido || !porcentajeValido) {
+            return;
+        }
+
+        if (!formulaQuimicaValidaProducto(ingredienteFormula)) {
+            marcarErrorProducto(
+                select,
+                'Defina la fórmula química antes de agregar el ingrediente.'
+            );
             return;
         }
 
@@ -2153,9 +2281,11 @@
                     ${escaparHtmlProducto(ingredienteNombre)}
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][id_ingrediente]" value="${ingredienteId}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][nombre]" value="${escaparHtmlProducto(ingredienteNombre)}">
+                    <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][formula_quimica]" value="${escaparHtmlProducto(ingredienteFormula)}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][porcentaje]" value="${porcentaje.value}">
                     <input type="hidden" name="ingredientes_productos[${productoIngredienteIndice}][estado]" value="${estado.value}">
                 </td>
+                <td class="producto-ingredient-formula" data-ingrediente-formula="${escaparHtmlProducto(ingredienteId)}">${formulaQuimicaHtmlProducto(ingredienteFormula)}</td>
                 <td class="producto-ingredient-percentage">${formatearPorcentajeIngrediente(porcentaje.value)}%</td>
                 <td><span class="producto-pill">${estado.value}</span></td>
                 <td>
@@ -2174,6 +2304,7 @@
         limpiarErrorProducto(select);
         limpiarErrorProducto(porcentaje);
         actualizarTotalPorcentajeIngredientesProducto();
+        actualizarNombreTecnicoProducto();
         actualizarResumenProducto();
     }
 
@@ -2862,6 +2993,7 @@
         asegurarFilaVaciaRegistrosPresentacionesProducto();
         reenumerarFilasProducto('tablaRegistrosPresentacionesProducto', 'sinRegistrosPresentacionesProducto');
         actualizarTotalPorcentajeIngredientesProducto();
+        actualizarNombreTecnicoProducto();
         filtrarRegistrosPresentacionesProducto();
         actualizarResumenProducto();
     }
@@ -3349,6 +3481,369 @@
             botonLimpiar.hidden = !select?.value;
         }
         renderizarOpcionesIngredienteProducto();
+        actualizarFormulaIngredienteSeleccionadoProducto();
+    }
+
+    // Conserva el texto real de la fórmula y aplica subíndices solo al mostrarla.
+    // El escape previo evita interpretar como HTML cualquier valor proveniente del catálogo.
+    function formulaQuimicaHtmlProducto(formula) {
+        const valor = String(formula || '').trim();
+
+        return valor === '' ? '-' : escaparHtmlProducto(valor).replace(/(\d+)/g, '<sub>$1</sub>');
+    }
+
+    function normalizarFormulaQuimicaProducto(formula) {
+        return String(formula || '')
+            .trim()
+            .replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (digito) => ({
+                '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+                '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+            })[digito])
+            .replace(/\s+/g, '');
+    }
+
+    function formulaQuimicaValidaProducto(formula) {
+        const valor = normalizarFormulaQuimicaProducto(formula);
+
+        return /^(?=.*[A-Z])(?:\d+|[A-Z][a-z]?|[()\[\]{}]|[·.+\-])+$/u.test(valor);
+    }
+
+    function actualizarDisponibilidadAgregarIngredienteProducto(formula) {
+        const boton = document.getElementById('agregarIngredienteProductoBoton');
+        const tieneFormulaValida = formulaQuimicaValidaProducto(formula);
+
+        if (!boton) {
+            return;
+        }
+
+        boton.disabled = !tieneFormulaValida;
+        boton.title = tieneFormulaValida
+            ? 'Agregar ingrediente'
+            : 'Defina una fórmula química válida para habilitar esta acción';
+    }
+
+    function mostrarFormulaQuimicaProducto(elemento, formula) {
+        if (elemento) {
+            elemento.innerHTML = formulaQuimicaHtmlProducto(formula);
+        }
+    }
+
+    function ocultarIngresoFormulaQuimicaManualProducto() {
+        const bloque = document.getElementById('ingresoFormulaQuimicaManualProducto');
+        const campo = document.getElementById('form_formula_quimica_manual');
+
+        if (bloque) {
+            bloque.hidden = true;
+        }
+        if (campo) {
+            campo.value = '';
+        }
+        mostrarFormulaQuimicaProducto(
+            document.getElementById('formulaQuimicaManualVistaPrevia'),
+            ''
+        );
+    }
+
+    function mostrarIngresoFormulaQuimicaManualProducto(mensaje = '') {
+        const bloque = document.getElementById('ingresoFormulaQuimicaManualProducto');
+        const ayuda = document.getElementById('formulaQuimicaManualAyuda');
+
+        if (!bloque) {
+            return;
+        }
+
+        bloque.hidden = false;
+        if (ayuda) {
+            ayuda.textContent = mensaje ||
+                'Ingrese una fórmula verificada con números normales. No se guarda hasta guardar el producto.';
+        }
+        document.getElementById('form_formula_quimica_manual')?.focus();
+    }
+
+    function previsualizarFormulaQuimicaManualProducto() {
+        mostrarFormulaQuimicaProducto(
+            document.getElementById('formulaQuimicaManualVistaPrevia'),
+            document.getElementById('form_formula_quimica_manual')?.value || ''
+        );
+    }
+
+    // MUESTRA LA FÓRMULA YA VERIFICADA DEL INGREDIENTE SELECCIONADO.
+    // Si falta, permite consultarla y habilita el ingreso manual solo si no hay coincidencia única.
+    function actualizarFormulaIngredienteSeleccionadoProducto() {
+        const panel = document.getElementById('detalleFormulaQuimicaIngredienteProducto');
+        const select = document.getElementById('form_ingrediente_select');
+        const opcion = select?.options[select.selectedIndex];
+        const valorFormula = document.getElementById('formulaQuimicaIngredienteProducto');
+        const ayuda = document.getElementById('formulaQuimicaIngredienteAyuda');
+        const boton = document.getElementById('buscarFormulaQuimicaIngredienteProducto');
+        const esIngredienteExistente = /^\d+$/.test(String(select?.value || ''));
+        const formula = opcion?.dataset.formulaQuimica?.trim() || '';
+
+        if (!panel || !valorFormula || !ayuda || !boton) {
+            return;
+        }
+
+        panel.hidden = !select?.value;
+        ocultarIngresoFormulaQuimicaManualProducto();
+        actualizarDisponibilidadAgregarIngredienteProducto(formula);
+
+        if (!select?.value) {
+            return;
+        }
+
+        if (!esIngredienteExistente) {
+            mostrarFormulaQuimicaProducto(valorFormula, formula);
+            ayuda.textContent = formula
+                ? 'Fórmula química manual preparada para el ingrediente nuevo.'
+                : 'Ingrese la fórmula química manual antes de agregar el ingrediente nuevo.';
+            boton.hidden = true;
+            if (!formula) {
+                mostrarIngresoFormulaQuimicaManualProducto(
+                    'Ingrese la fórmula verificada del ingrediente nuevo. Se guardará junto con el producto.'
+                );
+            }
+            return;
+        }
+
+        mostrarFormulaQuimicaProducto(valorFormula, formula);
+        ayuda.textContent = formula
+            ? 'Fórmula química asociada al ingrediente.'
+            : 'Aún no existe una fórmula química asociada a este ingrediente.';
+        boton.hidden = Boolean(formula);
+    }
+
+    function urlFormulaQuimicaIngredienteProducto(tipo, idIngrediente) {
+        const panel = document.getElementById('detalleFormulaQuimicaIngredienteProducto');
+        const atributo = tipo === 'confirmar' ?
+            'urlConfirmacionTemplate' :
+            'urlConsultaTemplate';
+        const plantilla = panel?.dataset[atributo] || '';
+
+        return plantilla.replace('__INGREDIENTE__', encodeURIComponent(idIngrediente));
+    }
+
+    async function consultarFormulaQuimicaIngredienteProducto() {
+        const select = document.getElementById('form_ingrediente_select');
+        const opcion = select?.options[select.selectedIndex];
+        const boton = document.getElementById('buscarFormulaQuimicaIngredienteProducto');
+        const idIngrediente = String(select?.value || '');
+
+        if (!/^\d+$/.test(idIngrediente) || !opcion || !boton) {
+            notificarProducto('info', 'Seleccione un ingrediente', 'Seleccione primero un ingrediente registrado.');
+            return;
+        }
+
+        const contenidoBoton = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Buscando...';
+
+        try {
+            const respuesta = await fetch(
+                urlFormulaQuimicaIngredienteProducto('consultar', idIngrediente), {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                }
+            );
+            const resultado = await respuesta.json().catch(() => ({}));
+
+            if (!respuesta.ok && resultado.permite_formula_manual) {
+                mostrarIngresoFormulaQuimicaManualProducto(resultado.message);
+                notificarProducto('info', 'Ingrese la fórmula manualmente', resultado.message);
+                return;
+            }
+
+            if (!respuesta.ok) {
+                throw new Error(resultado.message || 'No fue posible consultar la fórmula química.');
+            }
+
+            if (!resultado.encontrada) {
+                if (resultado.permite_formula_manual) {
+                    mostrarIngresoFormulaQuimicaManualProducto(resultado.message);
+                }
+                notificarProducto('info', 'Sin fórmula disponible', resultado.message ||
+                    'No se encontró una fórmula química verificable para este ingrediente.');
+                return;
+            }
+
+            if (resultado.ya_registrada) {
+                opcion.dataset.formulaQuimica = resultado.formula_quimica || '';
+                actualizarFormulaIngredienteSeleccionadoProducto();
+                actualizarFormulaEnFilasProducto(idIngrediente, resultado.formula_quimica || '');
+                return;
+            }
+
+            const modal = document.getElementById('modalFormulaQuimicaIngredienteProducto');
+            modal.dataset.ingredienteId = idIngrediente;
+            document.getElementById('formulaQuimicaModalIngrediente').textContent = opcion.dataset.nombre || opcion.text;
+            mostrarFormulaQuimicaProducto(
+                document.getElementById('formulaQuimicaModalValor'),
+                resultado.formula_quimica || ''
+            );
+            abrirModalProducto('modalFormulaQuimicaIngredienteProducto');
+        } catch (error) {
+            notificarProducto('error', 'No se pudo consultar', error.message);
+        } finally {
+            boton.disabled = false;
+            boton.innerHTML = contenidoBoton;
+        }
+    }
+
+    // Prepara la fórmula consultada en el servidor; todavía no modifica la base de datos.
+    async function confirmarFormulaQuimicaIngredienteProducto() {
+        const modal = document.getElementById('modalFormulaQuimicaIngredienteProducto');
+        const idIngrediente = String(modal?.dataset.ingredienteId || '');
+        const boton = modal?.querySelector('.producto-btn-primary');
+
+        if (!/^\d+$/.test(idIngrediente) || !boton) {
+            return;
+        }
+
+        const contenidoBoton = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Preparando...';
+
+        try {
+            const respuesta = await fetch(
+                urlFormulaQuimicaIngredienteProducto('confirmar', idIngrediente), {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                }
+            );
+            const resultado = await respuesta.json().catch(() => ({}));
+
+            if (!respuesta.ok) {
+                throw new Error(resultado.message || 'No fue posible asociar la fórmula química.');
+            }
+
+            const select = document.getElementById('form_ingrediente_select');
+            const opcion = Array.from(select?.options || [])
+                .find((elemento) => elemento.value === idIngrediente);
+
+            if (opcion) {
+                opcion.dataset.formulaQuimica = resultado.formula_quimica || '';
+            }
+
+            actualizarFormulaIngredienteSeleccionadoProducto();
+            actualizarFormulaEnFilasProducto(idIngrediente, resultado.formula_quimica || '');
+            actualizarRevisionFinalProducto();
+            cerrarModalProducto('modalFormulaQuimicaIngredienteProducto');
+            notificarProducto('success', 'Fórmula preparada', resultado.message ||
+                'La fórmula química se guardará al guardar el producto.');
+        } catch (error) {
+            notificarProducto('error', 'No se pudo asociar', error.message);
+        } finally {
+            boton.disabled = false;
+            boton.innerHTML = contenidoBoton;
+        }
+    }
+
+    // Prepara una fórmula ingresada manualmente después de que la búsqueda no pudo identificar una sola.
+    // La validación definitiva se realiza en el servidor y el guardado sigue esperando al producto final.
+    async function usarFormulaQuimicaManualProducto() {
+        const select = document.getElementById('form_ingrediente_select');
+        const idIngrediente = String(select?.value || '');
+        const campo = document.getElementById('form_formula_quimica_manual');
+        const bloque = document.getElementById('ingresoFormulaQuimicaManualProducto');
+        const boton = bloque?.querySelector('.producto-btn-primary');
+        const formula = String(campo?.value || '').trim();
+        const esIngredienteTemporal = /^TEMP-/.test(idIngrediente);
+
+        if ((!/^\d+$/.test(idIngrediente) && !esIngredienteTemporal) || !campo || !boton) {
+            return;
+        }
+
+        if (formula === '') {
+            notificarProducto('info', 'Ingrese la fórmula', 'Escriba la fórmula química verificada antes de usarla.');
+            campo.focus();
+            return;
+        }
+
+        if (esIngredienteTemporal) {
+            const opcion = Array.from(select.options || [])
+                .find((elemento) => elemento.value === idIngrediente);
+
+            if (opcion) {
+                opcion.dataset.formulaQuimica = normalizarFormulaQuimicaProducto(formula);
+            }
+
+            actualizarFormulaIngredienteSeleccionadoProducto();
+            actualizarFormulaEnFilasProducto(idIngrediente, formula);
+            actualizarRevisionFinalProducto();
+            notificarProducto('success', 'Fórmula manual preparada',
+                'La fórmula se guardará junto con el producto.');
+            return;
+        }
+
+        const contenidoBoton = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Preparando...';
+
+        try {
+            const respuesta = await fetch(
+                urlFormulaQuimicaIngredienteProducto('confirmar', idIngrediente), {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: new URLSearchParams({
+                        formula_quimica_manual: formula,
+                    }),
+                }
+            );
+            const resultado = await respuesta.json().catch(() => ({}));
+
+            if (!respuesta.ok) {
+                throw new Error(resultado.message || 'No fue posible preparar la fórmula química.');
+            }
+
+            const opcion = Array.from(select.options || [])
+                .find((elemento) => elemento.value === idIngrediente);
+
+            if (opcion) {
+                opcion.dataset.formulaQuimica = resultado.formula_quimica || '';
+            }
+
+            actualizarFormulaIngredienteSeleccionadoProducto();
+            actualizarFormulaEnFilasProducto(idIngrediente, resultado.formula_quimica || '');
+            actualizarRevisionFinalProducto();
+            notificarProducto('success', 'Fórmula manual preparada', resultado.message ||
+                'La fórmula química se guardará al guardar el producto.');
+        } catch (error) {
+            notificarProducto('error', 'No se pudo usar la fórmula', error.message);
+        } finally {
+            boton.disabled = false;
+            boton.innerHTML = contenidoBoton;
+        }
+    }
+
+    function actualizarFormulaEnFilasProducto(idIngrediente, formula) {
+        document.querySelectorAll('#tablaIngredientesProducto input[name*="[id_ingrediente]"]')
+            .forEach((input) => {
+                if (input.value !== String(idIngrediente)) {
+                    return;
+                }
+
+                const fila = input.closest('tr');
+                const celdaFormula = fila?.querySelector('.producto-ingredient-formula');
+
+                mostrarFormulaQuimicaProducto(celdaFormula, formula);
+                const campoFormula = fila?.querySelector('input[name*="[formula_quimica]"]');
+
+                if (campoFormula) {
+                    campoFormula.value = formula || '';
+                }
+            });
     }
 
     // LIMPIA DATOS TEMPORALES CUANDO SE ELIGE UNA OPCIÓN EXISTENTE
@@ -3452,10 +3947,17 @@
         const encabezado = columnasSeguras
             .map((columna) => `<th>${escaparHtmlProducto(columna)}</th>`)
             .join('');
+        const contenidoCelda = (valor) => {
+            if (valor && typeof valor === 'object' && typeof valor.html === 'string') {
+                return valor.html;
+            }
+
+            return escaparHtmlProducto(textoResumenProducto(valor)).replaceAll('\n', '<br>');
+        };
         const cuerpo = filasSeguras.length ?
             filasSeguras.map((fila) => `
                     <tr>
-                        ${(Array.isArray(fila) ? fila : []).map((valor) => `<td>${escaparHtmlProducto(textoResumenProducto(valor)).replaceAll('\n', '<br>')}</td>`).join('')}
+                        ${(Array.isArray(fila) ? fila : []).map((valor) => `<td>${contenidoCelda(valor)}</td>`).join('')}
                     </tr>
                 `).join('') :
             `
@@ -3507,6 +4009,191 @@
         });
 
         return grupos;
+    }
+
+    // OBTIENE LAS FRASES REGLAMENTARIAS MARCADAS
+    // El catálogo ya entrega tipo, código y descripción; aquí solo se leen para la revisión.
+    function frasesReglamentariasResumenProducto() {
+        return Array.from(document.querySelectorAll('input[name="frases_reglamentarias[]"]'))
+            .map((input) => ({
+                tipo: input.dataset.tipo || '',
+                codigo: input.dataset.codigo || '',
+                descripcion: input.dataset.descripcion || '',
+            }));
+    }
+
+    // ACTUALIZA LOS TOTALES DE LAS DOS LISTAS DE FRASES.
+    function actualizarTotalesFrasesReglamentariasProducto() {
+        document.querySelectorAll('[data-frases-list]').forEach((lista) => {
+            const tipo = lista.dataset.frasesList || '';
+            const total = lista.querySelectorAll('[data-frase-reglamentaria-id]').length;
+            const contador = document.querySelector(`[data-frases-total="${CSS.escape(tipo)}"]`);
+
+            if (contador) {
+                contador.textContent = total;
+            }
+
+            if (total === 0 && !lista.querySelector('.producto-frases-empty')) {
+                const vacio = document.createElement('p');
+                vacio.className = 'producto-frases-empty';
+                vacio.textContent = lista.dataset.mensajeVacio || '-';
+                lista.append(vacio);
+            }
+        });
+    }
+
+    // AGREGA UNA FRASE DESDE EL SELECTOR SUPERIOR A SU LISTA SEGÚN EL TIPO DEL CATÁLOGO.
+    function agregarFraseReglamentariaProducto() {
+        const select = document.getElementById('form_frase_reglamentaria_select');
+        const opcion = select?.options[select.selectedIndex];
+        const idFrase = opcion?.value || '';
+
+        if (!idFrase) {
+            notificarProducto('info', 'Seleccione una frase', 'Busque y seleccione una frase antes de agregarla.');
+            return;
+        }
+
+        if (document.querySelector(`[data-frase-reglamentaria-id="${CSS.escape(idFrase)}"]`)) {
+            notificarProducto('info', 'Frase ya agregada', 'La frase seleccionada ya pertenece a este producto.');
+            return;
+        }
+
+        const tipo = opcion.dataset.tipo || '';
+        const codigo = opcion.dataset.codigo || opcion.textContent.trim();
+        const descripcion = opcion.dataset.descripcion || '';
+        const lista = document.querySelector(`[data-frases-list="${CSS.escape(tipo)}"]`);
+
+        if (!lista || !['RIESGO', 'SEGURIDAD'].includes(tipo)) {
+            notificarProducto('error', 'Frase no disponible', 'La frase seleccionada no tiene un tipo válido.');
+            return;
+        }
+
+        lista.querySelector('.producto-frases-empty')?.remove();
+
+        const fila = document.createElement('article');
+        fila.className = 'producto-frase-option is-selected';
+        fila.dataset.fraseReglamentariaId = idFrase;
+        fila.innerHTML = `
+                <input type="hidden" name="frases_reglamentarias[]" value="${escaparHtmlProducto(idFrase)}"
+                    data-tipo="${escaparHtmlProducto(tipo)}" data-codigo="${escaparHtmlProducto(codigo)}"
+                    data-descripcion="${escaparHtmlProducto(descripcion)}">
+                <span class="producto-frase-check"><i class="fa-solid fa-check"></i></span>
+                <span class="producto-frase-copy"><strong>${escaparHtmlProducto(codigo)}</strong><span>${escaparHtmlProducto(descripcion)}</span></span>
+                <button type="button" class="producto-frase-remove" title="Quitar frase ${escaparHtmlProducto(codigo)}"
+                    onclick="quitarFraseReglamentariaProducto('${escaparHtmlProducto(idFrase)}')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>`;
+        lista.append(fila);
+
+        select.value = '';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        actualizarTotalesFrasesReglamentariasProducto();
+        document.getElementById('frases_reglamentarias')?.classList.remove('is-invalid');
+        document.querySelector('.producto-frases-error')?.remove();
+        actualizarResumenProducto();
+    }
+
+    // QUITA UNA FRASE SIN MODIFICAR EL CATÁLOGO GENERAL.
+    function quitarFraseReglamentariaProducto(idFrase) {
+        document.querySelector(`[data-frase-reglamentaria-id="${CSS.escape(String(idFrase))}"]`)?.remove();
+        actualizarTotalesFrasesReglamentariasProducto();
+        actualizarResumenProducto();
+    }
+
+    // ABRE EL MODAL PARA AGREGAR UNA FRASE QUE TODAVÍA NO ESTÁ EN EL CATÁLOGO.
+    function abrirModalFraseReglamentariaProducto() {
+        const codigo = document.getElementById('modal_frase_reglamentaria_codigo');
+        const descripcion = document.getElementById('modal_frase_reglamentaria_descripcion');
+
+        if (codigo) codigo.value = '';
+        if (descripcion) descripcion.value = '';
+        document.getElementById('modal_frase_reglamentaria_tipo').value = 'RIESGO';
+        abrirModalProducto('modalFraseReglamentariaProducto');
+
+        requestAnimationFrame(() => codigo?.focus());
+    }
+
+    // AGREGA UNA FRASE TEMPORAL AL SELECTOR Y LA SELECCIONA PARA EL PRODUCTO ACTUAL.
+    function agregarFraseReglamentariaTemporalProducto() {
+        const tipoInput = document.getElementById('modal_frase_reglamentaria_tipo');
+        const codigoInput = document.getElementById('modal_frase_reglamentaria_codigo');
+        const descripcionInput = document.getElementById('modal_frase_reglamentaria_descripcion');
+        const select = document.getElementById('form_frase_reglamentaria_select');
+        const contenedorTemporal = document.getElementById('frasesReglamentariasTemporalesProducto');
+        const tipo = tipoInput?.value || '';
+        const codigo = codigoInput?.value.trim().toUpperCase() || '';
+        const descripcion = descripcionInput?.value.trim().replace(/\s+/g, ' ') || '';
+
+        if (!codigo) {
+            marcarErrorProducto(codigoInput, 'Ingrese el código de la frase.');
+            return;
+        }
+
+        if (!descripcion) {
+            marcarErrorProducto(descripcionInput, 'Ingrese el texto de la frase.');
+            return;
+        }
+
+        const codigoYaExiste = Array.from(select?.options || [])
+            .filter((opcion) => opcion.value)
+            .some((opcion) => normalizarTextoProducto(opcion.dataset.codigo) === normalizarTextoProducto(codigo));
+
+        if (codigoYaExiste) {
+            marcarErrorProducto(codigoInput, 'Ese código ya existe. Seleccione la frase desde el listado.');
+            return;
+        }
+
+        if (!select || !contenedorTemporal || !['RIESGO', 'SEGURIDAD'].includes(tipo)) {
+            return;
+        }
+
+        const idTemporal = `TEMP-FRASE-${Date.now()}`;
+        const opcion = new Option(`${codigo} — ${descripcion}`, idTemporal, true, true);
+        opcion.dataset.tipo = tipo;
+        opcion.dataset.codigo = codigo;
+        opcion.dataset.descripcion = descripcion;
+        opcion.dataset.productoDetalle = tipo === 'RIESGO' ? 'Riesgo' : 'Seguridad';
+        opcion.dataset.temporal = '1';
+        select.add(opcion);
+
+        [
+            ['tipo', tipo],
+            ['codigo', codigo],
+            ['descripcion', descripcion],
+        ].forEach(([campo, valor]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = `frases_reglamentarias_temporales[${idTemporal}][${campo}]`;
+            input.value = valor;
+            contenedorTemporal.append(input);
+        });
+
+        limpiarErrorProducto(codigoInput);
+        limpiarErrorProducto(descripcionInput);
+        cerrarModalProducto('modalFraseReglamentariaProducto');
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // PRESENTA LAS FRASES SEPARADAS por tipo sin cambiar los valores del formulario.
+    function resumenFrasesReglamentariasProducto(frases) {
+        const frasesRiesgo = frases
+            .filter((frase) => frase.tipo === 'RIESGO')
+            .map((frase) => [frase.codigo, frase.descripcion]);
+        const frasesSeguridad = frases
+            .filter((frase) => frase.tipo === 'SEGURIDAD')
+            .map((frase) => [frase.codigo, frase.descripcion]);
+
+        return `
+                <div class="producto-review-frases-grid">
+                    <div>
+                        <span class="producto-review-frases-title is-risk">Frases de riesgo</span>
+                        ${tablaResumenProducto(['Código', 'Frase'], frasesRiesgo, '-')}
+                    </div>
+                    <div>
+                        <span class="producto-review-frases-title is-safety">Frases de seguridad</span>
+                        ${tablaResumenProducto(['Código', 'Frase'], frasesSeguridad, '-')}
+                    </div>
+                </div>`;
     }
 
     // OBTIENE LOS ÍNDICES DE LAS PRESENTACIONES ACTUALES
@@ -3677,6 +4364,7 @@
         const clasificacionToxicologicaOpcion = clasificacionToxicologicaSelect?.selectedOptions?.[0];
         const clasificacionToxicologicaNueva = clasificacionToxicologicaOpcion?.dataset.temporal === '1';
         const ingredientes = gruposPorIndiceResumenProducto('ingredientes_productos');
+        const frasesReglamentarias = frasesReglamentariasResumenProducto();
         const presentaciones = gruposPorIndiceResumenProducto('presentaciones');
         const registros = gruposPorIndiceResumenProducto('registros');
 
@@ -3729,6 +4417,12 @@
             ));
         }
 
+        datosProducto.push(itemResumenProducto(
+            'Observación toxicológica de muestra',
+            valorResumenProducto('#form_observacion_toxicologica_muestra'),
+            true
+        ));
+
         if (clasificacionToxicologicaNueva) {
             datosProducto.push(itemResumenProducto(
                 'Clasificación toxicológica',
@@ -3751,6 +4445,7 @@
             return [
                 Number(indice) + 1,
                 nombre,
+                { html: formulaQuimicaHtmlProducto(ingrediente.formula_quimica) },
                 ingrediente.porcentaje !== undefined && ingrediente.porcentaje !== '' ?
                 `${formatearPorcentajeIngrediente(ingrediente.porcentaje)}%` : '',
             ];
@@ -3765,16 +4460,21 @@
             grupoResumenProducto(
                 `Ingredientes (${Object.keys(ingredientes).length})`,
                 tablaResumenProducto(
-                    ['#', 'Ingrediente', 'Porcentaje'],
+                    ['#', 'Ingrediente', 'Fórmula química', 'Porcentaje'],
                     filasIngredientes,
                     '-'
                 ),
                 '2'
             ),
             grupoResumenProducto(
+                `Riesgos y seguridad (${frasesReglamentarias.length})`,
+                resumenFrasesReglamentariasProducto(frasesReglamentarias),
+                '3'
+            ),
+            grupoResumenProducto(
                 'Presentaciones y registros vinculados',
                 resumenPresentacionesRegistrosProducto(presentaciones, registros),
-                '3'
+                '4'
             ),
         ].join('');
     }
@@ -3851,6 +4551,10 @@
 
         if (primerCampo.startsWith('presentaciones') || primerCampo.startsWith('registros')) {
             return 2;
+        }
+
+        if (primerCampo.startsWith('frases_reglamentarias')) {
+            return 3;
         }
 
         return 0;
@@ -3996,7 +4700,7 @@
 
         ['form_nombre_comercial', 'form_tipo_producto', 'form_codigo', 'form_id_importador_persona',
             'form_id_fabricante', 'form_id_territorio_pais', 'form_id_clasificacion_quimica',
-            'form_id_clasificacion_toxicologica'
+            'form_observacion_toxicologica_muestra', 'form_id_clasificacion_toxicologica'
         ].forEach((
             id) => {
             document.getElementById(id)?.addEventListener('input', () => {
@@ -4081,9 +4785,14 @@
 
         document.getElementById('form_ingrediente_select')?.addEventListener('change',
             actualizarDetalleIngredienteProducto);
+        document.getElementById('buscarFormulaQuimicaIngredienteProducto')?.addEventListener('click',
+            consultarFormulaQuimicaIngredienteProducto);
+        document.getElementById('form_formula_quimica_manual')?.addEventListener('input',
+            previsualizarFormulaQuimicaManualProducto);
         actualizarDetalleIngredienteProducto();
 
         actualizarTotalPorcentajeIngredientesProducto();
+        actualizarNombreTecnicoProducto();
 
         document.getElementById('form_presentacion_catalogo')?.addEventListener('change',
             autocompletarPresentacionProducto);
@@ -4099,6 +4808,17 @@
         document.querySelectorAll(
                 '.producto-input, .producto-select, .producto-textarea, .producto-upload-input')
             .forEach((campo) => prepararLimpiezaErrorProducto(campo));
+
+        document.getElementById('form_frase_reglamentaria_select')?.addEventListener('change', (evento) => {
+            if (evento.currentTarget.value) {
+                agregarFraseReglamentariaProducto();
+                return;
+            }
+
+            document.getElementById('frases_reglamentarias')?.classList.remove('is-invalid');
+            document.querySelector('.producto-frases-error')?.remove();
+        });
+        actualizarTotalesFrasesReglamentariasProducto();
 
         const tieneErroresServidor = Object.keys(productoErroresLaravel).length > 0;
         mostrarPasoProducto(tieneErroresServidor ? pasoConPrimerErrorProducto(productoErroresLaravel) : 0);
