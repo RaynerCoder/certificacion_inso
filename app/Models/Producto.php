@@ -74,6 +74,26 @@ class Producto extends Model
         return $this->hasMany(Registro::class, 'id_producto');
     }
 
+    // Relación uno a muchos con las asignaciones del producto a trámites.
+    public function certificadosProductos()
+    {
+        return $this->hasMany(CertificadoProducto::class, 'id_producto');
+    }
+
+    // Relación muchos a muchos con los trámites que incluyen este producto.
+    public function certificados()
+    {
+        return $this->belongsToMany(
+            Certificado::class,
+            'certificados_productos',
+            'id_producto',
+            'id_certificado'
+        )
+            ->withPivot('id')
+            ->withTimestamps()
+            ->wherePivotNull('deleted_at');
+    }
+
     // Relación uno a muchos (un producto esta en muchas aduanas)
     public function aduanas()
     {

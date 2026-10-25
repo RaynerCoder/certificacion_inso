@@ -24,6 +24,7 @@ class CertificadoEmitido extends Model
         'id_plantilla_certificado',
         'orden_emision',
         'numero_certificado',
+        'codigo_verificacion',
         'fecha_emision',
         'fecha_inicio',
         'fecha_fin',

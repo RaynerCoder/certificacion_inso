@@ -12,6 +12,7 @@
         $vieneDeFinalizados = request('bandeja') === 'finalizados';
         $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
         $abrirModalEmision = $errors->emisionCertificado->any() && $datosVigenciaEmision['disponible'];
+        $informacionPublicaQr = $informacionPublicaQr ?? [];
 
         // Nombre visible: razon social para empresa o nombre completo para persona natural.
         $nombrePersona = function ($persona) {
@@ -279,6 +280,7 @@
             'alto' => $medidasPlantilla['alto'],
             'fondo' => $fondoPlantilla,
             'ajuste_fondo' => $plantillaCertificado?->ajuste_fondo ?? 'ESTIRAR',
+            'requiere_qr_verificacion' => (bool) ($usaQrVerificacion ?? false),
             'elementos' => $elementosEmision,
             'diseno_fabric' => $plantillaCertificado?->diseno_fabric_json,
             'valores' => $valoresPlantillaConAlias,
@@ -685,6 +687,96 @@
             grid-column: 1 / -1;
         }
 
+        .emit-qr-summary {
+            align-items: stretch;
+            display: grid;
+            gap: 12px;
+            grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr);
+        }
+
+        .emit-qr-note,
+        .emit-qr-data {
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .emit-qr-note {
+            background: #ecfeff;
+            color: #155e75;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .emit-qr-image {
+            background: #fff;
+            border: 1px solid #a5f3fc;
+            border-radius: 6px;
+            display: block;
+            height: 116px;
+            margin: 12px auto 0;
+            padding: 6px;
+            width: 116px;
+        }
+
+        .emit-qr-image[hidden] {
+            display: none;
+        }
+
+        .emit-qr-data {
+            background: #ffffff;
+        }
+
+        .emit-qr-data h3 {
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 800;
+            margin: 0 0 3px;
+        }
+
+        .emit-qr-data > p {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.35;
+            margin: 0 0 8px;
+        }
+
+        .emit-qr-rows {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .emit-qr-row {
+            display: grid;
+            grid-template-columns: minmax(120px, .8fr) minmax(0, 1.2fr);
+        }
+
+        .emit-qr-row + .emit-qr-row {
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .emit-qr-row dt,
+        .emit-qr-row dd {
+            font-size: 11px;
+            line-height: 1.35;
+            margin: 0;
+            overflow-wrap: anywhere;
+            padding: 7px 8px;
+        }
+
+        .emit-qr-row dt {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+        }
+
+        .emit-qr-row dd {
+            color: #0f172a;
+            font-weight: 600;
+        }
+
         .emit-modal-actions {
             align-items: center;
             background: #f8fafc;
@@ -705,7 +797,8 @@
         @media (max-width: 1024px) {
             .emit-support,
             .emit-definition,
-            .emit-modal-body {
+            .emit-modal-body,
+            .emit-qr-summary {
                 grid-template-columns: 1fr;
             }
 
@@ -835,12 +928,15 @@
         @endif
 
         <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
-            <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data">
+            <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data"
+                data-requiere-qr-verificacion="{{ ($usaQrVerificacion ?? false) ? '1' : '0' }}"
+                @if ($usaQrVerificacion ?? false) data-preparar-qr-url="{{ route('certificados_emitir_preparar_qr', $certificado) }}" @endif>
                 @csrf
                 <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
                 @if ($registroSeleccionado)
                     <input type="hidden" name="form_id_certificado_registro" value="{{ $registroSeleccionado->id }}">
                 @endif
+                <input type="hidden" name="form_codigo_verificacion" data-codigo-verificacion>
                 <textarea name="form_documento_renderizado" data-documento-renderizado hidden></textarea>
 
                 <div class="emit-modal-head">
@@ -901,10 +997,43 @@
                             El PDF se generará automáticamente con la plantilla activa al guardar la emisión.
                         @endif
                     </div>
+
+                    @if ($usaQrVerificacion ?? false)
+                        <div class="emit-modal-field-full emit-qr-summary">
+                            <div class="emit-qr-note">
+                                <p class="m-0 font-bold">
+                                    <i class="fa-solid fa-qrcode mr-1" aria-hidden="true"></i>
+                                    QR de verificación
+                                </p>
+                                <p class="mb-0 mt-2">Use <strong>Vista previa QR</strong> para colocarlo en el certificado. El QR todavía no puede consultarse mientras no guarde la emisión.</p>
+                                <img class="emit-qr-image" data-imagen-vista-qr alt="Vista previa del código QR" hidden>
+                                <p class="mt-2 hidden font-semibold" data-estado-vista-qr></p>
+                            </div>
+
+                            <div class="emit-qr-data">
+                                <h3>Información que se mostrará al escanear</h3>
+                                <p>Revise estos datos antes de emitir. Esta misma información será pública cuando el certificado quede guardado.</p>
+                                <dl class="emit-qr-rows">
+                                    @foreach ($informacionPublicaQr as $filaQr)
+                                        <div class="emit-qr-row">
+                                            <dt>{{ $filaQr['etiqueta'] }}</dt>
+                                            <dd>{{ $filaQr['valor'] }}</dd>
+                                        </div>
+                                    @endforeach
+                                </dl>
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="emit-modal-actions">
                     <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-emision>Cancelar</button>
+                    @if ($usaQrVerificacion ?? false)
+                        <button type="button" class="emit-btn emit-btn-muted" data-preparar-vista-qr>
+                            <i class="fa-solid fa-qrcode"></i>
+                            Vista previa QR
+                        </button>
+                    @endif
                     <button type="submit" class="emit-btn emit-btn-primary" data-requiere-render-certificado disabled>
                         <i class="fa-solid fa-floppy-disk"></i>
                         Emitir certificado
@@ -1489,6 +1618,9 @@
                 const botonAbrir = document.querySelector('[data-abrir-modal-emision]');
                 const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-emision]');
                 const formulario = modal?.querySelector('form');
+                const botonVistaQr = formulario?.querySelector('[data-preparar-vista-qr]');
+                const estadoVistaQr = formulario?.querySelector('[data-estado-vista-qr]');
+                const imagenVistaQr = formulario?.querySelector('[data-imagen-vista-qr]');
 
                 if (!modal || !botonAbrir) {
                     return;
@@ -1504,6 +1636,55 @@
                     });
                 });
 
+                async function prepararVistaQr() {
+                    if (formulario.dataset.requiereQrVerificacion !== '1') return;
+
+                    const campoCodigo = formulario.querySelector('[data-codigo-verificacion]');
+                    if (formulario.dataset.qrPreparado === '1' && campoCodigo?.value) return;
+
+                    const respuesta = await fetch(formulario.dataset.prepararQrUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': formulario.querySelector('input[name="_token"]')?.value || '',
+                        },
+                    });
+                    const contenido = await respuesta.json().catch(() => ({}));
+
+                    if (!respuesta.ok || !contenido.codigo_verificacion || !contenido.imagen_qr) {
+                        throw new Error(contenido.message || 'No se pudo preparar el código QR de verificación.');
+                    }
+
+                    if (typeof window.prepararQrCertificadoEmision !== 'function') {
+                        throw new Error('No se pudo incorporar el código QR al documento. Recargue la página e intente nuevamente.');
+                    }
+
+                    await window.prepararQrCertificadoEmision(contenido.imagen_qr);
+                    campoCodigo.value = contenido.codigo_verificacion;
+                    formulario.dataset.qrPreparado = '1';
+
+                    if (imagenVistaQr) {
+                        imagenVistaQr.src = contenido.imagen_qr;
+                        imagenVistaQr.hidden = false;
+                    }
+
+                    if (estadoVistaQr) {
+                        estadoVistaQr.hidden = false;
+                        estadoVistaQr.textContent = 'Vista previa preparada. Cierre este cuadro para revisar la posición del QR; al emitir se usará este mismo código.';
+                    }
+                }
+
+                botonVistaQr?.addEventListener('click', async () => {
+                    botonVistaQr.disabled = true;
+                    try {
+                        await prepararVistaQr();
+                    } catch (error) {
+                        window.alert(error?.message || 'No se pudo preparar la vista previa del QR.');
+                    } finally {
+                        botonVistaQr.disabled = false;
+                    }
+                });
+
                 let preparandoEnvio = false;
                 formulario?.addEventListener('submit', async (evento) => {
                     if (preparandoEnvio) return;
@@ -1512,8 +1693,20 @@
                     if (!formulario.reportValidity()) return;
 
                     preparandoEnvio = true;
-                    formulario.querySelectorAll('button').forEach((boton) => { boton.disabled = true; });
-                    HTMLFormElement.prototype.submit.call(formulario);
+                    const botones = formulario.querySelectorAll('button');
+                    botones.forEach((boton) => { boton.disabled = true; });
+
+                    try {
+                        if (formulario.dataset.requiereQrVerificacion === '1') {
+                            await prepararVistaQr();
+                        }
+
+                        HTMLFormElement.prototype.submit.call(formulario);
+                    } catch (error) {
+                        preparandoEnvio = false;
+                        botones.forEach((boton) => { boton.disabled = false; });
+                        window.alert(error?.message || 'No se pudo preparar la emisión. Intente nuevamente.');
+                    }
                 });
             }
 

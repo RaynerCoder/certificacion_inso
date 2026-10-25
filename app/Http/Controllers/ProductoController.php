@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CatalogoMedida;
 use App\Models\Certificado;
+use App\Models\CertificadoProducto;
 use App\Models\ClasificacionQuimica;
 use App\Models\ClasificacionToxicologica;
 use App\Models\Fabricante;
@@ -113,7 +114,13 @@ class ProductoController extends Controller
             $presentacionesCreadas = $this->guardarPresentaciones($request, $producto);
             $registrosCreados = $this->guardarRegistros($request, $producto, $presentacionesCreadas);
 
-            // El trámite se relaciona con los registros creados, no directamente con el producto.
+            // El producto pertenece al trámite aunque todavía no tenga registros o lotes.
+            $this->relacionarProductoConTramite(
+                $datos['form_id_certificado'] ?? null,
+                $producto
+            );
+
+            // Los registros reales se conservan como una relación adicional.
             $this->relacionarRegistrosConTramite(
                 $datos['form_id_certificado'] ?? null,
                 $registrosCreados
@@ -345,7 +352,12 @@ class ProductoController extends Controller
                 $producto
             );
 
-            $this->sincronizarRegistrosProducto($request, $producto, $presentaciones);
+            $registrosSincronizados = $this->sincronizarRegistrosProducto(
+                $request,
+                $producto,
+                $presentaciones
+            );
+            $this->relacionarRegistrosConTramitesDelProducto($producto, $registrosSincronizados);
             $this->retirarPresentacionesProducto($producto, $presentacionesConservadas);
         });
 
@@ -707,6 +719,10 @@ class ProductoController extends Controller
             $relaciones[] = 'registros utilizados por certificados';
         }
 
+        if ($producto->certificadosProductos()->exists()) {
+            $relaciones[] = 'trámites que incluyen el producto';
+        }
+
         if ($producto->presentaciones()->whereHas('registros', function ($consulta) use ($producto) {
             $consulta->where('id_producto', '!=', $producto->id);
         })->exists()) {
@@ -976,6 +992,12 @@ class ProductoController extends Controller
         $registrosCreados = [];
 
         foreach ($request->input('registros', []) as $registroDato) {
+            // Una presentación puede existir sin registro. Nunca se crea una fila
+            // si el usuario no ingresó datos propios del registro.
+            if (! $this->registroTieneDatos($registroDato)) {
+                continue;
+            }
+
             $indicePresentacion = $registroDato['id_presentacion_temporal'] ?? null;
 
             $registro = Registro::create([
@@ -1134,10 +1156,15 @@ class ProductoController extends Controller
         Request $request,
         Producto $producto,
         array $presentacionesPorIndice
-    ): void {
+    ): array {
         $registrosConservados = [];
 
         foreach ($request->input('registros', []) as $datosRegistro) {
+            // Evita crear o actualizar filas vacías desde la edición.
+            if (! $this->registroTieneDatos($datosRegistro)) {
+                continue;
+            }
+
             $indicePresentacion = $datosRegistro['id_presentacion_temporal'] ?? null;
             $datosParaGuardar = [
                 'id_producto' => $producto->id,
@@ -1185,6 +1212,8 @@ class ProductoController extends Controller
             $registro->update(['estado' => 'INACTIVO']);
             $registro->delete();
         }
+
+        return array_values(array_unique($registrosConservados));
     }
 
     /**
@@ -1210,7 +1239,35 @@ class ProductoController extends Controller
     }
 
     /**
-     * Relaciona con el trámite únicamente los registros creados en este guardado.
+     * Relaciona el producto con su trámite sin depender de que existan registros.
+     */
+    private function relacionarProductoConTramite($idCertificado, Producto $producto): void
+    {
+        if (! $idCertificado) {
+            return;
+        }
+
+        $relacion = CertificadoProducto::withTrashed()
+            ->where('id_certificado', $idCertificado)
+            ->where('id_producto', $producto->id)
+            ->first();
+
+        if ($relacion) {
+            if ($relacion->trashed()) {
+                $relacion->restore();
+            }
+
+            return;
+        }
+
+        CertificadoProducto::create([
+            'id_certificado' => $idCertificado,
+            'id_producto' => $producto->id,
+        ]);
+    }
+
+    /**
+     * Relaciona con el trámite únicamente los registros reales creados en este guardado.
      */
     private function relacionarRegistrosConTramite($idCertificado, array $registrosCreados): void
     {
@@ -1221,6 +1278,25 @@ class ProductoController extends Controller
         Certificado::find($idCertificado)
             ?->registros()
             ->syncWithoutDetaching($registrosCreados);
+    }
+
+    /**
+     * Cuando un producto ya pertenece a un trámite, sus registros reales se
+     * vinculan a ese trámite al guardarse desde la edición del producto.
+     */
+    private function relacionarRegistrosConTramitesDelProducto(Producto $producto, array $idsRegistros): void
+    {
+        if ($idsRegistros === []) {
+            return;
+        }
+
+        $producto->certificadosProductos()
+            ->pluck('id_certificado')
+            ->each(function ($idCertificado) use ($idsRegistros) {
+                Certificado::find($idCertificado)
+                    ?->registros()
+                    ->syncWithoutDetaching($idsRegistros);
+            });
     }
 
     // Valida la información enviada antes de iniciar la transacción.
@@ -1422,16 +1498,41 @@ class ProductoController extends Controller
         }
 
         foreach ($registros as $indice => $registro) {
-            if (! is_array($registro) || ! array_key_exists('cantidad', $registro)) {
+            if (! is_array($registro)) {
+                unset($registros[$indice]);
+
                 continue;
             }
 
-            $registros[$indice]['cantidad'] = $this->normalizarCantidadProducto(
-                $registro['cantidad']
-            );
+            if (array_key_exists('cantidad', $registro)) {
+                $registros[$indice]['cantidad'] = $this->normalizarCantidadProducto(
+                    $registro['cantidad']
+                );
+            }
+
+            // Los campos técnicos pueden llegar vacíos desde el formulario, pero
+            // no representan un registro y no deben persistirse.
+            if (! $this->registroTieneDatos($registros[$indice])) {
+                unset($registros[$indice]);
+            }
         }
 
         $request->merge(['registros' => $registros]);
+    }
+
+    /**
+     * Una fila representa un registro solo cuando contiene información propia del
+     * registro; los IDs técnicos no cuentan como datos reales.
+     */
+    private function registroTieneDatos(array $registro): bool
+    {
+        foreach (['codigo_autorizacion', 'numero_lote', 'fecha_vigencia', 'cantidad', 'id_catalogo_unidad'] as $campo) {
+            if (filled($registro[$campo] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1843,13 +1944,6 @@ class ProductoController extends Controller
         $presentaciones = $request->input('presentaciones', []);
         $registrosAgregados = [];
 
-        if ($request->filled('form_id_certificado') && empty($request->input('registros', []))) {
-            $validador->errors()->add(
-                'registros',
-                'Para relacionar el producto al tramite debe agregar al menos un registro.'
-            );
-        }
-
         foreach ($request->input('registros', []) as $indice => $registroDato) {
             $indicePresentacion = $registroDato['id_presentacion_temporal'] ?? null;
 
@@ -1862,7 +1956,31 @@ class ProductoController extends Controller
                 continue;
             }
 
+            if (
+                blank($registroDato['codigo_autorizacion'] ?? null)
+                && blank($registroDato['numero_lote'] ?? null)
+            ) {
+                $validador->errors()->add(
+                    "registros.$indice.codigo_autorizacion",
+                    'Ingrese el código de autorización o el número de lote al agregar un registro.'
+                );
+            }
+
             $idUnidad = $registroDato['id_catalogo_unidad'] ?? null;
+
+            if (filled($registroDato['cantidad'] ?? null) && blank($idUnidad)) {
+                $validador->errors()->add(
+                    "registros.$indice.id_catalogo_unidad",
+                    'Seleccione la unidad cuando registre una cantidad.'
+                );
+            }
+
+            if (filled($idUnidad) && blank($registroDato['cantidad'] ?? null)) {
+                $validador->errors()->add(
+                    "registros.$indice.cantidad",
+                    'Ingrese la cantidad cuando seleccione una unidad.'
+                );
+            }
 
             if ($idUnidad && ! $this->catalogoUnidadValido($request, $idUnidad)) {
                 $validador->errors()->add(

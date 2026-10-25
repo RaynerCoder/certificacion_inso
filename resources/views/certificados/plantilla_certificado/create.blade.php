@@ -268,16 +268,9 @@
                     </select>
                     <select class="plantilla-toolbar-select is-grid-control" data-plantilla-grid-size
                         aria-label="Tamaño de cuadrícula" title="Tamaño de cuadrícula">
-                        <option value="5">5 px</option>
-                        <option value="10" selected>10 px</option>
-                        <option value="20">20 px</option>
-                        <option value="25">25 px</option>
-                        <option value="40">40 px</option>
-                        <option value="50">50 px</option>
-                        <option value="75">75 px</option>
-                        <option value="100">100 px</option>
-                        <option value="150">150 px</option>
-                        <option value="200">200 px</option>
+                        @for ($paso = 5; $paso <= 200; $paso += 5)
+                            <option value="{{ $paso }}" @selected($paso === 10)>{{ $paso }} px</option>
+                        @endfor
                     </select>
                     <button type="button" class="plantilla-action-btn plantilla-snap-btn" data-plantilla-tool="snap"
                         title="Alinear bordes y centros con otros campos y con la cuadrícula"

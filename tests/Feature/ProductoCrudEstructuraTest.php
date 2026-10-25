@@ -122,6 +122,27 @@ class ProductoCrudEstructuraTest extends TestCase
         $this->assertNull($request->input('registros.0.cantidad'));
     }
 
+    public function test_un_registro_sin_datos_reales_no_se_envia_a_persistencia(): void
+    {
+        $request = Request::create('/productos', 'POST', [
+            'registros' => [[
+                'id_registro' => '',
+                'id_presentacion_temporal' => '0',
+                'codigo_autorizacion' => '',
+                'numero_lote' => '',
+                'fecha_vigencia' => '',
+                'cantidad' => '',
+                'id_catalogo_unidad' => '',
+                'estado' => 'ACTIVO',
+            ]],
+        ]);
+        $metodo = new ReflectionMethod(ProductoController::class, 'normalizarCantidadesPresentaciones');
+
+        $metodo->invoke(app(ProductoController::class), $request);
+
+        $this->assertSame([], $request->input('registros'));
+    }
+
     public function test_un_ingrediente_temporal_con_nombre_es_valido(): void
     {
         // Esta tabla mínima permite probar la misma comparación que se usa al guardar el producto.
@@ -303,6 +324,21 @@ class ProductoCrudEstructuraTest extends TestCase
         $this->assertTrue(method_exists(\App\Models\Producto::class, 'frasesReglamentarias'));
         $this->assertTrue(method_exists(\App\Models\Producto::class, 'frasesReglamentariasProductos'));
         $this->assertTrue(method_exists(FraseReglamentaria::class, 'productos'));
+    }
+
+    public function test_el_producto_se_relaciona_con_el_tramite_sin_necesitar_un_registro(): void
+    {
+        $migracion = file_get_contents(
+            database_path('migrations/2026_10_24_000001_create_certificados_productos_table.php')
+        );
+
+        $this->assertTrue(method_exists(\App\Models\Producto::class, 'certificadosProductos'));
+        $this->assertTrue(method_exists(\App\Models\Producto::class, 'certificados'));
+        $this->assertTrue(method_exists(\App\Models\Certificado::class, 'certificadosProductos'));
+        $this->assertTrue(method_exists(\App\Models\Certificado::class, 'productos'));
+        $this->assertStringContainsString("Schema::create('certificados_productos'", $migracion);
+        $this->assertStringContainsString('certificados_productos_certificado_producto_unique', $migracion);
+        $this->assertStringNotContainsString('cascadeOnDelete', $migracion);
     }
 
     public function test_los_errores_de_guardado_se_devuelven_sin_recargar_el_formulario(): void

@@ -15,7 +15,7 @@ const SELECTOR_LIENZO = '[data-plantilla-lienzo]';
 const COLOR_PRINCIPAL = '#0f766e';
 const COLOR_TEXTO = '#0f172a';
 const PASO_CUADRICULA_PREDETERMINADO = 10;
-const PASOS_CUADRICULA_PERMITIDOS = [5, 10, 20, 25, 40, 50, 75, 100, 150, 200];
+const PASOS_CUADRICULA_PERMITIDOS = Array.from({ length: 40 }, (_, indice) => (indice + 1) * 5);
 const TOLERANCIA_GUIA = 15;
 const CALIDAD_PREVISUALIZACION = 2;
 const CALIDAD_EXPORTACION = 3;
@@ -152,7 +152,7 @@ function crearEditorPlantilla(elementoCanvas) {
     let zoom = 1;
     // La cuadrícula y el imán son independientes: se puede usar la guía visual sin forzar movimientos.
     let cuadriculaVisible = true;
-    let imanActivo = true;
+    let imanActivo = false;
     let tipoCuadricula = 'LINEAS';
     let pasoCuadricula = PASO_CUADRICULA_PREDETERMINADO;
     let historial = [];
@@ -1173,6 +1173,14 @@ function crearEditorPlantilla(elementoCanvas) {
         });
         lienzo.on('mouse:up', ocultarGuiasAlineacion);
 
+        // El espacio de trabajo fuera de la hoja también permite soltar la selección.
+        controles.envolturaLienzo?.addEventListener('mousedown', (evento) => {
+            if (evento.button !== 0 || teclaEspacioActiva || evento.shiftKey || evento.ctrlKey || evento.metaKey) return;
+            if (lienzo.wrapperEl.contains(evento.target)) return;
+            if (evento.target.closest('button, input, select, textarea, a')) return;
+            limpiarSeleccion();
+        });
+
         controles.envolturaLienzo?.addEventListener('wheel', (evento) => {
             if (!evento.ctrlKey) return;
             evento.preventDefault();
@@ -1258,9 +1266,9 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function seleccionarDesdeLienzo(evento) {
-        const objetos = evento.target instanceof ActiveSelection
-            ? evento.target.getObjects()
-            : (evento.selected?.length ? evento.selected : [evento.target]);
+        if (renderizandoLienzo) return;
+        // En selection:updated, selected solo contiene las capas recién añadidas.
+        const objetos = lienzo.getActiveObjects();
         const indices = objetos
             .map((objeto) => objeto?.plantillaIndice)
             .filter(Number.isInteger);

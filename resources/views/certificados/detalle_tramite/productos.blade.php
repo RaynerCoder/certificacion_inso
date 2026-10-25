@@ -81,7 +81,7 @@
                                 </select>
 
                                 <p class="tramite-product-selector-help">
-                                    Al confirmar se asociarán todos los registros activos de este producto.
+                                    Al confirmar se asociará el producto. Sus registros activos se vincularán solo si existen.
                                 </p>
 
                                 @foreach ($productosDisponiblesTramite as $productoDisponible)
@@ -108,7 +108,7 @@
                                             <dd>{{ $productoDisponible->presentaciones_activas_count }}</dd>
                                         </div>
                                         <div>
-                                            <dt>Registros que se asociarán</dt>
+                                            <dt>Registros activos</dt>
                                             <dd>{{ $productoDisponible->registros_activos_count }}</dd>
                                         </div>
                                     </dl>
@@ -149,9 +149,9 @@
         @endif
 
         <div class="tramite-product-list">
-            @forelse ($registrosPorProducto as $grupoRegistros)
+            @forelse ($productosAsociadosTramite as $producto)
                 @php
-                    $producto = $grupoRegistros->first()?->producto;
+                    $grupoRegistros = $registrosPorProducto->get('producto_' . $producto->id, collect());
                     $ingredientesProducto = $producto?->ingredientesProductos ?? collect();
                     // El trámite siempre toma las presentaciones actuales del producto. También conserva
                     // una presentación inactiva si todavía respalda un registro de este certificado.

@@ -273,6 +273,8 @@ Route::get('/certificados/plantillas/archivo/{plantillaCertificado}', [Certifica
 Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController::class, 'verPlantilla'])->name('certificados_plantillas_show');
 Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
+Route::post('/certificados/{certificado}/emitir/preparar-qr', [CertificadoController::class, 'prepararQrEmision'])
+    ->name('certificados_emitir_preparar_qr');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')

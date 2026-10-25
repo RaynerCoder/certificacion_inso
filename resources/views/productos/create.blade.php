@@ -2349,9 +2349,53 @@
         }
     }
 
-    // AGREGA UNA PRESENTACIÓN Y UN REGISTRO
-    // valida los datos y agrega una fila para enviar al controlador al guardar el producto.
+    // AGREGA SOLO UNA PRESENTACIÓN
+    // La presentación se guarda de forma independiente; no genera un registro vacío.
+    function agregarPresentacionProducto() {
+        const datos = obtenerDatosRegistroPresentacionProducto();
+
+        if (!validarPresentacionProducto(datos)) {
+            return;
+        }
+
+        const datosPreparados = prepararRegistroPresentacionProducto(datos);
+
+        const filaExistente = document.querySelector(
+            `#tablaRegistrosPresentacionesProducto tr[data-presentacion-indice="${datosPreparados.indicePresentacion}"]`
+        );
+
+        if (datosPreparados.reutilizaPresentacion && filaExistente) {
+            marcarErrorProducto(
+                datosPreparados.campos.catalogoPresentacion,
+                'Esta presentación ya fue agregada. Selecciónela al crear un registro.'
+            );
+
+            return;
+        }
+
+        document.getElementById('sinRegistrosPresentacionesProducto')?.remove();
+
+        if (!datosPreparados.reutilizaPresentacion) {
+            guardarPresentacionNuevaProducto(datosPreparados);
+        }
+
+        document
+            .getElementById('tablaRegistrosPresentacionesProducto')
+            .appendChild(crearFilaPresentacionProducto(datosPreparados));
+
+        guardarEtiquetaPresentacionProducto(datosPreparados);
+        limpiarFormularioRegistroPresentacionProducto(datosPreparados, false);
+        filtrarRegistrosPresentacionesProducto();
+        actualizarResumenProducto();
+    }
+
+    // COMPATIBILIDAD CON LLAMADAS ANTIGUAS DEL FORMULARIO.
     function agregarPresentacionRegistroProducto() {
+        agregarRegistroProducto();
+    }
+
+    // AGREGA UN REGISTRO REAL A UNA PRESENTACIÓN.
+    function agregarRegistroProducto() {
         const datos = obtenerDatosRegistroPresentacionProducto();
 
         if (!validarRegistroPresentacionProducto(datos)) {
@@ -2381,6 +2425,12 @@
         if (!datosPreparados.reutilizaPresentacion) {
             guardarPresentacionNuevaProducto(datosPreparados);
         }
+
+        // Al registrar datos reales de una presentación ya listada, reemplaza su
+        // fila informativa para no mostrar dos veces la misma presentación.
+        document.querySelector(
+            `#tablaRegistrosPresentacionesProducto tr[data-tipo-fila="presentacion"][data-presentacion-indice="${datosPreparados.indicePresentacion}"]`
+        )?.remove();
 
         const fila = crearFilaRegistroProducto(datosPreparados);
 
@@ -2451,20 +2501,11 @@
         };
     }
 
-    // VALIDA LA PRESENTACIÓN Y EL REGISTRO
-    // verifica los campos obligatorios y el formato de la imagen cuando existe.
-    function validarRegistroPresentacionProducto(datos) {
+    // VALIDA LA PRESENTACIÓN, que siempre se registra como dato propio.
+    function validarPresentacionProducto(datos) {
         const cantidadPresentacionValida = validarNumeroProducto(
             'form_presentacion_cantidad',
             'Ingrese la cantidad de la presentación.',
-            0.01,
-            null,
-            2
-        );
-
-        const cantidadRegistroValida = !datos.registro.cantidad || validarNumeroProducto(
-            'form_registro_cantidad',
-            'Ingrese una cantidad registrada válida.',
             0.01,
             null,
             2
@@ -2475,7 +2516,7 @@
             'Seleccione la unidad de la presentación.'
         );
 
-        if (!cantidadPresentacionValida || !unidadPresentacionValida || !cantidadRegistroValida) {
+        if (!cantidadPresentacionValida || !unidadPresentacionValida) {
             return false;
         }
 
@@ -2486,6 +2527,57 @@
             marcarErrorProducto(
                 datos.campos.etiqueta,
                 'Seleccione una imagen JPG, PNG o WEBP.'
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    // VALIDA UN REGISTRO SOLO CUANDO EL USUARIO DECIDE CREARLO.
+    function validarRegistroPresentacionProducto(datos) {
+        if (!validarPresentacionProducto(datos)) {
+            return false;
+        }
+
+        const identificadorValido = Boolean(
+            datos.registro.codigoAutorizacion || datos.registro.numeroLote
+        );
+        const cantidadRegistroValida = !datos.registro.cantidad || validarNumeroProducto(
+            'form_registro_cantidad',
+            'Ingrese una cantidad registrada válida.',
+            0.01,
+            null,
+            2
+        );
+
+        if (!identificadorValido) {
+            marcarErrorProducto(
+                datos.campos.codigoAutorizacion,
+                'Ingrese el código de autorización o el número de lote para agregar el registro.'
+            );
+
+            return false;
+        }
+
+        if (!cantidadRegistroValida) {
+            return false;
+        }
+
+        if (datos.registro.cantidad && !datos.registro.unidadId) {
+            marcarErrorProducto(
+                datos.campos.unidadRegistro,
+                'Seleccione la unidad de la cantidad registrada.'
+            );
+
+            return false;
+        }
+
+        if (datos.registro.unidadId && !datos.registro.cantidad) {
+            marcarErrorProducto(
+                datos.campos.cantidadRegistro,
+                'Ingrese la cantidad registrada para la unidad seleccionada.'
             );
 
             return false;
@@ -2716,6 +2808,24 @@
         return fila;
     }
 
+    // CREA LA FILA VISUAL DE UNA PRESENTACIÓN QUE AÚN NO TIENE REGISTRO.
+    function crearFilaPresentacionProducto(datos) {
+        const fila = crearFilaRegistroProducto(datos);
+
+        fila.dataset.tipoFila = 'presentacion';
+        fila.querySelectorAll('input[name^="registros["]').forEach((input) => input.remove());
+        fila.querySelector('.producto-action-icon.is-edit')?.setAttribute(
+            'title',
+            'Editar presentación'
+        );
+        fila.querySelector('.producto-action-icon.is-delete')?.setAttribute(
+            'title',
+            'Eliminar presentación'
+        );
+
+        return fila;
+    }
+
     // GUARDA LA ETIQUETA DE LA PRESENTACIÓN
     // mueve la imagen al bloque oculto para enviarla una sola vez al controlador.
     function guardarEtiquetaPresentacionProducto(datos) {
@@ -2765,7 +2875,7 @@
 
     // LIMPIA EL FORMULARIO
     // restablece los campos para agregar el siguiente registro.
-    function limpiarFormularioRegistroPresentacionProducto(datos) {
+    function limpiarFormularioRegistroPresentacionProducto(datos, incluyeRegistro = true) {
         productoEtiquetaPreviewUrl = null;
         productoEtiquetaOrigenActual = null;
 
@@ -2773,7 +2883,9 @@
             productoPresentacionIndice++;
         }
 
-        productoRegistroIndice++;
+        if (incluyeRegistro) {
+            productoRegistroIndice++;
+        }
         productoRegistroEditandoId = null;
 
         const {
@@ -3328,7 +3440,7 @@
             '#tablaIngredientesProducto tr:not(#sinIngredientesProducto)').length;
         const totalPresentaciones = indicesPresentacionesResumenProducto().length;
         const totalRegistros = document.querySelectorAll(
-            '#tablaRegistrosPresentacionesProducto tr:not(#sinRegistrosPresentacionesProducto)').length;
+            '#tablaRegistrosPresentacionesProducto tr[data-tipo-fila="registro"]').length;
         const productoCompleto = document.getElementById('form_nombre_comercial')?.value &&
             document.getElementById('form_tipo_producto')?.value &&
             document.getElementById('form_id_fabricante')?.value &&

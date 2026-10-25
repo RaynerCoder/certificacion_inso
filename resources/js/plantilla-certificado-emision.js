@@ -621,6 +621,18 @@ async function iniciarPrevisualizacion() {
                 return tabla;
             }
 
+            // El QR se vuelve a construir desde su capa, no desde el marcador
+            // guardado por Fabric. Así puede reemplazarse por el QR temporal
+            // justo antes de capturar el PNG oficial.
+            if (String(elemento?.tipo_elemento || '').toUpperCase() === 'QR') {
+                const qr = await crearObjeto(elemento, datos.valores || {});
+                qr.plantillaIndice = Number.isInteger(indice) ? indice : posicion;
+                qr.plantillaTipoElemento = 'QR';
+                qr.plantillaCodigoElemento = elemento.codigo_elemento || null;
+                qr.plantillaTextoPlantilla = elemento.texto_plantilla || '';
+                return qr;
+            }
+
             aplicarDatosDinamicos(objeto, datos.valores || {});
             objeto.set({ selectable: false, evented: false });
             return objeto;
@@ -663,6 +675,48 @@ async function iniciarPrevisualizacion() {
     window.actualizarDatosCertificadoEmision = async (valores = {}) => {
         datos.valores = { ...(datos.valores || {}), ...valores };
         lienzo.getObjects().forEach((objeto) => aplicarDatosDinamicos(objeto, datos.valores));
+        publicarSalida();
+    };
+
+    // La API devuelve una imagen SVG temporal. Se incorpora únicamente al
+    // lienzo que será capturado para esta emisión; no modifica la plantilla.
+    window.prepararQrCertificadoEmision = async (imagenQr) => {
+        if (!String(imagenQr || '').startsWith('data:image')) {
+            throw new Error('La imagen del código QR no es válida.');
+        }
+
+        datos.valores = { ...(datos.valores || {}), 'qr.verificacion': imagenQr };
+        const objetos = [...lienzo.getObjects()];
+        const elementosPorIndice = new Map((datos.elementos || [])
+            .filter((elemento) => Number.isInteger(Number(elemento.indice_plantilla)))
+            .map((elemento) => [Number(elemento.indice_plantilla), elemento]));
+        let reemplazados = 0;
+
+        for (const [posicion, objeto] of objetos.entries()) {
+            const indice = Number(objeto.plantillaIndice);
+            const elemento = Number.isInteger(indice)
+                ? elementosPorIndice.get(indice)
+                : null;
+
+            if (String(elemento?.tipo_elemento || '').toUpperCase() !== 'QR'
+                || String(elemento?.codigo_elemento || '').toLowerCase() !== 'qr.verificacion') {
+                continue;
+            }
+
+            const qr = await crearObjeto({ ...elemento, valor: imagenQr }, datos.valores);
+            qr.plantillaIndice = indice;
+            qr.plantillaTipoElemento = 'QR';
+            qr.plantillaCodigoElemento = elemento.codigo_elemento || null;
+            qr.plantillaTextoPlantilla = elemento.texto_plantilla || '';
+            lienzo.remove(objeto);
+            lienzo.insertAt(posicion, qr);
+            reemplazados += 1;
+        }
+
+        if (reemplazados === 0) {
+            throw new Error('La plantilla ya no tiene una ubicación válida para el código QR. Revise la plantilla activa.');
+        }
+
         publicarSalida();
     };
 

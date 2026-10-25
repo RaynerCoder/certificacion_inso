@@ -371,6 +371,26 @@ class Certificado extends Model
             ->wherePivotNull('deleted_at');
     }
 
+    // Relación uno a muchos con las asignaciones de productos del trámite.
+    public function certificadosProductos()
+    {
+        return $this->hasMany(CertificadoProducto::class, 'id_certificado');
+    }
+
+    // Relación muchos a muchos con productos solicitados por este trámite.
+    public function productos()
+    {
+        return $this->belongsToMany(
+            Producto::class,
+            'certificados_productos',
+            'id_certificado',
+            'id_producto'
+        )
+            ->withPivot('id')
+            ->withTimestamps()
+            ->wherePivotNull('deleted_at');
+    }
+
     // Relacion uno a muchos (un certificado tiene muchas asignaciones de pagos)
     public function pagosCertificados()
     {

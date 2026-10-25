@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Certificado;
 use App\Models\CertificadoEmitido;
+use App\Models\CertificadoProducto;
 use App\Models\CertificadoRegistro;
 use App\Models\EvidenciaRequisito;
 use App\Models\NotificacionTramite;
@@ -21,16 +22,24 @@ use App\Services\ArchivoPrivadoService;
 use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
 use App\Services\PlantillaCertificadoStorageService;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CertificadoController extends Controller
 {
+    // Este QR público se habilita inicialmente solo para Registro de Productos Plaguicidas.
+    private const TIPO_CERTIFICADO_REGISTRO_PLAGUICIDAS = 1;
+
     public function __construct(
         private GestionTramitadoresService $gestionTramitadores,
         private DescargaCertificadoService $descargasCertificados,
@@ -357,6 +366,17 @@ class CertificadoController extends Controller
             'registros.producto.registros.presentacion.catalogoUnidad',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
+            'productos.clasificacionToxicologica',
+            'productos.fabricante',
+            'productos.clasificacionQuimica',
+            'productos.territorio',
+            'productos.importadorPersona.natural',
+            'productos.importadorPersona.empresa.tipoEmpresa',
+            'productos.importadorPersona.territorio',
+            'productos.ingredientesProductos.ingrediente',
+            'productos.presentaciones.catalogoUnidad',
+            'productos.registros.catalogoUnidad',
+            'productos.registros.presentacion.catalogoUnidad',
             'certificadosRegistros.registro.producto.clasificacionToxicologica',
             'certificadosRegistros.registro.producto.fabricante',
             'certificadosRegistros.registro.producto.clasificacionQuimica',
@@ -584,7 +604,8 @@ class CertificadoController extends Controller
     }
 
     /**
-     * Relaciona un producto ya registrado con el trámite mediante todos sus registros activos.
+     * Relaciona un producto ya registrado con el trámite. Sus registros activos,
+     * si existen, se conservan aparte para emisión por lote e historial.
      */
     public function vincularProductoExistente(Request $request, Certificado $certificado)
     {
@@ -612,6 +633,20 @@ class CertificadoController extends Controller
                 ]);
             }
 
+            $relacionProducto = CertificadoProducto::withTrashed()
+                ->where('id_certificado', $certificado->id)
+                ->where('id_producto', $producto->id)
+                ->first();
+
+            if ($relacionProducto?->trashed()) {
+                $relacionProducto->restore();
+            } elseif (! $relacionProducto) {
+                CertificadoProducto::create([
+                    'id_certificado' => $certificado->id,
+                    'id_producto' => $producto->id,
+                ]);
+            }
+
             $idsRegistros = $producto->registros()
                 ->where('estado', 'ACTIVO')
                 ->whereDoesntHave('certificadosRegistros')
@@ -619,13 +654,9 @@ class CertificadoController extends Controller
                 ->pluck('id')
                 ->all();
 
-            if ($idsRegistros === []) {
-                throw ValidationException::withMessages([
-                    'id_producto' => 'El producto no tiene registros activos disponibles para asociar.',
-                ]);
+            if ($idsRegistros !== []) {
+                $certificado->registros()->syncWithoutDetaching($idsRegistros);
             }
-
-            $certificado->registros()->syncWithoutDetaching($idsRegistros);
         });
 
         return redirect()
@@ -677,14 +708,19 @@ class CertificadoController extends Controller
     }
 
     /**
-     * Devuelve productos activos del beneficiario, con registros activos y todavía libres.
+     * Devuelve productos activos del beneficiario que todavía no pertenecen a un trámite.
+     * Un producto puede no tener registros: la relación principal es trámite-producto.
      */
     private function consultaProductosDisponiblesParaTramite(Certificado $certificado)
     {
-        $certificado->loadMissing('registros.producto');
+        $certificado->loadMissing(['registros.producto', 'productos']);
 
-        $tiposProductoAsociados = $certificado->registros
-            ->pluck('producto.tipo_producto')
+        $productosYaAsociados = $certificado->productos
+            ->concat($certificado->registros->map(fn ($registro) => $registro->producto))
+            ->filter()
+            ->unique('id');
+        $tiposProductoAsociados = $productosYaAsociados
+            ->pluck('tipo_producto')
             ->filter()
             ->unique();
         $tipoProductoAsociado = $tiposProductoAsociados->count() === 1
@@ -696,7 +732,7 @@ class CertificadoController extends Controller
             ->where('estado', 'ACTIVO')
             ->whereIn('tipo_producto', array_keys(Producto::TIPOS_PRODUCTO))
             ->when($tipoProductoAsociado, fn ($consulta, $tipo) => $consulta->where('tipo_producto', $tipo))
-            ->whereHas('registros', fn ($consulta) => $consulta->where('estado', 'ACTIVO'))
+            ->whereDoesntHave('certificadosProductos')
             ->whereDoesntHave('registros.certificadosRegistros');
     }
 
@@ -730,9 +766,15 @@ class CertificadoController extends Controller
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
         $registroSeleccionado = $this->registroSeleccionadoParaEmision($certificado, request()->integer('registro'));
-        $emisionSeleccionada = $registroSeleccionado?->emision;
+        // En emisión única no hay fila de certificado_registro. Se debe tomar
+        // la emisión ya guardada del trámite para volver a dibujar su QR real,
+        // no el marcador de diseño "QR".
+        $emisionSeleccionada = $registroSeleccionado
+            ? $registroSeleccionado->emision
+            : $certificado->emisiones->sortByDesc('orden_emision')->first();
         $datosVigenciaEmision = $this->datosVigenciaParaEmision($certificado);
         $valoresPlantilla = $this->valoresPlantillaCertificado($certificado, $emisionSeleccionada, $registroSeleccionado);
+        $usaQrVerificacion = $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado);
 
         // Antes de emitir se muestra en la plantilla la misma vigencia que se guardará.
         if (! $emisionSeleccionada && $datosVigenciaEmision['disponible']) {
@@ -741,6 +783,12 @@ class CertificadoController extends Controller
                 ? 'Vigencia indefinida'
                 : $datosVigenciaEmision['fecha_fin']->format('d/m/Y');
         }
+
+        // Esta lista es la misma que verá una persona al escanear el QR final.
+        // No existe aún un QR consultable antes de guardar la emisión.
+        $informacionPublicaQr = $usaQrVerificacion
+            ? $this->datosPublicosQrRegistroPlaguicidas($certificado, null, $datosVigenciaEmision)
+            : [];
 
         $resumenDescargas = $this->descargasCertificados->resumen($certificado, auth()->user());
 
@@ -752,8 +800,83 @@ class CertificadoController extends Controller
             'puedeGestionarEmision',
             'registroSeleccionado',
             'emisionSeleccionada',
-            'datosVigenciaEmision'
+            'datosVigenciaEmision',
+            'usaQrVerificacion',
+            'informacionPublicaQr'
         ));
+    }
+
+    /**
+     * Prepara un QR temporal para la vista previa. No crea una emisión ni guarda
+     * archivos: ambos ocurren solamente cuando se confirma la emisión final.
+     */
+    public function prepararQrEmision(Certificado $certificado)
+    {
+        $certificado->load($this->relacionesParaEmision());
+
+        if (! $this->usuarioPuedeEmitirCertificado($certificado)) {
+            abort(403, 'No puede emitir este certificado.');
+        }
+
+        $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
+
+        if (! $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado)) {
+            return response()->json([
+                'message' => 'El QR de verificación está habilitado únicamente para el certificado de Registro de Productos Plaguicidas que tenga el elemento QR activo en su plantilla.',
+            ], 422);
+        }
+
+        if (! Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
+            return response()->json([
+                'message' => 'Falta configurar el campo de verificación en la base de datos antes de emitir con QR.',
+            ], 422);
+        }
+
+        $codigoVerificacion = $this->nuevoCodigoVerificacion();
+        $urlVerificacion = route('certificados_verificar_publico', [
+            'codigoVerificacion' => $codigoVerificacion,
+        ]);
+
+        return response()->json([
+            'codigo_verificacion' => $codigoVerificacion,
+            'url_verificacion' => $urlVerificacion,
+            'imagen_qr' => $this->imagenQrParaUrl($urlVerificacion),
+        ]);
+    }
+
+    /**
+     * Muestra solamente datos oficiales mínimos al leer un QR. Esta ruta no
+     * entrega el PDF ni archivos privados.
+     */
+    public function verificarPublico(string $codigoVerificacion)
+    {
+        if (! Schema::hasTable('certificados_emitidos')
+            || ! Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
+            abort(404);
+        }
+
+        CertificadoEmitido::actualizarEstadosVencidos();
+
+        $emision = CertificadoEmitido::query()
+            ->with('certificado.tipoCertificado')
+            ->where('codigo_verificacion', $codigoVerificacion)
+            ->whereNotNull('url_documento')
+            ->first();
+
+        if (! $emision?->certificado || ! $this->esRegistroPlaguicidas($emision->certificado)) {
+            return view('certificados.verificacion_publica', ['verificacion' => null]);
+        }
+
+        $certificado = $emision->certificado;
+        $certificado->loadMissing($this->relacionesParaEmision());
+        $estado = $certificado->estado === 'ANULADO' ? 'ANULADO' : $emision->estado;
+
+        return view('certificados.verificacion_publica', [
+            'verificacion' => [
+                'estado' => $estado,
+                'filas' => $this->datosPublicosQrRegistroPlaguicidas($certificado, $emision),
+            ],
+        ]);
     }
 
     // GUARDA LA EMISION
@@ -772,7 +895,20 @@ class CertificadoController extends Controller
             return back()->with('error', 'No se puede emitir el certificado porque no tiene una plantilla activa configurada.');
         }
 
+        $usaQrVerificacion = $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado);
         $datos = $this->validarEmisionCertificado($solicitud, $certificado);
+
+        if ($usaQrVerificacion && ! Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
+            throw ValidationException::withMessages([
+                'form_codigo_verificacion' => 'Falta ejecutar la actualización de base de datos para emitir certificados con QR.',
+            ])->errorBag('emisionCertificado');
+        }
+
+        if ($usaQrVerificacion && blank($datos['form_codigo_verificacion'] ?? null)) {
+            throw ValidationException::withMessages([
+                'form_codigo_verificacion' => 'No se pudo preparar el código QR. Intente emitir nuevamente.',
+            ])->errorBag('emisionCertificado');
+        }
         $medidasBasePlantilla = $this->medidasLienzoPlantilla(
             $plantillaCertificado->tamano_papel,
             $plantillaCertificado->orientacion
@@ -789,7 +925,7 @@ class CertificadoController extends Controller
             ])->errorBag('emisionCertificado');
         }
 
-        DB::transaction(function () use ($certificado, $plantillaCertificado, $datos, $solicitud, $imagenRenderizada) {
+        DB::transaction(function () use ($certificado, $plantillaCertificado, $datos, $solicitud, $imagenRenderizada, $usaQrVerificacion) {
             $tramite = Certificado::query()
                 ->with($this->relacionesParaEmision())
                 ->lockForUpdate()
@@ -820,7 +956,15 @@ class CertificadoController extends Controller
                 ])->errorBag('emisionCertificado');
             }
 
-            $emision = CertificadoEmitido::create([
+            if ($usaQrVerificacion && CertificadoEmitido::withTrashed()
+                ->where('codigo_verificacion', $datos['form_codigo_verificacion'])
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'form_codigo_verificacion' => 'El código QR ya fue utilizado. Intente emitir nuevamente.',
+                ])->errorBag('emisionCertificado');
+            }
+
+            $datosEmision = [
                 'id_certificado' => $tramite->id,
                 'id_certificado_registro' => $registroSeleccionado?->id,
                 'id_plantilla_certificado' => $plantillaCertificado->id,
@@ -831,7 +975,13 @@ class CertificadoController extends Controller
                 'fecha_fin' => $datosVigenciaEmision['fecha_fin'],
                 'vigencia_indefinida' => $datosVigenciaEmision['vigencia_indefinida'],
                 'estado' => 'EMITIDO',
-            ]);
+            ];
+
+            if ($usaQrVerificacion) {
+                $datosEmision['codigo_verificacion'] = $datos['form_codigo_verificacion'];
+            }
+
+            $emision = CertificadoEmitido::create($datosEmision);
             $emision->setRelation('certificadoRegistro', $registroSeleccionado);
 
             $emision->update([
@@ -1926,14 +2076,127 @@ class CertificadoController extends Controller
     // Estos datos se completan cuando el certificado ya esta listo para emitirse.
     private function validarEmisionCertificado(Request $solicitud, Certificado $certificado): array
     {
+        $reglaCodigoVerificacion = ['nullable', 'uuid'];
+
+        // La instalación puede desplegar código antes de ejecutar el SQL manual.
+        // En ese intervalo validamos la forma y luego mostramos el mensaje claro
+        // de configuración, sin consultar una columna que todavía no existe.
+        if (Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
+            $reglaCodigoVerificacion[] = Rule::unique('certificados_emitidos', 'codigo_verificacion');
+        }
+
         return $solicitud->validateWithBag('emisionCertificado', [
             'form_id_certificado_registro' => ['nullable', 'integer'],
+            'form_codigo_verificacion' => $reglaCodigoVerificacion,
             // Es obligatorio para que el PDF salga del mismo render Fabric.js mostrado al funcionario.
             'form_documento_renderizado' => ['required', 'string', 'max:50000000'],
             'bandeja' => ['nullable', 'string', 'max:30'],
         ], [], [
             'form_documento_renderizado' => 'render final de la plantilla',
         ]);
+    }
+
+    private function plantillaUsaQrVerificacion(?PlantillaCertificado $plantillaCertificado): bool
+    {
+        if (! $plantillaCertificado) {
+            return false;
+        }
+
+        return $plantillaCertificado->elementosActivos
+            ->contains(fn (PlantillaElemento $elemento) => strtoupper((string) $elemento->tipo_elemento) === 'QR'
+                && strtolower((string) $elemento->codigo_elemento) === 'qr.verificacion'
+                && (bool) data_get($elemento->configuracion, 'visible', true));
+    }
+
+    /**
+     * Evita que el QR de Registro de Productos Plaguicidas aparezca por error
+     * en plantillas de otros tipos de certificado.
+     */
+    private function usaQrVerificacionRegistroPlaguicidas(
+        Certificado $certificado,
+        ?PlantillaCertificado $plantillaCertificado
+    ): bool {
+        return $this->esRegistroPlaguicidas($certificado)
+            && $this->plantillaUsaQrVerificacion($plantillaCertificado);
+    }
+
+    private function esRegistroPlaguicidas(Certificado $certificado): bool
+    {
+        return (int) $certificado->id_tipo_certificado === self::TIPO_CERTIFICADO_REGISTRO_PLAGUICIDAS;
+    }
+
+    /**
+     * Datos estrictamente públicos del Registro de Productos Plaguicidas.
+     * Esta estructura se utiliza tanto antes de emitir (vista previa) como al
+     * consultar el QR definitivo, para que ambas pantallas coincidan.
+     *
+     * @return array<int, array{etiqueta: string, valor: string}>
+     */
+    private function datosPublicosQrRegistroPlaguicidas(
+        Certificado $certificado,
+        ?CertificadoEmitido $emision = null,
+        ?array $datosVigencia = null
+    ): array {
+        $valores = $this->valoresPlantillaCertificado(
+            $certificado,
+            $emision,
+            $emision?->certificadoRegistro
+        );
+
+        $fechaFinPrevia = data_get($datosVigencia, 'fecha_fin');
+        $vigencia = $emision?->vigencia_indefinida
+            ? 'Vigencia indefinida'
+            : ($emision?->fecha_fin?->format('d/m/Y')
+                ?: ($fechaFinPrevia?->format('d/m/Y') ?? 'Se calculará al emitir'));
+
+        $referencia = collect([
+            $valores['producto.nombres_comerciales'] ?? null,
+            $valores['presentacion.lista'] ?? null,
+        ])->filter(fn ($valor) => filled($valor) && ! in_array($valor, ['-', 'Sin presentación', 'Sin productos'], true))
+            ->unique()
+            ->implode(' · ');
+
+        $estado = $emision
+            ? ($certificado->estado === 'ANULADO' ? 'ANULADO' : $emision->estado)
+            : 'PENDIENTE DE EMISIÓN';
+
+        return [
+            ['etiqueta' => 'Registrado por', 'valor' => $valores['tramite.funcionario_finalizador'] ?? 'No registrado'],
+            ['etiqueta' => 'Tipo de documento', 'valor' => $valores['tipo_certificado.nombre'] ?? 'Registro de Productos Plaguicidas'],
+            ['etiqueta' => 'CITE / N.º documento', 'valor' => $emision?->numero_certificado ?: 'Se asignará al emitir'],
+            ['etiqueta' => 'Solicitante', 'valor' => $valores['beneficiario.nombre'] ?? 'No registrado'],
+            ['etiqueta' => 'Fecha de registro', 'valor' => $valores['tramite.fecha_registro'] ?? 'No registrada'],
+            ['etiqueta' => 'Fecha de emisión', 'valor' => $emision?->fecha_emision?->format('d/m/Y') ?: now()->format('d/m/Y')],
+            ['etiqueta' => 'Fecha de vigencia', 'valor' => $vigencia],
+            ['etiqueta' => 'Producto(s) y presentación(es)', 'valor' => $referencia !== '' ? $referencia : 'Sin productos asociados'],
+            ['etiqueta' => 'Estado', 'valor' => $estado],
+        ];
+    }
+
+    private function nuevoCodigoVerificacion(): string
+    {
+        for ($intento = 0; $intento < 5; $intento++) {
+            $codigo = (string) Str::uuid();
+
+            if (! CertificadoEmitido::withTrashed()
+                ->where('codigo_verificacion', $codigo)
+                ->exists()) {
+                return $codigo;
+            }
+        }
+
+        throw new \RuntimeException('No se pudo generar un código único de verificación.');
+    }
+
+    private function imagenQrParaUrl(string $url): string
+    {
+        $renderizador = new ImageRenderer(
+            new RendererStyle(360, 4),
+            new SvgImageBackEnd()
+        );
+        $svg = (new Writer($renderizador))->writeString($url);
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     /**
@@ -2340,6 +2603,20 @@ class CertificadoController extends Controller
             'registros.producto.importadorPersona.telefonos',
             'registros.presentacion.catalogoUnidad',
             'registros.catalogoUnidad',
+            'productos.clasificacionToxicologica',
+            'productos.fabricante',
+            'productos.clasificacionQuimica',
+            'productos.territorio',
+            'productos.ingredientesProductos.ingrediente',
+            'productos.frasesReglamentarias',
+            'productos.importadorPersona.natural',
+            'productos.importadorPersona.empresa.tipoEmpresa',
+            'productos.importadorPersona.empresa.representanteLegalActivo.persona.natural',
+            'productos.importadorPersona.territorio',
+            'productos.importadorPersona.telefonos',
+            'productos.presentaciones.catalogoUnidad',
+            'productos.registros.catalogoUnidad',
+            'productos.registros.presentacion.catalogoUnidad',
             'certificadosRegistros.registro.producto.clasificacionToxicologica',
             'certificadosRegistros.registro.producto.fabricante',
             'certificadosRegistros.registro.producto.clasificacionQuimica',
@@ -2400,8 +2677,21 @@ class CertificadoController extends Controller
             ->sortByDesc(fn ($seguimiento) => $seguimiento->fecha_final?->getTimestamp() ?? 0)
             ->first();
 
-        $productos = $registros->map(fn ($registro) => $registro->producto)->filter()->unique('id')->values();
-        $presentaciones = $registros->map(fn ($registro) => $registro->presentacion)->filter()->unique('id')->values();
+        $productos = $certificadoRegistro?->registro
+            ? collect([$certificadoRegistro->registro->producto])->filter()
+            : $certificado->productos
+                ->concat($registros->map(fn ($registro) => $registro->producto))
+                ->filter()
+                ->unique('id')
+                ->values();
+        $presentaciones = $certificadoRegistro?->registro
+            ? collect([$certificadoRegistro->registro->presentacion])->filter()
+            : $productos
+                ->flatMap(fn ($producto) => $producto->presentaciones ?? collect())
+                ->filter(fn ($presentacion) => $presentacion->estado === 'ACTIVO')
+                ->concat($registros->map(fn ($registro) => $registro->presentacion)->filter())
+                ->unique('id')
+                ->values();
         // No se toma un "primer" producto de manera arbitraria para los campos individuales.
         $productoIndividual = $productos->count() === 1 ? $productos->first() : null;
         $registroIndividual = $registros->count() === 1 ? $registros->first() : null;
@@ -2496,14 +2786,13 @@ class CertificadoController extends Controller
             ->map(fn ($frase) => trim(implode(' - ', array_filter([$frase->codigo, $frase->descripcion]))))
             ->filter()
             ->implode('; ') ?: '-';
-        $resumenProductos = $registros->map(function ($registro) {
-            $producto = $registro->producto;
-            $presentacion = $registro->presentacion;
+        $resumenProductos = $productos->map(function ($producto) use ($presentaciones) {
+            $presentacion = $presentaciones
+                ->first(fn ($item) => (int) $item->id_producto === (int) $producto?->id);
 
             return collect([
                 $producto?->codigo,
                 $producto?->nombre_comercial,
-                $registro->codigo_autorizacion,
                 $presentacion ? $this->formatearDecimalPlantilla($presentacion->cantidad).' '.$this->textoCatalogoUnidad($presentacion->catalogoUnidad) : null,
             ])->filter()->implode(' | ');
         });
@@ -2535,6 +2824,11 @@ class CertificadoController extends Controller
             'certificado.fecha_fin' => $emision?->fecha_fin?->format('d/m/Y') ?: ($certificado->fecha_fin?->format('d/m/Y') ?: 'Sin fecha'),
             'emision.numero_certificado' => $emision?->numero_certificado ?: 'Se asignará al emitir',
             'emision.fecha' => $emision?->fecha_emision?->format('d/m/Y') ?: now()->format('d/m/Y'),
+            'qr.verificacion' => $emision?->codigo_verificacion
+                ? $this->imagenQrParaUrl(route('certificados_verificar_publico', [
+                    'codigoVerificacion' => $emision->codigo_verificacion,
+                ]))
+                : '',
             'certificado.descripcion' => $certificado->descripcion ?: 'Sin descripción',
             'evaluacion.resultado' => $resultadoEvaluacion,
             'evaluacion.calificaciones' => $calificacionesObtenidas->isEmpty() ? 'Sin calificación' : $calificacionesObtenidas->implode(', '),

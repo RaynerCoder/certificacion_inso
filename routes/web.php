@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controla el inicio de sesión mediante Ciudadanía Digital.
 use App\Http\Controllers\Auth\CiudadaniaDigitalController;
+use App\Http\Controllers\CertificadoController;
 
 
 // Cuando se visita la raíz del sistema, redirige al menú.
@@ -42,6 +43,11 @@ Route::post('/auth/ciudadania-digital/logout',[CiudadaniaDigitalController::clas
 
 // Recibe al usuario después de cerrar la sesión en AGETIC.
 Route::get('/auth/ciudadania-digital/logout/callback',[CiudadaniaDigitalController::class, 'retornoCerrarSesion'])->name('ciudadania-digital.logout.callback');
+
+// Consulta pública y de solo lectura. El QR de cada emisión dirige a esta ruta.
+Route::get('/verificar/{codigoVerificacion}', [CertificadoController::class, 'verificarPublico'])
+    ->whereUuid('codigoVerificacion')
+    ->name('certificados_verificar_publico');
 
 
 

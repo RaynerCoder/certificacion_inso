@@ -23,8 +23,8 @@
                         <div class="producto-rp-card-head">
                             <span class="producto-rp-card-number">1</span>
                             <div>
-                                <h3 id="tituloDatosRegistro">Datos del registro</h3>
-                                <p>Información de autorización, lote y vigencia.</p>
+                                <h3 id="tituloDatosRegistro">Datos del registro <span class="text-slate-500">(opcional)</span></h3>
+                                <p>Agregue estos datos solo cuando exista una autorización, lote o vigencia real.</p>
                             </div>
                         </div>
                         <div class="producto-registro-grid producto-registro-grid-autorizacion">
@@ -273,14 +273,18 @@
                                     placeholder="Ej: Envase plástico con tapa de seguridad."></textarea>
                             </div>
 
-                            {{-- ACCIÓN PRINCIPAL DEL PASO
-                                        Toma los campos form_registro_* y form_presentacion_* y crea las filas
-                                    dinámicas que serán enviadas al controlador. --}}
+                            {{-- La presentación se puede guardar sola. El registro se crea únicamente
+                                al usar su acción específica y con código de autorización o lote. --}}
                             <div class="producto-campo-acciones">
                                 <button type="button" class="producto-btn producto-btn-primary producto-btn-inline"
-                                    onclick="agregarPresentacionRegistroProducto()">
+                                    onclick="agregarPresentacionProducto()">
                                     <i class="fa-solid fa-plus"></i>
-                                    Agregar presentación y registro
+                                    Agregar presentación
+                                </button>
+                                <button type="button" class="producto-btn producto-btn-orange producto-btn-inline"
+                                    onclick="agregarRegistroProducto()">
+                                    <i class="fa-solid fa-clipboard-list"></i>
+                                    Agregar registro
                                 </button>
                             </div>
                         </div>
@@ -374,8 +378,8 @@
                 <div class="producto-rp-listado-head">
                     <div>
                         <h3 id="tituloListadoPresentaciones">Presentaciones agregadas</h3>
-                        <p><span id="contadorRegistrosPresentacionesProducto">{{ count($registrosOld) }}</span>
-                            presentación(es) asociada(s) al registro.</p>
+                        <p><span id="contadorRegistrosPresentacionesProducto">{{ count($presentacionesOld) }}</span>
+                            presentación(es) agregada(s).</p>
                     </div>
 
                     {{-- El buscador filtra las filas visibles sin modificar los datos del formulario. --}}
@@ -408,6 +412,11 @@
                             </tr>
                         </thead>
                         <tbody id="tablaRegistrosPresentacionesProducto">
+                            @php
+                                $indicesPresentacionConRegistro = collect($registrosOld)
+                                    ->map(fn ($registro, $indice) => (string) ($registro['id_presentacion_temporal'] ?? $indice))
+                                    ->all();
+                            @endphp
                             @forelse ($registrosOld as $indice => $registroOld)
                                 @php
                                     // Relaciona este registro con su presentación.
@@ -559,14 +568,116 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr id="sinRegistrosPresentacionesProducto">
-                                    <td colspan="6">
-                                        <div class="producto-empty">
-                                            Todavía no agregó presentaciones y registros.
+                                @if (empty($presentacionesOld))
+                                    <tr id="sinRegistrosPresentacionesProducto">
+                                        <td colspan="6">
+                                            <div class="producto-empty">
+                                                Todavía no agregó presentaciones.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endif
+                            @endforelse
+
+                            {{-- Las presentaciones sin registro se muestran por separado para que
+                                no sea necesario inventar datos de autorización o lote. --}}
+                            @foreach ($presentacionesOld as $indicePresentacion => $presentacionOld)
+                                @continue(in_array((string) $indicePresentacion, $indicesPresentacionConRegistro, true))
+                                @php
+                                    $textoUnidadPresentacion = $nombreCatalogoUnidad(
+                                        $presentacionOld['id_catalogo_unidad'] ?? null,
+                                    );
+                                    $presentacionValor = trim(
+                                        ($presentacionOld['cantidad'] ?? '') . ' ' . $textoUnidadPresentacion,
+                                    ) ?: 'Presentación #' . ((int) $indicePresentacion + 1);
+                                    $presentacionDescripcion = $presentacionOld['descripcion'] ?? '';
+                                    $tipoPresentacionOld = $presentacionOld['tipo_presentacion'] ?? '';
+                                    $presentacionOrigenOld = !empty($presentacionOld['id_presentacion_origen'])
+                                        ? $presentacionesCatalogo->firstWhere(
+                                            'id',
+                                            $presentacionOld['id_presentacion_origen'],
+                                        )
+                                        : null;
+                                    $etiquetaOldUrl = $presentacionOrigenOld?->url_etiqueta
+                                        ? route('productos_presentaciones_etiqueta', $presentacionOrigenOld)
+                                        : '';
+                                @endphp
+                                <tr data-tipo-fila="presentacion"
+                                    data-presentacion-indice="{{ $indicePresentacion }}"
+                                    data-etiqueta-url="{{ $etiquetaOldUrl }}"
+                                    data-etiqueta-nombre="{{ $etiquetaOldUrl ? 'Imagen registrada' : '' }}">
+                                    <td data-label="Presentación">{{ $loop->iteration }}</td>
+                                    <td data-label="Producto asociado">
+                                        <div class="producto-table-producto">
+                                            <strong class="presentacion-producto-nombre">
+                                                {{ $valorProducto('form_nombre_comercial') ?: 'Sin nombre comercial' }}
+                                            </strong>
+                                            <small class="presentacion-producto-codigo">
+                                                {{ $valorProducto('form_codigo') ?: 'Sin código' }}
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td data-label="Nombre de la presentación">
+                                        <div class="producto-table-presentacion">
+                                            <strong>{{ $presentacionValor }}</strong>
+                                            @if ($presentacionDescripcion)
+                                                <small class="producto-table-descripcion">{{ $presentacionDescripcion }}</small>
+                                            @endif
+                                        </div>
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][cantidad]"
+                                            value="{{ $presentacionOld['cantidad'] ?? '' }}">
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][id_catalogo_unidad]"
+                                            value="{{ $presentacionOld['id_catalogo_unidad'] ?? '' }}">
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][descripcion]"
+                                            value="{{ $presentacionDescripcion }}">
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][tipo_presentacion]"
+                                            value="{{ $tipoPresentacionOld }}">
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][estado]"
+                                            value="{{ $presentacionOld['estado'] ?? 'ACTIVO' }}">
+                                        <input type="hidden" name="presentaciones[{{ $indicePresentacion }}][id_presentacion_origen]"
+                                            value="{{ $presentacionOld['id_presentacion_origen'] ?? '' }}">
+                                    </td>
+                                    <td data-label="Tipo de presentación">{{ $tipoPresentacionOld ?: 'Sin especificar' }}</td>
+                                    <td class="producto-table-etiqueta-cell" data-label="Etiqueta">
+                                        <input class="producto-upload-input"
+                                            id="form_presentacion_etiqueta_old_{{ $indicePresentacion }}"
+                                            type="file"
+                                            name="presentaciones[{{ $indicePresentacion }}][url_etiqueta]"
+                                            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                                            data-url-inicial="{{ $etiquetaOldUrl }}"
+                                            onchange="actualizarEtiquetaOldProducto(this)">
+                                        <button type="button"
+                                            class="producto-table-image-preview {{ $etiquetaOldUrl ? '' : 'is-empty' }}"
+                                            data-etiqueta-old-preview
+                                            onclick="abrirModalEtiquetaOldProducto('form_presentacion_etiqueta_old_{{ $indicePresentacion }}')"
+                                            @disabled(!$etiquetaOldUrl)>
+                                            <img src="{{ $etiquetaOldUrl }}" alt="Etiqueta de la presentación"
+                                                data-etiqueta-old-imagen @if (!$etiquetaOldUrl) hidden @endif>
+                                            <span data-etiqueta-old-placeholder @if ($etiquetaOldUrl) hidden @endif>Sin imagen</span>
+                                        </button>
+                                        <span class="producto-table-file-name">
+                                            {{ $etiquetaOldUrl ? 'Imagen registrada' : 'Seleccione una imagen' }}
+                                        </span>
+                                    </td>
+                                    <td data-label="Acciones">
+                                        <div class="producto-row-actions">
+                                            <button type="button" class="producto-action-icon is-view" title="Ver etiqueta"
+                                                onclick="abrirModalEtiquetaOldProducto('form_presentacion_etiqueta_old_{{ $indicePresentacion }}')"
+                                                @disabled(!$etiquetaOldUrl)>
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                            <button type="button" class="producto-action-icon is-edit" title="Editar presentación"
+                                                onclick="editarFilaRegistroPresentacionProducto(this)">
+                                                <i class="fa-solid fa-pen"></i>
+                                            </button>
+                                            <button type="button" class="producto-action-icon is-delete" title="Eliminar presentación"
+                                                onclick="quitarFilaProducto(this)">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>

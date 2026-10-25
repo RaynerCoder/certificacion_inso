@@ -337,14 +337,19 @@
     // PRODUCTOS Y REGISTROS DEL TRÁMITE
     // -----------------------------------------------------------------------------
 
-    // Agrupa registros del mismo producto para evitar duplicados.
+    // Agrupa registros del mismo producto y conserva también los productos que
+    // aún no tienen registros o lotes.
     $productosDisponiblesTramite = $productosDisponiblesTramite ?? collect();
     $registrosPorProducto = $certificado->registros->groupBy(
         fn ($registro) => $registro->producto?->id ? 'producto_' . $registro->producto->id : 'registro_' . $registro->id,
     );
+    $productosAsociadosTramite = $certificado->productos
+        ->concat($certificado->registros->map(fn ($registro) => $registro->producto))
+        ->filter()
+        ->unique('id')
+        ->values();
 
-    $tieneProductoRegistrado = $certificado->registros
-        ->contains(fn ($registro) => filled($registro->producto?->id));
+    $tieneProductoRegistrado = $productosAsociadosTramite->isNotEmpty();
 
 
 
