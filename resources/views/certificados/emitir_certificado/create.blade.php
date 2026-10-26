@@ -8,11 +8,21 @@
         $puedeGestionarEmision = $puedeGestionarEmision ?? false;
         $registroSeleccionado = $registroSeleccionado ?? null;
         $esEmisionPorLote = $certificado->tipoCertificado?->modo_emision === 'POR_LOTE';
-        $esConsultaDocumento = !$puedeGestionarEmision && in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true);
+        $emisionSeleccionada = $emisionSeleccionada ?? null;
+        $documentoOficialDisponible = $emisionSeleccionada
+            && in_array($emisionSeleccionada->estado, ['EMITIDO', 'VENCIDO'], true)
+            && filled($emisionSeleccionada->url_documento);
+        $esConsultaDocumento = $documentoOficialDisponible;
         $vieneDeFinalizados = request('bandeja') === 'finalizados';
-        $puedeEnviarSolicitante = $puedeGestionarEmision && $vieneDeFinalizados && $certificado->estado === 'EMITIDO';
+        $puedeEnviarSolicitante = $puedeGestionarEmision
+            && $vieneDeFinalizados
+            && $emisionSeleccionada?->estado === 'EMITIDO';
+        $anulacionDisponible = $anulacionDisponible ?? false;
+        $puedeAnularEmision = $puedeGestionarEmision && $documentoOficialDisponible && $anulacionDisponible;
         $abrirModalEmision = $errors->emisionCertificado->any() && $datosVigenciaEmision['disponible'];
         $informacionPublicaQr = $informacionPublicaQr ?? [];
+        $bandejaEmision = request('bandeja', 'recibidas');
+        $volverATablaFinalizados = $bandejaEmision === 'finalizados';
 
         // Nombre visible: razon social para empresa o nombre completo para persona natural.
         $nombrePersona = function ($persona) {
@@ -85,7 +95,7 @@
             ->filter(fn ($fila) => $fila->registro && filled($fila->registro->numero_lote));
         $puedeCrearEmisionSinVigencia = $esEmisionPorLote
             ? $registroSeleccionado && ! $registroSeleccionado->emision
-            : $certificado->emisiones->isEmpty();
+            : $certificado->emisiones->filter(fn ($emision) => in_array($emision->estado, ['EMITIDO', 'VENCIDO'], true))->isEmpty();
         $puedeCrearEmision = $puedeCrearEmisionSinVigencia && $datosVigenciaEmision['disponible'];
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
@@ -366,6 +376,12 @@
             background: #fff7ed;
             border: 1px solid #fdba74;
             color: #9a3412;
+        }
+
+        .emit-btn-danger {
+            background: #e11d48;
+            border: 1px solid #be123c;
+            color: #ffffff;
         }
 
         .emit-grid {
@@ -880,26 +896,41 @@
     <div class="emit-shell">
         <header class="emit-header">
             <div>
-                <h1 class="emit-title">{{ $esConsultaDocumento ? 'Ver certificado' : 'Emitir certificado' }}</h1>
+                <h1 class="emit-title">{{ $esConsultaDocumento ? 'Certificado emitido' : 'Emitir certificado' }}</h1>
                 <p class="emit-subtitle">
                     {{ $esConsultaDocumento
-                        ? 'Consulte o imprima el documento emitido. Sus datos de vigencia ya no pueden modificarse.'
+                        ? 'Consulte el PDF oficial, notifique al solicitante o anule el documento si corresponde.'
                         : 'Revise la información aprobada antes de registrar la emisión.' }}
                 </p>
             </div>
 
             <div class="emit-actions">
-                <a href="{{ route('certificados_show', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'recibidas')]) }}"
+                <a href="{{ $volverATablaFinalizados
+                    ? route('seguimientos_finalizados')
+                    : route('certificados_show', ['certificado' => $certificado, 'bandeja' => $bandejaEmision]) }}"
                     class="emit-btn emit-btn-muted">
                     <i class="fa-solid fa-arrow-left"></i>
-                    Volver al trámite
+                    {{ $volverATablaFinalizados ? 'Volver a trámites finalizados' : 'Volver al trámite' }}
                 </a>
 
-                <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado
-                    data-requiere-render-certificado disabled>
-                    <i class="fa-solid fa-print"></i>
-                    Imprimir certificado
-                </button>
+                @if ($documentoOficialDisponible)
+                    <a href="{{ route('certificados_emitidos_descargar', ['certificado' => $certificado, 'emision' => $emisionSeleccionada, 'visualizar' => 1]) }}"
+                        class="emit-btn emit-btn-print" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        Ver PDF oficial
+                    </a>
+                    <a href="{{ route('certificados_emitidos_descargar', ['certificado' => $certificado, 'emision' => $emisionSeleccionada]) }}"
+                        class="emit-btn emit-btn-muted">
+                        <i class="fa-solid fa-download"></i>
+                        Descargar PDF
+                    </a>
+                @else
+                    <button type="button" class="emit-btn emit-btn-print" data-imprimir-certificado
+                        data-vista-previa-certificado="1" data-requiere-render-certificado disabled>
+                        <i class="fa-solid fa-print"></i>
+                        Vista previa / Borrador
+                    </button>
+                @endif
 
                 @if ($puedeGestionarEmision)
                     @if ($puedeCrearEmision)
@@ -914,7 +945,15 @@
                                 <i class="fa-solid fa-paper-plane"></i>
                                 Enviar al solicitante
                             </button>
+                            <input type="hidden" name="form_id_certificado_emitido" value="{{ $emisionSeleccionada?->id }}">
                         </form>
+                    @endif
+
+                    @if ($puedeAnularEmision)
+                        <button type="button" class="emit-btn emit-btn-danger" data-abrir-modal-anulacion>
+                            <i class="fa-solid fa-ban"></i>
+                            Anular certificado
+                        </button>
                     @endif
                 @endif
             </div>
@@ -924,6 +963,13 @@
             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <i class="fa-solid fa-triangle-exclamation mr-2"></i>
                 {{ $datosVigenciaEmision['mensaje'] }}
+            </div>
+        @endif
+
+        @if ($documentoOficialDisponible && $puedeGestionarEmision && ! $anulacionDisponible)
+            <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                La anulación estará disponible después de aplicar la actualización de base de datos de certificados emitidos.
             </div>
         @endif
 
@@ -969,17 +1015,17 @@
                         <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                             <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Fecha final</p>
                             <p class="mt-1 text-sm font-bold text-slate-800">
-                                {{ $datosVigenciaEmision['vigencia_indefinida'] ? 'Indefinida' : $datosVigenciaEmision['fecha_fin']?->format('d/m/Y') }}
+                                {{ $datosVigenciaEmision['es_indefinida'] ? 'Indefinida' : $datosVigenciaEmision['fecha_fin']?->format('d/m/Y') }}
                             </p>
                         </div>
                     </div>
 
                     <div class="emit-modal-field-full text-sm text-slate-600">
-                        @if ($certificado->url_documento)
+                        @if ($documentoOficialDisponible)
                             <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
                                 @if ($resumenDescargas['disponible'])
                                     <a class="inline-flex font-bold text-emerald-700"
-                                        href="{{ route('certificados_descargar', $certificado) }}">
+                                        href="{{ route('certificados_emitidos_descargar', ['certificado' => $certificado, 'emision' => $emisionSeleccionada]) }}">
                                         <i class="fa-solid fa-download mr-1" aria-hidden="true"></i>
                                         Descargar documento actual
                                     </a>
@@ -996,6 +1042,16 @@
                         @else
                             El PDF se generará automáticamente con la plantilla activa al guardar la emisión.
                         @endif
+                    </div>
+
+                    <div class="emit-modal-field-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-relaxed text-amber-900">
+                        <div class="flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation mt-0.5 text-amber-600"></i>
+                            <div>
+                                <p class="m-0 font-bold">¿Está seguro de emitir este certificado?</p>
+                                <p class="mb-0 mt-1">Al confirmar se generará el documento oficial. Después no podrá modificar sus datos; si existe un error deberá anularlo y emitir un certificado nuevo.</p>
+                            </div>
+                        </div>
                     </div>
 
                     @if ($usaQrVerificacion ?? false)
@@ -1036,11 +1092,52 @@
                     @endif
                     <button type="submit" class="emit-btn emit-btn-primary" data-requiere-render-certificado disabled>
                         <i class="fa-solid fa-floppy-disk"></i>
-                        Emitir certificado
+                        Sí, emitir certificado
                     </button>
                 </div>
             </form>
         </div>
+
+        @if ($puedeAnularEmision)
+            <div class="emit-modal-backdrop" data-modal-anulacion @if (!$errors->anulacionCertificado->any()) hidden @endif>
+                <form class="emit-modal-card" action="{{ route('certificados_emitidos_anular', ['certificado' => $certificado, 'emision' => $emisionSeleccionada]) }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="bandeja" value="{{ request('bandeja', 'finalizados') }}">
+
+                    <div class="emit-modal-head">
+                        <div>
+                            <h2 class="emit-modal-title">Anular certificado</h2>
+                            <p class="emit-subtitle">N.º {{ $emisionSeleccionada->numero_certificado }} · Esta acción conserva el PDF, número y QR como historial.</p>
+                        </div>
+                        <button type="button" class="emit-modal-close" data-cerrar-modal-anulacion aria-label="Cerrar">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="emit-modal-body">
+                        <div class="emit-modal-field-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                            El QR de este documento mostrará <strong>Anulado</strong>. Si necesita reemplazarlo, se emitirá un documento nuevo con otro número y QR.
+                        </div>
+                        <label class="emit-modal-field-full text-sm font-bold text-slate-700" for="form_motivo_anulacion">
+                            Motivo de anulación
+                            <textarea id="form_motivo_anulacion" name="form_motivo_anulacion" rows="4" required maxlength="1000"
+                                class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800 focus:border-rose-500 focus:ring-rose-500">{{ old('form_motivo_anulacion') }}</textarea>
+                            @error('form_motivo_anulacion', 'anulacionCertificado')
+                                <span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>
+                            @enderror
+                        </label>
+                    </div>
+
+                    <div class="emit-modal-actions">
+                        <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-anulacion>Cancelar</button>
+                        <button type="submit" class="emit-btn emit-btn-danger">
+                            <i class="fa-solid fa-ban"></i>
+                            Confirmar anulación
+                        </button>
+                    </div>
+                </form>
+            </div>
+        @endif
 
         <div class="emit-grid">
             <div class="emit-support">
@@ -1054,13 +1151,14 @@
                             @forelse ($filasLote as $filaLote)
                                 @php
                                     $yaEmitido = (bool) $filaLote->emision;
+                                    $fueAnulado = ! $yaEmitido && $filaLote->emisiones->contains('estado', 'ANULADO');
                                 @endphp
                                 <a class="block rounded-lg border px-3 py-2 {{ (int) $registroSeleccionado?->id === (int) $filaLote->id ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200' }}"
                                     href="{{ route('certificados_emitir', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'finalizados'), 'registro' => $filaLote->id]) }}">
                                     <div class="font-semibold">Lote {{ $filaLote->registro->numero_lote }}</div>
                                     <div class="text-xs text-slate-600">{{ $filaLote->registro->producto?->nombre_comercial ?: 'Sin producto' }} · {{ $filaLote->registro->presentacion?->descripcion ?: 'Sin presentación' }}</div>
-                                    <div class="mt-1 text-xs font-semibold {{ $yaEmitido ? 'text-emerald-700' : 'text-amber-700' }}">
-                                        {{ $yaEmitido ? 'Emitido: '.$filaLote->emision->numero_certificado : 'Pendiente de emisión' }}
+                                    <div class="mt-1 text-xs font-semibold {{ $yaEmitido ? 'text-emerald-700' : ($fueAnulado ? 'text-rose-700' : 'text-amber-700') }}">
+                                        {{ $yaEmitido ? 'Emitido: '.$filaLote->emision->numero_certificado : ($fueAnulado ? 'Anulado · pendiente de reemisión' : 'Pendiente de emisión') }}
                                     </div>
                                     @if ($yaEmitido)
                                         <span class="mt-1 inline-block text-xs font-semibold text-emerald-700">Documento registrado</span>
@@ -1609,6 +1707,24 @@
                     documento.head.appendChild(estilos);
 
                     documento.body.appendChild(certificado.cloneNode(true));
+
+                    if (botonImprimir.dataset.vistaPreviaCertificado === '1') {
+                        const marca = documento.createElement('div');
+                        marca.textContent = 'BORRADOR';
+                        marca.style.cssText = [
+                            'color:rgba(190,24,93,.20)',
+                            'font-family:Arial,sans-serif',
+                            'font-size:72pt',
+                            'font-weight:900',
+                            'left:50%',
+                            'pointer-events:none',
+                            'position:fixed',
+                            'top:50%',
+                            'transform:translate(-50%,-50%) rotate(-28deg)',
+                            'z-index:9999',
+                        ].join(';');
+                        documento.body.appendChild(marca);
+                    }
                     imprimirCuandoCargue(frame);
                 });
             }
@@ -1710,14 +1826,36 @@
                 });
             }
 
+            function prepararModalAnulacion() {
+                const modal = document.querySelector('[data-modal-anulacion]');
+                const botonAbrir = document.querySelector('[data-abrir-modal-anulacion]');
+                const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-anulacion]');
+
+                if (!modal || !botonAbrir) {
+                    return;
+                }
+
+                botonAbrir.addEventListener('click', () => {
+                    modal.hidden = false;
+                });
+
+                botonesCerrar.forEach((boton) => {
+                    boton.addEventListener('click', () => {
+                        modal.hidden = true;
+                    });
+                });
+            }
+
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', function () {
                     prepararImpresionCertificado();
                     prepararModalEmision();
+                    prepararModalAnulacion();
                 });
             } else {
                 prepararImpresionCertificado();
                 prepararModalEmision();
+                prepararModalAnulacion();
             }
         })();
     </script>

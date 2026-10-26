@@ -28,16 +28,18 @@ class CertificadoEmitido extends Model
         'fecha_emision',
         'fecha_inicio',
         'fecha_fin',
-        'vigencia_indefinida',
         'url_documento',
         'estado',
+        'fecha_anulacion',
+        'id_usuario_anulacion',
+        'motivo_anulacion',
     ];
 
     protected $casts = [
         'fecha_emision' => 'datetime',
         'fecha_inicio' => 'date',
         'fecha_fin' => 'date',
-        'vigencia_indefinida' => 'boolean',
+        'fecha_anulacion' => 'datetime',
     ];
 
     public function certificado()
@@ -55,6 +57,13 @@ class CertificadoEmitido extends Model
         return $this->belongsTo(PlantillaCertificado::class, 'id_plantilla_certificado');
     }
 
+    // Funcionario que dejó sin vigencia este documento. El documento y su PDF
+    // se conservan como parte del historial institucional.
+    public function usuarioAnulacion()
+    {
+        return $this->belongsTo(User::class, 'id_usuario_anulacion');
+    }
+
     public function descargas()
     {
         return $this->hasMany(DescargaCertificado::class, 'id_certificado_emitido');
@@ -65,6 +74,18 @@ class CertificadoEmitido extends Model
         return $this->estado === 'EMITIDO'
             && $this->fecha_fin
             && $this->fecha_fin->isBefore(today());
+    }
+
+    // Un documento sigue siendo consultable mientras esté emitido o haya
+    // vencido. Un anulado nunca se considera la emisión vigente del trámite.
+    public function estaVigente(): bool
+    {
+        return in_array($this->estado, ['EMITIDO', 'VENCIDO'], true);
+    }
+
+    public function scopeVigentes($consulta)
+    {
+        return $consulta->whereIn('estado', ['EMITIDO', 'VENCIDO']);
     }
 
     // La vigencia pertenece a cada documento emitido, no al trámite que lo agrupa.

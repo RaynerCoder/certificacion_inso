@@ -447,14 +447,20 @@ class Certificado extends Model
     public function getFechaFinAttribute()
     {
         return $this->relationLoaded('emisiones')
-            ? $this->emisiones->last()?->fecha_fin
+            ? $this->emisiones
+                ->filter(fn (CertificadoEmitido $emision) => $emision->estaVigente())
+                ->sortByDesc('orden_emision')
+                ->first()?->fecha_fin
             : null;
     }
 
     public function getUrlDocumentoAttribute(): ?string
     {
         return $this->relationLoaded('emisiones')
-            ? $this->emisiones->last()?->url_documento
+            ? $this->emisiones
+                ->filter(fn (CertificadoEmitido $emision) => $emision->estaVigente())
+                ->sortByDesc('orden_emision')
+                ->first()?->url_documento
             : null;
     }
 

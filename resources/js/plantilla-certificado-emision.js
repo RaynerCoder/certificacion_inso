@@ -212,6 +212,8 @@ function crearMarcador(texto, ancho, alto) {
         new Rect({
             left: 0,
             top: 0,
+            originX: 'left',
+            originY: 'top',
             width: ancho,
             height: alto,
             fill: '#f8fafc',
@@ -286,8 +288,10 @@ function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado,
         numero(estilo.tamano_minimo, 7),
         estilo.ajustar_texto !== false && estilo.tipo !== 'CAMPO_VALOR',
         {
-            left: paddingX,
-            top: paddingY,
+            left: izquierda + paddingX,
+            top: arriba + paddingY,
+            originX: 'left',
+            originY: 'top',
             fontFamily: formato.tipo_letra,
             fontWeight: formato.negrita ? 'bold' : 'normal',
             fontStyle: formato.cursiva ? 'italic' : 'normal',
@@ -297,20 +301,26 @@ function crearCelda(elemento, izquierda, arriba, ancho, alto, texto, encabezado,
         },
     );
     const altoRealTexto = Math.min(numero(textoCelda.height), altoTexto);
-    textoCelda.top = paddingY + desplazamientoVerticalCelda(estilo.alineacion_vertical, altoTexto, altoRealTexto);
+    // Campo/Valor crece por fila cuando el contenido salta de línea. Ambas
+    // celdas deben empezar arriba; si se centran, la etiqueta corta queda en
+    // medio del valor largo y aparenta estar desalineada.
+    const alineacionVertical = tablaCampoValor ? 'SUPERIOR' : estilo.alineacion_vertical;
+    textoCelda.top = arriba + paddingY + desplazamientoVerticalCelda(alineacionVertical, altoTexto, altoRealTexto);
 
-    return new Group([
+    return [
         new Rect({
-            left: 0,
-            top: 0,
-            width: ancho,
-            height: alto,
+        left: izquierda,
+        top: arriba,
+        originX: 'left',
+        originY: 'top',
+        width: ancho,
+        height: alto,
             fill: fondo,
             stroke: estilo.borde_color || '#0f172a',
             strokeWidth: estilo.bordes === 'NINGUNO' ? 0 : numero(estilo.borde_ancho, 1),
         }),
         textoCelda,
-    ], { left: izquierda, top: arriba, width: ancho, height: alto });
+    ];
 }
 
 function textoAjustadoCelda(texto, width, height, tamanoInicial, tamanoMinimo, ajustar, opciones = {}) {
@@ -390,7 +400,7 @@ function crearTabla(elemento) {
     if (mostrarEncabezado) {
         let izquierda = 0;
         columnas.forEach((columna, columnaIndice) => {
-            objetos.push(crearCelda(
+            objetos.push(...crearCelda(
                 elemento,
                 izquierda,
                 arriba,
@@ -410,7 +420,7 @@ function crearTabla(elemento) {
     filas.forEach((fila, filaIndice) => {
         let izquierda = 0;
         columnas.forEach((columna, columnaIndice) => {
-            objetos.push(crearCelda(
+            objetos.push(...crearCelda(
                 elemento,
                 izquierda,
                 arriba,
@@ -427,7 +437,10 @@ function crearTabla(elemento) {
         arriba += alturasFilas[filaIndice];
     });
 
-    return new Group(objetos, { width: anchoTabla, height: arriba });
+    return new Group(objetos, {
+        originX: 'left',
+        originY: 'top',
+    });
 }
 
 function alturaFilaTabla(elemento, fila, filaIndice, columnas, anchosColumnas, alturaMinima) {
@@ -533,6 +546,8 @@ async function crearObjeto(elemento, valores = {}) {
         originY: 'top',
         angle: numero(configuracion.rotacion),
         opacity: numero(configuracion.opacidad, 1),
+        // La tabla se construye con celdas directas. Esta escala solo iguala
+        // el ancho lógico guardado y no modifica la distribución Campo/Valor.
         scaleX: ancho / anchoNatural,
         scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(tipo) || tablaDatos ? 1 : alto / altoNatural,
         visible: configuracion.visible !== false,

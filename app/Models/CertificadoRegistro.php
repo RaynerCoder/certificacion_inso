@@ -28,9 +28,22 @@ class CertificadoRegistro extends Model
         return $this->belongsTo(Registro::class, 'id_registro');
     }
 
-    // Una fila de lote solo puede originar un certificado emitido.
+    // Historial completo de documentos emitidos para este lote. Puede haber más
+    // de uno cuando un documento anterior se anuló y luego se reemitió.
+    public function emisiones()
+    {
+        return $this->hasMany(CertificadoEmitido::class, 'id_certificado_registro')
+            ->orderBy('orden_emision')
+            ->orderBy('id');
+    }
+
+    // Mantiene la relación usada por las pantallas actuales, pero solo devuelve
+    // el documento vigente. Así una anulación habilita la reemisión del lote.
     public function emision()
     {
-        return $this->hasOne(CertificadoEmitido::class, 'id_certificado_registro');
+        return $this->hasOne(CertificadoEmitido::class, 'id_certificado_registro')
+            ->vigentes()
+            ->latest('orden_emision')
+            ->latest('id');
     }
 }

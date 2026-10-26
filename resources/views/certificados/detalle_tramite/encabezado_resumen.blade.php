@@ -17,13 +17,16 @@
     </a>
 
     @if ($puedeConsultarCertificadoEmitido || ($puedeEmitirCertificado && $certificado->tipoCertificado?->plantillaActiva))
-        <a href="{{ $puedeConsultarCertificadoEmitido
+        @php
+            $esEmisionPorLote = $certificado->tipoCertificado?->modo_emision === 'POR_LOTE';
+        @endphp
+        <a href="{{ $puedeConsultarCertificadoEmitido && ! $esEmisionPorLote
             ? route('certificados_descargar', ['certificado' => $certificado, 'visualizar' => 1])
             : route('certificados_emitir', ['certificado' => $certificado, 'bandeja' => request('bandeja', 'finalizados')]) }}"
             class="tramite-btn tramite-btn-emit">
             <i
                 class="fa-solid {{ in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'fa-eye' : 'fa-file-circle-check' }}"></i>
-            {{ in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'Ver certificado emitido' : 'Emitir certificado' }}
+            {{ $esEmisionPorLote ? (in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'Ver certificados' : 'Emitir certificado') : (in_array($certificado->estado, ['EMITIDO', 'VENCIDO'], true) ? 'Ver certificado emitido' : 'Emitir certificado') }}
         </a>
     @endif
     </div>

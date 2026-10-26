@@ -69,7 +69,7 @@ class DescargaCertificadoService
     public function rutaDocumento(Certificado|CertificadoEmitido $certificado): ?string
     {
         $urlDocumento = $certificado instanceof Certificado
-            ? ($certificado->emisiones()->latest('id')->value('url_documento'))
+            ? ($certificado->emisiones()->vigentes()->latest('id')->value('url_documento'))
             : $certificado->url_documento;
         $ruta = $this->normalizarRuta($urlDocumento);
 

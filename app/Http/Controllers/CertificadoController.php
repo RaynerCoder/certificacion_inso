@@ -383,6 +383,7 @@ class CertificadoController extends Controller
             'certificadosRegistros.registro.presentacion.catalogoUnidad',
             'certificadosRegistros.registro.catalogoUnidad',
             'certificadosRegistros.emision',
+            'certificadosRegistros.emisiones',
             'emisiones.certificadoRegistro.registro.producto',
             'pagos.procedencia',
             'pagos.clientePersona.natural',
@@ -771,7 +772,10 @@ class CertificadoController extends Controller
         // no el marcador de diseño "QR".
         $emisionSeleccionada = $registroSeleccionado
             ? $registroSeleccionado->emision
-            : $certificado->emisiones->sortByDesc('orden_emision')->first();
+            : $certificado->emisiones
+                ->filter(fn (CertificadoEmitido $emision) => $emision->estaVigente())
+                ->sortByDesc('orden_emision')
+                ->first();
         $datosVigenciaEmision = $this->datosVigenciaParaEmision($certificado);
         $valoresPlantilla = $this->valoresPlantillaCertificado($certificado, $emisionSeleccionada, $registroSeleccionado);
         $usaQrVerificacion = $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado);
@@ -779,7 +783,7 @@ class CertificadoController extends Controller
         // Antes de emitir se muestra en la plantilla la misma vigencia que se guardará.
         if (! $emisionSeleccionada && $datosVigenciaEmision['disponible']) {
             $valoresPlantilla['certificado.fecha_inicio'] = $datosVigenciaEmision['fecha_inicio']->format('d/m/Y');
-            $valoresPlantilla['certificado.fecha_fin'] = $datosVigenciaEmision['vigencia_indefinida']
+            $valoresPlantilla['certificado.fecha_fin'] = $datosVigenciaEmision['es_indefinida']
                 ? 'Vigencia indefinida'
                 : $datosVigenciaEmision['fecha_fin']->format('d/m/Y');
         }
@@ -791,6 +795,7 @@ class CertificadoController extends Controller
             : [];
 
         $resumenDescargas = $this->descargasCertificados->resumen($certificado, auth()->user());
+        $anulacionDisponible = $this->camposAnulacionDisponibles();
 
         return view('certificados.emitir_certificado.create', compact(
             'certificado',
@@ -802,7 +807,8 @@ class CertificadoController extends Controller
             'emisionSeleccionada',
             'datosVigenciaEmision',
             'usaQrVerificacion',
-            'informacionPublicaQr'
+            'informacionPublicaQr',
+            'anulacionDisponible'
         ));
     }
 
@@ -869,7 +875,10 @@ class CertificadoController extends Controller
 
         $certificado = $emision->certificado;
         $certificado->loadMissing($this->relacionesParaEmision());
-        $estado = $certificado->estado === 'ANULADO' ? 'ANULADO' : $emision->estado;
+        // El estado del documento concreto prevalece sobre el trámite. Esto
+        // permite que un QR histórico informe "Anulado" aun si el trámite se
+        // aprobó de nuevo para una reemisión.
+        $estado = $emision->estado;
 
         return view('certificados.verificacion_publica', [
             'verificacion' => [
@@ -942,7 +951,7 @@ class CertificadoController extends Controller
                 ])->errorBag('emisionCertificado');
             }
 
-            if ($tramite->tipoCertificado?->modo_emision !== 'POR_LOTE' && $tramite->emisiones()->exists()) {
+            if ($tramite->tipoCertificado?->modo_emision !== 'POR_LOTE' && $tramite->emisiones()->vigentes()->exists()) {
                 throw ValidationException::withMessages([
                     'form_documento_renderizado' => 'Este trámite ya tiene su certificado emitido.',
                 ])->errorBag('emisionCertificado');
@@ -973,7 +982,6 @@ class CertificadoController extends Controller
                 'fecha_emision' => now(),
                 'fecha_inicio' => $datosVigenciaEmision['fecha_inicio'],
                 'fecha_fin' => $datosVigenciaEmision['fecha_fin'],
-                'vigencia_indefinida' => $datosVigenciaEmision['vigencia_indefinida'],
                 'estado' => 'EMITIDO',
             ];
 
@@ -1138,7 +1146,7 @@ class CertificadoController extends Controller
 
     // ENVIA AVISO AL BENEFICIARIO Y TRAMITADOR
     // Se guarda una notificacion por cada cuenta vinculada, sin usar JSON.
-    public function enviarCertificadoSolicitante(Certificado $certificado)
+    public function enviarCertificadoSolicitante(Request $solicitud, Certificado $certificado)
     {
         $certificado->load($this->relacionesParaEmision());
 
@@ -1146,8 +1154,16 @@ class CertificadoController extends Controller
             abort(403, 'No puede enviar este certificado.');
         }
 
-        if ($certificado->estado !== 'EMITIDO') {
-            return back()->with('error', 'Primero debe emitir el certificado.');
+        $idEmision = $solicitud->integer('form_id_certificado_emitido');
+        $emision = $idEmision
+            ? $certificado->emisiones->firstWhere('id', $idEmision)
+            : $certificado->emisiones
+                ->filter(fn (CertificadoEmitido $documento) => $documento->estado === 'EMITIDO')
+                ->sortByDesc('orden_emision')
+                ->first();
+
+        if (! $emision || $emision->estado !== 'EMITIDO') {
+            return back()->with('error', 'Seleccione un certificado emitido y vigente para notificar al solicitante.');
         }
 
         $usuariosSolicitantes = $this->usuariosSolicitantesCertificado($certificado);
@@ -1162,7 +1178,7 @@ class CertificadoController extends Controller
                 'id_usuario_origen' => auth()->id(),
                 'id_certificado' => $certificado->id,
                 'titulo' => 'Certificado emitido',
-                'mensaje' => 'El certificado de su trámite ya fue emitido.',
+                'mensaje' => 'El certificado N.º '.$emision->numero_certificado.' de su trámite ya fue emitido y está disponible para su consulta.',
                 'estado' => 'ACTIVO',
             ]);
         }
@@ -1173,7 +1189,81 @@ class CertificadoController extends Controller
             'icon' => 'success',
         ]);
 
-        return redirect()->route('certificados_emitir', $certificado);
+        return redirect()->route('certificados_emitir', [
+            'certificado' => $certificado,
+            'registro' => $emision->id_certificado_registro,
+        ]);
+    }
+
+    /**
+     * Anula un documento emitido sin eliminarlo. El número, QR y PDF quedan
+     * disponibles como evidencia histórica; una reemisión crea otra fila.
+     */
+    public function anularEmision(Request $solicitud, Certificado $certificado, CertificadoEmitido $emision)
+    {
+        abort_unless((int) $emision->id_certificado === (int) $certificado->id, 404);
+
+        if (! $this->camposAnulacionDisponibles()) {
+            return back()->with('error', 'Falta agregar los campos de anulación en certificados_emitidos. Ejecute primero el SQL de actualización.');
+        }
+
+        $datos = $solicitud->validateWithBag('anulacionCertificado', [
+            'form_motivo_anulacion' => ['required', 'string', 'max:1000'],
+        ], [], [
+            'form_motivo_anulacion' => 'motivo de anulación',
+        ]);
+
+        $certificado->load($this->relacionesParaEmision());
+
+        if (! $this->usuarioPuedeEmitirCertificado($certificado)) {
+            abort(403, 'No puede anular este certificado.');
+        }
+
+        if (! $emision->estaVigente()) {
+            return back()->with('error', 'Este documento ya fue anulado y no puede volver a anularse.');
+        }
+
+        DB::transaction(function () use ($certificado, $emision, $datos) {
+            $tramite = Certificado::query()
+                ->with('tipoCertificado')
+                ->lockForUpdate()
+                ->findOrFail($certificado->id);
+
+            $documento = CertificadoEmitido::query()
+                ->lockForUpdate()
+                ->findOrFail($emision->id);
+
+            abort_unless((int) $documento->id_certificado === (int) $tramite->id, 404);
+
+            if (! $documento->estaVigente()) {
+                throw ValidationException::withMessages([
+                    'form_motivo_anulacion' => 'El documento ya no está vigente y no puede anularse nuevamente.',
+                ])->errorBag('anulacionCertificado');
+            }
+
+            $documento->update([
+                'estado' => 'ANULADO',
+                'fecha_anulacion' => now(),
+                'id_usuario_anulacion' => auth()->id(),
+                'motivo_anulacion' => trim($datos['form_motivo_anulacion']),
+            ]);
+
+            // En una emisión por lote otros documentos pueden seguir vigentes.
+            // El trámite único vuelve a APROBADO y el lote anulado queda listo
+            // para reemitirse con un nuevo número y un QR distinto.
+            $hayDocumentosVigentes = $tramite->emisiones()->vigentes()->exists();
+            $tramite->update([
+                'estado' => $hayDocumentosVigentes ? 'EMITIDO' : 'APROBADO',
+            ]);
+        });
+
+        session()->flash('swal', [
+            'title' => 'Certificado anulado',
+            'text' => 'El documento fue anulado y se conserva en el historial. Ya puede emitir uno nuevo cuando corresponda.',
+            'icon' => 'success',
+        ]);
+
+        return redirect()->route('certificados_emitidos_index');
     }
 
     /**
@@ -1981,9 +2071,14 @@ class CertificadoController extends Controller
             'filas_alternas_color' => $color($tabla['filas_alternas_color'] ?? '#f8fafc', '#f8fafc'),
             'padding_x' => max(0, min(30, (float) ($tabla['padding_x'] ?? 6))),
             'padding_y' => max(0, min(30, (float) ($tabla['padding_y'] ?? 4))),
-            'alineacion_vertical' => in_array($alineacionVertical, ['SUPERIOR', 'MEDIO', 'INFERIOR'], true)
-                ? $alineacionVertical
-                : 'MEDIO',
+            // La tabla Campo/Valor aumenta una fila completa cuando un valor
+            // ocupa varias líneas. Se alinea arriba para conservar el campo y
+            // la primera línea del valor en la misma altura.
+            'alineacion_vertical' => $tipoTabla === 'CAMPO_VALOR'
+                ? 'SUPERIOR'
+                : (in_array($alineacionVertical, ['SUPERIOR', 'MEDIO', 'INFERIOR'], true)
+                    ? $alineacionVertical
+                    : 'MEDIO'),
         ];
 
         return $resultado;
@@ -2144,10 +2239,11 @@ class CertificadoController extends Controller
         );
 
         $fechaFinPrevia = data_get($datosVigencia, 'fecha_fin');
-        $vigencia = $emision?->vigencia_indefinida
-            ? 'Vigencia indefinida'
-            : ($emision?->fecha_fin?->format('d/m/Y')
-                ?: ($fechaFinPrevia?->format('d/m/Y') ?? 'Se calculará al emitir'));
+        $vigencia = $emision
+            ? ($emision->fecha_fin?->format('d/m/Y') ?: 'Vigencia indefinida')
+            : (data_get($datosVigencia, 'es_indefinida')
+                ? 'Vigencia indefinida'
+                : ($fechaFinPrevia?->format('d/m/Y') ?? 'Se calculará al emitir'));
 
         $referencia = collect([
             $valores['producto.nombres_comerciales'] ?? null,
@@ -2203,7 +2299,7 @@ class CertificadoController extends Controller
      * Calcula la vigencia del documento con la regla configurada para su tipo.
      * La fecha de inicio es el cierre real del trámite, no una fecha elegida manualmente al emitir.
      *
-     * @return array{disponible: bool, mensaje: string|null, fecha_inicio: \Illuminate\Support\Carbon|null, fecha_fin: \Illuminate\Support\Carbon|null, vigencia_indefinida: bool, texto: string|null}
+     * @return array{disponible: bool, mensaje: string|null, fecha_inicio: \Illuminate\Support\Carbon|null, fecha_fin: \Illuminate\Support\Carbon|null, es_indefinida: bool, texto: string|null}
      */
     private function datosVigenciaParaEmision(Certificado $certificado): array
     {
@@ -2218,7 +2314,7 @@ class CertificadoController extends Controller
                 'mensaje' => 'Configure la vigencia del tipo de certificado antes de emitir.',
                 'fecha_inicio' => null,
                 'fecha_fin' => null,
-                'vigencia_indefinida' => false,
+                'es_indefinida' => false,
                 'texto' => null,
             ];
         }
@@ -2236,14 +2332,14 @@ class CertificadoController extends Controller
                 'mensaje' => 'El trámite debe estar finalizado para calcular la vigencia del certificado.',
                 'fecha_inicio' => null,
                 'fecha_fin' => null,
-                'vigencia_indefinida' => false,
+                'es_indefinida' => false,
                 'texto' => null,
             ];
         }
 
         $fechaInicio = $seguimientoFinalizado->fecha_final->copy()->startOfDay();
-        $vigenciaIndefinida = $unidad === 'INDEFINIDA';
-        $fechaFin = $vigenciaIndefinida ? null : match ($unidad) {
+        $esIndefinida = $unidad === 'INDEFINIDA';
+        $fechaFin = $esIndefinida ? null : match ($unidad) {
             'DIA' => $fechaInicio->copy()->addDays($cantidad),
             'MES' => $fechaInicio->copy()->addMonthsNoOverflow($cantidad),
             'ANIO' => $fechaInicio->copy()->addYearsNoOverflow($cantidad),
@@ -2254,7 +2350,7 @@ class CertificadoController extends Controller
             'mensaje' => null,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
-            'vigencia_indefinida' => $vigenciaIndefinida,
+            'es_indefinida' => $esIndefinida,
             'texto' => $tipoCertificado->textoVigencia(),
         ];
     }
@@ -3052,7 +3148,7 @@ class CertificadoController extends Controller
     private function tramiteCompletoParaEmision(Certificado $certificado): bool
     {
         if ($certificado->tipoCertificado?->modo_emision !== 'POR_LOTE') {
-            return $certificado->emisiones()->exists();
+            return $certificado->emisiones()->vigentes()->exists();
         }
 
         $lotes = $certificado->certificadosRegistros()
@@ -3060,20 +3156,42 @@ class CertificadoController extends Controller
             ->count();
 
         return $lotes > 0 && $certificado->emisiones()
+            ->vigentes()
             ->whereNotNull('id_certificado_registro')
-            ->count() >= $lotes;
+            ->distinct('id_certificado_registro')
+            ->count('id_certificado_registro') >= $lotes;
     }
 
-    // Reserva el correlativo dentro de la misma transacción para evitar números duplicados.
+    // Las instalaciones existentes aplican este cambio con SQL manual. Antes
+    // de permitir una anulación se verifica la estructura para no perder el
+    // motivo ni la trazabilidad del funcionario responsable.
+    private function camposAnulacionDisponibles(): bool
+    {
+        return Schema::hasColumns('certificados_emitidos', [
+            'fecha_anulacion',
+            'id_usuario_anulacion',
+            'motivo_anulacion',
+        ]);
+    }
+
+    // Reserva el correlativo dentro de la misma transacción. El número se
+    // conserva aun si el documento fue anulado, por lo que nunca se reutiliza.
     private function siguienteNumeroCertificado(TipoCertificado $tipoCertificado): string
     {
         $tipoBloqueado = TipoCertificado::query()->lockForUpdate()->findOrFail($tipoCertificado->id);
         $correlativo = max(1, (int) ($tipoBloqueado->siguiente_correlativo ?? 1));
         $prefijo = trim((string) ($tipoBloqueado->prefijo_numero_certificado ?? ''));
 
-        $tipoBloqueado->update(['siguiente_correlativo' => $correlativo + 1]);
+        do {
+            $numero = $prefijo === '' ? (string) $correlativo : $prefijo.$correlativo;
+            $correlativo++;
+        } while (CertificadoEmitido::withTrashed()
+            ->where('numero_certificado', $numero)
+            ->exists());
 
-        return $prefijo === '' ? (string) $correlativo : $prefijo.$correlativo;
+        $tipoBloqueado->update(['siguiente_correlativo' => $correlativo]);
+
+        return $numero;
     }
 
     private function usuarioDirectorPlantilla(): ?User

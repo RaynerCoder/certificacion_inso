@@ -50,6 +50,7 @@
         'seguimientos_index',
         'seguimientos_todos',
         'seguimientos_finalizados',
+        'certificados_emitidos_index',
         'seguimientos_show',
         'seguimientos_tramite_historial',
         'pagos_openbcb_mostrar_pago',
@@ -82,6 +83,7 @@
         'seguimientos_tramite.registrados',
         'seguimientos_tramite.atender',
         'seguimientos_tramite.consulta_general',
+        'certificados.emitir',
     ];
 
     // Estructura del menú: Menú va primero, luego Configuración y después los módulos.
@@ -341,6 +343,13 @@
                         ) &&
                             $bandejaTramiteActual === 'finalizados'),
                     'permission' => 'seguimientos_tramite.consulta_general',
+                ],
+                [
+                    'name' => 'Certificados emitidos',
+                    'icon' => 'fa-solid fa-file-pdf',
+                    'href' => $href('certificados_emitidos_index'),
+                    'active' => request()->routeIs('certificados_emitidos_index'),
+                    'permission' => 'certificados.emitir',
                 ],
             ],
         ],

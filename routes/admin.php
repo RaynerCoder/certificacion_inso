@@ -263,7 +263,9 @@ Route::delete('/requisitos/{requisito}', [RequisitoController::class, 'destroy']
 Route::get('/certificados', [CertificadoController::class, 'index'])->name('certificados_index');
 Route::get('/certificados/create', [CertificadoController::class, 'create'])->name('certificados_create');
 Route::post('/certificados', [CertificadoController::class, 'store'])->name('certificados_store');
-Route::get('/certificados-emitidos', [CertificadoController::class, 'emitidos'])->name('certificados_emitidos_index');
+Route::get('/certificados-emitidos', [CertificadoController::class, 'emitidos'])
+    ->name('certificados_emitidos_index')
+    ->middleware('permiso:certificados.emitir');
 Route::get('/certificados/plantillas', [CertificadoController::class, 'plantillas'])->name('certificados_plantillas_index');
 Route::get('/certificados/plantillas/create', [CertificadoController::class, 'crearPlantilla'])->name('certificados_plantillas_create');
 Route::post('/certificados/plantillas', [CertificadoController::class, 'guardarPlantilla'])->name('certificados_plantillas_store');
@@ -278,6 +280,9 @@ Route::post('/certificados/{certificado}/emitir/preparar-qr', [CertificadoContro
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')
+    ->middleware('permiso:certificados.emitir');
+Route::post('/certificados/{certificado}/emitidos/{emision}/anular', [CertificadoController::class, 'anularEmision'])
+    ->name('certificados_emitidos_anular')
     ->middleware('permiso:certificados.emitir');
 Route::get('/certificados/{certificado}/descargar', [CertificadoController::class, 'descargar'])
     ->name('certificados_descargar');

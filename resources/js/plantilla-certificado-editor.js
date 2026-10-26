@@ -278,7 +278,12 @@ function crearEditorPlantilla(elementoCanvas) {
                 filas_alternas_color: tabla.filas_alternas_color || '#f8fafc',
                 padding_x: numero(tabla.padding_x, 6),
                 padding_y: numero(tabla.padding_y, 4),
-                alineacion_vertical: tabla.alineacion_vertical || 'MEDIO',
+                // Una fila Campo/Valor debe iniciar sus dos celdas en la misma
+                // línea. Centrar una etiqueta corta junto a un valor de varias
+                // líneas hace que parezca que la tabla se deformó.
+                alineacion_vertical: tabla.tipo === 'CAMPO_VALOR'
+                    ? 'SUPERIOR'
+                    : (tabla.alineacion_vertical || 'MEDIO'),
             },
         };
     }
@@ -463,6 +468,16 @@ function crearEditorPlantilla(elementoCanvas) {
         const encabezado = elemento.configuracion.tabla.mostrar_encabezado ? 1 : 0;
         const alturaFilaMinima = elemento.configuracion.tabla.pares_por_fila === 2 ? 42 : 36;
         elemento.alto = Math.max(elemento.alto, cantidadFilas * alturaFilaMinima + encabezado * 32);
+    }
+
+    function aplicarFormatoGeneralTabla(elemento, propiedad, valor) {
+        const filas = filasConfiguradasTabla(elemento);
+        const estilosActuales = estilosConfiguradosTabla(elemento);
+        const estilos = filas.map((fila, filaIndice) => fila.map((_, columnaIndice) => ({
+            ...(estilosActuales?.[filaIndice]?.[columnaIndice] || {}),
+            [propiedad]: valor,
+        })));
+        guardarFilasTabla(elemento, filas, estilos);
     }
 
     function entradasTablaDatos(elemento) {
@@ -662,9 +677,16 @@ function crearEditorPlantilla(elementoCanvas) {
         renderizandoLienzo = true;
         try {
             lienzo.discardActiveObject();
+            // Si el fondo ya fue cargado, se conserva durante el recálculo de
+            // capas. Así un movimiento o un cambio de tamaño no puede dejar la
+            // hoja blanca mientras Fabric termina de redibujar los objetos.
+            const fondoActual = lienzo.backgroundImage || fondoFabric;
             lienzo.remove(...lienzo.getObjects());
-            lienzo.backgroundColor = 'rgba(255,255,255,0)';
             lienzo.add(...objetos);
+            if (fondoActual && urlFondo && controles.escenario?.dataset.fondoNoVisual !== '1') {
+                ajustarFondoAlLienzo(fondoActual, controles.selectorAjusteFondo?.value || 'ESTIRAR');
+                lienzo.backgroundImage = fondoActual;
+            }
             restaurarSeleccionEnLienzo();
             await aplicarFondoVisual();
 
@@ -740,6 +762,9 @@ function crearEditorPlantilla(elementoCanvas) {
             originY: 'top',
             angle: elemento.configuracion.rotacion,
             opacity: elemento.configuracion.opacidad,
+            // La escala conserva el ancho lógico guardado. La tabla se dibuja
+            // con celdas directas, por lo que esta relación ya no altera sus
+            // columnas al moverla ni al volver a abrir la plantilla.
             scaleX: elemento.ancho / anchoNatural,
             scaleY: ['TEXTO', 'CAMPO', 'FIRMA', 'LINEA'].includes(elemento.tipo_elemento) || esTablaDatos(elemento)
                 ? 1
@@ -831,7 +856,7 @@ function crearEditorPlantilla(elementoCanvas) {
         if (mostrarEncabezado) {
             let izquierda = 0;
             columnas.forEach((columna, columnaIndice) => {
-                objetos.push(celdaTabla(
+                objetos.push(...celdaTabla(
                     izquierda,
                     arriba,
                     anchosColumnas[columnaIndice],
@@ -853,7 +878,7 @@ function crearEditorPlantilla(elementoCanvas) {
             columnas.forEach((columna, columnaIndice) => {
                 const tieneCelda = Object.prototype.hasOwnProperty.call(fila, columnaIndice);
                 const contenidoCelda = tieneCelda ? fila[columnaIndice] : '';
-                objetos.push(celdaTabla(
+                objetos.push(...celdaTabla(
                     izquierda,
                     arriba,
                     anchosColumnas[columnaIndice],
@@ -874,7 +899,13 @@ function crearEditorPlantilla(elementoCanvas) {
 
         if (esTablaDatos(elemento)) elemento.alto = Math.max(1, redondear(arriba));
 
-        return new Group(objetos, { width: elemento.ancho, height: arriba });
+        // Las celdas son objetos directos del grupo. Evitar grupos anidados es
+        // importante: Fabric puede recalcular un ancho mayor al real cuando se
+        // mueve una tabla con grupos dentro de grupos y terminar estirándola.
+        return new Group(objetos, {
+            originX: 'left',
+            originY: 'top',
+        });
     }
 
     function alturaFilaTabla(elemento, fila, filaIndice, columnas, anchosColumnas, alturaMinima) {
@@ -920,8 +951,10 @@ function crearEditorPlantilla(elementoCanvas) {
             numero(estilo.tamano_minimo, 7),
             estilo.ajustar_texto !== false && !esTablaDatos(elemento),
             {
-                left: paddingX,
-                top: paddingY,
+                left: left + paddingX,
+                top: top + paddingY,
+                originX: 'left',
+                originY: 'top',
                 fontFamily: formato.tipo_letra,
                 fontWeight: formato.negrita ? 'bold' : 'normal',
                 fontStyle: formato.cursiva ? 'italic' : 'normal',
@@ -933,20 +966,25 @@ function crearEditorPlantilla(elementoCanvas) {
             },
         );
         const altoRealTexto = Math.min(numero(textoCelda.height), altoTexto);
-        textoCelda.top = paddingY + desplazamientoVerticalCelda(estilo.alineacion_vertical, altoTexto, altoRealTexto);
+        const alineacionVertical = esTablaDatos(elemento) ? 'SUPERIOR' : estilo.alineacion_vertical;
+        textoCelda.top = top + paddingY + desplazamientoVerticalCelda(alineacionVertical, altoTexto, altoRealTexto);
 
-        return new Group([
+        return [
             new Rect({
-                left: 0,
-                top: 0,
-                width,
-                height,
+            left,
+            top,
+            originX: 'left',
+            originY: 'top',
+            width,
+            height,
                 fill: fondo,
                 stroke: estilo.borde_color,
                 strokeWidth: estilo.bordes === 'NINGUNO' ? 0 : estilo.borde_ancho,
+                selectable: false,
+                evented: false,
             }),
             textoCelda,
-        ], { left, top, width, height, selectable: false, evented: false });
+        ];
     }
 
     function textoAjustadoCelda(texto, width, height, tamanoInicial, tamanoMinimo, ajustar, opciones = {}) {
@@ -1031,7 +1069,7 @@ function crearEditorPlantilla(elementoCanvas) {
         }
     }
 
-    function sincronizarDesdeObjeto(objeto) {
+    function sincronizarDesdeObjeto(objeto, accionTransformacion = '') {
         if (!objeto) return;
 
         if (objeto instanceof ActiveSelection) {
@@ -1060,12 +1098,18 @@ function crearEditorPlantilla(elementoCanvas) {
         renderizarCapas();
         renderizarPropiedades();
 
+        const seRedimensiono = /^scale/i.test(String(accionTransformacion));
+
         if (objeto instanceof Textbox) {
             // El texto ya está actualizado en Fabric; reconstruir el lienzo aquí podía ocultarlo al soltarlo.
             objeto.dirty = true;
             lienzo.requestRenderAll();
-        } else {
+        } else if (seRedimensiono) {
+            // Al redimensionar una tabla se recalculan sus columnas y filas.
+            // Un simple traslado o giro no necesita reconstruir el lienzo.
             renderizarLienzo();
+        } else {
+            lienzo.requestRenderAll();
         }
     }
 
@@ -1147,7 +1191,7 @@ function crearEditorPlantilla(elementoCanvas) {
         lienzo.on('before:transform', guardarHistorial);
         lienzo.on('object:modified', (evento) => {
             ocultarGuiasAlineacion();
-            sincronizarDesdeObjeto(evento.target);
+            sincronizarDesdeObjeto(evento.target, evento.transform?.action || '');
         });
         lienzo.on('text:editing:entered', guardarHistorial);
         lienzo.on('text:changed', (evento) => sincronizarTexto(evento.target));
@@ -2427,7 +2471,13 @@ function crearEditorPlantilla(elementoCanvas) {
                 <label><span class="plantilla-prop-label">Ancho columna ${indice + 1} (%)</span>
                     <input type="number" min="5" max="95" step="1" class="plantilla-prop-input" data-tabla-ancho="${indice}" value="${numero(columna.ancho, 25)}">
                 </label>`).join('')}
-            ${campoNumero('Tamaño de letra', 'tamano_letra', elemento.tamano_letra, 8)}
+            <div class="plantilla-prop-full plantilla-editor-ayuda">El formato general se aplica a todos los campos y valores. Si necesita una excepción, use el formato individual de cada dato.</div>
+            <label><span class="plantilla-prop-label">Fuente general</span>
+                <select class="plantilla-prop-select" data-prop-grupo="elemento" data-propiedad="tipo_letra">
+                    ${FUENTES_CERTIFICADO.map((fuente) => `<option value="${fuente}" ${fuente === elemento.tipo_letra ? 'selected' : ''}>${fuente}</option>`).join('')}
+                </select>
+            </label>
+            ${campoNumero('Tamaño general', 'tamano_letra', elemento.tamano_letra, 8)}
             <label><span class="plantilla-prop-label">Bordes</span>
                 <select class="plantilla-prop-select" data-tabla-config="bordes">
                     ${[['NINGUNO', 'Sin bordes'], ['TODOS', 'Todos'], ['EXTERIOR', 'Solo exterior'], ['HORIZONTAL', 'Horizontales'], ['VERTICAL', 'Verticales'], ['ENCABEZADO', 'Solo encabezado']]
@@ -2437,12 +2487,14 @@ function crearEditorPlantilla(elementoCanvas) {
             ${campoNumero('Separación horizontal', 'padding_x', tabla.padding_x, 0, 'tabla')}
             ${campoNumero('Separación vertical', 'padding_y', tabla.padding_y, 0, 'tabla')}
             ${campoNumero('Tamaño mínimo del texto', 'tamano_minimo', tabla.tamano_minimo, 5, 'tabla')}
-            <label class="plantilla-prop-full"><span class="plantilla-prop-label">Alineación vertical</span>
-                <select class="plantilla-prop-select" data-tabla-config="alineacion_vertical">
-                    ${[['SUPERIOR', 'Superior'], ['MEDIO', 'Centro'], ['INFERIOR', 'Inferior']]
-                        .map(([valor, texto]) => `<option value="${valor}" ${tabla.alineacion_vertical === valor ? 'selected' : ''}>${texto}</option>`).join('')}
-                </select>
-            </label>
+            ${tablaDatos
+                ? '<div class="plantilla-prop-full plantilla-editor-ayuda">Las filas Campo/Valor se alinean siempre por arriba para que el nombre del dato coincida con la primera línea de su valor.</div>'
+                : `<label class="plantilla-prop-full"><span class="plantilla-prop-label">Alineación vertical</span>
+                    <select class="plantilla-prop-select" data-tabla-config="alineacion_vertical">
+                        ${[['SUPERIOR', 'Superior'], ['MEDIO', 'Centro'], ['INFERIOR', 'Inferior']]
+                            .map(([valor, texto]) => `<option value="${valor}" ${tabla.alineacion_vertical === valor ? 'selected' : ''}>${texto}</option>`).join('')}
+                    </select>
+                </label>`}
             <label class="plantilla-check-row">
                 <input type="checkbox" data-tabla-config="mostrar_encabezado" ${tabla.mostrar_encabezado ? 'checked' : ''}> Mostrar encabezado
             </label>
@@ -2554,7 +2606,12 @@ function crearEditorPlantilla(elementoCanvas) {
         } else if (grupo === 'tabla') {
             elemento.configuracion.tabla[propiedad] = valor;
         } else {
-            elemento[propiedad] = propiedad === 'alineacion' ? normalizarAlineacion(valor) : valor;
+            if (propiedad === 'tipo_letra' && !FUENTES_CERTIFICADO.includes(valor)) return;
+            valor = propiedad === 'alineacion' ? normalizarAlineacion(valor) : valor;
+            elemento[propiedad] = valor;
+            if (elemento.tipo_elemento === 'TABLA' && ['tamano_letra', 'tipo_letra'].includes(propiedad)) {
+                aplicarFormatoGeneralTabla(elemento, propiedad, valor);
+            }
         }
 
         actualizarInput();
@@ -2643,9 +2700,9 @@ function crearEditorPlantilla(elementoCanvas) {
             lienzo.backgroundImage = undefined;
             lienzo.requestRenderAll();
         } else {
-            const cicloActual = ++cicloCargaFondo;
             const urlSolicitada = urlFondo;
             if (!fondoFabric || urlFondoFabric !== urlFondo) {
+                const cicloActual = ++cicloCargaFondo;
                 try {
                     const fondoCargado = await FabricImage.fromURL(urlFondo, { crossOrigin: 'anonymous' });
                     if (cicloActual !== cicloCargaFondo || urlSolicitada !== urlFondo) return;

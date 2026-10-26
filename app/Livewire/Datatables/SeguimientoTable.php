@@ -77,6 +77,8 @@ class SeguimientoTable extends DataTableComponent
             'certificado.tramitador.natural',
             'certificado.tramitador.empresa',
             'certificado.certificadoRequisitos',
+            'certificado.emisiones',
+            'certificado.certificadosRegistros.registro',
             'certificado.seguimientos',
             'certificado.seguimientos.usuarioOrigen.funcionario.cargos',
             'certificado.seguimientos.usuarioOrigen.persona.empresa',

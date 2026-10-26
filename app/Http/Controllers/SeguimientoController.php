@@ -1913,7 +1913,7 @@ class SeguimientoController extends Controller
                 // El certificado previo debe tener al menos un documento emitido y vigente.
                 $query->where('estado', 'EMITIDO')
                     ->where(function ($vigencia) {
-                        $vigencia->where('vigencia_indefinida', true)
+                        $vigencia->whereNull('fecha_fin')
                             ->orWhereDate('fecha_fin', '>=', today()->toDateString());
                     });
             })
@@ -1951,7 +1951,7 @@ class SeguimientoController extends Controller
                 // El certificado previo debe tener al menos un documento emitido y vigente.
                 $query->where('estado', 'EMITIDO')
                     ->where(function ($vigencia) {
-                        $vigencia->where('vigencia_indefinida', true)
+                        $vigencia->whereNull('fecha_fin')
                             ->orWhereDate('fecha_fin', '>=', today()->toDateString());
                     });
             })
