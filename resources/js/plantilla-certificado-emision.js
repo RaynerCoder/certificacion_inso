@@ -737,6 +737,7 @@ async function iniciarPrevisualizacion() {
     };
 
     publicarSalida();
+    document.dispatchEvent(new CustomEvent('certificado:lienzo-listo'));
 }
 
 if (document.readyState === 'loading') {

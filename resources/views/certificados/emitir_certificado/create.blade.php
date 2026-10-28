@@ -1671,7 +1671,13 @@
                     return;
                 }
 
-                botonImprimir.addEventListener('click', function () {
+                botonImprimir.addEventListener('click', async function () {
+                    try {
+                        await window.prepararVistaQrEmision?.();
+                    } catch (error) {
+                        window.alert(error?.message || 'No se pudo generar el QR para el borrador.');
+                        return;
+                    }
                     document.getElementById('certificado-print-frame')?.remove();
 
                     const frame = document.createElement('iframe');
@@ -1748,7 +1754,15 @@
                     });
                 });
 
-                async function prepararVistaQr() {
+                let preparacionQrEnCurso = null;
+                function prepararVistaQr() {
+                    if (!preparacionQrEnCurso) {
+                        preparacionQrEnCurso = generarVistaQr().finally(() => { preparacionQrEnCurso = null; });
+                    }
+                    return preparacionQrEnCurso;
+                }
+
+                async function generarVistaQr() {
                     if (formulario.dataset.requiereQrVerificacion !== '1') return;
 
                     const campoCodigo = formulario.querySelector('[data-codigo-verificacion]');
@@ -1785,6 +1799,23 @@
                         estadoVistaQr.textContent = 'Vista previa preparada. Cierre este cuadro para revisar la posición del QR; al emitir se usará este mismo código.';
                     }
                 }
+
+                window.prepararVistaQrEmision = prepararVistaQr;
+                const prepararAutomaticamente = () => {
+                    if (typeof window.prepararQrCertificadoEmision !== 'function') return;
+                    prepararVistaQr().catch(error => {
+                        let aviso = document.querySelector('[data-error-qr-automatico]');
+                        if (!aviso) {
+                            aviso = document.createElement('p');
+                            aviso.dataset.errorQrAutomatico = '1';
+                            aviso.className = 'text-sm text-red-700';
+                            document.querySelector('.emit-actions')?.after(aviso);
+                        }
+                        aviso.textContent = error?.message || 'No se pudo generar el QR. Intente nuevamente con Vista previa QR.';
+                    });
+                };
+                document.addEventListener('certificado:lienzo-listo', prepararAutomaticamente, { once: true });
+                prepararAutomaticamente();
 
                 botonVistaQr?.addEventListener('click', async () => {
                     botonVistaQr.disabled = true;
