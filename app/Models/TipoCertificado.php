@@ -10,6 +10,53 @@ class TipoCertificado extends Model
 {
     use SoftDeletes, Auditable;
 
+    public const CAMPOS_QR = [
+        'beneficiario.nombre' => 'Participante / solicitante',
+        'tipo_certificado.nombre' => 'Tipo de certificado',
+        'emision.numero_certificado' => 'Número del certificado',
+        'emision.fecha' => 'Fecha de emisión',
+        'certificado.fecha_inicio' => 'Inicio de vigencia',
+        'certificado.fecha_fin' => 'Vigencia',
+        'certificado.descripcion' => 'Descripción de la capacitación o trámite',
+        'evaluacion.resultado' => 'Resultado de evaluación',
+        'evaluacion.calificaciones' => 'Calificación obtenida',
+        'area.nombre' => 'Área responsable',
+        'tramite.fecha_registro' => 'Fecha de registro',
+        'tramite.funcionario_finalizador' => 'Registrado por',
+        'producto.referencia_publica' => 'Productos y presentaciones',
+        'estado' => 'Estado del certificado',
+    ];
+
+    public function configuracionQr(): array
+    {
+        if (is_array($this->configuracion_qr)) {
+            return $this->configuracion_qr;
+        }
+
+        // Mantiene los QR existentes del registro de plaguicidas.
+        $campos = (int) $this->id === 1
+            ? ['tramite.funcionario_finalizador', 'tipo_certificado.nombre', 'emision.numero_certificado',
+                'beneficiario.nombre', 'tramite.fecha_registro', 'emision.fecha', 'certificado.fecha_fin',
+                'producto.referencia_publica', 'estado']
+            : ['beneficiario.nombre', 'tipo_certificado.nombre', 'emision.numero_certificado', 'emision.fecha', 'estado'];
+
+        return [
+            'habilitado' => (int) $this->id === 1,
+            'titulo' => 'Verificación de certificado',
+            'campos' => array_map(fn ($campo) => ['campo' => $campo, 'etiqueta' => self::CAMPOS_QR[$campo]], $campos),
+        ];
+    }
+
+    public function filasPublicasQr(array $valores): array
+    {
+        return collect($this->configuracionQr()['campos'] ?? [])
+            ->filter(fn ($fila) => is_array($fila) && array_key_exists($fila['campo'] ?? '', self::CAMPOS_QR))
+            ->map(fn ($fila) => [
+                'etiqueta' => trim((string) ($fila['etiqueta'] ?? '')) ?: self::CAMPOS_QR[$fila['campo']],
+                'valor' => (string) ($valores[$fila['campo']] ?? 'No registrado'),
+            ])->values()->all();
+    }
+
     // Define si el tipo genera un documento para toda la solicitud o uno por cada lote registrado.
     public const MODOS_EMISION = [
         'UNICO_POR_TRAMITE' => 'Un certificado por trámite',
@@ -27,6 +74,7 @@ class TipoCertificado extends Model
     protected $table = 'tipos_certificados';
 
     protected $fillable = [
+        'configuracion_qr',
         'nombre',
         'id_area',
         'id_funcionario_receptor_inicial',
@@ -42,6 +90,7 @@ class TipoCertificado extends Model
     ];
 
     protected $casts = [
+        'configuracion_qr' => 'array',
         'costo' => 'decimal:2',
         'limite_descargas' => 'integer',
         'siguiente_correlativo' => 'integer',

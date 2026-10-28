@@ -90,6 +90,37 @@ test('la emisión conserva los estilos de texto recibidos como arrays desde PHP'
     assert.equal(vm.runInContext("estiloCaracter(estilosTexto({ estilos_texto: [[{ fontWeight: 'bold' }]] }), 0, 0).fontWeight", contexto), 'bold');
 });
 
+test('una imagen puede reservar el lugar del QR y conservar su referencia y geometría', () => {
+    class Input {}
+    const elemento = {
+        tipo_elemento: 'IMAGEN', codigo_elemento: null,
+        texto_fijo: 'data:image/png;base64,referencia',
+        posicion_x: 100, posicion_y: 200, ancho: 90, alto: 90,
+    };
+    let redibujos = 0;
+    const contexto = vm.createContext({
+        HTMLInputElement: Input,
+        elementoSeleccionado: () => elemento,
+        renderizarTodo() { redibujos++; },
+    });
+    const inicio = editor.indexOf('    function actualizarPropiedad(');
+    const fin = editor.indexOf('    let revisionVistaPropiedad', inicio);
+    vm.runInContext(editor.slice(inicio, fin), contexto);
+    const input = new Input();
+    Object.assign(input, { dataset: { propImagenQr: '' }, checked: true });
+    contexto.evento = { target: input, type: 'change' };
+    vm.runInContext('actualizarPropiedad(evento)', contexto);
+    assert.equal(elemento.tipo_elemento, 'QR');
+    assert.equal(elemento.codigo_elemento, 'qr.verificacion');
+    assert.equal(elemento.texto_fijo, 'data:image/png;base64,referencia');
+    assert.deepEqual([elemento.posicion_x, elemento.posicion_y, elemento.ancho, elemento.alto], [100, 200, 90, 90]);
+    input.checked = false;
+    vm.runInContext('actualizarPropiedad(evento)', contexto);
+    assert.equal(elemento.tipo_elemento, 'IMAGEN');
+    assert.equal(elemento.codigo_elemento, null);
+    assert.equal(redibujos, 2);
+});
+
 test('el evento input cambia el color del texto sin perder el foco ni reconstruir el editor', () => {
     class Input {
         constructor() {

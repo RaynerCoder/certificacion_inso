@@ -177,7 +177,7 @@
     <main class="verification-card">
         <header class="verification-head">
             <p>Instituto Nacional de Salud Ocupacional</p>
-            <h1>Verificación de certificado</h1>
+            <h1>{{ $verificacion['titulo'] ?? 'Verificación de certificado' }}</h1>
         </header>
 
         <section class="verification-content">

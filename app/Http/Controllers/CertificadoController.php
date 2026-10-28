@@ -37,8 +37,6 @@ use Illuminate\Validation\ValidationException;
 
 class CertificadoController extends Controller
 {
-    // Este QR público se habilita inicialmente solo para Registro de Productos Plaguicidas.
-    private const TIPO_CERTIFICADO_REGISTRO_PLAGUICIDAS = 1;
 
     public function __construct(
         private GestionTramitadoresService $gestionTramitadores,
@@ -778,7 +776,7 @@ class CertificadoController extends Controller
                 ->first();
         $datosVigenciaEmision = $this->datosVigenciaParaEmision($certificado);
         $valoresPlantilla = $this->valoresPlantillaCertificado($certificado, $emisionSeleccionada, $registroSeleccionado);
-        $usaQrVerificacion = $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado);
+        $usaQrVerificacion = $this->usaQrVerificacion($certificado, $plantillaCertificado);
 
         // Antes de emitir se muestra en la plantilla la misma vigencia que se guardará.
         if (! $emisionSeleccionada && $datosVigenciaEmision['disponible']) {
@@ -791,7 +789,7 @@ class CertificadoController extends Controller
         // Esta lista es la misma que verá una persona al escanear el QR final.
         // No existe aún un QR consultable antes de guardar la emisión.
         $informacionPublicaQr = $usaQrVerificacion
-            ? $this->datosPublicosQrRegistroPlaguicidas($certificado, null, $datosVigenciaEmision)
+            ? $this->datosPublicosQr($certificado, null, $datosVigenciaEmision)
             : [];
 
         $resumenDescargas = $this->descargasCertificados->resumen($certificado, auth()->user());
@@ -826,9 +824,9 @@ class CertificadoController extends Controller
 
         $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
 
-        if (! $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado)) {
+        if (! $this->usaQrVerificacion($certificado, $plantillaCertificado)) {
             return response()->json([
-                'message' => 'El QR de verificación está habilitado únicamente para el certificado de Registro de Productos Plaguicidas que tenga el elemento QR activo en su plantilla.',
+                'message' => 'Active la verificación QR en el tipo de certificado y marque una imagen de la plantilla como ubicación del QR.',
             ], 422);
         }
 
@@ -869,7 +867,7 @@ class CertificadoController extends Controller
             ->whereNotNull('url_documento')
             ->first();
 
-        if (! $emision?->certificado || ! $this->esRegistroPlaguicidas($emision->certificado)) {
+        if (! $emision?->certificado) {
             return view('certificados.verificacion_publica', ['verificacion' => null]);
         }
 
@@ -883,7 +881,8 @@ class CertificadoController extends Controller
         return view('certificados.verificacion_publica', [
             'verificacion' => [
                 'estado' => $estado,
-                'filas' => $this->datosPublicosQrRegistroPlaguicidas($certificado, $emision),
+                'titulo' => $certificado->tipoCertificado?->configuracionQr()['titulo'] ?? 'Verificación de certificado',
+                'filas' => $this->datosPublicosQr($certificado, $emision),
             ],
         ]);
     }
@@ -904,7 +903,7 @@ class CertificadoController extends Controller
             return back()->with('error', 'No se puede emitir el certificado porque no tiene una plantilla activa configurada.');
         }
 
-        $usaQrVerificacion = $this->usaQrVerificacionRegistroPlaguicidas($certificado, $plantillaCertificado);
+        $usaQrVerificacion = $this->usaQrVerificacion($certificado, $plantillaCertificado);
         $datos = $this->validarEmisionCertificado($solicitud, $certificado);
 
         if ($usaQrVerificacion && ! Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
@@ -2204,30 +2203,24 @@ class CertificadoController extends Controller
     }
 
     /**
-     * Evita que el QR de Registro de Productos Plaguicidas aparezca por error
-     * en plantillas de otros tipos de certificado.
+     * Comprueba la configuración del tipo y la ubicación del QR en su plantilla.
      */
-    private function usaQrVerificacionRegistroPlaguicidas(
+    private function usaQrVerificacion(
         Certificado $certificado,
         ?PlantillaCertificado $plantillaCertificado
     ): bool {
-        return $this->esRegistroPlaguicidas($certificado)
+        return (bool) ($certificado->tipoCertificado?->configuracionQr()['habilitado'] ?? false)
             && $this->plantillaUsaQrVerificacion($plantillaCertificado);
     }
 
-    private function esRegistroPlaguicidas(Certificado $certificado): bool
-    {
-        return (int) $certificado->id_tipo_certificado === self::TIPO_CERTIFICADO_REGISTRO_PLAGUICIDAS;
-    }
-
     /**
-     * Datos estrictamente públicos del Registro de Productos Plaguicidas.
+     * Datos públicos seleccionados por el administrador para este tipo de certificado.
      * Esta estructura se utiliza tanto antes de emitir (vista previa) como al
      * consultar el QR definitivo, para que ambas pantallas coincidan.
      *
      * @return array<int, array{etiqueta: string, valor: string}>
      */
-    private function datosPublicosQrRegistroPlaguicidas(
+    private function datosPublicosQr(
         Certificado $certificado,
         ?CertificadoEmitido $emision = null,
         ?array $datosVigencia = null
@@ -2256,17 +2249,10 @@ class CertificadoController extends Controller
             ? ($certificado->estado === 'ANULADO' ? 'ANULADO' : $emision->estado)
             : 'PENDIENTE DE EMISIÓN';
 
-        return [
-            ['etiqueta' => 'Registrado por', 'valor' => $valores['tramite.funcionario_finalizador'] ?? 'No registrado'],
-            ['etiqueta' => 'Tipo de documento', 'valor' => $valores['tipo_certificado.nombre'] ?? 'Registro de Productos Plaguicidas'],
-            ['etiqueta' => 'CITE / N.º documento', 'valor' => $emision?->numero_certificado ?: 'Se asignará al emitir'],
-            ['etiqueta' => 'Solicitante', 'valor' => $valores['beneficiario.nombre'] ?? 'No registrado'],
-            ['etiqueta' => 'Fecha de registro', 'valor' => $valores['tramite.fecha_registro'] ?? 'No registrada'],
-            ['etiqueta' => 'Fecha de emisión', 'valor' => $emision?->fecha_emision?->format('d/m/Y') ?: now()->format('d/m/Y')],
-            ['etiqueta' => 'Fecha de vigencia', 'valor' => $vigencia],
-            ['etiqueta' => 'Producto(s) y presentación(es)', 'valor' => $referencia !== '' ? $referencia : 'Sin productos asociados'],
-            ['etiqueta' => 'Estado', 'valor' => $estado],
-        ];
+        $valores['certificado.fecha_fin'] = $vigencia;
+        $valores['producto.referencia_publica'] = $referencia !== '' ? $referencia : 'Sin productos asociados';
+        $valores['estado'] = $estado;
+        return $certificado->tipoCertificado?->filasPublicasQr($valores) ?? [];
     }
 
     private function nuevoCodigoVerificacion(): string
@@ -2460,7 +2446,7 @@ class CertificadoController extends Controller
         $valor = match ($tipoElemento) {
             'TEXTO' => $this->resolverMarcadoresDocumento((string) $elemento->texto_fijo, $valoresConAlias),
             'IMAGEN' => $this->fondoPlantillaBase64($elemento->texto_fijo),
-            'QR' => $elemento->texto_fijo ?: ($valores[$elemento->codigo_elemento] ?? ''),
+            'QR' => $valores[$elemento->codigo_elemento] ?? '',
             'TABLA', 'FORMA', 'LINEA' => null,
             default => $valores[$elemento->codigo_elemento] ?? '',
         };

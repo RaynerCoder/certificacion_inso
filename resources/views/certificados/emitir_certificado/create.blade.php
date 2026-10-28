@@ -246,9 +246,7 @@
                     'IMAGEN' => str_starts_with((string) $elemento->texto_fijo, 'data:image')
                         ? $elemento->texto_fijo
                         : $resolverFondoImagen($elemento->texto_fijo),
-                    'QR' => filled($elemento->texto_fijo)
-                        ? $elemento->texto_fijo
-                        : ($valoresPlantilla[$elemento->codigo_elemento] ?? 'QR'),
+                    'QR' => $valoresPlantilla[$elemento->codigo_elemento] ?? '',
                     'TABLA', 'FORMA', 'LINEA' => null,
                     default => $valoresPlantilla[$elemento->codigo_elemento] ?? '',
                 };
@@ -1350,9 +1348,7 @@
                                     'IMAGEN' => $elementoPlantilla->texto_fijo,
                                     'TABLA' => 'TABLA',
                                     'FORMA', 'LINEA' => 'ELEMENTO_VISUAL',
-                                    'QR' => filled($elementoPlantilla->texto_fijo)
-                                        ? $elementoPlantilla->texto_fijo
-                                        : ($valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? 'QR'),
+                                    'QR' => $valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? '',
                                     default => $valoresPlantilla[$elementoPlantilla->codigo_elemento] ?? '',
                                 };
                                 $filasTabla = $elementoPlantilla->tipo_elemento === 'TABLA'

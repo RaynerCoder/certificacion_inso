@@ -379,6 +379,8 @@
                 </section>
 
                 {{-- 3. Configuracion final de requisitos, evidencias y certificados previos. --}}
+                @include('tipos_certificados.configuracion_qr')
+
                 <section class="overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm">
                     <div
                         class="flex items-center gap-3 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-white px-5 py-3">

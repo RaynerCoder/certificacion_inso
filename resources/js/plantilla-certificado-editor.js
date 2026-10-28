@@ -2307,7 +2307,12 @@ function crearEditorPlantilla(elementoCanvas) {
                 ${elemento.tipo_elemento === 'FORMA' ? propiedadesForma(elemento) : ''}
                 ${elemento.tipo_elemento === 'LINEA' ? propiedadesLinea(elemento) : ''}
                 ${elemento.tipo_elemento === 'TABLA' ? propiedadesTabla(elemento) : ''}
-                ${admiteImagen ? `<button type="button" class="plantilla-action-btn plantilla-prop-full" data-prop-imagen>Cambiar imagen</button>` : ''}
+                ${admiteImagen ? `<button type="button" class="plantilla-action-btn plantilla-prop-full" data-prop-imagen>Cambiar imagen</button>
+                <label class="plantilla-check-row plantilla-prop-full">
+                    <input type="checkbox" data-prop-imagen-qr ${elemento.tipo_elemento === 'QR' ? 'checked' : ''}>
+                    Reemplazar esta imagen por el QR de verificación
+                </label>
+                <div class="plantilla-editor-ayuda plantilla-prop-full">La imagen sirve de referencia. Al emitir se coloca el QR real con esta posición y tamaño; los datos públicos se configuran en el tipo de certificado.</div>` : ''}
                 <div class="plantilla-prop-section-title">Estado de la capa</div>
                 <label class="plantilla-check-row">
                     <input type="checkbox" data-prop-config="visible" ${elemento.configuracion.visible ? 'checked' : ''}> Visible
@@ -2527,6 +2532,13 @@ function crearEditorPlantilla(elementoCanvas) {
         const elemento = elementoSeleccionado();
         const objetivo = evento.target;
         if (!elemento || !(objetivo instanceof HTMLInputElement || objetivo instanceof HTMLSelectElement || objetivo instanceof HTMLTextAreaElement)) return;
+
+        if (objetivo.dataset.propImagenQr !== undefined) {
+            elemento.tipo_elemento = objetivo.checked ? 'QR' : 'IMAGEN';
+            elemento.codigo_elemento = objetivo.checked ? 'qr.verificacion' : null;
+            renderizarTodo();
+            return;
+        }
 
         if (objetivo.dataset.tablaEstilo !== undefined) {
             const indice = Number(objetivo.dataset.tablaIndice);

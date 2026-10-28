@@ -500,6 +500,11 @@ class TipoCertificadoController extends Controller
             ],
             'form_prefijo_numero_certificado' => ['nullable', 'string', 'max:100'],
             'form_siguiente_correlativo' => ['required', 'integer', 'min:1', 'max:999999999'],
+            'form_qr_habilitado' => ['sometimes', 'boolean'],
+            'form_qr_titulo' => ['nullable', 'string', 'max:120'],
+            'form_qr_campos' => ['nullable', 'array', 'max:30', 'required_if:form_qr_habilitado,1'],
+            'form_qr_campos.*.campo' => ['required', 'distinct', Rule::in(array_keys(TipoCertificado::CAMPOS_QR))],
+            'form_qr_campos.*.etiqueta' => ['required', 'string', 'max:100'],
             'requisitos_asignados' => ['nullable', 'array'],
             'requisitos_asignados.*.id_requisito' => ['nullable', 'integer', 'exists:requisitos,id'],
             'requisitos_asignados.*.id_tipo_evidencia' => ['required', 'integer', 'exists:tipos_evidencias,id'],
@@ -509,6 +514,9 @@ class TipoCertificadoController extends Controller
             'requisitos_asignados.*.estado' => ['nullable', 'string', 'max:50'],
             'requisitos_asignados.*.nuevo' => ['nullable', 'boolean'],
         ], [
+            'form_qr_campos.required_if' => 'Agregue al menos un dato público para habilitar la verificación QR.',
+            'form_qr_campos.*.campo.distinct' => 'No repita el mismo campo en los datos del QR.',
+            'form_qr_campos.*.etiqueta.required' => 'Escriba una etiqueta para cada dato público del QR.',
             'requisitos_asignados.*.id_tipo_evidencia.required' => 'Seleccione el tipo de evidencia para este requisito.',
             'requisitos_asignados.*.id_tipo_evidencia.exists' => 'Seleccione un tipo de evidencia válido para este requisito.',
             'form_vigencia_cantidad.required_unless' => 'Ingrese la cantidad de la vigencia.',
@@ -546,7 +554,19 @@ class TipoCertificadoController extends Controller
             DB::beginTransaction();
 
             // Nombre y estado se administran desde el modal y no forman parte de esta operación.
+            $configuracionQr = $solicitud->has('form_qr_habilitado') ? [
+                'configuracion_qr' => [
+                    'habilitado' => $solicitud->boolean('form_qr_habilitado'),
+                    'titulo' => trim($datos['form_qr_titulo'] ?? '') ?: 'Verificación de certificado',
+                    'campos' => array_values(array_map(fn ($fila) => [
+                        'campo' => $fila['campo'],
+                        'etiqueta' => trim($fila['etiqueta']),
+                    ], $datos['form_qr_campos'] ?? [])),
+                ],
+            ] : [];
+
             $tipoCertificado->update([
+                ...$configuracionQr,
                 'id_area' => $datos['form_id_area'],
                 'id_funcionario_receptor_inicial' => $datos['form_id_funcionario_receptor_inicial'],
                 'limite_descargas' => $datos['form_limite_descargas'] ?? null,
