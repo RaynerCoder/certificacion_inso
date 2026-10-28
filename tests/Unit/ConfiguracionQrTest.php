@@ -14,12 +14,12 @@ use ReflectionMethod;
 
 class ConfiguracionQrTest extends TestCase
 {
-    public function test_conserva_la_configuracion_del_qr_anterior_y_no_activa_otros_tipos(): void
+    public function test_ningun_tipo_activa_qr_sin_configuracion_guardada(): void
     {
         $tipo = new TipoCertificado;
         $tipo->id = 1;
-        $this->assertTrue($tipo->configuracionQr()['habilitado']);
-        $this->assertCount(9, $tipo->configuracionQr()['campos']);
+        $this->assertFalse($tipo->configuracionQr()['habilitado']);
+        $this->assertCount(5, $tipo->configuracionQr()['campos']);
         $tipo->id = 2;
         $this->assertFalse($tipo->configuracionQr()['habilitado']);
     }

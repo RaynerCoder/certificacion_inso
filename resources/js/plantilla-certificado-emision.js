@@ -556,6 +556,12 @@ async function crearObjeto(elemento, valores = {}) {
         evented: false,
     });
     objeto.setCoords();
+    // Identifica todas las capas también cuando se reconstruyen sin JSON de
+    // Fabric. La sustitución del QR usa este vínculo con la plantilla activa.
+    objeto.plantillaIndice = Number(elemento.indice_plantilla);
+    objeto.plantillaTipoElemento = tipo;
+    objeto.plantillaCodigoElemento = elemento.codigo_elemento || null;
+    objeto.plantillaTextoPlantilla = elemento.texto_plantilla || '';
     return objeto;
 }
 

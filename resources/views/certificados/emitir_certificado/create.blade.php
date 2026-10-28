@@ -1059,7 +1059,7 @@
                                     <i class="fa-solid fa-qrcode mr-1" aria-hidden="true"></i>
                                     QR de verificación
                                 </p>
-                                <p class="mb-0 mt-2">Use <strong>Vista previa QR</strong> para colocarlo en el certificado. El QR todavía no puede consultarse mientras no guarde la emisión.</p>
+                                <p class="mb-0 mt-2">El QR se genera automáticamente y se coloca en la ubicación definida en la plantilla. La consulta pública estará disponible al guardar la emisión.</p>
                                 <img class="emit-qr-image" data-imagen-vista-qr alt="Vista previa del código QR" hidden>
                                 <p class="mt-2 hidden font-semibold" data-estado-vista-qr></p>
                             </div>
@@ -1082,12 +1082,6 @@
 
                 <div class="emit-modal-actions">
                     <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-emision>Cancelar</button>
-                    @if ($usaQrVerificacion ?? false)
-                        <button type="button" class="emit-btn emit-btn-muted" data-preparar-vista-qr>
-                            <i class="fa-solid fa-qrcode"></i>
-                            Vista previa QR
-                        </button>
-                    @endif
                     <button type="submit" class="emit-btn emit-btn-primary" data-requiere-render-certificado disabled>
                         <i class="fa-solid fa-floppy-disk"></i>
                         Sí, emitir certificado
@@ -1736,7 +1730,6 @@
                 const botonAbrir = document.querySelector('[data-abrir-modal-emision]');
                 const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-emision]');
                 const formulario = modal?.querySelector('form');
-                const botonVistaQr = formulario?.querySelector('[data-preparar-vista-qr]');
                 const estadoVistaQr = formulario?.querySelector('[data-estado-vista-qr]');
                 const imagenVistaQr = formulario?.querySelector('[data-imagen-vista-qr]');
 
@@ -1788,6 +1781,7 @@
                     await window.prepararQrCertificadoEmision(contenido.imagen_qr);
                     campoCodigo.value = contenido.codigo_verificacion;
                     formulario.dataset.qrPreparado = '1';
+                    document.querySelector('[data-error-qr-automatico]')?.remove();
 
                     if (imagenVistaQr) {
                         imagenVistaQr.src = contenido.imagen_qr;
@@ -1796,7 +1790,7 @@
 
                     if (estadoVistaQr) {
                         estadoVistaQr.hidden = false;
-                        estadoVistaQr.textContent = 'Vista previa preparada. Cierre este cuadro para revisar la posición del QR; al emitir se usará este mismo código.';
+                        estadoVistaQr.textContent = 'QR generado e incorporado al certificado. Al emitir se utilizará este mismo código.';
                     }
                 }
 
@@ -1811,22 +1805,11 @@
                             aviso.className = 'text-sm text-red-700';
                             document.querySelector('.emit-actions')?.after(aviso);
                         }
-                        aviso.textContent = error?.message || 'No se pudo generar el QR. Intente nuevamente con Vista previa QR.';
+                        aviso.textContent = error?.message || 'No se pudo generar el QR. Vuelva a intentar con Vista previa / Borrador.';
                     });
                 };
                 document.addEventListener('certificado:lienzo-listo', prepararAutomaticamente, { once: true });
                 prepararAutomaticamente();
-
-                botonVistaQr?.addEventListener('click', async () => {
-                    botonVistaQr.disabled = true;
-                    try {
-                        await prepararVistaQr();
-                    } catch (error) {
-                        window.alert(error?.message || 'No se pudo preparar la vista previa del QR.');
-                    } finally {
-                        botonVistaQr.disabled = false;
-                    }
-                });
 
                 let preparandoEnvio = false;
                 formulario?.addEventListener('submit', async (evento) => {

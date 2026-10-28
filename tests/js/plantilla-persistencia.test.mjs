@@ -11,6 +11,43 @@ function funcion(fuente, nombre, siguiente) {
     return fuente.slice(inicio, fuente.indexOf(`    function ${siguiente}(`, inicio));
 }
 
+test('el QR se reemplaza también al reconstruir una plantilla sin JSON de Fabric', async () => {
+    const elemento = {
+        indice_plantilla: 4, tipo_elemento: 'QR', codigo_elemento: 'qr.verificacion',
+        ancho: 90, alto: 90, posicion_x: 120, posicion_y: 300,
+    };
+    function imagen() {
+        return { width: 90, height: 90, set(valores) { Object.assign(this, valores); }, setCoords() {} };
+    }
+    const objetos = [];
+    let publicado = false;
+    const contexto = vm.createContext({
+        elemento, datos: { elementos: [elemento], valores: {} }, window: {},
+        numero: (valor, predeterminado = 0) => Number.isFinite(Number(valor)) ? Number(valor) : predeterminado,
+        crearMarcador: imagen, FabricImage: { fromURL: async () => imagen() },
+        lienzo: {
+            getObjects: () => objetos,
+            remove(objeto) { objetos.splice(objetos.indexOf(objeto), 1); },
+            insertAt(posicion, objeto) { objetos.splice(posicion, 0, objeto); },
+        },
+        publicarSalida() { publicado = true; },
+    });
+    const inicio = emision.indexOf('async function crearObjeto(');
+    const fin = emision.indexOf('async function agregarFondo(', inicio);
+    vm.runInContext(emision.slice(inicio, fin), contexto);
+    objetos.push(await vm.runInContext('crearObjeto(elemento)', contexto));
+    assert.equal(objetos[0].plantillaIndice, 4);
+    const desdeQr = emision.indexOf('    window.prepararQrCertificadoEmision =');
+    const hastaQr = emision.indexOf('\n    publicarSalida();\n    document.dispatchEvent', desdeQr);
+    vm.runInContext(emision.slice(desdeQr, hastaQr), contexto);
+    await vm.runInContext("window.prepararQrCertificadoEmision('data:image/svg+xml;base64,real')", contexto);
+    assert.equal(objetos.length, 1);
+    assert.equal(objetos[0].plantillaIndice, 4);
+    assert.equal(objetos[0].left, 120);
+    assert.equal(objetos[0].top, 300);
+    assert.equal(publicado, true);
+});
+
 test('el fondo visual permanece fuera de los píxeles que Fabric borra durante el arrastre', () => {
     const estilo = {};
     const lienzo = { lowerCanvasEl: { style: estilo } };

@@ -33,15 +33,10 @@ class TipoCertificado extends Model
             return $this->configuracion_qr;
         }
 
-        // Mantiene los QR existentes del registro de plaguicidas.
-        $campos = (int) $this->id === 1
-            ? ['tramite.funcionario_finalizador', 'tipo_certificado.nombre', 'emision.numero_certificado',
-                'beneficiario.nombre', 'tramite.fecha_registro', 'emision.fecha', 'certificado.fecha_fin',
-                'producto.referencia_publica', 'estado']
-            : ['beneficiario.nombre', 'tipo_certificado.nombre', 'emision.numero_certificado', 'emision.fecha', 'estado'];
+        $campos = ['beneficiario.nombre', 'tipo_certificado.nombre', 'emision.numero_certificado', 'emision.fecha', 'estado'];
 
         return [
-            'habilitado' => (int) $this->id === 1,
+            'habilitado' => false,
             'titulo' => 'Verificación de certificado',
             'campos' => array_map(fn ($campo) => ['campo' => $campo, 'etiqueta' => self::CAMPOS_QR[$campo]], $campos),
         ];
