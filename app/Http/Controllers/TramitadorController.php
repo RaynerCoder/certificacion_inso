@@ -614,7 +614,7 @@ class TramitadorController extends Controller
             'form_correo' => [$requeridoSiEsNueva, 'nullable', 'email', 'max:50', Rule::unique('personas', 'correo')],
             'form_id_territorio' => [$requeridoSiEsNueva, 'nullable', 'exists:territorios,id'],
             'form_domicilio' => ['nullable', 'string', 'max:255'],
-            'form_nit' => ['nullable', 'string', 'max:50', Rule::unique('personas', 'nit')],
+            'form_nit' => ['nullable', 'string', 'max:50'],
             'form_expedido' => ['nullable', Rule::in(array_keys(Natural::EXPEDIDOS))],
             'form_nombres' => [$requeridoSiEsNueva, 'nullable', 'string', 'max:100'],
             'form_apellido_paterno' => [$requeridoSiEsNueva, 'nullable', 'string', 'max:100'],

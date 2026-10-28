@@ -69,7 +69,14 @@ class PersonaController extends Controller
                 'nullable',
                 'string',
                 'max:50',
-                Rule::unique('personas', 'nit')->ignore($personaEditada?->id),
+                Rule::when(
+                    fn ($datos) => $datos->form_tipo_registro === 'EMPRESA',
+                    [Rule::unique('personas', 'nit')
+                        ->where(fn ($query) => $query->whereIn('id', function ($empresas) {
+                            $empresas->select('id_persona')->from('empresas');
+                        }))
+                        ->ignore($personaEditada?->id)]
+                ),
             ],
             'form_correo' => [
                 'required',

@@ -391,12 +391,10 @@ class ResponsableController extends Controller
     private function validarPersonaResponsable(Request $solicitud, ?int $idPersona): array
     {
         $idNatural = $idPersona ? Natural::where('id_persona', $idPersona)->value('id') : null;
-        $reglaNitUnico = Rule::unique('personas', 'nit');
         $reglaCorreoUnico = Rule::unique('personas', 'correo');
         $reglaCiUnico = Rule::unique('naturals', 'ci');
 
         if ($idPersona) {
-            $reglaNitUnico->ignore($idPersona);
             $reglaCorreoUnico->ignore($idPersona);
         }
 
@@ -410,7 +408,6 @@ class ResponsableController extends Controller
                 'nullable',
                 'string',
                 'max:50',
-                $reglaNitUnico,
             ],
             'form_correo' => [
                 'required',
