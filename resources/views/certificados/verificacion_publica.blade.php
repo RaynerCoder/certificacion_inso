@@ -184,7 +184,7 @@
             @if (!$verificacion)
                 <div class="invalid">
                     <strong>Certificado no encontrado</strong>
-                    El código consultado no corresponde a un certificado emitido o ya no se encuentra disponible.
+                    Certificado no emitido o no se encuentra disponible.
                 </div>
             @else
                 @php
@@ -197,9 +197,7 @@
                 @endphp
                 <span class="status {{ $claseEstado }}">{{ $verificacion['estado'] }}</span>
                 <h2 class="verified-title">Certificado verificado</h2>
-                <p class="verified-text">La información corresponde al registro oficial del sistema de certificación del
-                    INSO.</p>
-
+                <p class="verified-text">Detalle del documento.</p>
                 <dl>
                     @foreach ($verificacion['filas'] as $fila)
                         <dt>{{ $fila['etiqueta'] }}</dt>
@@ -208,7 +206,7 @@
                 </dl>
             @endif
 
-            <p class="footer">Consulta pública de validez documental.</p>
+            <p class="footer">Copyright INSTITUTO NACIONAL DE SALUD OCUPACIONAL - INSO</p>
         </section>
     </main>
 </body>
