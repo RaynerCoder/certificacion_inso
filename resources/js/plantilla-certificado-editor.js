@@ -1182,6 +1182,9 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function configurarEventosLienzo() {
+        // El fondo no forma parte de las capas editables. Se vuelve a vincular
+        // antes de cada dibujo, también durante un arrastre o una selección.
+        lienzo.on('before:render', restaurarFondoFijo);
         lienzo.on('selection:created', seleccionarDesdeLienzo);
         lienzo.on('selection:updated', seleccionarDesdeLienzo);
         lienzo.on('selection:cleared', () => {
@@ -2731,6 +2734,16 @@ function crearEditorPlantilla(elementoCanvas) {
         aplicarFondoVisual();
     }
 
+    function restaurarFondoFijo() {
+        if (!fondoFabric || urlFondoFabric !== urlFondo || !urlFondo
+            || controles.escenario?.dataset.fondoNoVisual === '1'
+            || controles.selectorFondoTrabajo?.value === 'BLANCO') return;
+
+        fondoFabric.canvas = lienzo;
+        fondoFabric.set({ selectable: false, evented: false, objectCaching: false });
+        lienzo.backgroundImage = fondoFabric;
+    }
+
     async function aplicarFondoVisual() {
         const contenedor = lienzo.wrapperEl;
         const mostrarImagen = urlFondo
@@ -2757,6 +2770,7 @@ function crearEditorPlantilla(elementoCanvas) {
                     fondoFabric = fondoCargado;
                     urlFondoFabric = urlSolicitada;
                 } catch (error) {
+                    if (cicloActual !== cicloCargaFondo || urlSolicitada !== urlFondo) return;
                     lienzo.backgroundImage = undefined;
                     lienzo.requestRenderAll();
                     return;
@@ -2764,7 +2778,7 @@ function crearEditorPlantilla(elementoCanvas) {
             }
 
             ajustarFondoAlLienzo(fondoFabric, ajuste);
-            lienzo.backgroundImage = fondoFabric;
+            restaurarFondoFijo();
             lienzo.requestRenderAll();
         }
 

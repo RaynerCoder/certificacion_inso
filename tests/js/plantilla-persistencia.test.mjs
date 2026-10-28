@@ -11,6 +11,32 @@ function funcion(fuente, nombre, siguiente) {
     return fuente.slice(inicio, fuente.indexOf(`    function ${siguiente}(`, inicio));
 }
 
+test('el fondo fijo sobrevive a los redibujos sin convertirse en una capa seleccionable', () => {
+    const fondo = { set(valores) { Object.assign(this, valores); } };
+    const lienzo = {};
+    const controles = { escenario: { dataset: {} }, selectorFondoTrabajo: { value: 'PLANTILLA' } };
+    const contexto = vm.createContext({ fondoFabric: fondo, urlFondoFabric: '/fondo', urlFondo: '/fondo', lienzo, controles });
+    const inicio = editor.indexOf('    function restaurarFondoFijo()');
+    const fin = editor.indexOf('    async function aplicarFondoVisual()', inicio);
+    vm.runInContext(editor.slice(inicio, fin), contexto);
+    for (let movimiento = 0; movimiento < 5; movimiento++) {
+        lienzo.backgroundImage = undefined;
+        vm.runInContext('restaurarFondoFijo()', contexto);
+        assert.equal(lienzo.backgroundImage, fondo);
+        assert.equal(fondo.canvas, lienzo);
+        assert.equal(fondo.selectable, false);
+        assert.equal(fondo.evented, false);
+    }
+    controles.selectorFondoTrabajo.value = 'BLANCO';
+    lienzo.backgroundImage = undefined;
+    vm.runInContext('restaurarFondoFijo()', contexto);
+    assert.equal(lienzo.backgroundImage, undefined);
+    controles.selectorFondoTrabajo.value = 'PLANTILLA';
+    contexto.urlFondo = '';
+    vm.runInContext('restaurarFondoFijo()', contexto);
+    assert.equal(lienzo.backgroundImage, undefined);
+});
+
 test('conserva negrita parcial después del JSON de PHP y de reconstruir las capas', () => {
     const contexto = vm.createContext({});
     vm.runInContext(funcion(editor, 'normalizarEstilosTexto', 'patronTrazoLinea'), contexto);
