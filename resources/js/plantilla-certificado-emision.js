@@ -63,7 +63,8 @@ async function cargarFuentes() {
 
 function estilosTexto(configuracion = {}) {
     const estilos = configuracion.estilos_texto;
-    return estilos && typeof estilos === 'object' && !Array.isArray(estilos) ? estilos : {};
+    // El JSON de PHP puede representar las líneas y caracteres consecutivos como arrays.
+    return estilos && typeof estilos === 'object' ? estilos : {};
 }
 
 function estiloCaracter(estilos, linea, caracter) {

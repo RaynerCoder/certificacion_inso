@@ -188,7 +188,8 @@ function crearEditorPlantilla(elementoCanvas) {
             mostrarFondo(
                 controles.nombreFondo?.textContent || 'Plantilla guardada',
                 urlFondo,
-                /\.(png|jpe?g|webp)(\?.*)?$/i.test(urlFondo),
+                /\.(png|jpe?g|webp)$/i.test(controles.nombreFondo?.textContent?.trim() || '')
+                    || /\.(png|jpe?g|webp)(\?.*)?$/i.test(urlFondo),
             );
         }
 
@@ -289,11 +290,13 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     function normalizarEstilosTexto(estilos = {}) {
-        if (!estilos || typeof estilos !== 'object' || Array.isArray(estilos)) return {};
+        // PHP serializa los índices consecutivos (línea 0, caracteres 0, 1...) como arrays.
+        // Son el mismo mapa de estilos de Fabric y deben sobrevivir a la reapertura.
+        if (!estilos || typeof estilos !== 'object') return {};
 
         const resultado = {};
         Object.entries(estilos).forEach(([linea, caracteres]) => {
-            if (!/^\d+$/.test(linea) || !caracteres || typeof caracteres !== 'object' || Array.isArray(caracteres)) return;
+            if (!/^\d+$/.test(linea) || !caracteres || typeof caracteres !== 'object') return;
 
             Object.entries(caracteres).forEach(([caracter, estilo]) => {
                 if (!/^\d+$/.test(caracter) || !estilo || typeof estilo !== 'object' || Array.isArray(estilo)) return;
@@ -2018,7 +2021,9 @@ function crearEditorPlantilla(elementoCanvas) {
         guardarHistorial();
         if (!seleccionParcial) {
             elemento[formato] = !elemento[formato];
-            renderizarTodo();
+            actualizarVistaPropiedad();
+            controles.propiedades?.querySelector(`[data-prop-formato="${formato}"]`)
+                ?.classList.toggle('is-active', elemento[formato]);
             return;
         }
 
@@ -2538,8 +2543,7 @@ function crearEditorPlantilla(elementoCanvas) {
             }
             entrada[claveEstilo] = estilo;
             reagruparTablaDatos(elemento, entradas, elemento.configuracion.tabla.pares_por_fila, false);
-            actualizarInput();
-            if (evento.type === 'change') renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
@@ -2550,22 +2554,20 @@ function crearEditorPlantilla(elementoCanvas) {
             if (objetivo.dataset.tablaEtiqueta !== undefined) entradas[indice].etiqueta = objetivo.value;
             else entradas[indice].codigo = objetivo.value;
             reagruparTablaDatos(elemento, entradas, elemento.configuracion.tabla.pares_por_fila, false);
-            actualizarInput();
-            if (evento.type === 'change') renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
         if (objetivo.dataset.tablaPares !== undefined) {
             reagruparTablaDatos(elemento, entradasTablaDatos(elemento), Number(objetivo.value));
-            renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
         if (objetivo.dataset.tablaAncho !== undefined) {
             const columna = elemento.columnas[Number(objetivo.dataset.tablaAncho)];
             if (columna) columna.ancho = limitar(numero(objetivo.value, 25), 5, 95);
-            actualizarInput();
-            if (evento.type === 'change') renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
@@ -2574,24 +2576,21 @@ function crearEditorPlantilla(elementoCanvas) {
             elemento.configuracion.tabla[propiedad] = objetivo.type === 'checkbox'
                 ? objetivo.checked
                 : objetivo.value;
-            actualizarInput();
-            if (evento.type === 'change') renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
         if (objetivo.dataset.columnaTitulo !== undefined) {
             const columna = elemento.columnas[Number(objetivo.dataset.columnaTitulo)];
             if (columna) columna.titulo_columna = objetivo.value;
-            actualizarInput();
-            if (evento.type === 'change') renderizarTodo();
+            actualizarVistaPropiedad();
             return;
         }
 
         if (objetivo.dataset.propConfig) {
             const propiedad = objetivo.dataset.propConfig;
             elemento.configuracion[propiedad] = objetivo.type === 'checkbox' ? objetivo.checked : objetivo.value;
-            if (evento.type === 'change') renderizarTodo();
-            else actualizarInput();
+            actualizarVistaPropiedad();
             return;
         }
 
@@ -2614,19 +2613,67 @@ function crearEditorPlantilla(elementoCanvas) {
             }
         }
 
-        actualizarInput();
-        if (evento.type === 'change') {
-            renderizarTodo();
-        } else if (propiedad === 'texto_fijo') {
-            // Actualiza el objeto visible sin reconstruir el panel ni quitar el foco del textarea.
-            const objeto = objetoPorIndice(indiceSeleccionado);
-            if (objeto instanceof Textbox) {
-                objeto.set({ text: String(valor) });
-                objeto.initDimensions();
-                objeto.setCoords();
-                lienzo.requestRenderAll();
+        actualizarVistaPropiedad();
+    }
+
+    let revisionVistaPropiedad = 0;
+
+    async function actualizarVistaPropiedad() {
+        const revision = ++revisionVistaPropiedad;
+        const indice = indiceSeleccionado;
+        const elemento = elementoSeleccionado();
+        const objeto = objetoPorIndice(indice);
+        if (!elemento || !objeto) return;
+
+        // El texto cambia sobre el mismo objeto: conserva el cursor y la selección.
+        if (objeto instanceof Textbox) {
+            objeto.set({
+                text: String(elemento.texto_fijo ?? ''),
+                fill: elemento.color_texto,
+                fontSize: elemento.tamano_letra,
+                fontFamily: elemento.tipo_letra,
+                fontWeight: elemento.negrita ? 'bold' : 'normal',
+                fontStyle: elemento.cursiva ? 'italic' : 'normal',
+                underline: elemento.subrayado,
+                textAlign: alineacionFabric(elemento.alineacion),
+                lineHeight: elemento.interlineado,
+                width: elemento.ancho,
+                left: elemento.posicion_x,
+                top: elemento.posicion_y,
+                angle: elemento.configuracion.rotacion,
+                opacity: elemento.configuracion.opacidad,
+                visible: elemento.configuracion.visible,
+                lockMovementX: elemento.configuracion.bloqueado,
+                lockMovementY: elemento.configuracion.bloqueado,
+                lockScalingX: elemento.configuracion.bloqueado,
+                lockScalingY: elemento.configuracion.bloqueado,
+                lockRotation: elemento.configuracion.bloqueado,
+                hasControls: !elemento.configuracion.bloqueado,
+                hoverCursor: elemento.configuracion.bloqueado ? 'not-allowed' : 'move',
+                styles: clonarEstilosTexto(elemento.configuracion.estilos_texto),
+            });
+            objeto.initDimensions();
+            objeto.setCoords();
+            objeto.dirty = true;
+        } else {
+            // Tablas y formas solo reconstruyen su propia capa, nunca el fondo
+            // ni el panel que contiene el selector de color todavía abierto.
+            const nuevo = await fabricarObjeto(elemento, indice);
+            if (revision !== revisionVistaPropiedad || objetoPorIndice(indice) !== objeto) return;
+            const posicion = lienzo.getObjects().indexOf(objeto);
+            const seleccionado = lienzo.getActiveObject() === objeto;
+            renderizandoLienzo = true;
+            try {
+                lienzo.remove(objeto);
+                lienzo.insertAt(posicion, nuevo);
+                if (seleccionado) lienzo.setActiveObject(nuevo);
+            } finally {
+                renderizandoLienzo = false;
             }
         }
+        lienzo.requestRenderAll();
+        actualizarInput();
+        renderizarCapas();
     }
 
     function escaparHtml(valor = '') {
