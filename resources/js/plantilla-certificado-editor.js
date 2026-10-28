@@ -1512,12 +1512,17 @@ function crearEditorPlantilla(elementoCanvas) {
         const nombre = `plantilla-certificado.${formato === 'SVG' ? 'svg' : 'png'}`;
         const enlace = document.createElement('a');
         const seleccion = [...indicesSeleccionadosEstado];
+        const colorFondoEditor = lienzo.backgroundColor;
 
         try {
             renderizandoLienzo = true;
             lienzo.discardActiveObject();
             renderizandoLienzo = false;
             lienzo.requestRenderAll();
+            // El fondo CSS solo pertenece a la edición. La exportación usa la
+            // imagen de Fabric y papel blanco para conservar el documento completo.
+            lienzo.backgroundColor = '#ffffff';
+            restaurarFondoFijo();
 
             if (formato === 'SVG') {
                 const archivo = new Blob([lienzo.toSVG()], { type: 'image/svg+xml;charset=utf-8' });
@@ -1535,6 +1540,7 @@ function crearEditorPlantilla(elementoCanvas) {
         } catch (error) {
             window.alert('No se pudo exportar la vista previa. Revise que las imágenes usadas pertenezcan al sistema.');
         } finally {
+            lienzo.backgroundColor = colorFondoEditor;
             establecerSeleccion(seleccion);
             restaurarSeleccionEnLienzo();
             lienzo.requestRenderAll();
@@ -2744,6 +2750,19 @@ function crearEditorPlantilla(elementoCanvas) {
         lienzo.backgroundImage = fondoFabric;
     }
 
+    function aplicarFondoFijoEditor(mostrarImagen, ajuste) {
+        // El CSS del canvas inferior no se borra cuando Fabric limpia sus
+        // píxeles al arrastrar. Así el papel es independiente de los componentes.
+        const estilo = lienzo.lowerCanvasEl.style;
+        estilo.backgroundColor = '#ffffff';
+        estilo.backgroundImage = mostrarImagen ? `url(${JSON.stringify(urlFondo)})` : 'none';
+        estilo.backgroundPosition = 'center';
+        estilo.backgroundRepeat = 'no-repeat';
+        estilo.backgroundSize = ajuste === 'CONTENER' ? 'contain'
+            : (ajuste === 'CUBRIR' ? 'cover' : '100% 100%');
+        lienzo.backgroundColor = mostrarImagen ? 'transparent' : '#ffffff';
+    }
+
     async function aplicarFondoVisual() {
         const contenedor = lienzo.wrapperEl;
         const mostrarImagen = urlFondo
@@ -2754,7 +2773,7 @@ function crearEditorPlantilla(elementoCanvas) {
         // El fondo pertenece al lienzo: Fabric lo escala sin afectar las capas editables.
         contenedor.style.backgroundColor = '#ffffff';
         contenedor.style.backgroundImage = 'none';
-        lienzo.backgroundColor = '#ffffff';
+        aplicarFondoFijoEditor(Boolean(mostrarImagen), ajuste);
 
         if (!mostrarImagen) {
             lienzo.backgroundImage = undefined;

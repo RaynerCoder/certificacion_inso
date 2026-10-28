@@ -11,6 +11,26 @@ function funcion(fuente, nombre, siguiente) {
     return fuente.slice(inicio, fuente.indexOf(`    function ${siguiente}(`, inicio));
 }
 
+test('el fondo visual permanece fuera de los píxeles que Fabric borra durante el arrastre', () => {
+    const estilo = {};
+    const lienzo = { lowerCanvasEl: { style: estilo } };
+    const contexto = vm.createContext({ lienzo, urlFondo: '/plantillas/42/archivo' });
+    const inicio = editor.indexOf('    function aplicarFondoFijoEditor(');
+    const fin = editor.indexOf('    async function aplicarFondoVisual()', inicio);
+    vm.runInContext(editor.slice(inicio, fin), contexto);
+    vm.runInContext("aplicarFondoFijoEditor(true, 'CONTENER')", contexto);
+    assert.equal(estilo.backgroundImage, 'url("/plantillas/42/archivo")');
+    assert.equal(estilo.backgroundSize, 'contain');
+    assert.equal(lienzo.backgroundColor, 'transparent');
+    lienzo.backgroundImage = undefined;
+    assert.equal(estilo.backgroundImage, 'url("/plantillas/42/archivo")');
+    vm.runInContext("aplicarFondoFijoEditor(true, 'CUBRIR')", contexto);
+    assert.equal(estilo.backgroundSize, 'cover');
+    vm.runInContext("aplicarFondoFijoEditor(false, 'ESTIRAR')", contexto);
+    assert.equal(estilo.backgroundImage, 'none');
+    assert.equal(lienzo.backgroundColor, '#ffffff');
+});
+
 test('el fondo fijo sobrevive a los redibujos sin convertirse en una capa seleccionable', () => {
     const fondo = { set(valores) { Object.assign(this, valores); } };
     const lienzo = {};
