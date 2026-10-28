@@ -23,6 +23,9 @@ use App\Services\ExpedienteTramiteService;
 use App\Services\GestionTramitadoresService;
 use App\Services\PlantillaCertificadoStorageService;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\Color\Alpha;
+use BaconQrCode\Renderer\Color\Gray;
+use BaconQrCode\Renderer\RendererStyle\Fill;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
@@ -2273,7 +2276,7 @@ class CertificadoController extends Controller
     private function imagenQrParaUrl(string $url): string
     {
         $renderizador = new ImageRenderer(
-            new RendererStyle(360, 4),
+            new RendererStyle(360, 4, fill: Fill::uniformColor(new Alpha(0, new Gray(100)), new Gray(0))),
             new SvgImageBackEnd()
         );
         $svg = (new Writer($renderizador))->writeString($url);
