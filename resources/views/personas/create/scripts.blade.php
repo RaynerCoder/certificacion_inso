@@ -1090,7 +1090,7 @@
              .map((option, indice) => [indice + 1, option.textContent.trim() || '-']);
 
          return tablaResumenPersonaWizard(
-             'Rubros que se guardaran',
+             'Rubros',
              ['#', 'Rubro'],
              filas,
              'No se seleccionaron rubros.'

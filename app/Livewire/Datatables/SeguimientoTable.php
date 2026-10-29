@@ -32,8 +32,8 @@ class SeguimientoTable extends DataTableComponent
             ]);
         }
 
-        // En "Mis trámites" la solicitud recién enviada debe quedar al inicio de la lista.
-        if ($this->bandeja === 'enviadas') {
+        // Las solicitudes y los trámites registrados se muestran del más reciente al más antiguo.
+        if (in_array($this->bandeja, ['enviadas', 'registrados'], true)) {
             $this->setDefaultSort('created_at', 'desc');
         }
     }

@@ -24,6 +24,9 @@ class TipoCertificado extends Model
         'tramite.fecha_registro' => 'Fecha de registro',
         'tramite.funcionario_finalizador' => 'Registrado por',
         'producto.referencia_publica' => 'Productos y presentaciones',
+        'pago.factura' => 'Factura',
+        'seguimiento.referencia' => 'Referencia del seguimiento',
+        'revision.observacion' => 'Observación de la revisión',
         'estado' => 'Estado del certificado',
     ];
 
