@@ -210,11 +210,16 @@ function aplicarDatosDinamicos(objeto, valores = {}) {
 
     if (!['TEXTO', 'CAMPO', 'FIRMA'].includes(tipo) && !tieneMarcador) return;
 
-    let resuelto = resolverMarcadoresConEstilos(plantilla, objeto.styles || {}, valores);
+    // Cada actualización parte del texto y los estilos originales. Los estilos
+    // del objeto visible ya tienen los índices desplazados por las variables;
+    // reutilizarlos desplazaba la negrita nuevamente al preparar número y QR.
+    objeto.plantillaEstilosTexto ??= JSON.parse(JSON.stringify(objeto.styles || {}));
+    const estilosOriginales = objeto.plantillaEstilosTexto;
+    let resuelto = resolverMarcadoresConEstilos(plantilla, estilosOriginales, valores);
     if (tipo === 'CAMPO' && codigo && Object.prototype.hasOwnProperty.call(valores, codigo)) {
         const valorCampo = String(valores[codigo] ?? '');
         if (resuelto.texto !== valorCampo) {
-            const estilo = estiloRepresentativo(caracteresConEstilo(plantilla, objeto.styles || {}));
+            const estilo = estiloRepresentativo(caracteresConEstilo(plantilla, estilosOriginales));
             const tokens = Array.from(valorCampo).map((valor) => ({ valor, estilo: { ...estilo } }));
             resuelto = { texto: valorCampo, estilos: estilosDesdeCaracteres(tokens) };
         }
@@ -583,6 +588,9 @@ async function crearObjeto(elemento, valores = {}) {
     objeto.plantillaTipoElemento = tipo;
     objeto.plantillaCodigoElemento = elemento.codigo_elemento || null;
     objeto.plantillaTextoPlantilla = elemento.texto_plantilla || '';
+    if (['TEXTO', 'CAMPO', 'FIRMA'].includes(tipo)) {
+        objeto.plantillaEstilosTexto = JSON.parse(JSON.stringify(estilosTexto(configuracion)));
+    }
     return objeto;
 }
 
@@ -693,6 +701,11 @@ async function iniciarPrevisualizacion() {
                 return qr;
             }
 
+            if (objeto instanceof Textbox) {
+                objeto.plantillaEstilosTexto = JSON.parse(JSON.stringify(
+                    elemento?.configuracion?.estilos_texto ?? objeto.styles ?? {},
+                ));
+            }
             aplicarDatosDinamicos(objeto, datos.valores || {});
             objeto.set({ selectable: false, evented: false });
             return objeto;

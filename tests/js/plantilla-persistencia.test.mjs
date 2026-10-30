@@ -7,6 +7,42 @@ const editor = readFileSync(new URL('../../resources/js/plantilla-certificado-ed
 const emision = readFileSync(new URL('../../resources/js/plantilla-certificado-emision.js', import.meta.url), 'utf8');
 const vistaEmision = readFileSync(new URL('../../resources/views/certificados/emitir_certificado/create.blade.php', import.meta.url), 'utf8');
 
+test('negrita y cursiva permanecen en sus palabras al actualizar variables repetidas veces', () => {
+    class Textbox {
+        set(valores) { Object.assign(this, valores); }
+        initDimensions() {}
+        setCoords() {}
+    }
+    const contexto = vm.createContext({ Textbox });
+    const inicio = emision.indexOf('function estilosTexto(');
+    const fin = emision.indexOf('function crearMarcador(', inicio);
+    vm.runInContext(emision.slice(inicio, fin), contexto);
+    const plantilla = 'Por haber {{evaluacion_resultado}} en el curso: Manejo de Plaguicidas.\nHoras: {{horas}}.';
+    const estilos = { 0: {} };
+    for (const fragmento of ['{{evaluacion_resultado}}', 'Manejo de Plaguicidas']) {
+        const inicioFragmento = plantilla.indexOf(fragmento);
+        for (let i = inicioFragmento; i < inicioFragmento + fragmento.length; i++) estilos[0][i] = { fontWeight: 'bold', fontStyle: 'italic' };
+    }
+    const objeto = new Textbox();
+    Object.assign(objeto, {
+        text: plantilla, plantillaTextoPlantilla: plantilla, plantillaTipoElemento: 'TEXTO', styles: estilos,
+        left: 20, top: 40, width: 600, height: 80, textAlign: 'justify', scaleX: 1, scaleY: 1,
+    });
+    contexto.objeto = objeto;
+    for (const resultado of ['APROBADO', 'PARTICIPADO', 'APROBADO']) {
+        contexto.valores = { evaluacion_resultado: resultado, horas: '30' };
+        vm.runInContext('aplicarDatosDinamicos(objeto, valores)', contexto);
+        contexto.texto = objeto.text;
+        contexto.estilos = objeto.styles;
+        const tokens = vm.runInContext('caracteresConEstilo(texto, estilos)', contexto);
+        const negrita = tokens.filter(token => token.estilo.fontWeight === 'bold').map(token => token.valor).join('');
+        assert.equal(negrita, resultado + 'Manejo de Plaguicidas');
+        assert.equal(tokens.filter(token => token.estilo.fontStyle === 'italic').map(token => token.valor).join(''), negrita);
+        assert.equal(objeto.left, 20);
+        assert.equal(objeto.textAlign, 'justify');
+    }
+});
+
 test('reemplazar una variable respeta su marco y las alineaciones izquierda, centro y derecha', () => {
     const contexto = vm.createContext({});
     const inicio = emision.indexOf('function actualizarTextoEnMarco(');
