@@ -277,6 +277,8 @@ Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoContro
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir/preparar-qr', [CertificadoController::class, 'prepararQrEmision'])
     ->name('certificados_emitir_preparar_qr');
+Route::post('/certificados/{certificado}/emitir/preparar-numero', [CertificadoController::class, 'prepararNumeroEmision'])
+    ->name('certificados_emitir_preparar_numero');
 Route::post('/certificados/{certificado}/emitir', [CertificadoController::class, 'guardarEmision'])->name('certificados_emitir_guardar');
 Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoController::class, 'enviarCertificadoSolicitante'])
     ->name('certificados_enviar_solicitante')

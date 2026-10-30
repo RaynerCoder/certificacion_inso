@@ -817,6 +817,25 @@ class CertificadoController extends Controller
      * Prepara un QR temporal para la vista previa. No crea una emisión ni guarda
      * archivos: ambos ocurren solamente cuando se confirma la emisión final.
      */
+    public function prepararNumeroEmision(Certificado $certificado)
+    {
+        $certificado->load($this->relacionesParaEmision());
+        abort_unless($this->usuarioPuedeEmitirCertificado($certificado), 403);
+        $vigencia = $this->datosVigenciaParaEmision($certificado);
+        if (! $vigencia['disponible']) {
+            return response()->json(['message' => $vigencia['mensaje']], 422);
+        }
+
+        $tipo = $certificado->tipoCertificado;
+        $correlativo = max(1, (int) ($tipo->siguiente_correlativo ?? 1));
+        do {
+            $numero = $tipo->formarNumeroCertificado($vigencia['fecha_inicio'], $correlativo++);
+        } while (CertificadoEmitido::withTrashed()->where('numero_certificado', $numero)->exists());
+
+        // Es una vista previa. El correlativo solo se consume en la transacción de emisión.
+        return response()->json(['numero_certificado' => $numero])->header('Cache-Control', 'no-store');
+    }
+
     public function prepararQrEmision(Certificado $certificado)
     {
         $certificado->load($this->relacionesParaEmision());
@@ -980,7 +999,11 @@ class CertificadoController extends Controller
                 'id_certificado_registro' => $registroSeleccionado?->id,
                 'id_plantilla_certificado' => $plantillaCertificado->id,
                 'orden_emision' => ((int) $tramite->emisiones()->lockForUpdate()->max('orden_emision')) + 1,
-                'numero_certificado' => $this->siguienteNumeroCertificado($tramite->tipoCertificado),
+                'numero_certificado' => $this->siguienteNumeroCertificado(
+                    $tramite->tipoCertificado,
+                    $datosVigenciaEmision['fecha_inicio'],
+                    $datos['form_numero_certificado_preparado']
+                ),
                 'fecha_emision' => now(),
                 'fecha_inicio' => $datosVigenciaEmision['fecha_inicio'],
                 'fecha_fin' => $datosVigenciaEmision['fecha_fin'],
@@ -1476,7 +1499,7 @@ class CertificadoController extends Controller
         return [
             'Certificado y trámite' => [
                 ['codigo' => 'certificado.codigo', 'nombre' => 'Código del certificado'],
-                ['codigo' => 'emision.numero_certificado', 'nombre' => 'Número de registro autorizado', 'ayuda' => 'Es la numeración oficial asignada al guardar la emisión del certificado.'],
+                ['codigo' => 'emision.numero_certificado', 'nombre' => 'Número de certificado', 'ayuda' => 'Prefijo, mes y año de finalización del trámite y correlativo. Se guarda al emitir y es el mismo que muestra el QR.'],
                 ['codigo' => 'emision.fecha', 'nombre' => 'Fecha de emisión del certificado', 'ayuda' => 'Puede acompañarla de un texto fijo para el lugar: por ejemplo, “La Paz, ”.'],
                 ['codigo' => 'certificado.fecha_inicio', 'nombre' => 'Fecha de inicio de vigencia'],
                 ['codigo' => 'certificado.fecha_fin', 'nombre' => 'Fecha final de vigencia'],
@@ -2187,6 +2210,7 @@ class CertificadoController extends Controller
             'form_codigo_verificacion' => $reglaCodigoVerificacion,
             // Es obligatorio para que el PDF salga del mismo render Fabric.js mostrado al funcionario.
             'form_documento_renderizado' => ['required', 'string', 'max:50000000'],
+            'form_numero_certificado_preparado' => ['required', 'string', 'max:150'],
             'bandeja' => ['nullable', 'string', 'max:30'],
         ], [], [
             'form_documento_renderizado' => 'render final de la plantilla',
@@ -3165,18 +3189,23 @@ class CertificadoController extends Controller
 
     // Reserva el correlativo dentro de la misma transacción. El número se
     // conserva aun si el documento fue anulado, por lo que nunca se reutiliza.
-    private function siguienteNumeroCertificado(TipoCertificado $tipoCertificado): string
+    private function siguienteNumeroCertificado(TipoCertificado $tipoCertificado, \DateTimeInterface $fechaFinalizacion, string $numeroPreparado): string
     {
         $tipoBloqueado = TipoCertificado::query()->lockForUpdate()->findOrFail($tipoCertificado->id);
         $correlativo = max(1, (int) ($tipoBloqueado->siguiente_correlativo ?? 1));
-        $prefijo = trim((string) ($tipoBloqueado->prefijo_numero_certificado ?? ''));
 
         do {
-            $numero = $prefijo === '' ? (string) $correlativo : $prefijo.$correlativo;
+            $numero = $tipoBloqueado->formarNumeroCertificado($fechaFinalizacion, $correlativo);
             $correlativo++;
         } while (CertificadoEmitido::withTrashed()
             ->where('numero_certificado', $numero)
             ->exists());
+
+        if ($numero !== $numeroPreparado) {
+            throw ValidationException::withMessages([
+                'form_numero_certificado_preparado' => 'La numeración cambió porque se emitió otro certificado o se modificó la configuración. Recargue la vista previa y vuelva a emitir.',
+            ])->errorBag('emisionCertificado');
+        }
 
         $tipoBloqueado->update(['siguiente_correlativo' => $correlativo]);
 

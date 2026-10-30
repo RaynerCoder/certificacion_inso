@@ -5,6 +5,31 @@ import vm from 'node:vm';
 
 const editor = readFileSync(new URL('../../resources/js/plantilla-certificado-editor.js', import.meta.url), 'utf8');
 const emision = readFileSync(new URL('../../resources/js/plantilla-certificado-emision.js', import.meta.url), 'utf8');
+const vistaEmision = readFileSync(new URL('../../resources/views/certificados/emitir_certificado/create.blade.php', import.meta.url), 'utf8');
+
+test('la vista previa incorpora el mismo número al documento y al envío antes de preparar el QR', async () => {
+    const campoNumero = { value: '' };
+    const orden = [];
+    let valores;
+    const contexto = vm.createContext({
+        formulario: {
+            dataset: { prepararNumeroUrl: '/preparar-numero' },
+            querySelector: selector => selector.includes('_token') ? { value: 'token' } : campoNumero,
+            querySelectorAll: () => [],
+        },
+        fetch: async () => ({ ok: true, json: async () => ({ numero_certificado: 'CAP-10-2026-1' }) }),
+        window: { actualizarDatosCertificadoEmision: async datos => { valores = datos; orden.push('numero'); } },
+        prepararVistaQr: async () => { orden.push('qr'); },
+    });
+    const inicio = vistaEmision.indexOf('                let preparacionNumeroEnCurso =');
+    const fin = vistaEmision.indexOf('                const prepararAutomaticamente', inicio);
+    vm.runInContext(vistaEmision.slice(inicio, fin), contexto);
+    await vm.runInContext('window.prepararVistaQrEmision()', contexto);
+    assert.equal(campoNumero.value, 'CAP-10-2026-1');
+    assert.equal(valores['emision.numero_certificado'], campoNumero.value);
+    assert.equal(valores['emision_numero_certificado'], campoNumero.value);
+    assert.deepEqual(orden, ['numero', 'qr']);
+});
 
 function funcion(fuente, nombre, siguiente) {
     const inicio = fuente.indexOf(`    function ${nombre}(`);

@@ -973,9 +973,11 @@
 
         <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data"
+                data-preparar-numero-url="{{ route('certificados_emitir_preparar_numero', $certificado) }}"
                 data-requiere-qr-verificacion="{{ ($usaQrVerificacion ?? false) ? '1' : '0' }}"
                 @if ($usaQrVerificacion ?? false) data-preparar-qr-url="{{ route('certificados_emitir_preparar_qr', $certificado) }}" @endif>
                 @csrf
+                <input type="hidden" name="form_numero_certificado_preparado" data-numero-certificado-preparado>
                 <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
                 @if ($registroSeleccionado)
                     <input type="hidden" name="form_id_certificado_registro" value="{{ $registroSeleccionado->id }}">
@@ -1071,7 +1073,7 @@
                                     @foreach ($informacionPublicaQr as $filaQr)
                                         <div class="emit-qr-row">
                                             <dt>{{ $filaQr['etiqueta'] }}</dt>
-                                            <dd>{{ $filaQr['valor'] }}</dd>
+                                            <dd @if ($filaQr['valor'] === 'Se asignará al emitir') data-numero-publico-certificado @endif>{{ $filaQr['valor'] }}</dd>
                                         </div>
                                     @endforeach
                                 </dl>
@@ -1794,10 +1796,44 @@
                     }
                 }
 
-                window.prepararVistaQrEmision = prepararVistaQr;
+                let preparacionNumeroEnCurso = null;
+                async function prepararNumero() {
+                    const respuesta = await fetch(formulario.dataset.prepararNumeroUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': formulario.querySelector('input[name="_token"]')?.value || '',
+                        },
+                    });
+                    const contenido = await respuesta.json().catch(() => ({}));
+                    if (!respuesta.ok || !contenido.numero_certificado) {
+                        throw new Error(contenido.message || 'No se pudo preparar el número de certificado.');
+                    }
+                    if (typeof window.actualizarDatosCertificadoEmision !== 'function') {
+                        throw new Error('La vista previa todavía no está lista. Recargue la página.');
+                    }
+                    await window.actualizarDatosCertificadoEmision({
+                        'emision.numero_certificado': contenido.numero_certificado,
+                        'emision_numero_certificado': contenido.numero_certificado,
+                        'certificado.codigo': contenido.numero_certificado,
+                        'certificado_codigo': contenido.numero_certificado,
+                    });
+                    formulario.querySelector('[data-numero-certificado-preparado]').value = contenido.numero_certificado;
+                    formulario.querySelectorAll('[data-numero-publico-certificado]').forEach(elemento => {
+                        elemento.textContent = contenido.numero_certificado;
+                    });
+                }
+                async function prepararVistaEmision() {
+                    if (!preparacionNumeroEnCurso) {
+                        preparacionNumeroEnCurso = prepararNumero().finally(() => { preparacionNumeroEnCurso = null; });
+                    }
+                    await preparacionNumeroEnCurso;
+                    await prepararVistaQr();
+                }
+                window.prepararVistaQrEmision = prepararVistaEmision;
                 const prepararAutomaticamente = () => {
                     if (typeof window.prepararQrCertificadoEmision !== 'function') return;
-                    prepararVistaQr().catch(error => {
+                    prepararVistaEmision().catch(error => {
                         let aviso = document.querySelector('[data-error-qr-automatico]');
                         if (!aviso) {
                             aviso = document.createElement('p');
@@ -1823,9 +1859,7 @@
                     botones.forEach((boton) => { boton.disabled = true; });
 
                     try {
-                        if (formulario.dataset.requiereQrVerificacion === '1') {
-                            await prepararVistaQr();
-                        }
+                        await prepararVistaEmision();
 
                         HTMLFormElement.prototype.submit.call(formulario);
                     } catch (error) {

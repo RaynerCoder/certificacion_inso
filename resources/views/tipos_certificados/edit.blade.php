@@ -234,16 +234,16 @@
 
                         <div class="lg:col-span-8">
                             <x-wire-input label="Prefijo del número de certificado" id="form_prefijo_numero_certificado"
-                                name="form_prefijo_numero_certificado" maxlength="100" placeholder="Ej.: CAP-07-2026-"
+                                name="form_prefijo_numero_certificado" maxlength="100" placeholder="Ej.: CAP"
                                 value="{{ old('form_prefijo_numero_certificado', $tipoCertificado->prefijo_numero_certificado) }}" />
-                            <p class="mt-1 text-xs text-slate-500">Se conserva tal cual; el sistema añade el correlativo al final.</p>
+                            <p class="mt-1 text-xs text-slate-500">Opcional. Escriba solo el prefijo, por ejemplo CAP. El sistema añade el mes y año de finalización del trámite y el correlativo: CAP-10-2026-1.</p>
                         </div>
 
                         <div class="lg:col-span-4">
                             <x-wire-input label="Siguiente correlativo" id="form_siguiente_correlativo"
                                 name="form_siguiente_correlativo" type="number" min="1" max="999999999"
                                 value="{{ old('form_siguiente_correlativo', $tipoCertificado->siguiente_correlativo ?? 1) }}" />
-                            <p class="mt-1 text-xs text-slate-500">Se incrementa automáticamente al emitir.</p>
+                            <p class="mt-1 text-xs text-slate-500">Se incrementa al guardar la emisión y continúa al cambiar de mes o año. No se agregan ceros al inicio.</p>
                         </div>
 
                     </div>

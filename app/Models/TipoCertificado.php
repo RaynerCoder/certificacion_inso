@@ -13,7 +13,7 @@ class TipoCertificado extends Model
     public const CAMPOS_QR = [
         'beneficiario.nombre' => 'Participante / solicitante',
         'tipo_certificado.nombre' => 'Tipo de certificado',
-        'emision.numero_certificado' => 'Número del certificado',
+        'emision.numero_certificado' => 'Número de certificado',
         'emision.fecha' => 'Fecha de emisión',
         'certificado.fecha_inicio' => 'Inicio de vigencia',
         'certificado.fecha_fin' => 'Vigencia',
@@ -36,7 +36,7 @@ class TipoCertificado extends Model
             return $this->configuracion_qr;
         }
 
-        $campos = ['beneficiario.nombre', 'tipo_certificado.nombre', 'emision.numero_certificado', 'emision.fecha', 'estado'];
+        $campos = ['emision.numero_certificado', 'beneficiario.nombre', 'tipo_certificado.nombre', 'emision.fecha', 'estado'];
 
         return [
             'habilitado' => false,
@@ -98,6 +98,13 @@ class TipoCertificado extends Model
     public function textoModoEmision(): string
     {
         return self::MODOS_EMISION[$this->modo_emision] ?? self::MODOS_EMISION['UNICO_POR_TRAMITE'];
+    }
+
+    public function formarNumeroCertificado(\DateTimeInterface $fechaFinalizacion, int $correlativo): string
+    {
+        $prefijo = trim((string) $this->prefijo_numero_certificado, " \t\n\r\0\x0B-");
+
+        return ($prefijo !== '' ? $prefijo.'-' : '').$fechaFinalizacion->format('m-Y').'-'.max(1, $correlativo);
     }
 
     // Convierte la configuración de pantalla en el único valor que se guarda en la base de datos.
