@@ -7,6 +7,53 @@ const editor = readFileSync(new URL('../../resources/js/plantilla-certificado-ed
 const emision = readFileSync(new URL('../../resources/js/plantilla-certificado-emision.js', import.meta.url), 'utf8');
 const vistaEmision = readFileSync(new URL('../../resources/views/certificados/emitir_certificado/create.blade.php', import.meta.url), 'utf8');
 
+test('reemplazar una variable respeta su marco y las alineaciones izquierda, centro y derecha', () => {
+    const contexto = vm.createContext({});
+    const inicio = emision.indexOf('function actualizarTextoEnMarco(');
+    const fin = emision.indexOf('function aplicarDatosDinamicos(', inicio);
+    vm.runInContext(emision.slice(inicio, fin), contexto);
+    for (const alineacion of ['left', 'center', 'right']) {
+        const objeto = {
+            left: 320, top: 150, width: 100, height: 30, originX: 'center', originY: 'top',
+            scaleX: 0.8, scaleY: 1, angle: 15, textAlign: alineacion,
+            set(valores) { Object.assign(this, valores); },
+            initDimensions() { if (!this.splitByGrapheme) this.width = 280; },
+            setCoords() {},
+        };
+        contexto.objeto = objeto;
+        vm.runInContext("actualizarTextoEnMarco(objeto, 'CAP-10-2026-123456789', {})", contexto);
+        assert.equal(objeto.left, 320);
+        assert.equal(objeto.top, 150);
+        assert.equal(objeto.width, 100);
+        assert.equal(objeto.height, 30);
+        assert.equal(objeto.originX, 'center');
+        assert.equal(objeto.textAlign, alineacion);
+        assert.equal(objeto.scaleX, 0.8);
+        assert.equal(objeto.angle, 15);
+        assert.equal(objeto.splitByGrapheme, true);
+        vm.runInContext("actualizarTextoEnMarco(objeto, 'CAP-10-2026-1', {})", contexto);
+        assert.equal(objeto.left, 320);
+        assert.equal(objeto.width, 100);
+        assert.equal(objeto.textAlign, alineacion);
+    }
+});
+
+test('el SVG del QR conserva el marco exacto del marcador guardado', () => {
+    const contexto = vm.createContext({ numero: (valor, defecto = 0) => Number.isFinite(Number(valor)) ? Number(valor) : defecto });
+    const inicio = emision.indexOf('function conservarMarcoQr(');
+    const fin = emision.indexOf('async function agregarFondo(', inicio);
+    vm.runInContext(emision.slice(inicio, fin), contexto);
+    contexto.qr = { width: 360, height: 360, set(valores) { Object.assign(this, valores); }, setCoords() {} };
+    contexto.referencia = { left: 245, top: 610, width: 115, height: 100, scaleX: 0.8, scaleY: 0.9, originX: 'center', originY: 'top', angle: 15, opacity: 0.8 };
+    vm.runInContext('conservarMarcoQr(qr, referencia)', contexto);
+    assert.equal(contexto.qr.left, 245);
+    assert.equal(contexto.qr.top, 610);
+    assert.equal(contexto.qr.width * contexto.qr.scaleX, 92);
+    assert.equal(contexto.qr.height * contexto.qr.scaleY, 90);
+    assert.equal(contexto.qr.originX, 'center');
+    assert.equal(contexto.qr.angle, 15);
+});
+
 test('la vista previa incorpora el mismo número al documento y al envío antes de preparar el QR', async () => {
     const campoNumero = { value: '' };
     const orden = [];

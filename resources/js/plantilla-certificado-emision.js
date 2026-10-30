@@ -170,6 +170,33 @@ function resolverMarcadoresConEstilos(texto, estilos = {}, valores = {}) {
     };
 }
 
+function actualizarTextoEnMarco(objeto, texto, estilos, marco = null) {
+    const geometria = marco || {
+        left: objeto.left,
+        top: objeto.top,
+        width: objeto.width,
+        height: objeto.height,
+        originX: objeto.originX,
+        originY: objeto.originY,
+        scaleX: objeto.scaleX,
+        scaleY: objeto.scaleY,
+        angle: objeto.angle,
+        textAlign: objeto.textAlign,
+    };
+    objeto.set({ ...geometria, text: texto, styles: estilos });
+    objeto.initDimensions();
+    // Fabric ensancha automáticamente el Textbox si encuentra una palabra
+    // más larga que su marco. Eso cambiaba el centro y el borde derecho.
+    // En ese caso se ajusta el salto de línea dentro del ancho guardado.
+    if (objeto.width > geometria.width) {
+        objeto.set({ width: geometria.width, splitByGrapheme: true });
+        objeto.initDimensions();
+    }
+    objeto.set(geometria);
+    objeto.dirty = true;
+    objeto.setCoords();
+}
+
 function aplicarDatosDinamicos(objeto, valores = {}) {
     if (!(objeto instanceof Textbox)) return;
 
@@ -193,19 +220,7 @@ function aplicarDatosDinamicos(objeto, valores = {}) {
         }
     }
 
-    const geometria = {
-        left: objeto.left,
-        top: objeto.top,
-        width: objeto.width,
-        height: objeto.height,
-        scaleX: objeto.scaleX,
-        scaleY: objeto.scaleY,
-        angle: objeto.angle,
-    };
-    objeto.set({ text: resuelto.texto, styles: resuelto.estilos });
-    objeto.initDimensions();
-    objeto.set(geometria);
-    objeto.setCoords();
+    actualizarTextoEnMarco(objeto, resuelto.texto, resuelto.estilos);
 }
 
 function crearMarcador(texto, ancho, alto) {
@@ -534,6 +549,12 @@ async function crearObjeto(elemento, valores = {}) {
             objectCaching: false,
             styles: resuelto.estilos,
         });
+        // Sin JSON de Fabric se usa el mismo ancho del editor, sin comprimir
+        // la fuente ni desplazar el texto para acomodar el valor de la variable.
+        if (objeto.width > ancho) {
+            objeto.set({ width: ancho, splitByGrapheme: true });
+            objeto.initDimensions();
+        }
     }
 
     const anchoNatural = Math.max(1, objeto.width || ancho);
@@ -563,6 +584,22 @@ async function crearObjeto(elemento, valores = {}) {
     objeto.plantillaCodigoElemento = elemento.codigo_elemento || null;
     objeto.plantillaTextoPlantilla = elemento.texto_plantilla || '';
     return objeto;
+}
+
+function conservarMarcoQr(qr, referencia) {
+    // El marcador y el SVG tienen tamaños internos distintos. El reemplazo
+    // conserva el marco visible guardado, no las dimensiones nativas del SVG.
+    qr.set({
+        left: referencia.left,
+        top: referencia.top,
+        originX: referencia.originX,
+        originY: referencia.originY,
+        angle: referencia.angle,
+        opacity: referencia.opacity,
+        scaleX: (referencia.width * numero(referencia.scaleX, 1)) / Math.max(1, qr.width),
+        scaleY: (referencia.height * numero(referencia.scaleY, 1)) / Math.max(1, qr.height),
+    });
+    qr.setCoords();
 }
 
 async function agregarFondo(lienzo, datos) {
@@ -648,6 +685,7 @@ async function iniciarPrevisualizacion() {
             // justo antes de capturar el PNG oficial.
             if (String(elemento?.tipo_elemento || '').toUpperCase() === 'QR') {
                 const qr = await crearObjeto(elemento, datos.valores || {});
+                conservarMarcoQr(qr, objeto);
                 qr.plantillaIndice = Number.isInteger(indice) ? indice : posicion;
                 qr.plantillaTipoElemento = 'QR';
                 qr.plantillaCodigoElemento = elemento.codigo_elemento || null;
@@ -726,6 +764,7 @@ async function iniciarPrevisualizacion() {
             }
 
             const qr = await crearObjeto({ ...elemento, valor: imagenQr }, datos.valores);
+            conservarMarcoQr(qr, objeto);
             qr.plantillaIndice = indice;
             qr.plantillaTipoElemento = 'QR';
             qr.plantillaCodigoElemento = elemento.codigo_elemento || null;
