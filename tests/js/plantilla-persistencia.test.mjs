@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const editor = readFileSync(new URL('../../resources/js/plantilla-certificado-editor.js', import.meta.url), 'utf8');
-const emision = readFileSync(new URL('../../resources/js/plantilla-certificado-emision.js', import.meta.url), 'utf8');
-const vistaEmision = readFileSync(new URL('../../resources/views/certificados/emitir_certificado/create.blade.php', import.meta.url), 'utf8');
+const editor = readFileSync(new URL('../../resources/js/plantilla-certificado-editor.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const emision = readFileSync(new URL('../../resources/js/plantilla-certificado-emision.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const vistaEmision = readFileSync(new URL('../../resources/views/certificados/emitir_certificado/create.blade.php', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 test('negrita y cursiva permanecen en sus palabras al actualizar variables repetidas veces', () => {
     class Textbox {

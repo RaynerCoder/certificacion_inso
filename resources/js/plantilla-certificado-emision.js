@@ -1,3 +1,4 @@
+import { FUENTES_CERTIFICADO, cargarFuentesCertificado } from './fuentes-certificado';
 import {
     Ellipse,
     FabricImage,
@@ -15,21 +16,7 @@ const DPI_BASE_NAVEGADOR = 96;
 // por lo que texto y líneas conservan nitidez sin generar imágenes excesivas.
 const DPI_DOCUMENTO = 300;
 const MAX_PIXELES_DOCUMENTO = 18_000_000;
-const FUENTES = [
-    'Arial',
-    'Arial Narrow',
-    'Agency FB',
-    'Bahnschrift SemiBold Condensed',
-    'Calibri',
-    'Cambria',
-    'Times New Roman',
-    'Lucida Bright',
-    'Monotype Corsiva',
-    'Georgia',
-    'Verdana',
-    'Tahoma',
-    'Courier New',
-];
+const FUENTES = FUENTES_CERTIFICADO;
 
 function numero(valor, predeterminado = 0) {
     const convertido = Number(valor);
@@ -57,8 +44,7 @@ function patronTrazo(estilo) {
 }
 
 async function cargarFuentes() {
-    if (!document.fonts?.load) return;
-    await Promise.allSettled(FUENTES.map((fuente) => document.fonts.load(`16px "${fuente}"`)));
+    await cargarFuentesCertificado();
 }
 
 function estilosTexto(configuracion = {}) {

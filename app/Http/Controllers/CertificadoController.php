@@ -1991,6 +1991,15 @@ class CertificadoController extends Controller
             'Arial', 'Arial Narrow', 'Agency FB', 'Bahnschrift SemiBold Condensed',
             'Calibri', 'Cambria', 'Times New Roman', 'Lucida Bright',
             'Monotype Corsiva', 'Georgia', 'Verdana', 'Tahoma', 'Courier New',
+            'Playfair Display',
+            'Lato',
+            'Cormorant Garamond',
+            'Inter',
+            'Libre Baskerville',
+            'Source Sans 3',
+            'EB Garamond',
+            'Montserrat',
+            'Lora',
         ];
 
         if (in_array($estilo['tipo_letra'] ?? null, $fuentesPermitidas, true)) {

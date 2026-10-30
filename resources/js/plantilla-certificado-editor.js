@@ -1,3 +1,4 @@
+import { FUENTES_CERTIFICADO, cargarFuentesCertificado } from './fuentes-certificado';
 import {
     ActiveSelection,
     Canvas,
@@ -19,21 +20,7 @@ const PASOS_CUADRICULA_PERMITIDOS = Array.from({ length: 40 }, (_, indice) => (i
 const TOLERANCIA_GUIA = 15;
 const CALIDAD_PREVISUALIZACION = 2;
 const CALIDAD_EXPORTACION = 3;
-const FUENTES_CERTIFICADO = [
-    'Arial',
-    'Arial Narrow',
-    'Agency FB',
-    'Bahnschrift SemiBold Condensed',
-    'Calibri',
-    'Cambria',
-    'Times New Roman',
-    'Lucida Bright',
-    'Monotype Corsiva',
-    'Georgia',
-    'Verdana',
-    'Tahoma',
-    'Courier New',
-];
+
 const PROPIEDADES_FABRIC_PLANTILLA = [
     'plantillaIndice',
     'plantillaTipoElemento',
@@ -199,12 +186,7 @@ function crearEditorPlantilla(elementoCanvas) {
     }
 
     async function cargarFuentesDelSistema() {
-        if (!document.fonts?.load) return;
-
-        // Se cargan antes de medir los textos para que Fabric conserve su ancho y salto de línea.
-        await Promise.allSettled(
-            FUENTES_CERTIFICADO.map((fuente) => document.fonts.load(`16px "${fuente}"`)),
-        );
+        await cargarFuentesCertificado();
     }
 
     // Mantiene el mismo JSON que ya recibe Laravel; no se cambia el contrato del módulo.

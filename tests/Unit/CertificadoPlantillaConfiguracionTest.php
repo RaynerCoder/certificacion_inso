@@ -11,6 +11,19 @@ use ReflectionMethod;
 
 class CertificadoPlantillaConfiguracionTest extends TestCase
 {
+    public function test_conserva_las_nuevas_fuentes_en_las_celdas_de_las_tablas(): void
+    {
+        $metodo = new ReflectionMethod(CertificadoController::class, 'normalizarEstiloCeldaTablaPlantilla');
+        $controlador = (new ReflectionClass(CertificadoController::class))->newInstanceWithoutConstructor();
+        foreach (['Playfair Display', 'Lato', 'Cormorant Garamond', 'Inter', 'Libre Baskerville',
+            'Source Sans 3', 'EB Garamond', 'Montserrat', 'Lora'] as $fuente) {
+            $resultado = $metodo->invoke($controlador, ['tipo_letra' => $fuente, 'negrita' => true, 'cursiva' => true]);
+            $this->assertSame($fuente, $resultado['tipo_letra']);
+            $this->assertTrue($resultado['negrita']);
+            $this->assertTrue($resultado['cursiva']);
+        }
+    }
+
     #[DataProvider('configuracionesDeTabla')]
     public function test_normaliza_los_estilos_de_tabla_antes_de_guardarlos(
         array $entrada,

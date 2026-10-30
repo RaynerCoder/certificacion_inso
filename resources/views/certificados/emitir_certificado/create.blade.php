@@ -1653,7 +1653,10 @@
                     });
                 });
 
-                Promise.all(cargas).then(() => {
+                Promise.all(cargas).then(async () => {
+                    // Fuerza el cálculo del SVG antes de esperar las fuentes del iframe.
+                    documento.body.getBoundingClientRect();
+                    if (documento.fonts?.ready) await documento.fonts.ready;
                     frame.contentWindow.focus();
                     frame.contentWindow.print();
                 });
@@ -1701,7 +1704,16 @@
                     documento.head.appendChild(titulo);
 
                     const estilos = documento.createElement('style');
-                    estilos.textContent = estilosImpresionCertificado();
+                    const fuentes = Array.from(document.styleSheets).flatMap(hoja => {
+                        try {
+                            return Array.from(hoja.cssRules)
+                                .filter(regla => regla.type === CSSRule.FONT_FACE_RULE)
+                                .map(regla => regla.cssText);
+                        } catch {
+                            return [];
+                        }
+                    });
+                    estilos.textContent = fuentes.join('\n') + '\n' + estilosImpresionCertificado();
                     documento.head.appendChild(estilos);
 
                     documento.body.appendChild(certificado.cloneNode(true));
