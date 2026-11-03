@@ -71,7 +71,7 @@
                 {{ $esEmisionPorLote ? 'Ver certificados' : 'Ver certificado' }}
             </button>
         @elseif ($faltantesEmision->isEmpty() && $puedeAbrirEmision)
-            <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados']) }}" amber xs>
+            <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados', 'seleccionar_plantilla' => 1]) }}" amber xs>
                 Emitir certificado
             </x-wire-button>
         @else
