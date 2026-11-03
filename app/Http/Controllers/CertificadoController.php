@@ -80,15 +80,22 @@ class CertificadoController extends Controller
     public function crearPlantilla(Request $solicitud)
     {
         $idTipoCertificado = $solicitud->integer('tipo');
+        $idPlantillaOrigen = $solicitud->integer('origen');
 
         abort_if(
             $idTipoCertificado && ! TipoCertificado::whereKey($idTipoCertificado)->exists(),
             404
         );
 
+        // Elegir una plantilla como base solo prepara el formulario. No se crea
+        // ninguna fila ni se copia ningún archivo hasta guardar la nueva plantilla.
+        $plantillaOrigen = $idPlantillaOrigen
+            ? PlantillaCertificado::with('elementos.columnas')->findOrFail($idPlantillaOrigen)
+            : null;
+
         return view('certificados.plantilla_certificado.create', array_merge(
             $this->datosPlantillaCertificado(),
-            compact('idTipoCertificado')
+            compact('idTipoCertificado', 'plantillaOrigen')
         ));
     }
 
@@ -112,6 +119,15 @@ class CertificadoController extends Controller
             $plantilla = PlantillaCertificado::create($datosPlantilla);
 
             $urlFondo = $this->guardarFondoPlantilla($solicitud, $plantilla);
+            if (! $urlFondo
+                && ! $solicitud->boolean('form_quitar_fondo_plantilla')
+                && ! empty($datos['form_id_plantilla_origen'])) {
+                $plantillaOrigen = PlantillaCertificado::findOrFail(
+                    $datos['form_id_plantilla_origen']
+                );
+                $urlFondo = $this->archivosPlantillas->copiarFondo($plantillaOrigen, $plantilla);
+            }
+
             if ($urlFondo) {
                 $plantilla->update(['url_fondo' => $urlFondo]);
             }
@@ -142,19 +158,6 @@ class CertificadoController extends Controller
             $plantillaCertificado,
             (int) $plantillaCertificado->id_tipo_certificado
         );
-    }
-
-    public function reutilizarPlantillaParaTipo(Request $solicitud, TipoCertificado $tipoCertificado)
-    {
-        $datos = $solicitud->validate([
-            'form_id_plantilla_origen' => ['required', 'integer', 'exists:plantillas_certificados,id'],
-        ], [], [
-            'form_id_plantilla_origen' => 'plantilla a reutilizar',
-        ]);
-
-        $plantillaOrigen = PlantillaCertificado::findOrFail($datos['form_id_plantilla_origen']);
-
-        return $this->reutilizarPlantillaEnTipo($plantillaOrigen, (int) $tipoCertificado->id);
     }
 
     /**
@@ -1814,6 +1817,7 @@ class CertificadoController extends Controller
             'form_imprimir_fondo' => ['nullable', 'boolean'],
             'form_url_fondo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
             'form_quitar_fondo_plantilla' => ['nullable', 'boolean'],
+            'form_id_plantilla_origen' => ['nullable', 'integer', 'exists:plantillas_certificados,id'],
             'form_estado' => ['required', Rule::in(['ACTIVO', 'INACTIVO'])],
             'form_elementos_plantilla' => ['nullable', 'string'],
             'form_diseno_fabric_json' => ['nullable', 'json', 'max:10000000'],
@@ -1825,6 +1829,7 @@ class CertificadoController extends Controller
             'form_ajuste_fondo' => 'forma de adaptar la plantilla',
             'form_fondo_trabajo' => 'fondo de trabajo',
             'form_url_fondo' => 'archivo de plantilla',
+            'form_id_plantilla_origen' => 'plantilla base',
             'form_estado' => 'estado',
         ]);
     }

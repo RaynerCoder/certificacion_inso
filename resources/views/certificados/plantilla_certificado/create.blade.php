@@ -5,8 +5,56 @@
     ['name' => 'Crear'],
 ]">
     @php
-        $elementosIniciales = json_decode(old('form_elementos_plantilla', '[]'), true) ?: [];
-        $disenoFabricInicial = json_decode(old('form_diseno_fabric_json', 'null'), true);
+        $urlFondoOrigen = $plantillaOrigen?->url_fondo
+            ? route('certificados_plantillas_archivo', $plantillaOrigen)
+            : null;
+        $nombreFondoOrigen = $plantillaOrigen?->url_fondo
+            ? basename($plantillaOrigen->url_fondo)
+            : 'Sin archivo seleccionado';
+        $elementosOrigen = ($plantillaOrigen?->elementos ?? collect())
+            ->map(function ($elemento) {
+                return [
+                    'tipo_elemento' => $elemento->tipo_elemento,
+                    'codigo_elemento' => $elemento->codigo_elemento,
+                    'texto_fijo' => $elemento->texto_fijo,
+                    'pagina' => $elemento->pagina,
+                    'posicion_x' => $elemento->posicion_x,
+                    'posicion_y' => $elemento->posicion_y,
+                    'ancho' => $elemento->ancho,
+                    'alto' => $elemento->alto,
+                    'tamano_letra' => $elemento->tamano_letra,
+                    'alineacion' => $elemento->alineacion,
+                    'padding_x' => $elemento->padding_x ?? 7,
+                    'padding_y' => $elemento->padding_y ?? 5,
+                    'interlineado' => $elemento->interlineado ?? 1.25,
+                    'negrita' => (bool) $elemento->negrita,
+                    'cursiva' => (bool) $elemento->cursiva,
+                    'subrayado' => (bool) $elemento->subrayado,
+                    'color_texto' => $elemento->color_texto ?: '#0f172a',
+                    'tipo_letra' => $elemento->tipo_letra ?: 'Arial',
+                    'z_index' => $elemento->z_index ?? 3,
+                    'configuracion' => $elemento->configuracion ?? [],
+                    'estado' => $elemento->estado,
+                    'columnas' => $elemento->columnas
+                        ->map(fn ($columna) => [
+                            'codigo_campo' => $columna->codigo_campo,
+                            'titulo_columna' => $columna->titulo_columna,
+                            'ancho' => $columna->ancho,
+                            'estado' => $columna->estado,
+                        ])
+                        ->values(),
+                ];
+            })
+            ->values();
+        $elementosIniciales = old('form_elementos_plantilla')
+            ? (json_decode(old('form_elementos_plantilla'), true) ?: [])
+            : $elementosOrigen;
+        $disenoFabricInicial = old('form_diseno_fabric_json')
+            ? json_decode(old('form_diseno_fabric_json'), true)
+            : ($plantillaOrigen?->diseno_fabric_json ?? null);
+        $nombreInicial = $plantillaOrigen
+            ? 'Copia de '.\Illuminate\Support\Str::limit((string) $plantillaOrigen->nombre, 246, '')
+            : 'Plantilla oficial';
     @endphp
 
     @include('certificados.plantilla_certificado.estilo')
@@ -19,20 +67,33 @@
 
     <form class="plantilla-shell" action="{{ route('certificados_plantillas_store') }}" method="POST" enctype="multipart/form-data">
         @csrf
-        <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', '[]') }}">
-        <textarea name="form_diseno_fabric_json" data-plantilla-diseno-fabric-input hidden>{{ old('form_diseno_fabric_json') }}</textarea>
+        <input type="hidden" name="form_id_plantilla_origen" value="{{ old('form_id_plantilla_origen', $plantillaOrigen?->id) }}">
+        <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', $elementosOrigen->toJson()) }}">
+        <textarea name="form_diseno_fabric_json" data-plantilla-diseno-fabric-input hidden>{{ old('form_diseno_fabric_json', $plantillaOrigen?->diseno_fabric_json ? json_encode($plantillaOrigen->diseno_fabric_json) : '') }}</textarea>
         <input type="hidden" name="form_quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
 
         <section class="plantilla-card">
             <div class="plantilla-head">
                 <div>
                     <h1 class="plantilla-title">Configurar plantilla de certificado</h1>
-                    <p class="plantilla-subtitle">Suba el formato base y coloque textos, campos, firmas o QR sobre la hoja.</p>
+                    <p class="plantilla-subtitle">
+                        @if ($plantillaOrigen)
+                            Está usando “{{ $plantillaOrigen->nombre }}” como base. No se guardará ninguna copia hasta confirmar.
+                        @else
+                            Suba el formato base y coloque textos, campos, firmas o QR sobre la hoja.
+                        @endif
+                    </p>
                 </div>
 
                 <div class="flex flex-wrap justify-end gap-2">
                     <x-wire-button href="{{ route('certificados_plantillas_index') }}" secondary>
                         Volver
+                    </x-wire-button>
+                    <x-wire-button href="{{ route('certificados_plantillas_create', ['tipo' => $idTipoCertificado ?? $plantillaOrigen?->id_tipo_certificado]) }}" blue>
+                        Nueva plantilla para este certificado
+                    </x-wire-button>
+                    <x-wire-button type="button" secondary data-abrir-modal-reutilizar-plantilla>
+                        Reutilizar una plantilla
                     </x-wire-button>
                     <x-wire-button type="submit" emerald>
                         Guardar plantilla
@@ -47,14 +108,14 @@
 
             <div class="grid gap-4 p-4 lg:grid-cols-12">
                 <div class="lg:col-span-4">
-                    <x-wire-input label="Nombre de la plantilla" name="form_nombre" value="{{ old('form_nombre', 'Plantilla oficial') }}" />
+                    <x-wire-input label="Nombre de la plantilla" name="form_nombre" value="{{ old('form_nombre', $nombreInicial) }}" />
                 </div>
 
                 <div class="lg:col-span-5">
                     <x-wire-native-select label="Tipo de certificado" name="form_id_tipo_certificado" data-plantilla-tipo>
                         <option value="">Seleccione</option>
                         @foreach ($tiposCertificados as $tipoCertificado)
-                            <option value="{{ $tipoCertificado->id }}" @selected(old('form_id_tipo_certificado', $idTipoCertificado ?? null) == $tipoCertificado->id)>
+                            <option value="{{ $tipoCertificado->id }}" @selected(old('form_id_tipo_certificado', $idTipoCertificado ?? $plantillaOrigen?->id_tipo_certificado) == $tipoCertificado->id)>
                                 {{ $tipoCertificado->nombre }}
                             </option>
                         @endforeach
@@ -73,15 +134,15 @@
                     <input type="file" name="form_url_fondo"
                         accept=".doc,.docx,.pdf,.png,.jpg,.jpeg,.webp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/png,image/jpeg,image/webp"
                         class="hidden"
-                        data-plantilla-fondo-input>
+                        data-plantilla-fondo-input data-plantilla-fondo-url="{{ $urlFondoOrigen }}">
                     <div class="plantilla-file-control">
                         <span class="plantilla-file-icon">
                             <i class="fa-solid fa-file-arrow-up"></i>
                         </span>
                         <button type="button" class="plantilla-file-btn is-select" data-plantilla-fondo-seleccionar>Seleccionar</button>
-                        <button type="button" class="plantilla-file-btn" data-plantilla-fondo-ver disabled>Ver</button>
-                        <button type="button" class="plantilla-file-btn is-danger" data-plantilla-fondo-quitar disabled>Quitar</button>
-                        <span class="plantilla-file-name" data-plantilla-fondo-nombre>Sin archivo seleccionado</span>
+                        <button type="button" class="plantilla-file-btn" data-plantilla-fondo-ver @disabled(!$urlFondoOrigen)>Ver</button>
+                        <button type="button" class="plantilla-file-btn is-danger" data-plantilla-fondo-quitar @disabled(!$urlFondoOrigen)>Quitar</button>
+                        <span class="plantilla-file-name" data-plantilla-fondo-nombre>{{ $nombreFondoOrigen }}</span>
                     </div>
                     @error('form_url_fondo')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -90,30 +151,30 @@
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Tamaño" id="form_tamano_papel" name="form_tamano_papel" data-plantilla-tamano>
-                        <option value="CARTA" @selected(old('form_tamano_papel', 'CARTA') === 'CARTA')>Carta</option>
-                        <option value="OFICIO" @selected(old('form_tamano_papel') === 'OFICIO')>Oficio</option>
+                        <option value="CARTA" @selected(old('form_tamano_papel', $plantillaOrigen?->tamano_papel ?? 'CARTA') === 'CARTA')>Carta</option>
+                        <option value="OFICIO" @selected(old('form_tamano_papel', $plantillaOrigen?->tamano_papel) === 'OFICIO')>Oficio</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Orientación" id="form_orientacion" name="form_orientacion" data-plantilla-orientacion>
-                        <option value="VERTICAL" @selected(old('form_orientacion', 'VERTICAL') === 'VERTICAL')>Vertical</option>
-                        <option value="HORIZONTAL" @selected(old('form_orientacion') === 'HORIZONTAL')>Horizontal</option>
+                        <option value="VERTICAL" @selected(old('form_orientacion', $plantillaOrigen?->orientacion ?? 'VERTICAL') === 'VERTICAL')>Vertical</option>
+                        <option value="HORIZONTAL" @selected(old('form_orientacion', $plantillaOrigen?->orientacion) === 'HORIZONTAL')>Horizontal</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2" title="Ajustar a la hoja: la plantilla ocupa todo el espacio. Mostrar completa: se ve toda la plantilla, aunque puedan quedar márgenes. Cubrir toda la hoja: llena todo, pero puede recortar partes.">
                     <x-wire-native-select label="Cómo adaptar la plantilla" id="form_ajuste_fondo" name="form_ajuste_fondo" data-plantilla-ajuste-fondo aria-label="Cómo adaptar la plantilla">
-                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja</option>
-                        <option value="CONTENER" @selected(old('form_ajuste_fondo') === 'CONTENER')>Mostrar completa</option>
-                        <option value="CUBRIR" @selected(old('form_ajuste_fondo') === 'CUBRIR')>Cubrir toda la hoja</option>
+                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', $plantillaOrigen?->ajuste_fondo ?? 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja</option>
+                        <option value="CONTENER" @selected(old('form_ajuste_fondo', $plantillaOrigen?->ajuste_fondo) === 'CONTENER')>Mostrar completa</option>
+                        <option value="CUBRIR" @selected(old('form_ajuste_fondo', $plantillaOrigen?->ajuste_fondo) === 'CUBRIR')>Cubrir toda la hoja</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Fondo de trabajo" id="form_fondo_trabajo" name="form_fondo_trabajo" data-plantilla-fondo-trabajo>
-                        <option value="PLANTILLA" @selected(old('form_fondo_trabajo', 'PLANTILLA') === 'PLANTILLA')>Plantilla</option>
-                        <option value="BLANCO" @selected(old('form_fondo_trabajo') === 'BLANCO')>Blanco</option>
+                        <option value="PLANTILLA" @selected(old('form_fondo_trabajo', $plantillaOrigen?->fondo_trabajo ?? 'PLANTILLA') === 'PLANTILLA')>Plantilla</option>
+                        <option value="BLANCO" @selected(old('form_fondo_trabajo', $plantillaOrigen?->fondo_trabajo) === 'BLANCO')>Blanco</option>
                     </x-wire-native-select>
                 </div>
 
@@ -121,7 +182,7 @@
                     <input type="hidden" name="form_imprimir_fondo" value="0">
                     <label class="plantilla-option-check">
                         <input type="checkbox" name="form_imprimir_fondo" value="1"
-                            @checked((bool) old('form_imprimir_fondo', true))
+                            @checked((bool) old('form_imprimir_fondo', !($plantillaOrigen?->imprimir_transparente ?? false)))
                             data-plantilla-imprimir-fondo>
                         <span>
                             <strong>Imprimir fondo</strong>
@@ -319,5 +380,84 @@
             </div>
         </section>
     </form>
+
+    <div class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 p-4"
+        data-modal-reutilizar-plantilla>
+        <form action="{{ route('certificados_plantillas_create') }}" method="GET"
+            class="w-full max-w-xl rounded-xl bg-white shadow-2xl"
+            data-formulario-reutilizar-plantilla>
+            <input type="hidden" name="tipo" value="{{ $idTipoCertificado ?? $plantillaOrigen?->id_tipo_certificado }}"
+                data-tipo-destino-reutilizar-plantilla>
+
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">Utilizar una plantilla como base</h2>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Elija una plantilla por su nombre y tipo de certificado.
+                    </p>
+                </div>
+                <button type="button" class="text-xl leading-none text-slate-500 hover:text-slate-800"
+                    data-cerrar-modal-reutilizar-plantilla aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="px-5 py-4">
+                <label for="form_plantilla_origen" class="block text-sm font-bold text-slate-700">
+                    Plantilla base
+                </label>
+                <select id="form_plantilla_origen" name="origen" required
+                    class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:ring-emerald-500">
+                    <option value="">Seleccione una plantilla</option>
+                    @foreach ($plantillasParaReutilizar as $plantillaReutilizable)
+                        <option value="{{ $plantillaReutilizable->id }}">
+                            {{ $plantillaReutilizable->nombre }} — {{ $plantillaReutilizable->tipoCertificado?->nombre ?: 'Sin tipo de certificado' }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <p class="mt-3 text-sm leading-relaxed text-slate-600">
+                    Se abrirá su diseño como borrador. No se creará ni duplicará una plantilla hasta pulsar
+                    <strong>Guardar plantilla</strong>.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
+                <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    data-cerrar-modal-reutilizar-plantilla>Cancelar</button>
+                <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                    Usar como base
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        (() => {
+            const modal = document.querySelector('[data-modal-reutilizar-plantilla]');
+            const abrir = document.querySelector('[data-abrir-modal-reutilizar-plantilla]');
+            const cerrar = document.querySelectorAll('[data-cerrar-modal-reutilizar-plantilla]');
+            const formulario = document.querySelector('[data-formulario-reutilizar-plantilla]');
+            const tipoDestino = document.querySelector('[data-tipo-destino-reutilizar-plantilla]');
+            const selectorTipo = document.querySelector('[data-plantilla-tipo]');
+
+            if (!modal || !abrir) return;
+
+            abrir.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.querySelector('select')?.focus();
+            });
+
+            cerrar.forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                });
+            });
+
+            formulario?.addEventListener('submit', () => {
+                if (tipoDestino && selectorTipo) tipoDestino.value = selectorTipo.value;
+            });
+        })();
+    </script>
 
 </x-admin-layout>

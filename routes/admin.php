@@ -270,7 +270,6 @@ Route::get('/certificados/plantillas', [CertificadoController::class, 'plantilla
 Route::get('/certificados/plantillas/create', [CertificadoController::class, 'crearPlantilla'])->name('certificados_plantillas_create');
 Route::post('/certificados/plantillas', [CertificadoController::class, 'guardarPlantilla'])->name('certificados_plantillas_store');
 Route::put('/certificados/plantillas/guardar/{plantillaCertificado}', [CertificadoController::class, 'actualizarPlantilla'])->name('certificados_plantillas_update');
-Route::post('/certificados/plantillas/reutilizar/para/{tipoCertificado}', [CertificadoController::class, 'reutilizarPlantillaParaTipo'])->name('certificados_plantillas_reutilizar_para_tipo');
 Route::post('/certificados/plantillas/{plantillaCertificado}/reutilizar', [CertificadoController::class, 'reutilizarPlantilla'])->name('certificados_plantillas_reutilizar');
 Route::delete('/certificados/plantillas/{plantillaCertificado}', [CertificadoController::class, 'eliminarPlantilla'])->name('certificados_plantillas_destroy');
 Route::get('/certificados/plantillas/archivo/{plantillaCertificado}', [CertificadoController::class, 'archivoPlantilla'])->name('certificados_plantillas_archivo');
