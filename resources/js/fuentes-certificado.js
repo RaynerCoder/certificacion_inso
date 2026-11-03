@@ -3,7 +3,6 @@ import '@fontsource/playfair-display/latin-400-italic.css';
 import '@fontsource/playfair-display/latin-700.css';
 import '@fontsource/playfair-display/latin-700-italic.css';
 import '@fontsource/cinzel/latin-600.css';
-import '@fontsource/cinzel/latin-600-italic.css';
 import '@fontsource/lato/latin-400.css';
 import '@fontsource/lato/latin-400-italic.css';
 import '@fontsource/lato/latin-700.css';
@@ -71,7 +70,7 @@ export const FUENTES_CERTIFICADO = [
 export async function cargarFuentesCertificado() {
     if (!document.fonts?.load) return;
     await Promise.allSettled(FUENTES_CERTIFICADO.flatMap(fuente =>
-        ['normal 400', 'normal 700', 'italic 400', 'italic 700']
+        ['normal 400', 'normal 600', 'normal 700', 'italic 400', 'italic 600', 'italic 700']
             .map(variante => document.fonts.load(`${variante} 16px "${fuente}"`)),
     ));
 }
