@@ -81,11 +81,10 @@
             </button>
         @elseif ($faltantesEmision->isEmpty() && $puedeAbrirEmision)
             @if ($plantillasActivasEmision->count() > 1)
-                <button type="button"
-                    class="inline-flex items-center rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-600"
+                <x-wire-button type="button" amber xs
                     onclick="window.abrirModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}')">
                     Emitir certificado
-                </button>
+                </x-wire-button>
             @else
                 <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados', 'plantilla' => $plantillasActivasEmision->first()?->id]) }}" amber xs>
                     Emitir certificado
