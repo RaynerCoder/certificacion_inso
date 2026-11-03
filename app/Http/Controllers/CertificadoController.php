@@ -863,7 +863,9 @@ class CertificadoController extends Controller
         $idPlantillaSolicitada = request()->integer('plantilla');
         $plantillaCertificado = $idPlantillaSolicitada
             ? $plantillasDisponibles->firstWhere('id', $idPlantillaSolicitada)
-            : $plantillasDisponibles->first();
+            // Cuando hay varias plantillas, no se debe asumir la primera.
+            // El funcionario debe escoger explícitamente cuál se emitirá.
+            : ($plantillasDisponibles->count() === 1 ? $plantillasDisponibles->first() : null);
         $idPlantillaSeleccionada = $plantillaCertificado?->id;
         $registroSeleccionado = $this->registroSeleccionadoParaEmision($certificado, request()->integer('registro'));
         // En emisión única no hay fila de certificado_registro. Se debe tomar

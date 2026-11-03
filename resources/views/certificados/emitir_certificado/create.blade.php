@@ -21,6 +21,7 @@
         $puedeAnularEmision = $puedeGestionarEmision && $documentoOficialDisponible && $anulacionDisponible;
         $plantillasDisponibles = $plantillasDisponibles ?? collect();
         $idPlantillaSeleccionada = $idPlantillaSeleccionada ?? null;
+        $requiereSeleccionPlantilla = $plantillasDisponibles->count() > 1 && ! $idPlantillaSeleccionada;
         $abrirModalEmision = ($errors->emisionCertificado->any() || request()->boolean('confirmar_emision'))
             && $datosVigenciaEmision['disponible']
             && $idPlantillaSeleccionada;
@@ -940,7 +941,7 @@
                     @if ($puedeCrearEmision)
                         <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-seleccion-plantilla>
                             <i class="fa-solid fa-file-circle-check"></i>
-                            Emitir certificado
+                            {{ $plantillasDisponibles->count() > 1 ? 'Seleccionar plantilla y emitir' : 'Emitir certificado' }}
                         </button>
                     @elseif ($puedeEnviarSolicitante)
                         <form action="{{ route('certificados_enviar_solicitante', $certificado) }}" method="POST">
@@ -977,6 +978,14 @@
             </div>
         @endif
 
+        @if ($puedeGestionarEmision && $puedeCrearEmision && $requiereSeleccionPlantilla)
+            <div class="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <i class="fa-solid fa-file-lines mr-2"></i>
+                Este tipo de certificado tiene <strong>{{ $plantillasDisponibles->count() }} plantillas activas</strong>.
+                Seleccione cuál se emitirá antes de confirmar la emisión.
+            </div>
+        @endif
+
         @if ($documentoOficialDisponible && $puedeGestionarEmision && ! $anulacionDisponible)
             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <i class="fa-solid fa-triangle-exclamation mr-2"></i>
@@ -994,8 +1003,10 @@
 
                 <div class="emit-modal-head">
                     <div>
-                        <h2 class="emit-modal-title">Seleccionar plantilla</h2>
-                        <p class="emit-subtitle">Elija el diseño que se utilizará para este certificado.</p>
+                        <h2 class="emit-modal-title">Seleccionar plantilla para emitir</h2>
+                        <p class="emit-subtitle">
+                            Elija el diseño que se utilizará para emitir {{ $certificado->tipoCertificado?->nombre }}.
+                        </p>
                     </div>
                     <button type="button" class="emit-modal-close" data-cerrar-modal-seleccion-plantilla aria-label="Cerrar">
                         <i class="fa-solid fa-xmark"></i>
@@ -1009,8 +1020,8 @@
                             class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800 focus:border-emerald-500 focus:ring-emerald-500">
                             <option value="">Seleccione una plantilla</option>
                             @foreach ($plantillasDisponibles as $plantillaDisponible)
-                                <option value="{{ $plantillaDisponible->id }}">
-                                    {{ $plantillaDisponible->nombre }}
+                                <option value="{{ $plantillaDisponible->id }}" @selected($plantillaDisponible->id === $idPlantillaSeleccionada)>
+                                    {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->tamano_papel }} {{ strtolower($plantillaDisponible->orientacion) }} · Plantilla #{{ $plantillaDisponible->id }}
                                 </option>
                             @endforeach
                         </select>
