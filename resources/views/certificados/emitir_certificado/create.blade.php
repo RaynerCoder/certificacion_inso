@@ -104,9 +104,6 @@
         $puedeCrearEmision = $puedeCrearEmisionSinVigencia
             && $datosVigenciaEmision['disponible']
             && $plantillasDisponibles->isNotEmpty();
-        // Con varias plantillas no se muestra una vista previa arbitraria: se
-        // abre primero el selector para que el funcionario decida cuál emitir.
-        $abrirModalSeleccionPlantilla = $puedeCrearEmision && $requiereSeleccionPlantilla;
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
@@ -942,10 +939,17 @@
 
                 @if ($puedeGestionarEmision)
                     @if ($puedeCrearEmision)
-                        <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-seleccion-plantilla>
-                            <i class="fa-solid fa-file-circle-check"></i>
-                            {{ $plantillasDisponibles->count() > 1 ? 'Seleccionar plantilla y emitir' : 'Emitir certificado' }}
-                        </button>
+                        @if ($idPlantillaSeleccionada)
+                            <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-emision>
+                                <i class="fa-solid fa-file-circle-check"></i>
+                                Emitir certificado
+                            </button>
+                        @else
+                            <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-seleccion-plantilla>
+                                <i class="fa-solid fa-file-lines"></i>
+                                Elegir plantilla
+                            </button>
+                        @endif
                     @elseif ($puedeEnviarSolicitante)
                         <form action="{{ route('certificados_enviar_solicitante', $certificado) }}" method="POST">
                             @csrf
@@ -985,7 +989,23 @@
             <div class="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
                 <i class="fa-solid fa-file-lines mr-2"></i>
                 Este tipo de certificado tiene <strong>{{ $plantillasDisponibles->count() }} plantillas activas</strong>.
-                Seleccione cuál se emitirá antes de confirmar la emisión.
+                Elija una para ver el certificado antes de emitirlo.
+            </div>
+        @endif
+
+        @if ($puedeGestionarEmision && $puedeCrearEmision && $idPlantillaSeleccionada)
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                <span>
+                    <i class="fa-solid fa-file-circle-check mr-2"></i>
+                    <strong>Plantilla seleccionada para este certificado:</strong>
+                    {{ $plantillaCertificado?->nombre }}
+                </span>
+                @if ($plantillasDisponibles->count() > 1)
+                    <button type="button" class="font-bold text-emerald-800 underline hover:text-emerald-950"
+                        data-abrir-modal-seleccion-plantilla>
+                        Cambiar plantilla
+                    </button>
+                @endif
             </div>
         @endif
 
@@ -996,10 +1016,9 @@
             </div>
         @endif
 
-        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla @if (! $abrirModalSeleccionPlantilla) hidden @endif>
+        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla hidden>
             <form class="emit-modal-card" action="{{ route('certificados_emitir', $certificado) }}" method="GET">
                 <input type="hidden" name="bandeja" value="{{ $bandejaEmision }}">
-                <input type="hidden" name="confirmar_emision" value="1">
                 @if ($registroSeleccionado)
                     <input type="hidden" name="registro" value="{{ $registroSeleccionado->id }}">
                 @endif
@@ -1034,7 +1053,7 @@
                 <div class="emit-modal-actions">
                     <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-seleccion-plantilla>Cancelar</button>
                     <button type="submit" class="emit-btn emit-btn-primary">
-                        Continuar
+                        Usar esta plantilla
                         <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
@@ -1402,6 +1421,11 @@
                         <canvas class="emit-template-fabric-canvas" data-certificado-fabric-lienzo hidden
                             width="{{ $medidasPlantilla['ancho'] }}" height="{{ $medidasPlantilla['alto'] }}"></canvas>
                         <div class="emit-template-fabric-svg" data-certificado-fabric-svg hidden aria-hidden="true"></div>
+                        @if ($requiereSeleccionPlantilla)
+                            <div class="emit-template-missing">
+                                Seleccione una plantilla para visualizar el certificado.
+                            </div>
+                        @else
                         <div data-certificado-html-fallback>
                         <div class="emit-template-background">
                             @if (!$imprimirTransparente && $fondoPlantilla)
@@ -1540,6 +1564,7 @@
                             @endif
                         @endforeach
                         </div>
+                        @endif
                     </div>
                 </div>
             </aside>
@@ -1964,15 +1989,17 @@
 
             function prepararModalSeleccionPlantilla() {
                 const modal = document.querySelector('[data-modal-seleccion-plantilla]');
-                const botonAbrir = document.querySelector('[data-abrir-modal-seleccion-plantilla]');
+                const botonesAbrir = document.querySelectorAll('[data-abrir-modal-seleccion-plantilla]');
                 const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-seleccion-plantilla]');
 
-                if (!modal || !botonAbrir) {
+                if (!modal || !botonesAbrir.length) {
                     return;
                 }
 
-                botonAbrir.addEventListener('click', () => {
-                    modal.hidden = false;
+                botonesAbrir.forEach((botonAbrir) => {
+                    botonAbrir.addEventListener('click', () => {
+                        modal.hidden = false;
+                    });
                 });
 
                 botonesCerrar.forEach((boton) => {
