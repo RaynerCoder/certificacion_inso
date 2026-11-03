@@ -38,27 +38,25 @@
 
         .plantillas-certificado-tabla th:nth-child(2),
         .plantillas-certificado-tabla td:nth-child(2) {
-            width: 21%;
+            width: 22%;
             min-width: 210px;
         }
 
         .plantillas-certificado-tabla th:nth-child(3),
         .plantillas-certificado-tabla td:nth-child(3) {
-            width: 24%;
+            width: 25%;
             min-width: 240px;
         }
 
         .plantillas-certificado-tabla th:nth-child(4),
         .plantillas-certificado-tabla td:nth-child(4) {
-            width: 20%;
+            width: 22%;
             min-width: 200px;
         }
 
         .plantillas-certificado-tabla th:nth-child(5),
-        .plantillas-certificado-tabla td:nth-child(5),
-        .plantillas-certificado-tabla th:nth-child(6),
-        .plantillas-certificado-tabla td:nth-child(6) {
-            width: 8%;
+        .plantillas-certificado-tabla td:nth-child(5) {
+            width: 10%;
             min-width: 110px;
             text-align: center;
             white-space: nowrap !important;
@@ -66,8 +64,8 @@
 
         .plantillas-certificado-tabla th:last-child,
         .plantillas-certificado-tabla td:last-child {
-            width: 22%;
-            min-width: 250px;
+            width: 16%;
+            min-width: 190px;
             text-align: center;
             white-space: nowrap !important;
         }

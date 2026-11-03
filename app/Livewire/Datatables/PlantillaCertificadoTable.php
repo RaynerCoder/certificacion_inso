@@ -69,9 +69,6 @@ class PlantillaCertificadoTable extends DataTableComponent
                     'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
                 ])),
 
-            Column::make('Estado')
-                ->label(fn ($fila) => view('tablas.chip_estado', ['estado' => $fila->estado])),
-
             Column::make('Acciones')
                 ->label(function ($fila) {
                     return view('certificados.plantilla_certificado.accion', [
