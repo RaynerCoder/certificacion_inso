@@ -84,7 +84,6 @@
                 <button type="button"
                     class="inline-flex items-center rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-600"
                     onclick="window.abrirModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}')">
-                    <i class="fa-solid fa-file-circle-check mr-1"></i>
                     Emitir certificado
                 </button>
             @else
