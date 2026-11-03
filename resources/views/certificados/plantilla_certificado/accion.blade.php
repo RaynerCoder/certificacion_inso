@@ -3,7 +3,8 @@
         Editar
     </x-wire-button>
 
-    <form action="{{ route('certificados_plantillas_reutilizar', $plantillaCertificado) }}" method="POST" class="m-0">
+    <form action="{{ route('certificados_plantillas_reutilizar', $plantillaCertificado) }}" method="POST"
+        class="reuse-form-plantilla m-0" data-plantilla-nombre="{{ $plantillaCertificado->nombre }}">
         @csrf
         <x-wire-button type="submit" secondary xs>
             Reutilizar

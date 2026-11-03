@@ -138,12 +138,39 @@ class CertificadoController extends Controller
 
     public function reutilizarPlantilla(PlantillaCertificado $plantillaCertificado)
     {
+        return $this->reutilizarPlantillaEnTipo(
+            $plantillaCertificado,
+            (int) $plantillaCertificado->id_tipo_certificado
+        );
+    }
+
+    public function reutilizarPlantillaParaTipo(Request $solicitud, TipoCertificado $tipoCertificado)
+    {
+        $datos = $solicitud->validate([
+            'form_id_plantilla_origen' => ['required', 'integer', 'exists:plantillas_certificados,id'],
+        ], [], [
+            'form_id_plantilla_origen' => 'plantilla a reutilizar',
+        ]);
+
+        $plantillaOrigen = PlantillaCertificado::findOrFail($datos['form_id_plantilla_origen']);
+
+        return $this->reutilizarPlantillaEnTipo($plantillaOrigen, (int) $tipoCertificado->id);
+    }
+
+    /**
+     * Duplica una plantilla de origen y la deja asociada al tipo de certificado
+     * elegido como destino, sin alterar nunca la plantilla original.
+     */
+    private function reutilizarPlantillaEnTipo(
+        PlantillaCertificado $plantillaCertificado,
+        int $idTipoCertificadoDestino
+    ) {
         $plantillaCertificado->loadMissing('elementos.columnas');
 
         try {
-            $plantillaNueva = DB::transaction(function () use ($plantillaCertificado) {
+            $plantillaNueva = DB::transaction(function () use ($plantillaCertificado, $idTipoCertificadoDestino) {
                 $datosPlantillaNueva = [
-                    'id_tipo_certificado' => $plantillaCertificado->id_tipo_certificado,
+                    'id_tipo_certificado' => $idTipoCertificadoDestino,
                     'nombre' => 'Copia de '.Str::limit((string) $plantillaCertificado->nombre, 246, ''),
                     'descripcion' => $plantillaCertificado->descripcion,
                     'tamano_papel' => $plantillaCertificado->tamano_papel,
@@ -1521,11 +1548,17 @@ class CertificadoController extends Controller
     private function datosPlantillaCertificado(): array
     {
         $tiposCertificados = $this->tiposCertificadosParaPlantilla();
+        $plantillasParaReutilizar = PlantillaCertificado::query()
+            ->with('tipoCertificado')
+            ->orderBy('nombre')
+            ->orderBy('id')
+            ->get();
 
         return [
             'tiposCertificados' => $tiposCertificados,
             'tiposCertificadosPlantillaJson' => $this->resumenTiposCertificadosParaPlantilla($tiposCertificados),
             'camposPlantilla' => $this->camposDisponiblesPlantilla(),
+            'plantillasParaReutilizar' => $plantillasParaReutilizar,
         ];
     }
 

@@ -85,6 +85,9 @@
                     <x-wire-button href="{{ route('certificados_plantillas_create', ['tipo' => $tipoCertificado->id]) }}" blue>
                         Nueva plantilla para este certificado
                     </x-wire-button>
+                    <x-wire-button type="button" secondary data-abrir-modal-reutilizar-plantilla>
+                        Reutilizar una plantilla
+                    </x-wire-button>
                     <x-wire-button type="submit" emerald>
                         Guardar cambios
                     </x-wire-button>
@@ -370,5 +373,77 @@
             </div>
         </section>
     </form>
+
+    <div class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 p-4"
+        data-modal-reutilizar-plantilla>
+        <form action="{{ route('certificados_plantillas_reutilizar_para_tipo', $tipoCertificado) }}" method="POST"
+            class="w-full max-w-xl rounded-xl bg-white shadow-2xl">
+            @csrf
+
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">Reutilizar una plantilla</h2>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Elija una plantilla base. Se creará una copia para {{ $tipoCertificado->nombre }}.
+                    </p>
+                </div>
+                <button type="button" class="text-xl leading-none text-slate-500 hover:text-slate-800"
+                    data-cerrar-modal-reutilizar-plantilla aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="px-5 py-4">
+                <label for="form_id_plantilla_origen" class="block text-sm font-bold text-slate-700">
+                    Plantilla base
+                </label>
+                <select id="form_id_plantilla_origen" name="form_id_plantilla_origen" required
+                    class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:ring-emerald-500">
+                    <option value="">Seleccione una plantilla</option>
+                    @foreach ($plantillasParaReutilizar as $plantillaOrigen)
+                        <option value="{{ $plantillaOrigen->id }}">
+                            {{ $plantillaOrigen->nombre }} — {{ $plantillaOrigen->tipoCertificado?->nombre ?: 'Sin tipo de certificado' }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('form_id_plantilla_origen')
+                    <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                @enderror
+
+                <p class="mt-3 text-sm leading-relaxed text-slate-600">
+                    Se copiarán el fondo, los elementos y las columnas. La plantilla de origen no se modificará.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
+                <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    data-cerrar-modal-reutilizar-plantilla>Cancelar</button>
+                <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                    Reutilizar plantilla
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        (() => {
+            const modal = document.querySelector('[data-modal-reutilizar-plantilla]');
+            const abrir = document.querySelector('[data-abrir-modal-reutilizar-plantilla]');
+            const cerrar = document.querySelectorAll('[data-cerrar-modal-reutilizar-plantilla]');
+
+            if (!modal || !abrir) return;
+
+            abrir.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                modal.querySelector('select')?.focus();
+            });
+
+            cerrar.forEach((boton) => {
+                boton.addEventListener('click', () => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                });
+            });
+        })();
+    </script>
 
 </x-admin-layout>

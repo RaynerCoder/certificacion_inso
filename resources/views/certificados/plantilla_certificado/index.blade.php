@@ -14,7 +14,7 @@
 
         .plantillas-certificado-tabla table {
             width: 100%;
-            min-width: 1180px;
+            min-width: 1000px;
             table-layout: fixed;
         }
 
@@ -38,36 +38,36 @@
 
         .plantillas-certificado-tabla th:nth-child(2),
         .plantillas-certificado-tabla td:nth-child(2) {
-            width: 30%;
-            min-width: 300px;
+            width: 18%;
+            min-width: 160px;
         }
 
         .plantillas-certificado-tabla th:nth-child(3),
         .plantillas-certificado-tabla td:nth-child(3) {
-            width: 23%;
+            width: 26%;
             min-width: 220px;
         }
 
         .plantillas-certificado-tabla th:nth-child(4),
         .plantillas-certificado-tabla td:nth-child(4) {
-            width: 20%;
-            min-width: 190px;
+            width: 24%;
+            min-width: 200px;
         }
 
         .plantillas-certificado-tabla th:nth-child(5),
         .plantillas-certificado-tabla td:nth-child(5) {
-            width: 10%;
-            min-width: 110px;
+            width: 9%;
+            min-width: 90px;
             text-align: center;
             white-space: nowrap !important;
         }
 
         .plantillas-certificado-tabla th:last-child,
         .plantillas-certificado-tabla td:last-child {
-            width: 12%;
-            min-width: 190px;
+            width: 18%;
+            min-width: 175px;
             text-align: center;
-            white-space: nowrap !important;
+            white-space: normal !important;
         }
 
         .plantillas-certificado-tabla th:first-child button {
@@ -87,8 +87,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            flex-wrap: wrap;
             gap: 8px;
-            white-space: nowrap;
+            max-width: 100%;
         }
     </style>
 
@@ -108,6 +109,29 @@
             // Confirma la eliminación lógica incluso cuando Livewire vuelve a renderizar la tabla.
             document.addEventListener('submit', function(evento) {
                 const formulario = evento.target.closest('.delete-form-plantilla');
+                const formularioReutilizar = evento.target.closest('.reuse-form-plantilla');
+
+                if (formularioReutilizar) {
+                    evento.preventDefault();
+
+                    const nombre = formularioReutilizar.dataset.plantillaNombre || 'esta plantilla';
+                    Swal.fire({
+                        title: 'Reutilizar plantilla',
+                        text: `¿Está seguro de reutilizar ${nombre}? Se creará otra plantilla independiente con el mismo fondo, elementos y columnas. La plantilla original no se modificará.`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#059669',
+                        cancelButtonColor: '#64748b',
+                        confirmButtonText: 'Sí, crear copia',
+                        cancelButtonText: 'Cancelar'
+                    }).then((resultado) => {
+                        if (resultado.isConfirmed) {
+                            formularioReutilizar.submit();
+                        }
+                    });
+
+                    return;
+                }
 
                 if (!formulario) {
                     return;
