@@ -1460,7 +1460,7 @@
 
                             @if (filled($valorCampo))
                                 <div class="emit-template-field {{ $claseTipoElemento }} {{ $claseAlineacion }}"
-                                    data-elemento-id="{{ $elementoPlantilla->id }}"
+                                    data-elemento-id="{{ data_get($elementoPlantilla, 'id', '') }}"
                                     style="
                                         left: {{ (float) $elementoPlantilla->posicion_x }}px;
                                         top: {{ (float) $elementoPlantilla->posicion_y }}px;
