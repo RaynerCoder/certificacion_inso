@@ -18,6 +18,7 @@
         "vite": "^6.2.4"
     },
     "dependencies": {
+        "@fontsource/cinzel": "^5.3.0",
         "@fontsource/cormorant-garamond": "^5.3.0",
         "@fontsource/eb-garamond": "^5.3.0",
         "@fontsource/inter": "^5.3.0",

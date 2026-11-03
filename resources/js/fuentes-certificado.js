@@ -2,6 +2,8 @@ import '@fontsource/playfair-display/latin-400.css';
 import '@fontsource/playfair-display/latin-400-italic.css';
 import '@fontsource/playfair-display/latin-700.css';
 import '@fontsource/playfair-display/latin-700-italic.css';
+import '@fontsource/cinzel/latin-600.css';
+import '@fontsource/cinzel/latin-600-italic.css';
 import '@fontsource/lato/latin-400.css';
 import '@fontsource/lato/latin-400-italic.css';
 import '@fontsource/lato/latin-700.css';
@@ -24,10 +26,14 @@ import '@fontsource/source-sans-3/latin-700.css';
 import '@fontsource/source-sans-3/latin-700-italic.css';
 import '@fontsource/eb-garamond/latin-400.css';
 import '@fontsource/eb-garamond/latin-400-italic.css';
+import '@fontsource/eb-garamond/latin-600.css';
+import '@fontsource/eb-garamond/latin-600-italic.css';
 import '@fontsource/eb-garamond/latin-700.css';
 import '@fontsource/eb-garamond/latin-700-italic.css';
 import '@fontsource/montserrat/latin-400.css';
 import '@fontsource/montserrat/latin-400-italic.css';
+import '@fontsource/montserrat/latin-600.css';
+import '@fontsource/montserrat/latin-600-italic.css';
 import '@fontsource/montserrat/latin-700.css';
 import '@fontsource/montserrat/latin-700-italic.css';
 import '@fontsource/lora/latin-400.css';
@@ -49,6 +55,7 @@ export const FUENTES_CERTIFICADO = [
     'Verdana',
     'Tahoma',
     'Courier New',
+    'Cinzel',
     'Playfair Display',
     'Lato',
     'Cormorant Garamond',
