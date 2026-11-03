@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PlantillaCertificado;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\UploadedFile;
 use RuntimeException;
 
@@ -37,6 +38,25 @@ class PlantillaCertificadoStorageService
         $rutaNueva = $this->directorio($plantilla).'/'.$plantilla->id.'-plantilla.'.$extension;
 
         return $this->archivos->moverAPrivado($rutaActual, $rutaNueva);
+    }
+
+    /**
+     * Genera una copia física del fondo para que una plantilla reutilizada no
+     * dependa del archivo de la plantilla de origen.
+     */
+    public function copiarFondo(PlantillaCertificado $origen, PlantillaCertificado $destino): ?string
+    {
+        $rutaOrigen = $origen->url_fondo;
+        $archivoOrigen = $this->archivos->rutaAbsoluta($rutaOrigen);
+
+        if (! $rutaOrigen || ! $archivoOrigen || ! File::exists($archivoOrigen)) {
+            return null;
+        }
+
+        $extension = strtolower(pathinfo($rutaOrigen, PATHINFO_EXTENSION) ?: 'bin');
+        $rutaDestino = $this->directorio($destino).'/'.$destino->id.'-plantilla.'.$extension;
+
+        return $this->archivos->guardarContenido($rutaDestino, File::get($archivoOrigen));
     }
 
     public function directorio(PlantillaCertificado $plantilla): string

@@ -10,6 +10,7 @@ use App\Models\EvidenciaRequisito;
 use App\Models\NotificacionTramite;
 use App\Models\Persona;
 use App\Models\PlantillaCertificado;
+use App\Models\PlantillaColumna;
 use App\Models\PlantillaElemento;
 use App\Models\Procedencia;
 use App\Models\Producto;
@@ -76,9 +77,19 @@ class CertificadoController extends Controller
         return view('certificados.plantilla_certificado.index', compact('tiposCertificados'));
     }
 
-    public function crearPlantilla()
+    public function crearPlantilla(Request $solicitud)
     {
-        return view('certificados.plantilla_certificado.create', $this->datosPlantillaCertificado());
+        $idTipoCertificado = $solicitud->integer('tipo');
+
+        abort_if(
+            $idTipoCertificado && ! TipoCertificado::whereKey($idTipoCertificado)->exists(),
+            404
+        );
+
+        return view('certificados.plantilla_certificado.create', array_merge(
+            $this->datosPlantillaCertificado(),
+            compact('idTipoCertificado')
+        ));
     }
 
     public function guardarPlantilla(Request $solicitud)
@@ -87,10 +98,6 @@ class CertificadoController extends Controller
 
         try {
             DB::beginTransaction();
-
-            if ($datos['form_estado'] === 'ACTIVO') {
-                $this->desactivarOtrasPlantillasActivas((int) $datos['form_id_tipo_certificado']);
-            }
 
             $datosPlantilla = $this->datosPlantillaParaGuardar([
                 'id_tipo_certificado' => $datos['form_id_tipo_certificado'],
@@ -119,7 +126,7 @@ class CertificadoController extends Controller
                 'icon' => 'success',
             ]);
 
-            return redirect()->route('certificados_plantillas_edit', $plantilla->id_tipo_certificado);
+            return redirect()->route('certificados_plantillas_edit', $plantilla);
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -129,17 +136,85 @@ class CertificadoController extends Controller
         }
     }
 
-    public function verPlantilla(TipoCertificado $tipoCertificado)
+    public function reutilizarPlantilla(PlantillaCertificado $plantillaCertificado)
     {
-        $tipoCertificado->load($this->relacionesPlantillaCertificado());
-        $plantilla = $tipoCertificado->plantillaActiva()
-            ->with('elementos.columnas')
-            ->first()
-            ?? $tipoCertificado->ultimaPlantilla()
-                ->with('elementos.columnas')
-                ->first();
+        $plantillaCertificado->loadMissing('elementos.columnas');
 
-        return view('certificados.plantilla_certificado.show', compact('tipoCertificado', 'plantilla'));
+        try {
+            $plantillaNueva = DB::transaction(function () use ($plantillaCertificado) {
+                $datosPlantillaNueva = [
+                    'id_tipo_certificado' => $plantillaCertificado->id_tipo_certificado,
+                    'nombre' => 'Copia de '.Str::limit((string) $plantillaCertificado->nombre, 246, ''),
+                    'descripcion' => $plantillaCertificado->descripcion,
+                    'tamano_papel' => $plantillaCertificado->tamano_papel,
+                    'orientacion' => $plantillaCertificado->orientacion,
+                    'ancho_lienzo_px' => $plantillaCertificado->ancho_lienzo_px,
+                    'alto_lienzo_px' => $plantillaCertificado->alto_lienzo_px,
+                    'url_fondo' => null,
+                    'ajuste_fondo' => $plantillaCertificado->ajuste_fondo,
+                    'fondo_trabajo' => $plantillaCertificado->fondo_trabajo,
+                    'imprimir_transparente' => $plantillaCertificado->imprimir_transparente,
+                    'diseno_fabric_json' => $plantillaCertificado->diseno_fabric_json,
+                    // Activa significa disponible para elegir al emitir. Puede haber varias por tipo.
+                    'estado' => 'ACTIVO',
+                ];
+                $columnasPlantilla = array_flip(Schema::getColumnListing('plantillas_certificados'));
+                $plantillaNueva = PlantillaCertificado::create(
+                    array_intersect_key($datosPlantillaNueva, $columnasPlantilla)
+                );
+
+                if ($rutaFondo = $this->archivosPlantillas->copiarFondo($plantillaCertificado, $plantillaNueva)) {
+                    $plantillaNueva->update(['url_fondo' => $rutaFondo]);
+                }
+
+                foreach ($plantillaCertificado->elementos as $elementoOrigen) {
+                    $camposElemento = array_flip(array_intersect(
+                        (new PlantillaElemento)->getFillable(),
+                        Schema::getColumnListing('plantillas_elementos')
+                    ));
+                    $datosElemento = collect(array_keys($camposElemento))
+                        ->mapWithKeys(fn (string $campo) => [$campo => $elementoOrigen->getAttribute($campo)])
+                        ->all();
+                    $datosElemento['id_plantilla_certificado'] = $plantillaNueva->id;
+                    $elementoNuevo = PlantillaElemento::create($datosElemento);
+
+                    foreach ($elementoOrigen->columnas as $columnaOrigen) {
+                        $camposColumna = array_flip(array_intersect(
+                            (new PlantillaColumna)->getFillable(),
+                            Schema::getColumnListing('plantillas_columnas')
+                        ));
+                        $datosColumna = collect(array_keys($camposColumna))
+                            ->mapWithKeys(fn (string $campo) => [$campo => $columnaOrigen->getAttribute($campo)])
+                            ->all();
+                        $datosColumna['id_plantilla_elemento'] = $elementoNuevo->id;
+                        PlantillaColumna::create($datosColumna);
+                    }
+                }
+
+                return $plantillaNueva;
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', 'No se pudo reutilizar la plantilla. '.$e->getMessage());
+        }
+
+        session()->flash('swal', [
+            'title' => 'Plantilla reutilizada',
+            'text' => 'Se creó una copia independiente. Puede ajustarla antes de utilizarla.',
+            'icon' => 'success',
+        ]);
+
+        return redirect()->route('certificados_plantillas_edit', $plantillaNueva);
+    }
+
+    public function verPlantilla(PlantillaCertificado $plantillaCertificado)
+    {
+        $plantillaCertificado->loadMissing('tipoCertificado', 'elementos.columnas');
+        $tipoCertificado = $plantillaCertificado->tipoCertificado;
+
+        return view('certificados.plantilla_certificado.show', [
+            'tipoCertificado' => $tipoCertificado,
+            'plantilla' => $plantillaCertificado,
+        ]);
     }
 
     public function archivoPlantilla(PlantillaCertificado $plantillaCertificado)
@@ -150,19 +225,17 @@ class CertificadoController extends Controller
         ]);
     }
 
-    public function editarPlantilla(TipoCertificado $tipoCertificado)
+    public function editarPlantilla(PlantillaCertificado $plantillaCertificado)
     {
-        $tipoCertificado->load($this->relacionesPlantillaCertificado());
-        $plantilla = $tipoCertificado->plantillaActiva()
-            ->with('elementos.columnas')
-            ->first()
-            ?? $tipoCertificado->ultimaPlantilla()
-                ->with('elementos.columnas')
-                ->first();
+        $plantillaCertificado->loadMissing('tipoCertificado', 'elementos.columnas');
+        $tipoCertificado = $plantillaCertificado->tipoCertificado;
 
         return view('certificados.plantilla_certificado.edit', array_merge(
             $this->datosPlantillaCertificado(),
-            compact('tipoCertificado', 'plantilla')
+            [
+                'tipoCertificado' => $tipoCertificado,
+                'plantilla' => $plantillaCertificado,
+            ]
         ));
     }
 
@@ -180,22 +253,12 @@ class CertificadoController extends Controller
                     'icon' => 'error',
                 ]);
 
-                return redirect()->route(
-                    'certificados_plantillas_edit',
-                    $plantillaCertificado->id_tipo_certificado
-                );
+                return redirect()->route('certificados_plantillas_edit', $plantillaCertificado);
             }
         }
 
         try {
             DB::beginTransaction();
-
-            if ($datos['form_estado'] === 'ACTIVO') {
-                $this->desactivarOtrasPlantillasActivas(
-                    (int) $datos['form_id_tipo_certificado'],
-                    $plantillaCertificado->id
-                );
-            }
 
             $urlFondo = $this->guardarFondoPlantilla($solicitud, $plantillaCertificado);
             if (! $urlFondo && ! $solicitud->boolean('form_quitar_fondo_plantilla')) {
@@ -224,7 +287,7 @@ class CertificadoController extends Controller
                 'icon' => 'success',
             ]);
 
-            return redirect()->route('certificados_plantillas_edit', $plantillaCertificado->id_tipo_certificado);
+            return redirect()->route('certificados_plantillas_edit', $plantillaCertificado);
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -572,7 +635,7 @@ class CertificadoController extends Controller
             : collect();
 
         $vistaDetalle = request('bandeja') === 'enviadas'
-            ? 'seguimientos_certificados.mis_tramites_beneficiario.ver_tramite'
+            ? 'seguimientos_certificados.mis_tramites_beneficiario.detalle'
             : 'certificados.show';
 
         return view($vistaDetalle, compact(
@@ -766,7 +829,12 @@ class CertificadoController extends Controller
             abort(403, 'No puede imprimir este certificado.');
         }
 
-        $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
+        $plantillasDisponibles = $this->plantillasDisponiblesParaEmision($certificado);
+        $idPlantillaSolicitada = request()->integer('plantilla');
+        $plantillaCertificado = $idPlantillaSolicitada
+            ? $plantillasDisponibles->firstWhere('id', $idPlantillaSolicitada)
+            : $plantillasDisponibles->first();
+        $idPlantillaSeleccionada = $plantillaCertificado?->id;
         $registroSeleccionado = $this->registroSeleccionadoParaEmision($certificado, request()->integer('registro'));
         // En emisión única no hay fila de certificado_registro. Se debe tomar
         // la emisión ya guardada del trámite para volver a dibujar su QR real,
@@ -801,6 +869,8 @@ class CertificadoController extends Controller
         return view('certificados.emitir_certificado.create', compact(
             'certificado',
             'plantillaCertificado',
+            'plantillasDisponibles',
+            'idPlantillaSeleccionada',
             'valoresPlantilla',
             'resumenDescargas',
             'puedeGestionarEmision',
@@ -836,7 +906,7 @@ class CertificadoController extends Controller
         return response()->json(['numero_certificado' => $numero])->header('Cache-Control', 'no-store');
     }
 
-    public function prepararQrEmision(Certificado $certificado)
+    public function prepararQrEmision(Request $solicitud, Certificado $certificado)
     {
         $certificado->load($this->relacionesParaEmision());
 
@@ -844,7 +914,16 @@ class CertificadoController extends Controller
             abort(403, 'No puede emitir este certificado.');
         }
 
-        $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
+        $plantillaCertificado = $this->plantillaParaEmision(
+            $certificado,
+            $solicitud->integer('form_id_plantilla_certificado')
+        );
+
+        if (! $plantillaCertificado) {
+            return response()->json([
+                'message' => 'Seleccione una plantilla activa de este tipo de certificado.',
+            ], 422);
+        }
 
         if (! $this->usaQrVerificacion($certificado, $plantillaCertificado)) {
             return response()->json([
@@ -919,14 +998,19 @@ class CertificadoController extends Controller
             abort(403, 'No puede emitir este certificado.');
         }
 
-        $plantillaCertificado = $this->plantillaActivaParaEmision($certificado);
+        $datos = $this->validarEmisionCertificado($solicitud, $certificado);
+        $plantillaCertificado = $this->plantillaParaEmision(
+            $certificado,
+            (int) $datos['form_id_plantilla_certificado']
+        );
 
         if (! $plantillaCertificado) {
-            return back()->with('error', 'No se puede emitir el certificado porque no tiene una plantilla activa configurada.');
+            throw ValidationException::withMessages([
+                'form_id_plantilla_certificado' => 'Seleccione una plantilla activa de este tipo de certificado.',
+            ])->errorBag('emisionCertificado');
         }
 
         $usaQrVerificacion = $this->usaQrVerificacion($certificado, $plantillaCertificado);
-        $datos = $this->validarEmisionCertificado($solicitud, $certificado);
 
         if ($usaQrVerificacion && ! Schema::hasColumn('certificados_emitidos', 'codigo_verificacion')) {
             throw ValidationException::withMessages([
@@ -1780,40 +1864,18 @@ class CertificadoController extends Controller
         );
     }
 
-    private function desactivarOtrasPlantillasActivas(int $idTipoCertificado, ?int $idPlantillaActual = null): void
-    {
-        $consulta = PlantillaCertificado::where('id_tipo_certificado', $idTipoCertificado)
-            ->where('estado', 'ACTIVO');
-
-        if ($idPlantillaActual) {
-            $consulta->where('id', '!=', $idPlantillaActual);
-        }
-
-        $plantillasActivas = $consulta->get();
-
-        foreach ($plantillasActivas as $plantillaActiva) {
-            if ($this->relacionesQueImpidenInactivarPlantilla($plantillaActiva) !== []) {
-                throw ValidationException::withMessages([
-                    'form_estado' => 'No se puede reemplazar la plantilla activa porque está relacionada con certificados.',
-                ]);
-            }
-        }
-
-        $plantillasActivas->each(
-            fn (PlantillaCertificado $plantillaActiva) => $plantillaActiva->update(['estado' => 'INACTIVO'])
-        );
-    }
-
     /**
-     * Revisa si existen certificados que todavía dependen de la plantilla.
+     * Solo una emisión concreta impide eliminar la plantilla que la originó.
+     * Tener trámites del mismo tipo no bloquea crear, editar o reutilizar otra.
      */
     private function relacionesQueImpidenInactivarPlantilla(PlantillaCertificado $plantillaCertificado): array
     {
         $relacionesEncontradas = [];
-        $tipoCertificado = $plantillaCertificado->tipoCertificado()->first();
 
-        if ($tipoCertificado && $tipoCertificado->certificados()->withTrashed()->exists()) {
-            $relacionesEncontradas[] = 'certificados';
+        if (CertificadoEmitido::withTrashed()
+            ->where('id_plantilla_certificado', $plantillaCertificado->id)
+            ->exists()) {
+            $relacionesEncontradas[] = 'emisiones';
         }
 
         return $relacionesEncontradas;
@@ -2216,6 +2278,7 @@ class CertificadoController extends Controller
 
         return $solicitud->validateWithBag('emisionCertificado', [
             'form_id_certificado_registro' => ['nullable', 'integer'],
+            'form_id_plantilla_certificado' => ['required', 'integer'],
             'form_codigo_verificacion' => $reglaCodigoVerificacion,
             // Es obligatorio para que el PDF salga del mismo render Fabric.js mostrado al funcionario.
             'form_documento_renderizado' => ['required', 'string', 'max:50000000'],
@@ -2757,20 +2820,31 @@ class CertificadoController extends Controller
         ];
     }
 
-    // PLANTILLA DE EMISION
-    // Usa la plantilla activa del tipo de certificado; si aun no existe, usa el modelo base cargado en el sistema.
-    private function plantillaActivaParaEmision(Certificado $certificado): ?PlantillaCertificado
+    // PLANTILLAS DE EMISIÓN
+    // Un tipo puede tener varias activas; cada documento guarda cuál se eligió.
+    private function plantillasDisponiblesParaEmision(Certificado $certificado)
     {
         if (! Schema::hasTable('plantillas_certificados') || ! Schema::hasTable('plantillas_elementos')) {
-            return null;
+            return collect();
         }
 
         return PlantillaCertificado::query()
             ->with('elementosActivos.columnas')
             ->where('id_tipo_certificado', $certificado->id_tipo_certificado)
             ->where('estado', 'ACTIVO')
-            ->latest('id')
-            ->first();
+            ->orderBy('nombre')
+            ->orderBy('id')
+            ->get();
+    }
+
+    private function plantillaParaEmision(Certificado $certificado, ?int $idPlantilla): ?PlantillaCertificado
+    {
+        if (! $idPlantilla) {
+            return null;
+        }
+
+        return $this->plantillasDisponiblesParaEmision($certificado)
+            ->firstWhere('id', $idPlantilla);
     }
 
     // VALORES PARA PLANTILLA

@@ -569,7 +569,7 @@ async function crearObjeto(elemento, valores = {}) {
     });
     objeto.setCoords();
     // Identifica todas las capas también cuando se reconstruyen sin JSON de
-    // Fabric. La sustitución del QR usa este vínculo con la plantilla activa.
+    // Fabric. La sustitución del QR usa este vínculo con la plantilla elegida para emitir.
     objeto.plantillaIndice = Number(elemento.indice_plantilla);
     objeto.plantillaTipoElemento = tipo;
     objeto.plantillaCodigoElemento = elemento.codigo_elemento || null;
@@ -774,7 +774,7 @@ async function iniciarPrevisualizacion() {
         }
 
         if (reemplazados === 0) {
-            throw new Error('La plantilla ya no tiene una ubicación válida para el código QR. Revise la plantilla activa.');
+            throw new Error('La plantilla seleccionada no tiene una ubicación válida para el código QR. Revísela antes de emitir.');
         }
 
         publicarSalida();

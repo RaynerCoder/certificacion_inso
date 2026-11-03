@@ -49,7 +49,7 @@ return new class extends Migration
             // Conserva el diseño completo generado por el editor visual.
             $table->json('diseno_fabric_json')->nullable();
 
-            // Permite tener una plantilla activa por tipo de certificado.
+            // Varias plantillas activas pueden quedar disponibles para elegir al emitir.
             $table->string('estado', 50)->default('ACTIVO');
 
             // Auditoria de usuario sobre altas, cambios y bajas.

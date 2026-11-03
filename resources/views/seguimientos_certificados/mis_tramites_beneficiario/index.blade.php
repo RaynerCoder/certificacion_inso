@@ -14,6 +14,7 @@
         $bandeja = 'enviadas';
     @endphp
     @include('seguimientos_certificados.estilos.bandejas')
+    @include('seguimientos_certificados.pago_tramite.estilos')
 
     @if ($bandeja !== 'todos')
         <x-slot name="action">
@@ -34,4 +35,11 @@
             @livewire('datatables.seguimiento-table', ['bandeja' => $bandeja], key('seguimientos-' . $bandeja))
         </div>
     </section>
+
+    {{-- El pago se carga aquí sin abandonar ni recargar la bandeja de trámites. --}}
+    <dialog id="modalPagoTramite" class="pago-dialog" aria-label="Pago del trámite">
+        <div data-modal-pago-contenido></div>
+    </dialog>
+
+    @include('seguimientos_certificados.pago_tramite.script')
 </x-admin-layout>

@@ -270,10 +270,11 @@ Route::get('/certificados/plantillas', [CertificadoController::class, 'plantilla
 Route::get('/certificados/plantillas/create', [CertificadoController::class, 'crearPlantilla'])->name('certificados_plantillas_create');
 Route::post('/certificados/plantillas', [CertificadoController::class, 'guardarPlantilla'])->name('certificados_plantillas_store');
 Route::put('/certificados/plantillas/guardar/{plantillaCertificado}', [CertificadoController::class, 'actualizarPlantilla'])->name('certificados_plantillas_update');
+Route::post('/certificados/plantillas/{plantillaCertificado}/reutilizar', [CertificadoController::class, 'reutilizarPlantilla'])->name('certificados_plantillas_reutilizar');
 Route::delete('/certificados/plantillas/{plantillaCertificado}', [CertificadoController::class, 'eliminarPlantilla'])->name('certificados_plantillas_destroy');
 Route::get('/certificados/plantillas/archivo/{plantillaCertificado}', [CertificadoController::class, 'archivoPlantilla'])->name('certificados_plantillas_archivo');
-Route::get('/certificados/plantillas/{tipoCertificado}', [CertificadoController::class, 'verPlantilla'])->name('certificados_plantillas_show');
-Route::get('/certificados/plantillas/{tipoCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
+Route::get('/certificados/plantillas/{plantillaCertificado}', [CertificadoController::class, 'verPlantilla'])->name('certificados_plantillas_show');
+Route::get('/certificados/plantillas/{plantillaCertificado}/edit', [CertificadoController::class, 'editarPlantilla'])->name('certificados_plantillas_edit');
 Route::get('/certificados/{certificado}/emitir', [CertificadoController::class, 'emitir'])->name('certificados_emitir');
 Route::post('/certificados/{certificado}/emitir/preparar-qr', [CertificadoController::class, 'prepararQrEmision'])
     ->name('certificados_emitir_preparar_qr');

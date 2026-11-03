@@ -19,7 +19,11 @@
             && $emisionSeleccionada?->estado === 'EMITIDO';
         $anulacionDisponible = $anulacionDisponible ?? false;
         $puedeAnularEmision = $puedeGestionarEmision && $documentoOficialDisponible && $anulacionDisponible;
-        $abrirModalEmision = $errors->emisionCertificado->any() && $datosVigenciaEmision['disponible'];
+        $plantillasDisponibles = $plantillasDisponibles ?? collect();
+        $idPlantillaSeleccionada = $idPlantillaSeleccionada ?? null;
+        $abrirModalEmision = ($errors->emisionCertificado->any() || request()->boolean('confirmar_emision'))
+            && $datosVigenciaEmision['disponible']
+            && $idPlantillaSeleccionada;
         $informacionPublicaQr = $informacionPublicaQr ?? [];
         $bandejaEmision = request('bandeja', 'recibidas');
         $volverATablaFinalizados = $bandejaEmision === 'finalizados';
@@ -96,7 +100,9 @@
         $puedeCrearEmisionSinVigencia = $esEmisionPorLote
             ? $registroSeleccionado && ! $registroSeleccionado->emision
             : $certificado->emisiones->filter(fn ($emision) => in_array($emision->estado, ['EMITIDO', 'VENCIDO'], true))->isEmpty();
-        $puedeCrearEmision = $puedeCrearEmisionSinVigencia && $datosVigenciaEmision['disponible'];
+        $puedeCrearEmision = $puedeCrearEmisionSinVigencia
+            && $datosVigenciaEmision['disponible']
+            && $plantillasDisponibles->isNotEmpty();
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
@@ -932,7 +938,7 @@
 
                 @if ($puedeGestionarEmision)
                     @if ($puedeCrearEmision)
-                        <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-emision>
+                        <button type="button" class="emit-btn emit-btn-primary" data-abrir-modal-seleccion-plantilla>
                             <i class="fa-solid fa-file-circle-check"></i>
                             Emitir certificado
                         </button>
@@ -964,12 +970,62 @@
             </div>
         @endif
 
+        @if ($puedeGestionarEmision && $puedeCrearEmisionSinVigencia && $plantillasDisponibles->isEmpty())
+            <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                No hay plantillas activas para este tipo de certificado. Registre o active una plantilla antes de emitir.
+            </div>
+        @endif
+
         @if ($documentoOficialDisponible && $puedeGestionarEmision && ! $anulacionDisponible)
             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <i class="fa-solid fa-triangle-exclamation mr-2"></i>
                 La anulación estará disponible después de aplicar la actualización de base de datos de certificados emitidos.
             </div>
         @endif
+
+        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla hidden>
+            <form class="emit-modal-card" action="{{ route('certificados_emitir', $certificado) }}" method="GET">
+                <input type="hidden" name="bandeja" value="{{ $bandejaEmision }}">
+                <input type="hidden" name="confirmar_emision" value="1">
+                @if ($registroSeleccionado)
+                    <input type="hidden" name="registro" value="{{ $registroSeleccionado->id }}">
+                @endif
+
+                <div class="emit-modal-head">
+                    <div>
+                        <h2 class="emit-modal-title">Seleccionar plantilla</h2>
+                        <p class="emit-subtitle">Elija el diseño que se utilizará para este certificado.</p>
+                    </div>
+                    <button type="button" class="emit-modal-close" data-cerrar-modal-seleccion-plantilla aria-label="Cerrar">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="emit-modal-body">
+                    <label class="emit-modal-field-full text-sm font-bold text-slate-700" for="plantilla_emision">
+                        Plantilla de certificado
+                        <select id="plantilla_emision" name="plantilla" required
+                            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800 focus:border-emerald-500 focus:ring-emerald-500">
+                            <option value="">Seleccione una plantilla</option>
+                            @foreach ($plantillasDisponibles as $plantillaDisponible)
+                                <option value="{{ $plantillaDisponible->id }}">
+                                    {{ $plantillaDisponible->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
+                </div>
+
+                <div class="emit-modal-actions">
+                    <button type="button" class="emit-btn emit-btn-muted" data-cerrar-modal-seleccion-plantilla>Cancelar</button>
+                    <button type="submit" class="emit-btn emit-btn-primary">
+                        Continuar
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div class="emit-modal-backdrop" data-modal-emision @if (!$abrirModalEmision) hidden @endif>
             <form class="emit-modal-card" action="{{ route('certificados_emitir_guardar', $certificado) }}" method="POST" enctype="multipart/form-data"
@@ -979,6 +1035,7 @@
                 @csrf
                 <input type="hidden" name="form_numero_certificado_preparado" data-numero-certificado-preparado>
                 <input type="hidden" name="form_bandeja" value="{{ request('bandeja', 'finalizados') }}">
+                <input type="hidden" name="form_id_plantilla_certificado" value="{{ $idPlantillaSeleccionada }}">
                 @if ($registroSeleccionado)
                     <input type="hidden" name="form_id_certificado_registro" value="{{ $registroSeleccionado->id }}">
                 @endif
@@ -996,6 +1053,11 @@
                 </div>
 
                 <div class="emit-modal-body">
+                    <div class="emit-modal-field-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                        <span class="font-bold">Plantilla seleccionada:</span>
+                        {{ $plantillaCertificado?->nombre ?: 'Sin plantilla' }}
+                    </div>
+
                     @if ($esEmisionPorLote)
                         <div class="emit-modal-field-full rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-900">
                             Se emitirá el certificado del lote <strong>{{ $registroSeleccionado?->registro?->numero_lote }}</strong>
@@ -1040,7 +1102,7 @@
                                 </span>
                             </div>
                         @else
-                            El PDF se generará automáticamente con la plantilla activa al guardar la emisión.
+                            El PDF se generará automáticamente con la plantilla seleccionada al guardar la emisión.
                         @endif
                     </div>
 
@@ -1747,11 +1809,11 @@
                 const estadoVistaQr = formulario?.querySelector('[data-estado-vista-qr]');
                 const imagenVistaQr = formulario?.querySelector('[data-imagen-vista-qr]');
 
-                if (!modal || !botonAbrir) {
+                if (!modal) {
                     return;
                 }
 
-                botonAbrir.addEventListener('click', () => {
+                botonAbrir?.addEventListener('click', () => {
                     modal.hidden = false;
                 });
 
@@ -1779,8 +1841,12 @@
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                             'X-CSRF-TOKEN': formulario.querySelector('input[name="_token"]')?.value || '',
                         },
+                        body: new URLSearchParams({
+                            form_id_plantilla_certificado: formulario.querySelector('[name="form_id_plantilla_certificado"]')?.value || '',
+                        }),
                     });
                     const contenido = await respuesta.json().catch(() => ({}));
 
@@ -1882,6 +1948,26 @@
                 });
             }
 
+            function prepararModalSeleccionPlantilla() {
+                const modal = document.querySelector('[data-modal-seleccion-plantilla]');
+                const botonAbrir = document.querySelector('[data-abrir-modal-seleccion-plantilla]');
+                const botonesCerrar = document.querySelectorAll('[data-cerrar-modal-seleccion-plantilla]');
+
+                if (!modal || !botonAbrir) {
+                    return;
+                }
+
+                botonAbrir.addEventListener('click', () => {
+                    modal.hidden = false;
+                });
+
+                botonesCerrar.forEach((boton) => {
+                    boton.addEventListener('click', () => {
+                        modal.hidden = true;
+                    });
+                });
+            }
+
             function prepararModalAnulacion() {
                 const modal = document.querySelector('[data-modal-anulacion]');
                 const botonAbrir = document.querySelector('[data-abrir-modal-anulacion]');
@@ -1906,11 +1992,13 @@
                 document.addEventListener('DOMContentLoaded', function () {
                     prepararImpresionCertificado();
                     prepararModalEmision();
+                    prepararModalSeleccionPlantilla();
                     prepararModalAnulacion();
                 });
             } else {
                 prepararImpresionCertificado();
                 prepararModalEmision();
+                prepararModalSeleccionPlantilla();
                 prepararModalAnulacion();
             }
         })();

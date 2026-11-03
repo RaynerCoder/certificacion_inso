@@ -2,17 +2,17 @@
 
 namespace App\Livewire\Datatables;
 
-use App\Models\TipoCertificado;
+use App\Models\PlantillaCertificado;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
 use Rappasoft\LaravelLivewireTables\Views\Column;
 
 class PlantillaCertificadoTable extends DataTableComponent
 {
-    protected $model = TipoCertificado::class;
+    protected $model = PlantillaCertificado::class;
 
     /**
-     * Configura el listado de plantillas por tipo de certificado.
+     * Configura el listado de todas las plantillas disponibles.
      */
     public function configure(): void
     {
@@ -25,10 +25,10 @@ class PlantillaCertificadoTable extends DataTableComponent
      */
     public function builder(): Builder
     {
-        return TipoCertificado::query()
-            ->select('tipos_certificados.*')
-            ->with(['area', 'plantillaActiva.elementos', 'ultimaPlantilla.elementos'])
-            ->withCount(['tipoCertificadoRequisitos as requisitos_activos_count' => function ($consulta) {
+        return PlantillaCertificado::query()
+            ->select('plantillas_certificados.*')
+            ->with(['tipoCertificado.area'])
+            ->withCount(['elementos as elementos_activos_count' => function ($consulta) {
                 $consulta->where('estado', 'ACTIVO');
             }]);
     }
@@ -43,7 +43,7 @@ class PlantillaCertificadoTable extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make('Tipo de certificado', 'nombre')
+            Column::make('Plantilla', 'nombre')
                 ->format(fn ($valor, $fila) => view('tablas.texto_ajustado', [
                     'texto' => $valor,
                     'clase' => 'font-semibold text-slate-800',
@@ -51,42 +51,31 @@ class PlantillaCertificadoTable extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make('Cantidad requisitos')
-                ->label(fn ($fila) => view('tablas.chip_estado', [
-                    'texto' => $fila->requisitos_activos_count . ' requisitos',
-                    'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
+            Column::make('Tipo de certificado')
+                ->label(fn ($fila) => view('tablas.texto_ajustado', [
+                    'texto' => $fila->tipoCertificado?->nombre ?: 'Sin tipo de certificado',
+                    'clase' => $fila->tipoCertificado ? 'text-slate-700' : 'text-rose-500 font-semibold',
                 ])),
 
-            Column::make('Area responsable')
+            Column::make('Área responsable')
                 ->label(fn ($fila) => view('tablas.texto_ajustado', [
-                    'texto' => $fila->area?->nombre ?: 'Sin área',
-                    'clase' => $fila->area ? 'text-slate-700' : 'text-rose-500 font-semibold',
+                    'texto' => $fila->tipoCertificado?->area?->nombre ?: 'Sin área',
+                    'clase' => $fila->tipoCertificado?->area ? 'text-slate-700' : 'text-rose-500 font-semibold',
                 ])),
 
             Column::make('Campos')
-                ->label(function ($fila) {
-                    $plantilla = $fila->plantillaActiva ?? $fila->ultimaPlantilla;
-
-                    return view('tablas.chip_estado', [
-                        'texto' => ($plantilla?->elementos?->count() ?? 0) . ' campos',
-                        'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
-                    ]);
-                }),
+                ->label(fn ($fila) => view('tablas.chip_estado', [
+                    'texto' => $fila->elementos_activos_count . ' campos',
+                    'clase' => 'border-slate-200 bg-slate-100 text-slate-700',
+                ])),
 
             Column::make('Estado')
-                ->label(function ($fila) {
-                    $plantilla = $fila->plantillaActiva ?? $fila->ultimaPlantilla;
-
-                    return view('tablas.chip_estado', [
-                        'estado' => $plantilla?->estado ?? 'Sin plantilla',
-                    ]);
-                }),
+                ->label(fn ($fila) => view('tablas.chip_estado', ['estado' => $fila->estado])),
 
             Column::make('Acciones')
                 ->label(function ($fila) {
                     return view('certificados.plantilla_certificado.accion', [
-                        'tipoCertificado' => $fila,
-                        'plantillaCertificado' => $fila->plantillaActiva ?? $fila->ultimaPlantilla,
+                        'plantillaCertificado' => $fila,
                     ]);
                 }),
         ];

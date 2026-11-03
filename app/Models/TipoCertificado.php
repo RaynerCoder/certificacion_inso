@@ -179,11 +179,13 @@ class TipoCertificado extends Model
         return $this->hasMany(PlantillaCertificado::class, 'id_tipo_certificado');
     }
 
-    // Relación uno a uno (un tipo de certificado tiene una plantilla activa)
+    // Relación de compatibilidad: devuelve la última plantilla activa del tipo.
+    // La emisión lista todas las activas y exige seleccionar una.
     public function plantillaActiva()
     {
         return $this->hasOne(PlantillaCertificado::class, 'id_tipo_certificado')
-            ->where('estado', 'ACTIVO');
+            ->where('estado', 'ACTIVO')
+            ->latest('id');
     }
 
     // Conserva acceso a la plantilla más reciente aunque haya sido inactivada.

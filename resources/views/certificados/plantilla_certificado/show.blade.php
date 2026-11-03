@@ -12,7 +12,7 @@
                 <x-wire-button href="{{ route('certificados_plantillas_index') }}" secondary xs>
                     Volver
                 </x-wire-button>
-                <x-wire-button href="{{ route('certificados_plantillas_edit', $tipoCertificado) }}" blue xs>
+                <x-wire-button href="{{ route('certificados_plantillas_edit', $plantilla) }}" blue xs>
                     Editar
                 </x-wire-button>
             </div>

@@ -54,7 +54,7 @@
                     <x-wire-native-select label="Tipo de certificado" name="form_id_tipo_certificado" data-plantilla-tipo>
                         <option value="">Seleccione</option>
                         @foreach ($tiposCertificados as $tipoCertificado)
-                            <option value="{{ $tipoCertificado->id }}" @selected(old('form_id_tipo_certificado') == $tipoCertificado->id)>
+                            <option value="{{ $tipoCertificado->id }}" @selected(old('form_id_tipo_certificado', $idTipoCertificado ?? null) == $tipoCertificado->id)>
                                 {{ $tipoCertificado->nombre }}
                             </option>
                         @endforeach

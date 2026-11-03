@@ -33,7 +33,7 @@ class OpenBcbPagoController extends Controller
 
 
 
-    // Abre la pantalla donde el solicitante revisará el pago antes de generar el QR.
+    // Abre la pantalla de pago; la vista genera el QR automáticamente si hace falta.
     public function mostrarPago(Request $solicitud, Certificado $certificado)
     {
         // Comprobamos que el usuario tenga permiso para consultar este trámite.
@@ -77,12 +77,19 @@ class OpenBcbPagoController extends Controller
             ->sortByDesc('id')
             ->first();
 
-        // Abre la pantalla de pago después de registrar el trámite.
-        return view('seguimientos_certificados.nuevo_tramite.pagos.index', [
+        $datosVistaPago = [
             'certificado' => $certificado,
             'pago' => $pago,
             'ultimoQrOpenBcb' => $ultimoQrOpenBcb,
-        ]);
+        ];
+
+        // Desde Mis trámites se devuelve solo el contenido que irá dentro del modal.
+        if ($solicitud->boolean('modal')) {
+            return view('seguimientos_certificados.pago_tramite.contenido', $datosVistaPago);
+        }
+
+        // Mantiene disponible la URL completa como respaldo de navegación.
+        return view('seguimientos_certificados.pago_tramite.index', $datosVistaPago);
     }
 
 
@@ -106,6 +113,7 @@ class OpenBcbPagoController extends Controller
 
         // La solicitud enviada a OpenBCB configura una vigencia de 24 horas.
         $qrContinuaVigente = $ultimoQrOpenBcb
+            && filled($ultimoQrOpenBcb->imagen_qr_path)
             && $ultimoQrOpenBcb->created_at
             && $ultimoQrOpenBcb->created_at->copy()->addDay()->isFuture();
 

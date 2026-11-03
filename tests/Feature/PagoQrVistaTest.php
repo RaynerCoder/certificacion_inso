@@ -19,7 +19,9 @@ class PagoQrVistaTest extends TestCase
     public function test_qr_vigente_se_muestra_grande_sin_pedir_generarlo_otra_vez(): void
     {
         $this->vistaPago(false, false)
-            ->assertSee('Ver QR grande')->assertSee('Descargar QR')
+            ->assertSee('Descargar QR')->assertSee('Compartir QR')
+            ->assertSee('Generar nuevo QR')
+            ->assertSeeInOrder(['Item', 'Precio', 'Cantidad', 'Total'])
             ->assertSee('Código QR bancario del trámite 7')
             ->assertDontSee('id="botonGenerarQr"', false);
     }
@@ -27,14 +29,15 @@ class PagoQrVistaTest extends TestCase
     public function test_qr_vencido_permite_generar_otro_sin_mostrar_la_imagen_anterior(): void
     {
         $this->vistaPago(false, true)
-            ->assertSee('El QR anterior venció')->assertSee('Generar código QR')
+            ->assertSee('Generando código QR')
+            ->assertSee('data-auto-generar-qr="true"', false)
             ->assertDontSee('Código QR bancario del trámite 7');
     }
 
     public function test_pago_confirmado_no_invita_a_realizar_un_segundo_pago(): void
     {
         $this->vistaPago(true, false)
-            ->assertSee('El pago está confirmado')
+            ->assertSee('Pago confirmado')
             ->assertDontSee('id="botonGenerarQr"', false)
             ->assertDontSee('Código QR bancario del trámite 7');
     }
@@ -55,7 +58,7 @@ class PagoQrVistaTest extends TestCase
         $ultimoQrOpenBcb->id = 9;
         $ultimoQrOpenBcb->created_at = $vencido ? now()->subDays(2) : now();
 
-        return $this->withViewErrors([])->view('seguimientos_certificados.nuevo_tramite.pagos.index',
+        return $this->withViewErrors([])->view('seguimientos_certificados.pago_tramite.index',
             compact('certificado', 'pago', 'ultimoQrOpenBcb'));
     }
 }

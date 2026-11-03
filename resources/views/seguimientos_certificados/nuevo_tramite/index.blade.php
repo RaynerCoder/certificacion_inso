@@ -49,7 +49,7 @@
         <div class="tramite-shell">
             {{-- Datos principales y requisitos del nuevo trámite. --}}
             <div class="tramite-content">
-                @include('seguimientos_certificados.nuevo_tramite.inicio')
+                @include('seguimientos_certificados.nuevo_tramite.formulario')
             </div>
 
             {{-- El botón registra o continúa al pago según los requisitos. --}}

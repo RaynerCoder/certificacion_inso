@@ -16,7 +16,7 @@
         'href' => route('seguimientos_tramite_historial', ['seguimiento' => $seguimiento, 'bandeja' => $bandeja]),
     ],
 ]">
-    @include('seguimientos_certificados.seguimiento_tramite.historial-estilos')
+    @include('seguimientos_certificados.seguimiento_tramite.historial.estilos')
 
     <section class="timeline-page">
         <div class="timeline-page-head">
@@ -31,7 +31,7 @@
             </a>
         </div>
 
-        {{-- Vista modular: el historial vive en un partial para no cargar el detalle de revision. --}}
-        @include('seguimientos_certificados.componentes.historial_general', ['certificado' => $certificado])
+        {{-- El contenido del historial se mantiene separado de la estructura principal de la pantalla. --}}
+        @include('seguimientos_certificados.seguimiento_tramite.historial.contenido', ['certificado' => $certificado])
     </section>
 </x-admin-layout>

@@ -119,7 +119,7 @@ class SeguimientoController extends Controller
     {
         // El inicio de tramite solo requiere solicitante, tipo y documentos.
         // Si el certificado requiere pago, el trámite se guarda pendiente antes de enviarlo a revisión.
-        return view('seguimientos_certificados.nuevo_tramite.create', array_merge(
+        return view('seguimientos_certificados.nuevo_tramite.index', array_merge(
             $this->datosFormularioTramite(),
             ['tokenFormulario' => $this->crearTokenEnvioTramite()]
         ));
@@ -514,7 +514,7 @@ class SeguimientoController extends Controller
             abort(403, 'No tiene permiso para ver el historial de este tramite.');
         }
 
-        return view('seguimientos_certificados.seguimiento_tramite.historial', compact('seguimiento', 'certificado', 'bandeja'));
+        return view('seguimientos_certificados.seguimiento_tramite.historial.index', compact('seguimiento', 'certificado', 'bandeja'));
     }
 
     // RELACIONES DEL HISTORIAL DE TRAMITE

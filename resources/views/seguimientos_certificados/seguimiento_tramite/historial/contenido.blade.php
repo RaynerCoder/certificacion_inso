@@ -196,8 +196,6 @@
     $fechaOrigenTimeline = $certificado->fecha_inicio
         ?: ($primerSeguimientoTimeline?->fecha_inicio ? \Illuminate\Support\Carbon::parse($primerSeguimientoTimeline->fecha_inicio) : null);
 @endphp
-@include('seguimientos_certificados.estilos.historial_general')
-
 <div class="ruta-simple" data-hoja-ruta>
     {{-- RESUMEN SUPERIOR: datos generales del tramite sin repetir toda la revision. --}}
     <section class="ruta-contexto" aria-label="Resumen del trámite">
@@ -388,4 +386,4 @@
         <div class="ruta-empty" data-ruta-empty>Sin movimientos</div>
     </section>
 </div>
-@include('seguimientos_certificados.componentes.historial_general_script')
+@include('seguimientos_certificados.seguimiento_tramite.historial.script')
