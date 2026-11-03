@@ -38,20 +38,20 @@
 
         .plantillas-certificado-tabla th:nth-child(2),
         .plantillas-certificado-tabla td:nth-child(2) {
-            width: 22%;
-            min-width: 210px;
+            width: 30%;
+            min-width: 300px;
         }
 
         .plantillas-certificado-tabla th:nth-child(3),
         .plantillas-certificado-tabla td:nth-child(3) {
-            width: 25%;
-            min-width: 240px;
+            width: 23%;
+            min-width: 220px;
         }
 
         .plantillas-certificado-tabla th:nth-child(4),
         .plantillas-certificado-tabla td:nth-child(4) {
-            width: 22%;
-            min-width: 200px;
+            width: 20%;
+            min-width: 190px;
         }
 
         .plantillas-certificado-tabla th:nth-child(5),
@@ -64,7 +64,7 @@
 
         .plantillas-certificado-tabla th:last-child,
         .plantillas-certificado-tabla td:last-child {
-            width: 16%;
+            width: 12%;
             min-width: 190px;
             text-align: center;
             white-space: nowrap !important;

@@ -79,7 +79,7 @@
                 </div>
 
                 <div class="flex flex-wrap justify-end gap-2">
-                    <x-wire-button href="{{ route('certificados_plantillas_show', $plantilla) }}" secondary>
+                    <x-wire-button href="{{ route('certificados_plantillas_index') }}" secondary>
                         Volver
                     </x-wire-button>
                     <x-wire-button href="{{ route('certificados_plantillas_create', ['tipo' => $tipoCertificado->id]) }}" blue>
@@ -361,7 +361,7 @@
 
         <section class="plantilla-card">
             <div class="plantilla-actions">
-                <x-wire-button href="{{ route('certificados_plantillas_show', $plantilla) }}" secondary>
+                <x-wire-button href="{{ route('certificados_plantillas_index') }}" secondary>
                     Salir sin guardar
                 </x-wire-button>
                 <x-wire-button type="submit" emerald>

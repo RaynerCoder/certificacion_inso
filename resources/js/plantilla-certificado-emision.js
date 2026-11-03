@@ -12,9 +12,9 @@ import {
 
 const SELECTOR = '[data-certificado-fabric-lienzo]';
 const DPI_BASE_NAVEGADOR = 96;
-// El respaldo PNG se guarda a 300 DPI. La vista y la impresión usan SVG,
+// El respaldo PNG se guarda a 360 DPI. La vista y la impresión usan SVG,
 // por lo que texto y líneas conservan nitidez sin generar imágenes excesivas.
-const DPI_DOCUMENTO = 300;
+const DPI_DOCUMENTO = 360;
 const MAX_PIXELES_DOCUMENTO = 18_000_000;
 const FUENTES = FUENTES_CERTIFICADO;
 
@@ -23,7 +23,7 @@ function numero(valor, predeterminado = 0) {
     return Number.isFinite(convertido) ? convertido : predeterminado;
 }
 
-// Exporta el respaldo del certificado a 300 DPI sin superar un tamaño que pueda
+// Exporta el respaldo del certificado a 360 DPI sin superar un tamaño que pueda
 // consumir demasiada memoria cuando la plantilla use medidas personalizadas.
 function multiplicadorDocumento(ancho, alto) {
     const pixelesBase = Math.max(1, ancho * alto);
