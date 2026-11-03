@@ -29,7 +29,16 @@
         ]);
         $idModalCertificado = 'modal-certificado-' . $seguimiento->id;
         $idModalValidacion = 'modal-validacion-emision-' . $seguimiento->id;
+        $idModalSeleccionPlantilla = 'modal-seleccion-plantilla-' . $seguimiento->id;
         $faltantesEmision = collect();
+        $plantillasActivasEmision = $puedeGestionarEmision && ! $esDocumentoConsultable
+            ? \App\Models\PlantillaCertificado::query()
+                ->where('id_tipo_certificado', $certificadoFinalizado?->id_tipo_certificado)
+                ->where('estado', 'ACTIVO')
+                ->orderBy('nombre')
+                ->orderBy('id')
+                ->get(['id', 'nombre', 'tamano_papel', 'orientacion'])
+            : collect();
 
         if (! $esDocumentoConsultable) {
             if (! $certificadoFinalizado?->tipoCertificado?->plantillaActiva) {
@@ -71,9 +80,18 @@
                 {{ $esEmisionPorLote ? 'Ver certificados' : 'Ver certificado' }}
             </button>
         @elseif ($faltantesEmision->isEmpty() && $puedeAbrirEmision)
-            <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados', 'seleccionar_plantilla' => 1]) }}" amber xs>
-                Emitir certificado
-            </x-wire-button>
+            @if ($plantillasActivasEmision->count() > 1)
+                <button type="button"
+                    class="inline-flex items-center rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-600"
+                    onclick="window.abrirModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}')">
+                    <i class="fa-solid fa-file-circle-check mr-1"></i>
+                    Emitir certificado
+                </button>
+            @else
+                <x-wire-button href="{{ route('certificados_emitir', ['certificado' => $seguimiento->certificado, 'bandeja' => 'finalizados', 'plantilla' => $plantillasActivasEmision->first()?->id]) }}" amber xs>
+                    Emitir certificado
+                </x-wire-button>
+            @endif
         @else
             <button type="button"
                 class="inline-flex items-center rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-amber-600"
@@ -184,6 +202,42 @@
         </div>
     @endif
 
+    @if ($puedeGestionarEmision && ! $esDocumentoConsultable && $faltantesEmision->isEmpty() && $plantillasActivasEmision->count() > 1)
+        <div id="{{ $idModalSeleccionPlantilla }}" class="certificado-modal" hidden role="dialog" aria-modal="true"
+            aria-labelledby="{{ $idModalSeleccionPlantilla }}-titulo"
+            onclick="window.cerrarModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}', event)">
+            <section class="certificado-modal__validation-card" onclick="event.stopPropagation()">
+                <header class="certificado-modal__header">
+                    <div>
+                        <h2 id="{{ $idModalSeleccionPlantilla }}-titulo" class="certificado-modal__title">Elegir plantilla para emitir</h2>
+                        <p class="certificado-modal__subtitle">{{ $certificadoFinalizado?->tipoCertificado?->nombre }}</p>
+                    </div>
+                    <button type="button" class="certificado-modal__close" aria-label="Cerrar"
+                        onclick="window.cerrarModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </header>
+                <form class="certificado-modal__select-form" method="GET" action="{{ route('certificados_emitir', $certificadoFinalizado) }}">
+                    <input type="hidden" name="bandeja" value="finalizados">
+                    <label for="{{ $idModalSeleccionPlantilla }}-plantilla" class="certificado-modal__label">Plantilla del certificado</label>
+                    <select id="{{ $idModalSeleccionPlantilla }}-plantilla" name="plantilla" required>
+                        <option value="">Seleccione una plantilla</option>
+                        @foreach ($plantillasActivasEmision as $plantillaEmision)
+                            <option value="{{ $plantillaEmision->id }}">
+                                {{ $plantillaEmision->nombre }} · {{ $plantillaEmision->tamano_papel }} {{ strtolower($plantillaEmision->orientacion) }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <div class="certificado-modal__select-actions">
+                        <button type="button" class="certificado-modal__button certificado-modal__button--secondary"
+                            onclick="window.cerrarModalSeleccionPlantilla('{{ $idModalSeleccionPlantilla }}')">Cancelar</button>
+                        <button type="submit" class="certificado-modal__button certificado-modal__button--info">Usar esta plantilla</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    @endif
+
     @if ($puedeGestionarEmision && ! $esDocumentoConsultable && $faltantesEmision->isNotEmpty())
         <div id="{{ $idModalValidacion }}" class="certificado-modal" hidden role="dialog" aria-modal="true"
             aria-labelledby="{{ $idModalValidacion }}-titulo" onclick="window.cerrarModalValidacionEmision('{{ $idModalValidacion }}', event)">
@@ -243,6 +297,9 @@
         .certificado-modal__validation-body ul { display: grid; gap: 9px; list-style: none; margin: 0; padding: 0; }
         .certificado-modal__validation-body li { align-items: flex-start; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; color: #9a3412; display: flex; gap: 8px; line-height: 1.45; padding: 10px; }
         .certificado-modal__validation-body li i { margin-top: 2px; }
+        .certificado-modal__select-form { display: grid; gap: 10px; padding: 20px; }
+        .certificado-modal__select-form select { border: 1px solid #cbd5e1; border-radius: 8px; color: #0f172a; padding: 10px 12px; width: 100%; }
+        .certificado-modal__select-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 8px; }
         .certificado-modal__anulacion { padding: 22px; }
         .certificado-modal__warning { align-items: flex-start; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; color: #9f1239; display: flex; font-size: .84rem; gap: 9px; line-height: 1.45; margin-bottom: 15px; padding: 11px; }
         .certificado-modal__label { color: #334155; display: block; font-size: .82rem; font-weight: 800; margin-bottom: 6px; }
@@ -306,6 +363,22 @@
         };
 
         window.cerrarModalValidacionEmision = function(idModal, event) {
+            if (event && event.target !== event.currentTarget) return;
+            const modal = document.getElementById(idModal);
+            if (!modal) return;
+            modal.hidden = true;
+            document.body.style.overflow = '';
+        };
+
+        window.abrirModalSeleccionPlantilla = function(idModal) {
+            const modal = document.getElementById(idModal);
+            if (!modal) return;
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            modal.querySelector('select')?.focus();
+        };
+
+        window.cerrarModalSeleccionPlantilla = function(idModal, event) {
             if (event && event.target !== event.currentTarget) return;
             const modal = document.getElementById(idModal);
             if (!modal) return;

@@ -1016,7 +1016,7 @@
             </div>
         @endif
 
-        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla @if (! (request()->boolean('seleccionar_plantilla') && $plantillasDisponibles->count() > 1 && $puedeCrearEmision)) hidden @endif>
+        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla hidden>
             <form class="emit-modal-card" action="{{ route('certificados_emitir', $certificado) }}" method="GET">
                 <input type="hidden" name="bandeja" value="{{ $bandejaEmision }}">
                 @if ($registroSeleccionado)
