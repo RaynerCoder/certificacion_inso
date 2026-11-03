@@ -104,6 +104,9 @@
         $puedeCrearEmision = $puedeCrearEmisionSinVigencia
             && $datosVigenciaEmision['disponible']
             && $plantillasDisponibles->isNotEmpty();
+        // Con varias plantillas no se muestra una vista previa arbitraria: se
+        // abre primero el selector para que el funcionario decida cuál emitir.
+        $abrirModalSeleccionPlantilla = $puedeCrearEmision && $requiereSeleccionPlantilla;
         $papelPlantilla = strtoupper($plantillaCertificado?->tamano_papel ?? 'CARTA');
         $orientacionPlantilla = strtoupper($plantillaCertificado?->orientacion ?? 'VERTICAL');
         $medidasBasePlantilla = $papelPlantilla === 'OFICIO'
@@ -993,7 +996,7 @@
             </div>
         @endif
 
-        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla hidden>
+        <div class="emit-modal-backdrop" data-modal-seleccion-plantilla @if (! $abrirModalSeleccionPlantilla) hidden @endif>
             <form class="emit-modal-card" action="{{ route('certificados_emitir', $certificado) }}" method="GET">
                 <input type="hidden" name="bandeja" value="{{ $bandejaEmision }}">
                 <input type="hidden" name="confirmar_emision" value="1">
