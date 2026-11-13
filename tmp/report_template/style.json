@@ -1,0 +1,172 @@
+{
+  "input": "C:\\Users\\Rayner\\Downloads\\INFORME DE COMISION DE RECEPCION REDISE\u00d1O ELECTRICO 2026.docx",
+  "fonts_by_char_count": {
+    "Century Gothic": 5491,
+    "Arial": 236,
+    "Calibri": 54
+  },
+  "direct_run_formatting_runs": 317,
+  "direct_paragraph_formatting_paragraphs": 88,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 1,
+      "text": "INFORME T\u00c9CNICO",
+      "style": "Normal"
+    },
+    {
+      "para_index": 2,
+      "text": "INSO/DGE/UTHSI/AI/IT/019/2026",
+      "style": "Normal"
+    },
+    {
+      "para_index": 8,
+      "text": "\t\tCOMISI\u00d3N DE RECEPCI\u00d3N",
+      "style": "Normal"
+    },
+    {
+      "para_index": 11,
+      "text": "\t\tCOMISI\u00d3N DE RECEPCI\u00d3N",
+      "style": "Normal"
+    },
+    {
+      "para_index": 15,
+      "text": "\tFecha:\tLa Paz, 07 de julio de 2026",
+      "style": "Normal"
+    },
+    {
+      "para_index": 19,
+      "text": " ANTECEDENTES",
+      "style": "Normal"
+    },
+    {
+      "para_index": 29,
+      "text": "AN\u00c1LISIS Y DESARROLLO",
+      "style": "List Paragraph"
+    },
+    {
+      "para_index": 36,
+      "text": "Orden de Servicio N\u00b0 042/2026 ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 37,
+      "text": "Empresa: EMPRESA CONSTRUCTORA GEOARCON",
+      "style": "Normal"
+    },
+    {
+      "para_index": 48,
+      "text": "3. CONCLUSI\u00d3N Y RECOMENDACI\u00d3N",
+      "style": "Normal"
+    },
+    {
+      "para_index": 82,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 83,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 84,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 85,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 86,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 87,
+      "text": "SERVICIO DE DISE\u00d1O ",
+      "style": "Normal"
+    },
+    {
+      "para_index": 88,
+      "text": "N\u00b0 ITEM",
+      "style": "Normal"
+    },
+    {
+      "para_index": 89,
+      "text": "DETALLE",
+      "style": "Normal"
+    },
+    {
+      "para_index": 90,
+      "text": "UNIDAD DE MEDIDA",
+      "style": "Normal"
+    },
+    {
+      "para_index": 91,
+      "text": "CANTIDAD",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "INFORME T\u00c9CNICO",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "INSO/DGE/UTHSI/AI/IT/019/2026",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "\tA:\tLic. Armando Ale Quispe",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "text": "\t\tDIRECTOR GENERAL EJECUTIVO a.i.",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 1,
+        "run_text": "INFORME ",
+        "style": "Normal"
+      },
+      {
+        "para_index": 1,
+        "run_text": "T\u00c9CNICO",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "INSO/DGE/",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "UTHSI",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "run_text": "/",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

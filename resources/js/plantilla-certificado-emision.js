@@ -12,10 +12,10 @@ import {
 
 const SELECTOR = '[data-certificado-fabric-lienzo]';
 const DPI_BASE_NAVEGADOR = 96;
-// El respaldo PNG se guarda a 360 DPI. La vista y la impresión usan SVG,
-// por lo que texto y líneas conservan nitidez sin generar imágenes excesivas.
-const DPI_DOCUMENTO = 360;
-const MAX_PIXELES_DOCUMENTO = 18_000_000;
+// El respaldo PNG se guarda con un límite de resolución y tamaño que mantiene
+// legible el documento sin provocar solicitudes enormes al servidor.
+const DPI_DOCUMENTO = 240;
+const MAX_PIXELES_DOCUMENTO = 8_000_000;
 const FUENTES = FUENTES_CERTIFICADO;
 
 function numero(valor, predeterminado = 0) {

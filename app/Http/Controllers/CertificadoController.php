@@ -1154,11 +1154,7 @@ class CertificadoController extends Controller
             'icon' => 'success',
         ]);
 
-        return redirect()->route('certificados_emitir', [
-            'certificado' => $certificado,
-            'bandeja' => $solicitud->input('form_bandeja', 'finalizados'),
-            'registro' => $datos['form_id_certificado_registro'] ?? null,
-        ]);
+        return redirect()->route('seguimientos_finalizados');
     }
 
     // ENTREGA EL PDF Y GUARDA QUIEN LO DESCARGÓ
@@ -3041,9 +3037,12 @@ class CertificadoController extends Controller
             ])->filter()->implode(' | ');
         });
         $resumenCalificaciones = $certificado->resumenEvaluacionCalificaciones();
+        $hayCalificacionCero = $resumenCalificaciones['detalles']
+            ->contains(fn ($detalle) => $detalle['calificacion_obtenida'] !== null
+                && (float) $detalle['calificacion_obtenida'] === 0.0);
         $resultadoEvaluacion = match ($resumenCalificaciones['resultado']) {
             'APROBADO' => 'APROBADO',
-            'PARTICIPACION' => 'PARTICIPADO',
+            'PARTICIPACION' => $hayCalificacionCero ? 'EXPOSITOR' : 'PARTICIPADO',
             'PENDIENTE' => 'Pendiente',
             default => 'No aplica',
         };

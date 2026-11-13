@@ -684,6 +684,21 @@
             width: min(100%, 720px);
         }
 
+        .emit-progress-track {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 12px;
+            overflow: hidden;
+        }
+
+        .emit-progress-value {
+            background: #059669;
+            border-radius: inherit;
+            height: 100%;
+            transition: width .35s ease;
+            width: 8%;
+        }
+
         .emit-modal-head {
             align-items: center;
             border-bottom: 1px solid #e2e8f0;
@@ -1074,6 +1089,21 @@
                 @endif
                 <input type="hidden" name="form_codigo_verificacion" data-codigo-verificacion>
                 <textarea name="form_documento_renderizado" data-documento-renderizado hidden></textarea>
+
+                <div class="emit-modal-backdrop" data-progreso-emision hidden aria-live="polite" aria-busy="true">
+                    <div class="emit-modal-card max-w-md p-6 text-center">
+                        <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                            <i class="fa-solid fa-file-circle-check text-2xl"></i>
+                        </div>
+                        <h2 class="text-lg font-black text-slate-900">Emitiendo certificado</h2>
+                        <p class="mt-2 text-sm text-slate-600" data-progreso-texto>Preparando el documento…</p>
+                        <div class="emit-progress-track mt-5" role="progressbar" aria-label="Progreso de emisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8">
+                            <div class="emit-progress-value" data-progreso-barra></div>
+                        </div>
+                        <p class="mt-2 text-sm font-bold text-emerald-800" data-progreso-porcentaje>8%</p>
+                        <p class="mt-3 text-xs text-slate-500">Puede tardar unos momentos. No cierre esta ventana.</p>
+                    </div>
+                </div>
 
                 <div class="emit-modal-head">
                     <div>
@@ -1974,12 +2004,29 @@
                     preparandoEnvio = true;
                     const botones = formulario.querySelectorAll('button');
                     botones.forEach((boton) => { boton.disabled = true; });
+                    const progreso = formulario.querySelector('[data-progreso-emision]');
+                    const barra = progreso?.querySelector('[data-progreso-barra]');
+                    const textoProgreso = progreso?.querySelector('[data-progreso-texto]');
+                    const porcentaje = progreso?.querySelector('[data-progreso-porcentaje]');
+                    const progressbar = progreso?.querySelector('[role="progressbar"]');
+                    let avance = 8;
+                    progreso.hidden = false;
+                    const temporizadorProgreso = window.setInterval(() => {
+                        avance = Math.min(94, avance + (avance < 55 ? 7 : avance < 80 ? 3 : 1));
+                        if (barra) barra.style.width = `${avance}%`;
+                        if (porcentaje) porcentaje.textContent = `${avance}%`;
+                        progressbar?.setAttribute('aria-valuenow', String(avance));
+                        if (textoProgreso && avance >= 55) textoProgreso.textContent = 'Guardando y generando el certificado…';
+                    }, 700);
 
                     try {
                         await prepararVistaEmision();
+                        if (textoProgreso) textoProgreso.textContent = 'Enviando certificado para su emisión…';
 
                         HTMLFormElement.prototype.submit.call(formulario);
                     } catch (error) {
+                        window.clearInterval(temporizadorProgreso);
+                        progreso.hidden = true;
                         preparandoEnvio = false;
                         botones.forEach((boton) => { boton.disabled = false; });
                         window.alert(error?.message || 'No se pudo preparar la emisión. Intente nuevamente.');

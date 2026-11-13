@@ -86,7 +86,7 @@
                 <span class="tramite-summary-value">
                     {{ match ($resumenEvaluacionCalificaciones['resultado']) {
                         'APROBADO' => 'Aprobado',
-                        'PARTICIPACION' => 'Participación',
+                        'PARTICIPACION' => 'Expositor',
                         default => 'Pendiente',
                     } }}
                 </span>
