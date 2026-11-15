@@ -750,9 +750,9 @@
     }
 
     .plantilla-format-btn.is-active {
-        background: #ecfdf5;
-        border-color: #99f6e4;
-        color: #047857;
+        background: #ccfbf1;
+        border-color: #5eead4;
+        color: #0f766e;
     }
 
     .plantilla-tabla-datos-lista {
@@ -1116,8 +1116,8 @@
     }
 
     .plantilla-workspace-sidebar .plantilla-format-btn.is-active {
-        background: #e6f7f4;
-        border-color: #0d9488;
+        background: #ccfbf1;
+        border-color: #5eead4;
         color: #0f766e;
     }
 
