@@ -19,6 +19,47 @@ class CertificadoEmitidoTable extends DataTableComponent
 {
     protected $model = CertificadoEmitido::class;
 
+    public function bulkActions(): array
+    {
+        return [
+            'descargarSeleccionados' => 'Descargar seleccionados (ZIP)',
+            'solicitarAnulacionSeleccionados' => 'Anular seleccionados',
+        ];
+    }
+
+    public function descargarSeleccionados(): void
+    {
+        $ids = $this->idsSeleccionados();
+
+        if ($ids === []) {
+            $this->dispatch('certificados-lote-mensaje', tipo: 'error', mensaje: 'Seleccione al menos un certificado.');
+            return;
+        }
+
+        $this->redirect(route('certificados_emitidos_descargar_lote', ['emisiones' => $ids]), navigate: false);
+    }
+
+    public function solicitarAnulacionSeleccionados(): void
+    {
+        if ($this->idsSeleccionados() === []) {
+            $this->dispatch('certificados-lote-mensaje', tipo: 'error', mensaje: 'Seleccione al menos un certificado.');
+            return;
+        }
+
+        $ids = $this->idsSeleccionados();
+        $this->dispatch('certificados-solicitar-motivo-lote', emisiones: $ids, cantidad: count($ids));
+    }
+
+    private function idsSeleccionados(): array
+    {
+        return collect($this->getSelectedRows())
+            ->map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT))
+            ->filter(fn ($id) => $id !== false && $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function configure(): void
     {
         $this->setPrimaryKey('id');

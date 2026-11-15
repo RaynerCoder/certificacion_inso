@@ -116,6 +116,43 @@
                 formulario.querySelector('[name="form_motivo_anulacion"]').value = motivo.trim();
                 return true;
             };
+
+        window.addEventListener('certificados-solicitar-motivo-lote', function(evento) {
+            const emisiones = evento.detail.emisiones || [];
+            if (!emisiones.length) return;
+
+            const motivo = window.prompt(
+                'Indique el motivo común para anular los ' + emisiones.length + ' certificados seleccionados.'
+            );
+            if (!motivo || !motivo.trim()) return;
+            if (motivo.trim().length > 1000) {
+                window.alert('El motivo no puede superar 1000 caracteres.');
+                return;
+            }
+            if (!window.confirm('Se anularán ' + emisiones.length + ' certificados con el mismo motivo. Los PDF, números y códigos QR se conservarán en el historial. ¿Desea continuar?')) return;
+
+            const formulario = document.createElement('form');
+            formulario.method = 'POST';
+            formulario.action = @json(route('certificados_emitidos_anular_lote'));
+            const agregarCampo = function(nombre, valor) {
+                const campo = document.createElement('input');
+                campo.type = 'hidden';
+                campo.name = nombre;
+                campo.value = valor;
+                formulario.appendChild(campo);
+            };
+            agregarCampo('_token', @json(csrf_token()));
+            agregarCampo('motivo', motivo.trim());
+            emisiones.forEach(function(id) {
+                agregarCampo('emisiones[]', id);
+            });
+            document.body.appendChild(formulario);
+            formulario.submit();
+        });
+
+        window.addEventListener('certificados-lote-mensaje', function(evento) {
+            window.alert(evento.detail.mensaje || 'No se pudo completar la acción.');
+        });
         </script>
     @endpush
 

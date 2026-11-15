@@ -287,6 +287,12 @@ Route::post('/certificados/{certificado}/enviar-solicitante', [CertificadoContro
 Route::post('/certificados/{certificado}/emitidos/{emision}/anular', [CertificadoController::class, 'anularEmision'])
     ->name('certificados_emitidos_anular')
     ->middleware('permiso:certificados.emitir');
+Route::post('/certificados/emitidos/anular-lote', [CertificadoController::class, 'anularEmisionesLote'])
+    ->name('certificados_emitidos_anular_lote')
+    ->middleware('permiso:certificados.emitir');
+Route::get('/certificados/emitidos/descargar-lote', [CertificadoController::class, 'descargarEmisionesLote'])
+    ->name('certificados_emitidos_descargar_lote')
+    ->middleware('permiso:certificados.emitir');
 Route::get('/certificados/{certificado}/descargar', [CertificadoController::class, 'descargar'])
     ->name('certificados_descargar');
 Route::get('/certificados/{certificado}/emitidos/{emision}/descargar', [CertificadoController::class, 'descargarEmitido'])

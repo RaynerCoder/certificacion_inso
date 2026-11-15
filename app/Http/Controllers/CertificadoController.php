@@ -35,6 +35,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -1252,6 +1253,72 @@ class CertificadoController extends Controller
             : response()->download($rutaDocumento, $this->descargasCertificados->nombreDocumento($emision), $cabeceras);
     }
 
+    /** Descarga en un ZIP los PDF seleccionados desde la bandeja institucional. */
+    public function descargarEmisionesLote(Request $solicitud)
+    {
+        abort_unless($solicitud->user()?->puede('certificados.emitir'), 403);
+
+        $ids = collect((array) $solicitud->query('emisiones', []))
+            ->map(fn ($id) => filter_var($id, FILTER_VALIDATE_INT))
+            ->filter(fn ($id) => $id !== false && $id > 0)
+            ->unique()
+            ->values();
+        abort_if($ids->isEmpty() || $ids->count() > 200, 422, 'Seleccione entre 1 y 200 certificados.');
+
+        $emisiones = CertificadoEmitido::query()
+            ->with('certificado.tipoCertificado', 'certificado.beneficiario.usuario', 'certificado.tramitador.usuario')
+            ->whereIn('id', $ids)
+            ->get();
+        abort_if($emisiones->count() !== $ids->count(), 404, 'Uno o más certificados seleccionados ya no están disponibles.');
+
+        $documentos = [];
+        foreach ($emisiones as $emision) {
+            $certificado = $emision->certificado;
+            abort_unless($certificado && $this->usuarioPuedeDescargarCertificado($certificado), 403);
+            $ruta = $this->descargasCertificados->rutaDocumento($emision);
+            abort_unless($ruta, 404, 'Uno o más archivos seleccionados ya no están disponibles.');
+            $documentos[] = [$ruta, $this->descargasCertificados->nombreDocumento($emision)];
+        }
+
+        $directorio = storage_path('app/temp/descargas-certificados');
+        File::ensureDirectoryExists($directorio);
+        $rutaZip = $directorio.'/certificados_'.Str::uuid().'.zip';
+        abort_unless(class_exists(\ZipArchive::class), 501, 'El servidor no tiene habilitada la creación de archivos ZIP.');
+        $zip = new \ZipArchive();
+        abort_unless($zip->open($rutaZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'No se pudo preparar el archivo de descarga.');
+
+        foreach ($documentos as [$ruta, $nombre]) {
+            $nombreZip = $nombre;
+            $sufijo = 2;
+            while ($zip->locateName($nombreZip) !== false) {
+                $nombreZip = pathinfo($nombre, PATHINFO_FILENAME).'_'.$sufijo++.'.pdf';
+            }
+            if (! $zip->addFile($ruta, $nombreZip)) {
+                $zip->close();
+                File::delete($rutaZip);
+                abort(500, 'No se pudo agregar uno de los certificados al archivo ZIP.');
+            }
+        }
+        if (! $zip->close()) {
+            File::delete($rutaZip);
+            abort(500, 'No se pudo finalizar el archivo de descarga.');
+        }
+
+        foreach ($emisiones as $emision) {
+            \App\Models\DescargaCertificado::create([
+                'id_certificado' => $emision->id_certificado,
+                'id_certificado_emitido' => $emision->id,
+                'id_usuario' => $solicitud->user()->id,
+                'fecha_descarga' => now(),
+            ]);
+        }
+
+        return response()->download($rutaZip, 'certificados_seleccionados.zip', [
+            'Content-Type' => 'application/zip',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+        ])->deleteFileAfterSend(true);
+    }
+
     // Entrega una evidencia del expediente sin publicar la carpeta privada.
     public function descargarEvidencia(
         Request $solicitud,
@@ -1416,6 +1483,77 @@ class CertificadoController extends Controller
         ]);
 
         return redirect()->route('certificados_emitidos_index');
+    }
+
+    /** Anula varias emisiones en una sola operación con un motivo compartido. */
+    public function anularEmisionesLote(Request $solicitud)
+    {
+        abort_unless($solicitud->user()?->puede('certificados.emitir'), 403);
+        abort_unless($this->camposAnulacionDisponibles(), 422, 'Faltan los campos de anulación en certificados_emitidos.');
+
+        $datos = Validator::make($solicitud->all(), [
+            'emisiones' => ['required', 'array', 'min:1', 'max:200'],
+            'emisiones.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'motivo' => ['required', 'string', 'max:1000'],
+        ])->validate();
+        $ids = collect($datos['emisiones'])->map(fn ($id) => (int) $id)->unique()->values();
+        $usuario = $solicitud->user();
+        $usuario->loadMissing('funcionario.cargos');
+
+        $resultado = DB::transaction(function () use ($ids, $datos, $usuario) {
+            $emisiones = CertificadoEmitido::query()
+                ->whereIn('id', $ids)
+                ->orderBy('id_certificado')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            abort_if($emisiones->count() !== $ids->count(), 404, 'Uno o más certificados seleccionados ya no existen.');
+
+            $certificados = Certificado::query()
+                ->with('tipoCertificado')
+                ->whereIn('id', $emisiones->pluck('id_certificado')->unique())
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            foreach ($emisiones as $emision) {
+                $certificado = $certificados->get($emision->id_certificado);
+                abort_unless($certificado && $this->usuarioPuedeEmitirCertificado($certificado), 403, 'No tiene autorización para anular uno de los certificados seleccionados.');
+            }
+
+            $anuladas = 0;
+            $omitidas = 0;
+            foreach ($emisiones as $emision) {
+                if (! $emision->estaVigente()) {
+                    $omitidas++;
+                    continue;
+                }
+
+                $emision->update([
+                    'estado' => 'ANULADO',
+                    'fecha_anulacion' => now(),
+                    'id_usuario_anulacion' => $usuario->id,
+                    'motivo_anulacion' => trim($datos['motivo']),
+                ]);
+                $anuladas++;
+            }
+
+            foreach ($certificados as $certificado) {
+                $certificado->update([
+                    'estado' => $certificado->emisiones()->vigentes()->exists() ? 'EMITIDO' : 'APROBADO',
+                ]);
+            }
+
+            return compact('anuladas', 'omitidas');
+        });
+
+        return redirect()->route('certificados_emitidos_index')->with('swal', [
+            'title' => 'Anulación por lote completada',
+            'text' => $resultado['anuladas'].' certificado(s) anulado(s) con el mismo motivo.'
+                .($resultado['omitidas'] ? ' '.$resultado['omitidas'].' ya no estaban vigentes y se omitieron.' : ''),
+            'icon' => 'success',
+        ]);
     }
 
     /**
