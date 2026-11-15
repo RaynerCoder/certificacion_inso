@@ -96,10 +96,6 @@
         </div>
     </x-slot>
 
-    <div class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        Para acciones en grupo, marca las casillas y abre <strong>Acciones Masivas</strong>. Allí puedes descargar los PDF seleccionados en un ZIP o anularlos con un motivo común. El botón <strong>Anular esta fila</strong> afecta solo a esa fila.
-    </div>
-
     @livewire('datatables.certificado-emitido-table')
 
     <dialog id="modal-anulacion-certificado" class="w-[min(94vw,34rem)] rounded-xl border-0 p-0 shadow-2xl backdrop:bg-slate-950/50">
