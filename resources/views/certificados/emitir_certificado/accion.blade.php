@@ -24,7 +24,7 @@
             onclick="window.abrirModalAnulacionCertificado(this)"
             data-url="{{ route('certificados_emitidos_anular', ['certificado' => $emision->id_certificado, 'emision' => $emision->id]) }}"
             data-numero="{{ $emision->numero_certificado }}">
-            Anular esta fila
+            Anular
         </button>
     @endif
 </div>
