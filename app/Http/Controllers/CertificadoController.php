@@ -34,6 +34,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -1387,8 +1388,18 @@ class CertificadoController extends Controller
 
         $usuariosSolicitantes = $this->usuariosSolicitantesCertificado($certificado);
 
-        if ($usuariosSolicitantes->isEmpty()) {
-            return back()->with('error', 'El beneficiario o tramitador no tiene cuenta de usuario para notificar.');
+        $correosSolicitantes = collect([
+            $certificado->beneficiario?->correo,
+            $certificado->tramitador?->correo,
+        ])
+            ->merge($usuariosSolicitantes->pluck('email'))
+            ->map(fn ($correo) => mb_strtolower(trim((string) $correo)))
+            ->filter(fn ($correo) => filter_var($correo, FILTER_VALIDATE_EMAIL) !== false)
+            ->unique()
+            ->values();
+
+        if ($usuariosSolicitantes->isEmpty() && $correosSolicitantes->isEmpty()) {
+            return back()->with('error', 'El beneficiario o tramitador no tiene una cuenta ni correo registrado para notificar.');
         }
 
         foreach ($usuariosSolicitantes as $usuarioSolicitante) {
@@ -1402,9 +1413,19 @@ class CertificadoController extends Controller
             ]);
         }
 
+        foreach ($correosSolicitantes as $correoSolicitante) {
+            Mail::raw(
+                'Su certificado N.º '.$emision->numero_certificado.' ya fue emitido. Ingrese al sistema para consultarlo.',
+                function ($mensaje) use ($correoSolicitante, $emision) {
+                    $mensaje->to($correoSolicitante)
+                        ->subject('Certificado emitido: '.$emision->numero_certificado);
+                }
+            );
+        }
+
         session()->flash('swal', [
             'title' => 'Certificado enviado',
-            'text' => 'Se notificó al beneficiario y tramitador vinculados al trámite.',
+            'text' => 'Se notificó a las cuentas y correos registrados del trámite.',
             'icon' => 'success',
         ]);
 

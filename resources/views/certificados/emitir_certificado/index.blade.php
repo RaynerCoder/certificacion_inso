@@ -97,7 +97,7 @@
     </x-slot>
 
     <div class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        Para acciones en grupo, marca las casillas de los certificados y abre <strong>Acciones Masivas</strong>. La descarga reúne los PDF en un ZIP; la anulación solicita un motivo común.
+        Para acciones en grupo, marca las casillas y abre <strong>Acciones Masivas</strong>. Allí puedes descargar los PDF seleccionados en un ZIP o anularlos con un motivo común. El botón <strong>Anular esta fila</strong> afecta solo a esa fila.
     </div>
 
     @livewire('datatables.certificado-emitido-table')
@@ -118,6 +118,7 @@
                 <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
                     Los documentos se marcarán como anulados. Sus PDF, números y códigos QR se conservarán en el historial.
                 </div>
+                <p id="modal-anulacion-alcance" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" hidden></p>
                 <label for="motivo-anulacion-lote" class="block text-sm font-semibold text-slate-700">Motivo de anulación</label>
                 <textarea id="motivo-anulacion-lote" name="form_motivo_anulacion" rows="4" maxlength="1000" required
                     class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
@@ -131,6 +132,32 @@
         </form>
     </dialog>
 
+    <dialog id="modal-envio-certificado" class="w-[min(94vw,31rem)] rounded-xl border-0 p-0 shadow-2xl backdrop:bg-slate-950/50">
+        <form id="form-envio-certificado" method="POST" class="overflow-hidden rounded-xl bg-white">
+            @csrf
+            <input id="emision-envio-certificado" type="hidden" name="form_id_certificado_emitido">
+            <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Enviar aviso al solicitante</h2>
+                        <p id="modal-envio-resumen" class="mt-1 text-sm text-slate-600"></p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('modal-envio-certificado').close()" class="rounded-md px-2 py-1 text-xl leading-none text-slate-500 hover:bg-slate-200" aria-label="Cerrar">&times;</button>
+                </div>
+            </div>
+            <div class="space-y-3 px-5 py-4 text-sm text-slate-700">
+                <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-900">
+                    Se enviará un aviso al correo registrado y a la cuenta del beneficiario o tramitador para que pueda consultar su certificado.
+                </div>
+                <p>¿Está seguro de enviar el aviso?</p>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <button type="button" onclick="document.getElementById('modal-envio-certificado').close()" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cancelar</button>
+                <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Sí, enviar aviso</button>
+            </div>
+        </form>
+    </dialog>
+
     @push('js')
         <script>
             const modalAnulacion = document.getElementById('modal-anulacion-certificado');
@@ -139,6 +166,11 @@
             const tituloAnulacion = document.getElementById('modal-anulacion-titulo');
             const resumenAnulacion = document.getElementById('modal-anulacion-resumen');
             const ayudaAnulacion = document.getElementById('modal-anulacion-ayuda');
+            const alcanceAnulacion = document.getElementById('modal-anulacion-alcance');
+            const modalEnvio = document.getElementById('modal-envio-certificado');
+            const formularioEnvio = document.getElementById('form-envio-certificado');
+            const emisionEnvio = document.getElementById('emision-envio-certificado');
+            const resumenEnvio = document.getElementById('modal-envio-resumen');
 
             window.abrirModalAnulacionCertificado = function(boton) {
                 formularioAnulacion.action = boton.dataset.url;
@@ -148,7 +180,16 @@
                 tituloAnulacion.textContent = 'Anular certificado';
                 resumenAnulacion.textContent = 'N.º ' + boton.dataset.numero;
                 ayudaAnulacion.textContent = 'El motivo se guardará para este certificado.';
+                alcanceAnulacion.textContent = 'Esta acción anula solamente este certificado. Las otras filas marcadas no se incluirán. Para anular varias filas, use Acciones Masivas.';
+                alcanceAnulacion.hidden = false;
                 modalAnulacion.showModal();
+            };
+
+            window.abrirModalEnvioCertificado = function(boton) {
+                formularioEnvio.action = boton.dataset.url;
+                emisionEnvio.value = boton.dataset.emision;
+                resumenEnvio.textContent = 'Certificado N.º ' + boton.dataset.numero;
+                modalEnvio.showModal();
             };
 
             window.addEventListener('certificados-solicitar-motivo-lote', function(evento) {
@@ -170,6 +211,7 @@
                 tituloAnulacion.textContent = 'Anular certificados seleccionados';
                 resumenAnulacion.textContent = emisiones.length + ' certificado(s) · Se usará el mismo motivo para todos.';
                 ayudaAnulacion.textContent = 'El motivo se guardará en cada certificado que se anule.';
+                alcanceAnulacion.hidden = true;
                 modalAnulacion.showModal();
             });
 
