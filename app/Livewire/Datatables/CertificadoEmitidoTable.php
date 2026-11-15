@@ -102,6 +102,30 @@ class CertificadoEmitidoTable extends DataTableComponent
             'default' => false,
         ]);
 
+        $this->setBulkActionsThAttributes([
+            'class' => 'w-10 min-w-10 px-2 py-2 text-center',
+            'data-column' => 'seleccion',
+            'style' => 'width: 2.75rem; min-width: 2.75rem;',
+            'default' => false,
+        ]);
+
+        $this->setBulkActionsTdAttributes([
+            'class' => 'w-10 min-w-10 px-2 py-2 text-center align-middle',
+            'data-column' => 'seleccion',
+            'style' => 'width: 2.75rem; min-width: 2.75rem;',
+            'default' => false,
+        ]);
+
+        $this->setBulkActionsThCheckboxAttributes([
+            'class' => 'm-0 h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-600 focus:ring-teal-500',
+            'default' => false,
+        ]);
+
+        $this->setBulkActionsTdCheckboxAttributes([
+            'class' => 'm-0 h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-600 focus:ring-teal-500',
+            'default' => false,
+        ]);
+
         $this->setThAttributes(function (Column $column): array {
             [$identificador, $ancho] = $this->configuracionColumna($column->getTitle());
 
@@ -137,7 +161,7 @@ class CertificadoEmitidoTable extends DataTableComponent
                 : 'whitespace-normal break-words leading-5';
 
             return [
-                'class' => "px-3 py-2 align-middle text-sm text-slate-800 {$presentacion}",
+                'class' => "px-2.5 py-1.5 align-middle text-[13px] text-slate-800 leading-4 {$presentacion}",
                 'data-column' => $identificador,
                 'data-label' => $column->getTitle(),
                 'style' => $ancho,
@@ -301,15 +325,15 @@ class CertificadoEmitidoTable extends DataTableComponent
     private function configuracionColumna(string $titulo): array
     {
         return match ($titulo) {
-            'N.º certificado' => ['numero', 'width: 10rem; min-width: 10rem;'],
-            'Tipo de certificado' => ['tipo', 'width: 13rem; min-width: 13rem;'],
-            'Beneficiario' => ['beneficiario', 'width: 15rem; min-width: 15rem;'],
-            'Área responsable' => ['area', 'width: 12rem; min-width: 12rem;'],
-            'Fecha de emisión' => ['fecha', 'width: 10rem; min-width: 10rem;'],
-            'Vigencia' => ['vigencia', 'width: 11rem; min-width: 11rem;'],
-            'Estado' => ['estado', 'width: 7rem; min-width: 7rem; text-align: center;'],
-            'Anulación' => ['anulacion', 'width: 12rem; min-width: 12rem;'],
-            'Acciones' => ['acciones', 'width: 15.5rem; min-width: 15.5rem;'],
+            'N.º certificado' => ['numero', 'width: 9rem; min-width: 9rem;'],
+            'Tipo de certificado' => ['tipo', 'width: 11.5rem; min-width: 11.5rem;'],
+            'Beneficiario' => ['beneficiario', 'width: 13rem; min-width: 13rem;'],
+            'Área responsable' => ['area', 'width: 10rem; min-width: 10rem;'],
+            'Fecha de emisión' => ['fecha', 'width: 9rem; min-width: 9rem;'],
+            'Vigencia' => ['vigencia', 'width: 9.5rem; min-width: 9.5rem;'],
+            'Estado' => ['estado', 'width: 6.5rem; min-width: 6.5rem; text-align: center;'],
+            'Anulación' => ['anulacion', 'width: 11rem; min-width: 11rem;'],
+            'Acciones' => ['acciones', 'width: 14rem; min-width: 14rem;'],
             default => ['general', ''],
         };
     }
