@@ -21,7 +21,7 @@ class TipoCertificado extends Model
         'evaluacion.resultado' => 'Resultado de evaluación',
         'evaluacion.calificaciones' => 'Calificación obtenida',
         'area.nombre' => 'Área responsable',
-        'tramite.fecha_registro' => 'Fecha de registro',
+        'tramite.fecha_registro' => 'Fecha de finalización del trámite',
         'tramite.funcionario_finalizador' => 'Registrado por',
         'producto.referencia_publica' => 'Productos y presentaciones',
         'pago.factura' => 'Factura',

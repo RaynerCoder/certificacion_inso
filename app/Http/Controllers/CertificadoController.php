@@ -1644,7 +1644,8 @@ class CertificadoController extends Controller
                 ['codigo' => 'area.nombre', 'nombre' => 'Área responsable'],
             ],
             'Finalización del trámite' => [
-                ['codigo' => 'tramite.fecha_registro', 'nombre' => 'Fecha de finalización del trámite', 'ayuda' => 'Fecha en que el funcionario terminó la revisión y finalizó el trámite.'],
+                ['codigo' => 'tramite.fecha_registro', 'nombre' => 'Fecha de finalización del trámite (dd/mm/aaaa)', 'ayuda' => 'Muestra la fecha en formato numérico, por ejemplo 13/11/2026.'],
+                ['codigo' => 'tramite.fecha_finalizacion_larga', 'nombre' => 'Fecha de finalización del trámite (día y mes en texto)', 'ayuda' => 'Muestra la fecha, por ejemplo 13 de noviembre de 2026.'],
                 ['codigo' => 'tramite.funcionario_finalizador', 'nombre' => 'Funcionario que finalizó el trámite', 'ayuda' => 'Es la persona que realizó la finalización del trámite.'],
                 ['codigo' => 'tramite.funcionario_finalizador_cargo', 'nombre' => 'Cargo de quien finalizó el trámite'],
             ],
@@ -3082,6 +3083,9 @@ class CertificadoController extends Controller
             'tipo_certificado.nombre' => $certificado->tipoCertificado?->nombre ?: 'Sin tipo',
             'area.nombre' => $certificado->tipoCertificado?->area?->nombre ?: 'Sin área',
             'tramite.fecha_registro' => $seguimientoFinalizacion?->fecha_final?->format('d/m/Y') ?: '-',
+            'tramite.fecha_finalizacion_larga' => $seguimientoFinalizacion?->fecha_final
+                ? $seguimientoFinalizacion->fecha_final->locale('es')->translatedFormat('d \\d\\e F \\d\\e Y')
+                : '-',
             'tramite.funcionario_finalizador' => $usuarioFinalizador ? $this->nombreUsuarioPlantilla($usuarioFinalizador) : '-',
             'tramite.funcionario_finalizador_cargo' => $usuarioFinalizador ? $this->cargoFuncionarioUsuario($usuarioFinalizador) : '-',
 
