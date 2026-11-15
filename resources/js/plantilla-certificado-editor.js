@@ -2034,8 +2034,32 @@ function crearEditorPlantilla(elementoCanvas) {
         objeto.setSelectionStyles({ [propiedad]: todosActivos ? inactivo : activo }, inicio, fin);
         objeto.dirty = true;
         elemento.configuracion.estilos_texto = clonarEstilosTexto(objeto.styles);
+        controles.propiedades?.querySelector(`[data-prop-formato="${formato}"]`)
+            ?.classList.toggle('is-active', formatoActivoEnSeleccion(elemento, formato));
         actualizarInput();
         lienzo.requestRenderAll();
+    }
+
+    function formatoActivoEnSeleccion(elemento, formato) {
+        const objeto = objetoPorIndice(indiceSeleccionado);
+        const formatos = {
+            negrita: { propiedad: 'fontWeight', activo: 'bold', base: elemento.negrita ? 'bold' : 'normal' },
+            cursiva: { propiedad: 'fontStyle', activo: 'italic', base: elemento.cursiva ? 'italic' : 'normal' },
+            subrayado: { propiedad: 'underline', activo: true, base: Boolean(elemento.subrayado) },
+        };
+        const definicion = formatos[formato];
+        if (!definicion) return false;
+
+        const inicio = Number(objeto?.selectionStart);
+        const fin = Number(objeto?.selectionEnd);
+        if (!(objeto instanceof Textbox) || !Number.isInteger(inicio) || !Number.isInteger(fin) || fin <= inicio) {
+            return definicion.base === definicion.activo;
+        }
+
+        const estilos = objeto.getSelectionStyles(inicio, fin, true);
+        return estilos.length > 0 && estilos.every((estilo) => (
+            (estilo[definicion.propiedad] ?? definicion.base) === definicion.activo
+        ));
     }
 
     function transformarFragmentoTexto(texto, modo) {
@@ -2339,9 +2363,9 @@ function crearEditorPlantilla(elementoCanvas) {
                 </select>
             </label>
             <div class="plantilla-prop-full plantilla-format-row">
-                <button type="button" class="plantilla-format-btn ${elemento.negrita ? 'is-active' : ''}" data-prop-formato="negrita" title="Negrita para el texto o las palabras seleccionadas">B</button>
-                <button type="button" class="plantilla-format-btn ${elemento.cursiva ? 'is-active' : ''}" data-prop-formato="cursiva" title="Cursiva para el texto o las palabras seleccionadas">I</button>
-                <button type="button" class="plantilla-format-btn ${elemento.subrayado ? 'is-active' : ''}" data-prop-formato="subrayado" title="Subrayado para el texto o las palabras seleccionadas">U</button>
+                <button type="button" class="plantilla-format-btn ${formatoActivoEnSeleccion(elemento, 'negrita') ? 'is-active' : ''}" data-prop-formato="negrita" title="Negrita para el texto o las palabras seleccionadas">B</button>
+                <button type="button" class="plantilla-format-btn ${formatoActivoEnSeleccion(elemento, 'cursiva') ? 'is-active' : ''}" data-prop-formato="cursiva" title="Cursiva para el texto o las palabras seleccionadas">I</button>
+                <button type="button" class="plantilla-format-btn ${formatoActivoEnSeleccion(elemento, 'subrayado') ? 'is-active' : ''}" data-prop-formato="subrayado" title="Subrayado para el texto o las palabras seleccionadas">U</button>
                 <button type="button" class="plantilla-format-btn" data-prop-capitalizacion="mayusculas" title="Convertir el texto o las palabras seleccionadas a MAYÚSCULAS" aria-label="Convertir a mayúsculas">ABC</button>
                 <button type="button" class="plantilla-format-btn" data-prop-capitalizacion="minusculas" title="Convertir el texto o las palabras seleccionadas a minúsculas" aria-label="Convertir a minúsculas">abc</button>
                 <button type="button" class="plantilla-format-btn" data-prop-capitalizacion="oracion" title="Convertir el texto o las palabras seleccionadas a tipo oración" aria-label="Convertir a tipo oración">Abc</button>
