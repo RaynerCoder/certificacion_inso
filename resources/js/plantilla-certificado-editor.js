@@ -2600,7 +2600,11 @@ function crearEditorPlantilla(elementoCanvas) {
         const propiedad = objetivo.dataset.propiedad;
         const grupo = objetivo.dataset.propGrupo;
         if (!propiedad || !grupo) return;
-        let valor = objetivo.type === 'number' ? numero(objetivo.value, 0) : objetivo.value;
+        if (objetivo.type === 'checkbox' && evento.type !== 'change') return;
+        if (objetivo.type === 'checkbox') guardarHistorial();
+        let valor = objetivo.type === 'checkbox'
+            ? objetivo.checked
+            : (objetivo.type === 'number' ? numero(objetivo.value, 0) : objetivo.value);
         if (grupo === 'porcentaje') {
             elemento.configuracion[propiedad] = Math.max(0.05, Math.min(1, valor / 100));
         } else if (grupo === 'configuracion') {
