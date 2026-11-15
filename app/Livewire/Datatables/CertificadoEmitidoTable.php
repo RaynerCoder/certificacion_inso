@@ -22,8 +22,8 @@ class CertificadoEmitidoTable extends DataTableComponent
     public function bulkActions(): array
     {
         return [
-            'descargarSeleccionados' => 'Descargar seleccionados (ZIP)',
-            'solicitarAnulacionSeleccionados' => 'Anular seleccionados',
+            'descargarSeleccionados' => 'Descargar PDF seleccionados (ZIP)',
+            'solicitarAnulacionSeleccionados' => 'Anular seleccionados (motivo común)',
         ];
     }
 
@@ -224,7 +224,12 @@ class CertificadoEmitidoTable extends DataTableComponent
                 ->sortable(),
 
             Column::make('Tipo de certificado')
-                ->label(fn (CertificadoEmitido $fila) => $fila->certificado?->tipoCertificado?->nombre ?: 'Sin tipo')
+                ->label(function (CertificadoEmitido $fila) {
+                    $nombre = $fila->certificado?->tipoCertificado?->nombre ?: 'Sin tipo';
+
+                    return '<span class="line-clamp-2" title="'.e($nombre).'">'.e($nombre).'</span>';
+                })
+                ->html()
                 ->searchable(function (Builder $consulta, string $busqueda) {
                     $consulta->orWhereHas('certificado.tipoCertificado', function (Builder $tipo) use ($busqueda) {
                         $tipo->where('nombre', 'like', '%'.$busqueda.'%');
@@ -232,7 +237,12 @@ class CertificadoEmitidoTable extends DataTableComponent
                 }),
 
             Column::make('Beneficiario')
-                ->label(fn (CertificadoEmitido $fila) => $this->nombreBeneficiario($fila))
+                ->label(function (CertificadoEmitido $fila) {
+                    $nombre = $this->nombreBeneficiario($fila);
+
+                    return '<span class="line-clamp-2" title="'.e($nombre).'">'.e($nombre).'</span>';
+                })
+                ->html()
                 ->searchable(function (Builder $consulta, string $busqueda) {
                     $consulta->orWhereHas('certificado.beneficiario.empresa', function (Builder $empresa) use ($busqueda) {
                         $empresa->where('razon_social', 'like', '%'.$busqueda.'%');
@@ -290,10 +300,10 @@ class CertificadoEmitidoTable extends DataTableComponent
                     $fecha = $fila->fecha_anulacion?->format('d/m/Y H:i') ?: 'Sin fecha';
                     $motivo = e($fila->motivo_anulacion ?: 'Sin motivo registrado');
 
-                    return '<div class="min-w-[190px] text-xs leading-5">'
+                    return '<div class="min-w-[150px] text-[11px] leading-4">'
                         .'<strong class="block text-rose-700">'.$fecha.'</strong>'
-                        .'<span class="block font-semibold text-slate-700">'.e($nombre).'</span>'
-                        .'<span class="block text-slate-500">'.$motivo.'</span>'
+                        .'<span class="block truncate font-semibold text-slate-700" title="'.e($nombre).'">'.e($nombre).'</span>'
+                        .'<span class="block line-clamp-1 text-slate-500" title="'.$motivo.'">'.$motivo.'</span>'
                         .'</div>';
                 })
                 ->html(),

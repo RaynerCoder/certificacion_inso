@@ -96,63 +96,86 @@
         </div>
     </x-slot>
 
+    <div class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        Para acciones en grupo, marca las casillas de los certificados y abre <strong>Acciones Masivas</strong>. La descarga reúne los PDF en un ZIP; la anulación solicita un motivo común.
+    </div>
+
     @livewire('datatables.certificado-emitido-table')
+
+    <dialog id="modal-anulacion-certificado" class="w-[min(94vw,34rem)] rounded-xl border-0 p-0 shadow-2xl backdrop:bg-slate-950/50">
+        <form id="form-anulacion-certificado" method="POST" class="overflow-hidden rounded-xl bg-white">
+            @csrf
+            <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 id="modal-anulacion-titulo" class="text-lg font-bold text-slate-900">Anular certificado</h2>
+                        <p id="modal-anulacion-resumen" class="mt-1 text-sm text-slate-600"></p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('modal-anulacion-certificado').close()" class="rounded-md px-2 py-1 text-xl leading-none text-slate-500 hover:bg-slate-200" aria-label="Cerrar">&times;</button>
+                </div>
+            </div>
+            <div class="space-y-3 px-5 py-4">
+                <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                    Los documentos se marcarán como anulados. Sus PDF, números y códigos QR se conservarán en el historial.
+                </div>
+                <label for="motivo-anulacion-lote" class="block text-sm font-semibold text-slate-700">Motivo de anulación</label>
+                <textarea id="motivo-anulacion-lote" name="form_motivo_anulacion" rows="4" maxlength="1000" required
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                    placeholder="Escribe el motivo que quedará registrado"></textarea>
+                <p id="modal-anulacion-ayuda" class="text-xs text-slate-500">Este motivo se guardará en el historial del certificado.</p>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <button type="button" onclick="document.getElementById('modal-anulacion-certificado').close()" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cancelar</button>
+                <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Confirmar anulación</button>
+            </div>
+        </form>
+    </dialog>
 
     @push('js')
         <script>
-            window.confirmarAnulacionCertificado = function(formulario, numeroCertificado) {
-                const motivo = window.prompt(
-                    'Indique el motivo de anulación del certificado ' + numeroCertificado + '.'
-                );
+            const modalAnulacion = document.getElementById('modal-anulacion-certificado');
+            const formularioAnulacion = document.getElementById('form-anulacion-certificado');
+            const campoMotivoAnulacion = document.getElementById('motivo-anulacion-lote');
+            const tituloAnulacion = document.getElementById('modal-anulacion-titulo');
+            const resumenAnulacion = document.getElementById('modal-anulacion-resumen');
+            const ayudaAnulacion = document.getElementById('modal-anulacion-ayuda');
 
-                if (!motivo || !motivo.trim()) {
-                    return false;
-                }
-
-                if (!window.confirm('El certificado quedará anulado. Su PDF, número y QR se conservarán como historial. ¿Desea continuar?')) {
-                    return false;
-                }
-
-                formulario.querySelector('[name="form_motivo_anulacion"]').value = motivo.trim();
-                return true;
+            window.abrirModalAnulacionCertificado = function(boton) {
+                formularioAnulacion.action = boton.dataset.url;
+                formularioAnulacion.querySelectorAll('.emision-anulacion-lote').forEach(campo => campo.remove());
+                campoMotivoAnulacion.name = 'form_motivo_anulacion';
+                campoMotivoAnulacion.value = '';
+                tituloAnulacion.textContent = 'Anular certificado';
+                resumenAnulacion.textContent = 'N.º ' + boton.dataset.numero;
+                ayudaAnulacion.textContent = 'El motivo se guardará para este certificado.';
+                modalAnulacion.showModal();
             };
 
-        window.addEventListener('certificados-solicitar-motivo-lote', function(evento) {
-            const emisiones = evento.detail.emisiones || [];
-            if (!emisiones.length) return;
+            window.addEventListener('certificados-solicitar-motivo-lote', function(evento) {
+                const emisiones = evento.detail.emisiones || [];
+                if (!emisiones.length) return;
 
-            const motivo = window.prompt(
-                'Indique el motivo común para anular los ' + emisiones.length + ' certificados seleccionados.'
-            );
-            if (!motivo || !motivo.trim()) return;
-            if (motivo.trim().length > 1000) {
-                window.alert('El motivo no puede superar 1000 caracteres.');
-                return;
-            }
-            if (!window.confirm('Se anularán ' + emisiones.length + ' certificados con el mismo motivo. Los PDF, números y códigos QR se conservarán en el historial. ¿Desea continuar?')) return;
-
-            const formulario = document.createElement('form');
-            formulario.method = 'POST';
-            formulario.action = @json(route('certificados_emitidos_anular_lote'));
-            const agregarCampo = function(nombre, valor) {
-                const campo = document.createElement('input');
-                campo.type = 'hidden';
-                campo.name = nombre;
-                campo.value = valor;
-                formulario.appendChild(campo);
-            };
-            agregarCampo('_token', @json(csrf_token()));
-            agregarCampo('motivo', motivo.trim());
-            emisiones.forEach(function(id) {
-                agregarCampo('emisiones[]', id);
+                formularioAnulacion.action = @json(route('certificados_emitidos_anular_lote'));
+                formularioAnulacion.querySelectorAll('.emision-anulacion-lote').forEach(campo => campo.remove());
+                emisiones.forEach(function(id) {
+                    const campo = document.createElement('input');
+                    campo.type = 'hidden';
+                    campo.name = 'emisiones[]';
+                    campo.value = id;
+                    campo.className = 'emision-anulacion-lote';
+                    formularioAnulacion.appendChild(campo);
+                });
+                campoMotivoAnulacion.name = 'motivo';
+                campoMotivoAnulacion.value = '';
+                tituloAnulacion.textContent = 'Anular certificados seleccionados';
+                resumenAnulacion.textContent = emisiones.length + ' certificado(s) · Se usará el mismo motivo para todos.';
+                ayudaAnulacion.textContent = 'El motivo se guardará en cada certificado que se anule.';
+                modalAnulacion.showModal();
             });
-            document.body.appendChild(formulario);
-            formulario.submit();
-        });
 
-        window.addEventListener('certificados-lote-mensaje', function(evento) {
-            window.alert(evento.detail.mensaje || 'No se pudo completar la acción.');
-        });
+            window.addEventListener('certificados-lote-mensaje', function(evento) {
+                window.alert(evento.detail.mensaje || 'No se pudo completar la acción.');
+            });
         </script>
     @endpush
 

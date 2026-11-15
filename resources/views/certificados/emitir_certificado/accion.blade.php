@@ -3,29 +3,28 @@
         && $emision->estaVigente();
 @endphp
 
-<div class="flex flex-nowrap items-center gap-1.5 whitespace-nowrap text-[11px] leading-none [&_a]:!px-2 [&_a]:!py-1 [&_button]:!px-2 [&_button]:!py-1">
-    <x-wire-button href="{{ route('certificados_emitidos_descargar', ['certificado' => $emision->id_certificado, 'emision' => $emision->id, 'visualizar' => 1]) }}" amber xs>
-        Ver PDF
-    </x-wire-button>
+<div class="flex flex-wrap items-center gap-1 whitespace-normal text-[11px] leading-none [&_a]:!px-2 [&_a]:!py-1 [&_button]:!px-2 [&_button]:!py-1">
+    <a href="{{ route('certificados_emitidos_descargar', ['certificado' => $emision->id_certificado, 'emision' => $emision->id]) }}"
+        class="inline-flex items-center rounded-md bg-amber-500 px-2 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-amber-600">
+        Descargar PDF
+    </a>
 
     @if ($puedeGestionar && $emision->estado === 'EMITIDO')
         <form action="{{ route('certificados_enviar_solicitante', $emision->id_certificado) }}" method="POST">
             @csrf
             <input type="hidden" name="form_id_certificado_emitido" value="{{ $emision->id }}">
-            <x-wire-button type="submit" blue xs>
-                Enviar al solicitante
-            </x-wire-button>
+            <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-2 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-blue-700">
+                Enviar
+            </button>
         </form>
     @endif
 
     @if ($puedeGestionar)
-        <form action="{{ route('certificados_emitidos_anular', ['certificado' => $emision->id_certificado, 'emision' => $emision->id]) }}" method="POST"
-            onsubmit="return window.confirmarAnulacionCertificado(this, '{{ e($emision->numero_certificado) }}');">
-            @csrf
-            <input type="hidden" name="form_motivo_anulacion">
-            <x-wire-button type="submit" red xs>
-                Anular
-            </x-wire-button>
-        </form>
+        <button type="button" class="inline-flex items-center rounded-md bg-rose-600 px-2 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-rose-700"
+            onclick="window.abrirModalAnulacionCertificado(this)"
+            data-url="{{ route('certificados_emitidos_anular', ['certificado' => $emision->id_certificado, 'emision' => $emision->id]) }}"
+            data-numero="{{ $emision->numero_certificado }}">
+            Anular
+        </button>
     @endif
 </div>
