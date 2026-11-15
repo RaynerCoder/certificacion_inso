@@ -42,12 +42,12 @@ class CertificadoEmitidoTable extends DataTableComponent
         ]);
 
         $this->setTableWrapperAttributes([
-            'class' => 'overflow-x-auto rounded-lg border border-slate-200 bg-white',
+            'class' => 'certificados-emitidos-table-shell overflow-x-auto rounded-lg border border-slate-200 bg-white',
             'default' => false,
         ]);
 
         $this->setTableAttributes([
-            'class' => 'w-full table-fixed',
+            'class' => 'certificados-emitidos-table w-full table-fixed',
             'default' => false,
         ]);
 
@@ -260,7 +260,7 @@ class CertificadoEmitidoTable extends DataTableComponent
     private function configuracionColumna(string $titulo): array
     {
         return match ($titulo) {
-            'N.º certificado' => ['numero', 'width: 5rem; min-width: 5rem;'],
+            'N.º certificado' => ['numero', 'width: 10rem; min-width: 10rem;'],
             'Tipo de certificado' => ['tipo', 'width: 13rem; min-width: 13rem;'],
             'Beneficiario' => ['beneficiario', 'width: 15rem; min-width: 15rem;'],
             'Área responsable' => ['area', 'width: 12rem; min-width: 12rem;'],

@@ -255,16 +255,21 @@ class CertificadoController extends Controller
         ]);
     }
 
-    public function editarPlantilla(PlantillaCertificado $plantillaCertificado)
+    public function editarPlantilla(Request $solicitud, PlantillaCertificado $plantillaCertificado)
     {
         $plantillaCertificado->loadMissing('tipoCertificado', 'elementos.columnas');
         $tipoCertificado = $plantillaCertificado->tipoCertificado;
+        $plantillaOrigen = $solicitud->integer('origen')
+            ? PlantillaCertificado::with('elementos.columnas')->findOrFail($solicitud->integer('origen'))
+            : null;
+        abort_if($plantillaOrigen && $plantillaOrigen->is($plantillaCertificado), 422, 'Seleccione una plantilla base diferente a la que está editando.');
 
         return view('certificados.plantilla_certificado.edit', array_merge(
             $this->datosPlantillaCertificado(),
             [
                 'tipoCertificado' => $tipoCertificado,
                 'plantilla' => $plantillaCertificado,
+                'plantillaOrigen' => $plantillaOrigen,
             ]
         ));
     }
@@ -272,6 +277,10 @@ class CertificadoController extends Controller
     public function actualizarPlantilla(Request $solicitud, PlantillaCertificado $plantillaCertificado)
     {
         $datos = $this->validarPlantillaCertificado($solicitud);
+        $plantillaOrigen = ! empty($datos['form_id_plantilla_origen'])
+            ? PlantillaCertificado::with('elementos.columnas')->findOrFail($datos['form_id_plantilla_origen'])
+            : null;
+        abort_if($plantillaOrigen && $plantillaOrigen->is($plantillaCertificado), 422, 'Seleccione una plantilla base diferente a la que está editando.');
 
         if ($plantillaCertificado->estado !== 'INACTIVO' && $datos['form_estado'] === 'INACTIVO') {
             $relacionesEncontradas = $this->relacionesQueImpidenInactivarPlantilla($plantillaCertificado);
@@ -291,6 +300,12 @@ class CertificadoController extends Controller
             DB::beginTransaction();
 
             $urlFondo = $this->guardarFondoPlantilla($solicitud, $plantillaCertificado);
+            if (! $urlFondo && ! $solicitud->boolean('form_quitar_fondo_plantilla') && $plantillaOrigen) {
+                $destinoFondo = clone $plantillaCertificado;
+                $destinoFondo->id_tipo_certificado = (int) $datos['form_id_tipo_certificado'];
+                $urlFondo = $this->archivosPlantillas->copiarFondo($plantillaOrigen, $destinoFondo)
+                    ?: $plantillaOrigen->url_fondo;
+            }
             if (! $urlFondo && ! $solicitud->boolean('form_quitar_fondo_plantilla')) {
                 $urlFondo = $plantillaCertificado->url_fondo;
             }
@@ -1629,7 +1644,7 @@ class CertificadoController extends Controller
                 ['codigo' => 'area.nombre', 'nombre' => 'Área responsable'],
             ],
             'Finalización del trámite' => [
-                ['codigo' => 'tramite.fecha_registro', 'nombre' => 'Fecha de registro del trámite', 'ayuda' => 'Corresponde a la fecha en la que el funcionario finalizó el trámite.'],
+                ['codigo' => 'tramite.fecha_registro', 'nombre' => 'Fecha de finalización del trámite', 'ayuda' => 'Fecha en que el funcionario terminó la revisión y finalizó el trámite.'],
                 ['codigo' => 'tramite.funcionario_finalizador', 'nombre' => 'Funcionario que finalizó el trámite', 'ayuda' => 'Es la persona que realizó la finalización del trámite.'],
                 ['codigo' => 'tramite.funcionario_finalizador_cargo', 'nombre' => 'Cargo de quien finalizó el trámite'],
             ],

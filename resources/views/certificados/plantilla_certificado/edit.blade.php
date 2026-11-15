@@ -5,9 +5,10 @@
     ['name' => 'Editar'],
 ]">
     @php
-        $urlFondo = $plantilla?->url_fondo ? route('certificados_plantillas_archivo', $plantilla) : null;
-        $nombreFondo = $plantilla?->url_fondo ? basename($plantilla->url_fondo) : 'Sin archivo seleccionado';
-        $elementosGuardados = ($plantilla?->elementos ?? collect())
+        $plantillaDiseno = $plantillaOrigen ?? $plantilla;
+        $urlFondo = $plantillaDiseno?->url_fondo ? route('certificados_plantillas_archivo', $plantillaDiseno) : null;
+        $nombreFondo = $plantillaDiseno?->url_fondo ? basename($plantillaDiseno->url_fondo) : 'Sin archivo seleccionado';
+        $elementosGuardados = ($plantillaDiseno?->elementos ?? collect())
             ->map(function ($elemento) {
                 return [
                     'tipo_elemento' => $elemento->tipo_elemento,
@@ -47,7 +48,7 @@
             : $elementosGuardados;
         $disenoFabricInicial = old('form_diseno_fabric_json')
             ? json_decode(old('form_diseno_fabric_json'), true)
-            : ($plantilla?->diseno_fabric_json ?? null);
+            : ($plantillaDiseno?->diseno_fabric_json ?? null);
     @endphp
 
     @include('certificados.plantilla_certificado.estilo')
@@ -68,7 +69,8 @@
         @endif
 
         <input type="hidden" name="form_elementos_plantilla" data-plantilla-elementos-input value="{{ old('form_elementos_plantilla', $elementosGuardados->toJson()) }}">
-        <textarea name="form_diseno_fabric_json" data-plantilla-diseno-fabric-input hidden>{{ old('form_diseno_fabric_json', $plantilla?->diseno_fabric_json ? json_encode($plantilla->diseno_fabric_json) : '') }}</textarea>
+        <textarea name="form_diseno_fabric_json" data-plantilla-diseno-fabric-input hidden>{{ old('form_diseno_fabric_json', $plantillaDiseno?->diseno_fabric_json ? json_encode($plantillaDiseno->diseno_fabric_json) : '') }}</textarea>
+        <input type="hidden" name="form_id_plantilla_origen" value="{{ old('form_id_plantilla_origen', $plantillaOrigen?->id) }}">
         <input type="hidden" name="form_quitar_fondo_plantilla" value="0" data-plantilla-fondo-quitar-input>
 
         <section class="plantilla-card">
@@ -144,30 +146,30 @@
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Tamaño" id="form_tamano_papel" name="form_tamano_papel" data-plantilla-tamano>
-                        <option value="CARTA" @selected(old('form_tamano_papel', $plantilla?->tamano_papel ?? 'CARTA') === 'CARTA')>Carta</option>
-                        <option value="OFICIO" @selected(old('form_tamano_papel', $plantilla?->tamano_papel) === 'OFICIO')>Oficio</option>
+                        <option value="CARTA" @selected(old('form_tamano_papel', $plantillaDiseno?->tamano_papel ?? 'CARTA') === 'CARTA')>Carta</option>
+                        <option value="OFICIO" @selected(old('form_tamano_papel', $plantillaDiseno?->tamano_papel) === 'OFICIO')>Oficio</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Orientación" id="form_orientacion" name="form_orientacion" data-plantilla-orientacion>
-                        <option value="VERTICAL" @selected(old('form_orientacion', $plantilla?->orientacion ?? 'VERTICAL') === 'VERTICAL')>Vertical</option>
-                        <option value="HORIZONTAL" @selected(old('form_orientacion', $plantilla?->orientacion) === 'HORIZONTAL')>Horizontal</option>
+                        <option value="VERTICAL" @selected(old('form_orientacion', $plantillaDiseno?->orientacion ?? 'VERTICAL') === 'VERTICAL')>Vertical</option>
+                        <option value="HORIZONTAL" @selected(old('form_orientacion', $plantillaDiseno?->orientacion) === 'HORIZONTAL')>Horizontal</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2" title="Ajustar a la hoja: la plantilla ocupa todo el espacio. Mostrar completa: se ve toda la plantilla, aunque puedan quedar márgenes. Cubrir toda la hoja: llena todo, pero puede recortar partes.">
                     <x-wire-native-select label="Cómo adaptar la plantilla" id="form_ajuste_fondo" name="form_ajuste_fondo" data-plantilla-ajuste-fondo aria-label="Cómo adaptar la plantilla">
-                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', $plantilla?->ajuste_fondo ?? 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja</option>
-                        <option value="CONTENER" @selected(old('form_ajuste_fondo', $plantilla?->ajuste_fondo) === 'CONTENER')>Mostrar completa</option>
-                        <option value="CUBRIR" @selected(old('form_ajuste_fondo', $plantilla?->ajuste_fondo) === 'CUBRIR')>Cubrir toda la hoja</option>
+                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo ?? 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja</option>
+                        <option value="CONTENER" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CONTENER')>Mostrar completa</option>
+                        <option value="CUBRIR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CUBRIR')>Cubrir toda la hoja</option>
                     </x-wire-native-select>
                 </div>
 
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Fondo de trabajo" id="form_fondo_trabajo" name="form_fondo_trabajo" data-plantilla-fondo-trabajo>
-                        <option value="PLANTILLA" @selected(old('form_fondo_trabajo', $plantilla?->fondo_trabajo ?? 'PLANTILLA') === 'PLANTILLA')>Plantilla</option>
-                        <option value="BLANCO" @selected(old('form_fondo_trabajo', $plantilla?->fondo_trabajo) === 'BLANCO')>Blanco</option>
+                        <option value="PLANTILLA" @selected(old('form_fondo_trabajo', $plantillaDiseno?->fondo_trabajo ?? 'PLANTILLA') === 'PLANTILLA')>Plantilla</option>
+                        <option value="BLANCO" @selected(old('form_fondo_trabajo', $plantillaDiseno?->fondo_trabajo) === 'BLANCO')>Blanco</option>
                     </x-wire-native-select>
                 </div>
 
@@ -175,7 +177,7 @@
                     <input type="hidden" name="form_imprimir_fondo" value="0">
                     <label class="plantilla-option-check">
                         <input type="checkbox" name="form_imprimir_fondo" value="1"
-                            @checked((bool) old('form_imprimir_fondo', !($plantilla?->imprimir_transparente ?? false)))
+                            @checked((bool) old('form_imprimir_fondo', !($plantillaDiseno?->imprimir_transparente ?? false)))
                             data-plantilla-imprimir-fondo>
                         <span>
                             <strong>Imprimir fondo</strong>
@@ -376,10 +378,8 @@
 
     <div class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 p-4"
         data-modal-reutilizar-plantilla>
-        <form action="{{ route('certificados_plantillas_create') }}" method="GET"
+        <form action="{{ route('certificados_plantillas_edit', $plantilla) }}" method="GET"
             class="w-full max-w-xl rounded-xl bg-white shadow-2xl">
-            <input type="hidden" name="tipo" value="{{ $tipoCertificado->id }}">
-
             <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
                     <h2 class="text-lg font-bold text-slate-800">Reutilizar una plantilla</h2>
@@ -399,9 +399,11 @@
                     class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:ring-emerald-500">
                     <option value="">Seleccione una plantilla</option>
                     @foreach ($plantillasParaReutilizar as $plantillaOrigen)
-                        <option value="{{ $plantillaOrigen->id }}">
-                            {{ $plantillaOrigen->nombre }} — {{ $plantillaOrigen->tipoCertificado?->nombre ?: 'Sin tipo de certificado' }}
-                        </option>
+                        @unless ($plantillaOrigen->is($plantilla))
+                            <option value="{{ $plantillaOrigen->id }}">
+                                {{ $plantillaOrigen->nombre }} — {{ $plantillaOrigen->tipoCertificado?->nombre ?: 'Sin tipo de certificado' }}
+                            </option>
+                        @endunless
                     @endforeach
                 </select>
                 @error('form_id_plantilla_origen')
@@ -409,8 +411,7 @@
                 @enderror
 
                 <p class="mt-3 text-sm leading-relaxed text-slate-600">
-                    Se cargarán el fondo, los elementos y las columnas en el editor. No se creará una copia hasta pulsar
-                    <strong>Guardar plantilla</strong>.
+                    Se cargarán el fondo, los elementos y las columnas en esta plantilla. Al guardar, se actualizará este mismo registro.
                 </p>
             </div>
 
@@ -418,7 +419,7 @@
                 <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     data-cerrar-modal-reutilizar-plantilla>Cancelar</button>
                 <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                    Usar como base
+                    Cargar diseño en esta plantilla
                 </button>
             </div>
         </form>
