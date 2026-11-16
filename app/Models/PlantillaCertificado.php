@@ -22,6 +22,7 @@ class PlantillaCertificado extends Model
         'alto_lienzo_px',
         'url_fondo',
         'ajuste_fondo',
+        'sangrado_fondo',
         'fondo_trabajo',
         'imprimir_transparente',
         'diseno_fabric_json',
@@ -30,6 +31,7 @@ class PlantillaCertificado extends Model
 
     protected $casts = [
         'imprimir_transparente' => 'boolean',
+        'sangrado_fondo' => 'integer',
         'diseno_fabric_json' => 'array',
     ];
 

@@ -127,6 +127,8 @@
             'CUBRIR' => 'cover',
             default => 'contain',
         };
+        $sangradoFondoPlantilla = max(0, min(3, (int) ($plantillaCertificado?->sangrado_fondo ?? 2)));
+        $escalaFondoPlantilla = 1 + ($sangradoFondoPlantilla / 100);
 
         $anchoImpresion = '8.5in';
         $altoImpresion = $papelPlantilla === 'OFICIO' ? '14in' : '11in';
@@ -294,6 +296,7 @@
             'alto' => $medidasPlantilla['alto'],
             'fondo' => $fondoPlantilla,
             'ajuste_fondo' => $plantillaCertificado?->ajuste_fondo ?? 'ESTIRAR',
+            'sangrado_fondo' => $sangradoFondoPlantilla,
             'requiere_qr_verificacion' => (bool) ($usaQrVerificacion ?? false),
             'elementos' => $elementosEmision,
             'diseno_fabric' => $plantillaCertificado?->diseno_fabric_json,
@@ -1458,7 +1461,7 @@
                         <div data-certificado-html-fallback>
                         <div class="emit-template-background">
                             @if (!$imprimirTransparente && $fondoPlantilla)
-                                <img src="{{ $fondoPlantilla }}" alt="Plantilla del certificado">
+                            <img src="{{ $fondoPlantilla }}" alt="Plantilla del certificado" style="transform: scale({{ $escalaFondoPlantilla }}); transform-origin: center center;">
                             @elseif (!$imprimirTransparente)
                                 <div class="emit-template-missing">
                                     Suba la plantilla como imagen PNG, JPG o WEBP para imprimir el certificado completo.

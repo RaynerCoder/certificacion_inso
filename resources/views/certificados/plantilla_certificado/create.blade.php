@@ -171,6 +171,15 @@
                     </x-wire-native-select>
                 </div>
 
+                <div class="lg:col-span-2" title="Amplía solamente el fondo de forma centrada para reducir el borde blanco que dejan impresoras sin impresión a sangre.">
+                    <x-wire-native-select label="Reducir borde blanco al imprimir" id="form_sangrado_fondo" name="form_sangrado_fondo" data-plantilla-sangrado-fondo>
+                        <option value="0" @selected((int) old('form_sangrado_fondo', $plantillaOrigen?->sangrado_fondo ?? 2) === 0)>Sin compensación</option>
+                        <option value="2" @selected((int) old('form_sangrado_fondo', $plantillaOrigen?->sangrado_fondo ?? 2) === 2)>Recomendado: 2 %</option>
+                        <option value="3" @selected((int) old('form_sangrado_fondo', $plantillaOrigen?->sangrado_fondo ?? 2) === 3)>Mayor: 3 %</option>
+                    </x-wire-native-select>
+                    <p class="mt-1 text-xs text-slate-500">Amplía solo el fondo, sin deformarlo. Use 2 % para el certificado con borde dorado.</p>
+                </div>
+
                 <div class="lg:col-span-2">
                     <x-wire-native-select label="Fondo de trabajo" id="form_fondo_trabajo" name="form_fondo_trabajo" data-plantilla-fondo-trabajo>
                         <option value="PLANTILLA" @selected(old('form_fondo_trabajo', $plantillaOrigen?->fondo_trabajo ?? 'PLANTILLA') === 'PLANTILLA')>Plantilla</option>

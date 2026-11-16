@@ -30,6 +30,7 @@
                             'CUBRIR' => 'cover',
                             default => 'contain',
                         };
+                        $escalaFondo = 1 + (max(0, min(3, (int) ($plantilla->sangrado_fondo ?? 2))) / 100);
                     @endphp
 
                     <div class="{{ $clasesLienzo }}"
@@ -38,7 +39,7 @@
                             <img class="plantilla-canvas-bg is-visible"
                                 src="{{ route('certificados_plantillas_archivo', $plantilla) }}"
                                 alt="Plantilla del certificado"
-                                style="object-fit: {{ $ajusteFondo }};">
+                                style="object-fit: {{ $ajusteFondo }}; transform: scale({{ $escalaFondo }}); transform-origin: center center;">
                         @endif
 
                         @foreach ($plantilla->elementos as $elemento)

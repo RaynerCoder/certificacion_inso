@@ -102,6 +102,7 @@ function crearEditorPlantilla(elementoCanvas) {
         selectorTamano: buscarSelect('[data-plantilla-tamano]', 'form_tamano_papel'),
         selectorOrientacion: buscarSelect('[data-plantilla-orientacion]', 'form_orientacion'),
         selectorAjusteFondo: buscarSelect('[data-plantilla-ajuste-fondo]', 'form_ajuste_fondo'),
+        selectorSangradoFondo: buscarSelect('[data-plantilla-sangrado-fondo]', 'form_sangrado_fondo'),
         selectorFondoTrabajo: buscarSelect('[data-plantilla-fondo-trabajo]', 'form_fondo_trabajo'),
         selectorTipo: buscarSelect('[data-plantilla-tipo]', 'form_id_tipo_certificado'),
         resumenTipo: document.querySelector('[data-plantilla-resumen-tipo]'),
@@ -669,7 +670,11 @@ function crearEditorPlantilla(elementoCanvas) {
             lienzo.remove(...lienzo.getObjects());
             lienzo.add(...objetos);
             if (fondoActual && urlFondo && controles.escenario?.dataset.fondoNoVisual !== '1') {
-                ajustarFondoAlLienzo(fondoActual, controles.selectorAjusteFondo?.value || 'ESTIRAR');
+                ajustarFondoAlLienzo(
+                    fondoActual,
+                    controles.selectorAjusteFondo?.value || 'ESTIRAR',
+                    compensacionFondo(),
+                );
                 lienzo.backgroundImage = fondoActual;
             }
             restaurarSeleccionEnLienzo();
@@ -2745,6 +2750,7 @@ function crearEditorPlantilla(elementoCanvas) {
         });
         ['change', 'input'].forEach((nombreEvento) => {
             controles.selectorAjusteFondo?.addEventListener(nombreEvento, aplicarFondoVisual);
+            controles.selectorSangradoFondo?.addEventListener(nombreEvento, aplicarFondoVisual);
             controles.selectorFondoTrabajo?.addEventListener(nombreEvento, aplicarFondoVisual);
         });
     }
@@ -2820,7 +2826,7 @@ function crearEditorPlantilla(elementoCanvas) {
                 }
             }
 
-            ajustarFondoAlLienzo(fondoFabric, ajuste);
+            ajustarFondoAlLienzo(fondoFabric, ajuste, compensacionFondo());
             restaurarFondoFijo();
             lienzo.requestRenderAll();
         }
@@ -2829,7 +2835,12 @@ function crearEditorPlantilla(elementoCanvas) {
         controles.escenario?.classList.toggle('is-grid-points', tipoCuadricula === 'PUNTOS');
     }
 
-    function ajustarFondoAlLienzo(imagen, ajuste) {
+    function compensacionFondo() {
+        const valor = Number(controles.selectorSangradoFondo?.value ?? 2);
+        return [0, 2, 3].includes(valor) ? valor / 100 : 0.02;
+    }
+
+    function ajustarFondoAlLienzo(imagen, ajuste, compensacion = 0) {
         if (!imagen) return;
         const medidas = medidasPapel();
         const anchoImagen = Math.max(1, imagen.width || medidas.ancho);
@@ -2844,6 +2855,9 @@ function crearEditorPlantilla(elementoCanvas) {
             escalaX = escalaUniforme;
             escalaY = escalaUniforme;
         }
+
+        escalaX *= 1 + compensacion;
+        escalaY *= 1 + compensacion;
 
         imagen.set({
             left: (medidas.ancho - anchoImagen * escalaX) / 2,

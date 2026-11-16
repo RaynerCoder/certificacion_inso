@@ -606,12 +606,18 @@ async function agregarFondo(lienzo, datos) {
         let escalaX = datos.ancho / anchoImagen;
         let escalaY = datos.alto / altoImagen;
         const ajuste = String(datos.ajuste_fondo || 'ESTIRAR').toUpperCase();
+        const sangrado = [0, 2, 3].includes(Number(datos.sangrado_fondo))
+            ? Number(datos.sangrado_fondo) / 100
+            : 0.02;
 
         if (ajuste === 'ESTIRAR' || ajuste === 'CONTENER' || ajuste === 'CUBRIR') {
             const uniforme = ajuste === 'CUBRIR' ? Math.max(escalaX, escalaY) : Math.min(escalaX, escalaY);
             escalaX = uniforme;
             escalaY = uniforme;
         }
+
+        escalaX *= 1 + sangrado;
+        escalaY *= 1 + sangrado;
 
         imagen.set({
             left: (datos.ancho - anchoImagen * escalaX) / 2,

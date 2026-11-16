@@ -1250,6 +1250,20 @@
         min-height: calc(100vh - 210px);
     }
 
+    .plantilla-show-only .plantilla-canvas {
+        overflow: hidden;
+        position: relative;
+    }
+
+    .plantilla-show-only .plantilla-canvas-bg {
+        display: block;
+        height: 100%;
+        inset: 0;
+        position: absolute;
+        width: 100%;
+        z-index: 1;
+    }
+
     .plantilla-show-only .plantilla-element {
         box-sizing: border-box;
         cursor: default;

@@ -1985,6 +1985,7 @@ class CertificadoController extends Controller
             'form_tamano_papel' => ['required', Rule::in(['CARTA', 'OFICIO'])],
             'form_orientacion' => ['required', Rule::in(['VERTICAL', 'HORIZONTAL'])],
             'form_ajuste_fondo' => ['required', Rule::in(['ESTIRAR', 'CONTENER', 'CUBRIR'])],
+            'form_sangrado_fondo' => ['required', 'integer', Rule::in([0, 2, 3])],
             'form_fondo_trabajo' => ['required', Rule::in(['PLANTILLA', 'BLANCO'])],
             'form_imprimir_transparente' => ['nullable', 'boolean'],
             'form_imprimir_fondo' => ['nullable', 'boolean'],
@@ -2000,6 +2001,7 @@ class CertificadoController extends Controller
             'form_tamano_papel' => 'tamaño de papel',
             'form_orientacion' => 'orientación',
             'form_ajuste_fondo' => 'forma de adaptar la plantilla',
+            'form_sangrado_fondo' => 'compensación de borde de impresión',
             'form_fondo_trabajo' => 'fondo de trabajo',
             'form_url_fondo' => 'archivo de plantilla',
             'form_id_plantilla_origen' => 'plantilla base',
@@ -2024,6 +2026,10 @@ class CertificadoController extends Controller
 
         if (Schema::hasColumn('plantillas_certificados', 'ajuste_fondo')) {
             $datosPlantilla['ajuste_fondo'] = $datos['form_ajuste_fondo'] ?? 'ESTIRAR';
+        }
+
+        if (Schema::hasColumn('plantillas_certificados', 'sangrado_fondo')) {
+            $datosPlantilla['sangrado_fondo'] = (int) ($datos['form_sangrado_fondo'] ?? 2);
         }
 
         if (Schema::hasColumn('plantillas_certificados', 'fondo_trabajo')) {
@@ -2699,6 +2705,7 @@ class CertificadoController extends Controller
                 'CUBRIR' => 'cover',
                 default => 'contain',
             },
+            'sangrado_fondo' => max(0, min(3, (int) ($plantillaCertificado->sangrado_fondo ?? 2))),
             'imagen_renderizada' => $this->validarImagenRenderizada(
                 $imagenRenderizada,
                 (int) ($plantillaCertificado->ancho_lienzo_px ?: $medidas['ancho']),

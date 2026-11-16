@@ -23,6 +23,7 @@
         .documento-fondo {
             height: 100%;
             left: 0;
+            overflow: hidden;
             position: absolute;
             top: 0;
             width: 100%;
@@ -34,6 +35,8 @@
             height: 100%;
             object-fit: {{ $documento['ajuste_fondo'] ?? 'fill' }};
             width: 100%;
+            transform: scale({{ 1 + (max(0, min(3, (int) ($documento['sangrado_fondo'] ?? 2))) / 100) }});
+            transform-origin: center center;
         }
 
         .documento-renderizado {
