@@ -158,11 +158,11 @@
                     </x-wire-native-select>
                 </div>
 
-                <div class="lg:col-span-2" title="Ajustar a la hoja: la plantilla ocupa todo el espacio. Mostrar completa: se ve toda la plantilla, aunque puedan quedar márgenes. Cubrir toda la hoja: llena todo, pero puede recortar partes.">
+                <div class="lg:col-span-2" title="Ajustar a la hoja conserva la proporción y centra la plantilla. En una imagen Carta no deja márgenes. Cubrir toda la hoja llena todo, pero puede recortar partes.">
                     <x-wire-native-select label="Cómo adaptar la plantilla" id="form_ajuste_fondo" name="form_ajuste_fondo" data-plantilla-ajuste-fondo aria-label="Cómo adaptar la plantilla">
-                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo ?? 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja</option>
-                        <option value="CONTENER" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CONTENER')>Mostrar completa</option>
-                        <option value="CUBRIR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CUBRIR')>Cubrir toda la hoja</option>
+                        <option value="ESTIRAR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo ?? 'ESTIRAR') === 'ESTIRAR')>Ajustar a la hoja, sin deformar</option>
+                        <option value="CONTENER" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CONTENER')>Mostrar completa, centrada</option>
+                        <option value="CUBRIR" @selected(old('form_ajuste_fondo', $plantillaDiseno?->ajuste_fondo) === 'CUBRIR')>Cubrir toda la hoja (puede recortar)</option>
                     </x-wire-native-select>
                 </div>
 

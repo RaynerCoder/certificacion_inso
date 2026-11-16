@@ -2696,9 +2696,8 @@ class CertificadoController extends Controller
             'papel' => strtoupper($plantillaCertificado->tamano_papel) === 'OFICIO' ? 'legal' : 'letter',
             'orientacion' => strtoupper($plantillaCertificado->orientacion) === 'HORIZONTAL' ? 'landscape' : 'portrait',
             'ajuste_fondo' => match (strtoupper((string) ($plantillaCertificado->ajuste_fondo ?? 'ESTIRAR'))) {
-                'CONTENER' => 'contain',
                 'CUBRIR' => 'cover',
-                default => 'fill',
+                default => 'contain',
             },
             'imagen_renderizada' => $this->validarImagenRenderizada(
                 $imagenRenderizada,

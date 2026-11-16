@@ -607,8 +607,8 @@ async function agregarFondo(lienzo, datos) {
         let escalaY = datos.alto / altoImagen;
         const ajuste = String(datos.ajuste_fondo || 'ESTIRAR').toUpperCase();
 
-        if (ajuste === 'CONTENER' || ajuste === 'CUBRIR') {
-            const uniforme = ajuste === 'CONTENER' ? Math.min(escalaX, escalaY) : Math.max(escalaX, escalaY);
+        if (ajuste === 'ESTIRAR' || ajuste === 'CONTENER' || ajuste === 'CUBRIR') {
+            const uniforme = ajuste === 'CUBRIR' ? Math.max(escalaX, escalaY) : Math.min(escalaX, escalaY);
             escalaX = uniforme;
             escalaY = uniforme;
         }

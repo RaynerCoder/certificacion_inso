@@ -27,9 +27,8 @@
                             $plantilla->fondo_trabajo === 'BLANCO' ? 'is-work-white' : null,
                         ])->filter()->implode(' ');
                         $ajusteFondo = match (strtoupper((string) ($plantilla->ajuste_fondo ?? 'ESTIRAR'))) {
-                            'CONTENER' => 'contain',
                             'CUBRIR' => 'cover',
-                            default => 'fill',
+                            default => 'contain',
                         };
                     @endphp
 

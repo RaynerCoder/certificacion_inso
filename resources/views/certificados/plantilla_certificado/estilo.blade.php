@@ -525,13 +525,14 @@
     .plantilla-canvas-wrap {
         background: #eef4f8;
         overflow: auto;
-        padding: 34px 30px 20px 42px;
+        /* El espacio es simétrico para que la hoja quede centrada visualmente. */
+        padding: 34px 36px 24px;
     }
 
     .plantilla-canvas-stage {
         background: #ffffff;
         height: 1056px;
-        margin: 0 auto;
+        margin-inline: auto;
         position: relative;
         width: 816px;
     }

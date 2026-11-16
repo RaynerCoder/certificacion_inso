@@ -124,9 +124,8 @@
             'css' => $medidasBasePlantilla['css'],
         ];
         $ajusteFondoPlantilla = match (strtoupper((string) ($plantillaCertificado?->ajuste_fondo ?? 'ESTIRAR'))) {
-            'CONTENER' => 'contain',
             'CUBRIR' => 'cover',
-            default => 'fill',
+            default => 'contain',
         };
 
         $anchoImpresion = '8.5in';

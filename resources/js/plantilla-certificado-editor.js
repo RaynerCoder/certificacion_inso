@@ -2780,8 +2780,10 @@ function crearEditorPlantilla(elementoCanvas) {
         estilo.backgroundImage = mostrarImagen ? `url(${JSON.stringify(urlFondo)})` : 'none';
         estilo.backgroundPosition = 'center';
         estilo.backgroundRepeat = 'no-repeat';
-        estilo.backgroundSize = ajuste === 'CONTENER' ? 'contain'
-            : (ajuste === 'CUBRIR' ? 'cover' : '100% 100%');
+        // El ajuste predeterminado conserva la proporción del archivo. Una
+        // plantilla Carta bien preparada llena Carta sin estirarse ni moverse.
+        estilo.backgroundSize = ajuste === 'CUBRIR' ? 'cover'
+            : 'contain';
         lienzo.backgroundColor = mostrarImagen ? 'transparent' : '#ffffff';
     }
 
@@ -2835,10 +2837,10 @@ function crearEditorPlantilla(elementoCanvas) {
         let escalaX = medidas.ancho / anchoImagen;
         let escalaY = medidas.alto / altoImagen;
 
-        if (ajuste === 'CONTENER' || ajuste === 'CUBRIR') {
-            const escalaUniforme = ajuste === 'CONTENER'
-                ? Math.min(escalaX, escalaY)
-                : Math.max(escalaX, escalaY);
+        if (ajuste === 'ESTIRAR' || ajuste === 'CONTENER' || ajuste === 'CUBRIR') {
+            const escalaUniforme = ajuste === 'CUBRIR'
+                ? Math.max(escalaX, escalaY)
+                : Math.min(escalaX, escalaY);
             escalaX = escalaUniforme;
             escalaY = escalaUniforme;
         }
